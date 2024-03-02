@@ -36,7 +36,8 @@ pub async fn list_all_cards(player_data: &State<PLayerData>) -> Json<Vec<Card>> 
 
 #[get("/<id>")]
 pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Json<Card>> {
-    player_data.cards.lock().await.get(id)
+    player_data.cards.lock().await.iter()
+        .find(|existing| existing.id == id)
         .map(|existing| Json(existing.clone()))
 }
 
