@@ -32,9 +32,7 @@ fn rocket() -> _ {
             ],
             Arc::new(
                 Mutex::new(
-                    vec![
-                        new_card(22, Deck, 1)
-                    ],
+                    vec![],
                 )
             ),
         ))

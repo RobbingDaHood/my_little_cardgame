@@ -9,16 +9,23 @@ use crate::status_messages::StatusMessages;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct Card {
-    card_type_id: u32,
+    card_type_id: usize,
     state: CardState,
-    deck_index: u32,
+    id: usize,
 }
 
-pub fn new(card_type_id: u32, state: CardState, deck_index: u32) -> Card {
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct CardCreate {
+    card_type_id: usize,
+    state: CardState,
+}
+
+pub fn new(card_type_id: usize, state: CardState, id: usize) -> Card {
     Card {
         card_type_id,
         state,
-        deck_index,
+        id,
     }
 }
 
@@ -34,7 +41,19 @@ pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Json
 }
 
 #[post("/", format = "json", data = "<new_card>")]
-pub async fn create_card(new_card: Json<Card>, player_data: &State<PLayerData>) -> Json<StatusMessages> {
-    player_data.cards.lock().await.push(new_card.0);
-    Json(StatusMessages::CreatedStatusMessage(1))
+pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerData>) -> Json<StatusMessages> {
+    let the_card = new_card.0;
+    let unused_id = *player_data.cards.lock().await.iter()
+        .map(|existing| existing.id)
+        .max()
+        .map(|existing_id| existing_id + 1)
+        .get_or_insert(0);
+    player_data.cards.lock().await.push(
+        Card {
+            card_type_id: the_card.card_type_id,
+            state: the_card.state,
+            id: unused_id,
+        }
+    );
+    Json(StatusMessages::CreatedStatusMessage(unused_id))
 }
