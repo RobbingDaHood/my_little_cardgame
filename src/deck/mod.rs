@@ -4,12 +4,12 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
 use rocket::State;
 
-use crate::deck::card::Card;
+pub use crate::deck::card::Card;
 pub use crate::deck::card::new as new_card;
 use crate::player_data::PLayerData;
 use crate::status_messages::StatusMessages;
 
-mod card;
+pub mod card;
 pub mod card_state;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
