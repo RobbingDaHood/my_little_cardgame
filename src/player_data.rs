@@ -1,14 +1,14 @@
-use rocket::serde::{Deserialize, Serialize};
+use std::sync::Arc;
+
+use rocket::futures::lock::Mutex;
 
 use crate::deck::Deck;
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-#[serde(crate = "rocket::serde")]
 pub struct PLayerData {
-    pub(crate) decks: Vec<Deck>,
+    pub(crate) decks: Vec<Arc<Mutex<Deck>>>,
 }
 
-pub fn new(decks: Vec<Deck>) -> PLayerData {
+pub fn new(decks: Vec<Arc<Mutex<Deck>>>) -> PLayerData {
     PLayerData {
         decks
     }
