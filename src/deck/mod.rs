@@ -23,3 +23,7 @@ pub fn new(cards: Vec<Card>) -> Deck {
 pub fn list_all_decks(player_data: &State<PLayerData>) -> Json<Vec<Deck>> {
     Json(player_data.decks.clone())
 }
+#[get("/<id>")]
+pub fn get_deck(id: usize, player_data: &State<PLayerData>) -> Json<Deck> {
+    Json(player_data.decks[id].clone())
+}
