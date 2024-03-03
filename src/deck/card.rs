@@ -21,24 +21,22 @@ pub struct CardCreate {
     state: CardState,
 }
 
-pub fn new(card_type_id: usize, state: CardState, id: usize) -> Card {
-    Card {
-        card_type_id,
-        state,
-        id,
-    }
-}
-
 #[get("/")]
 pub async fn list_all_cards(player_data: &State<PLayerData>) -> Json<Vec<Card>> {
     Json(player_data.cards.lock().await.clone())
 }
 
 #[get("/<id>")]
-pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Json<Card>> {
+pub async fn get_card_json(id: usize, player_data: &State<PLayerData>) -> Option<Json<Card>> {
+    get_card(id, player_data)
+        .await
+        .map(|existing| Json(existing.clone()))
+}
+
+pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Card> {
     player_data.cards.lock().await.iter()
         .find(|existing| existing.id == id)
-        .map(|existing| Json(existing.clone()))
+        .cloned()
 }
 
 #[post("/", format = "json", data = "<new_card>")]

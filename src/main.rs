@@ -5,10 +5,8 @@ use std::sync::Arc;
 
 use rocket::futures::lock::Mutex;
 
-use crate::deck::{add_card_to_deck, get_deck, list_all_decks, new_card};
-use crate::deck::card::{create_card, get_card, list_all_cards};
-use crate::deck::card_state::CardState::Deck;
-use crate::deck::new as new_deck;
+use crate::deck::{add_card_to_deck, create_deck, get_deck_json, list_all_decks};
+use crate::deck::card::{create_card, get_card_json, list_all_cards};
 use crate::player_data::new as new_player;
 
 mod deck;
@@ -18,18 +16,14 @@ mod status_messages;
 #[launch]
 fn rocket() -> _ {
     rocket::build()
-        .mount("/decks", routes![list_all_decks, get_deck, add_card_to_deck])
-        .mount("/cards", routes![list_all_cards, get_card, create_card])
+        .mount("/decks", routes![list_all_decks, get_deck_json, add_card_to_deck, create_deck])
+        .mount("/cards", routes![list_all_cards, get_card_json, create_card])
         .manage(new_player(
-            vec![
-                Arc::new(
-                    Mutex::new(
-                        new_deck(vec![
-                            new_card(22, Deck, 1)
-                        ])
-                    )
+            Arc::new(
+                Mutex::new(
+                    vec![]
                 )
-            ],
+            ),
             Arc::new(
                 Mutex::new(
                     vec![],
