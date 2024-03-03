@@ -7,7 +7,7 @@ use crate::deck::card::get_card;
 use crate::deck::card_state::CardState;
 use crate::player_data::PLayerData;
 use crate::status_messages::StatusMessages;
-use crate::status_messages::StatusMessages::{CardNotFound, DeckNotFound};
+use crate::status_messages::StatusMessages::{CardAlreadyInDeck, CardNotFound, DeckNotFound};
 
 pub mod card;
 pub mod card_state;
@@ -57,8 +57,14 @@ pub async fn add_card_to_deck(id: usize, new_card: Json<DeckCard>, player_data: 
                 .find(|existing| existing.id == id) {
                 None => Some(Json(DeckNotFound(id))),
                 Some(existing_deck) => {
-                    existing_deck.add_new_card(new_card.0);
-                    Some(Json(StatusMessages::CardAddedToDeck()))
+                    match existing_deck.cards.iter()
+                        .find(|existing_card| existing_card.id == new_card.id) {
+                        Some(_) => Some(Json(CardAlreadyInDeck(id, new_card.id))),
+                        None => {
+                            existing_deck.add_new_card(new_card.0);
+                            Some(Json(StatusMessages::CardAddedToDeck()))
+                        }
+                    }
                 }
             }
         }

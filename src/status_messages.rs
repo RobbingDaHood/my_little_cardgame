@@ -4,6 +4,7 @@ use rocket::serde::{Deserialize, Serialize};
 #[serde(crate = "rocket::serde")]
 pub enum StatusMessages {
     CardAddedToDeck(),
+    CardAlreadyInDeck(usize, usize),
     CreatedStatusMessage(usize),
     CardNotFound(usize),
     DeckNotFound(usize),
