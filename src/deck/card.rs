@@ -1,10 +1,11 @@
+use rocket::response::status::{Created, NotFound};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
 use rocket::State;
 
 use crate::deck::card_state::CardState;
 use crate::player_data::PLayerData;
-use crate::status_messages::StatusMessages;
+use crate::status_messages::{new_status, Status};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
 #[serde(crate = "rocket::serde")]
@@ -21,16 +22,17 @@ pub struct CardCreate {
     state: CardState,
 }
 
-#[get("/")]
+#[get("/cards")]
 pub async fn list_all_cards(player_data: &State<PLayerData>) -> Json<Vec<Card>> {
     Json(player_data.cards.lock().await.clone())
 }
 
-#[get("/<id>")]
-pub async fn get_card_json(id: usize, player_data: &State<PLayerData>) -> Option<Json<Card>> {
+#[get("/cards/<id>")]
+pub async fn get_card_json(id: usize, player_data: &State<PLayerData>) -> Result<Json<Card>, NotFound<Json<Status>>> {
     get_card(id, player_data)
         .await
         .map(|existing| Json(existing.clone()))
+        .ok_or(NotFound(new_status(format!("Card with id {} does not exist!", id))))
 }
 
 pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Card> {
@@ -39,8 +41,8 @@ pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Card
         .cloned()
 }
 
-#[post("/", format = "json", data = "<new_card>")]
-pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerData>) -> Json<StatusMessages> {
+#[post("/cards", format = "json", data = "<new_card>")]
+pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerData>) -> Created<&str> {
     let the_card = new_card.0;
     let unused_id = *player_data.cards.lock().await.iter()
         .map(|existing| existing.id)
@@ -54,5 +56,6 @@ pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerD
             id: unused_id,
         }
     );
-    Json(StatusMessages::CreatedStatusMessage(unused_id))
+    let location = uri!(get_card_json(unused_id));
+    Created::new(location.to_string())
 }
