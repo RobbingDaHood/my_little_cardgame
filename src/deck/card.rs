@@ -2,12 +2,13 @@ use rocket::response::status::{Created, NotFound};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
 use rocket::State;
+use rocket_okapi::{JsonSchema, openapi};
 
 use crate::deck::card_state::CardState;
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Card {
     card_type_id: usize,
@@ -15,18 +16,20 @@ pub struct Card {
     id: usize,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CardCreate {
     card_type_id: usize,
     state: CardState,
 }
 
+#[openapi]
 #[get("/cards")]
 pub async fn list_all_cards(player_data: &State<PLayerData>) -> Json<Vec<Card>> {
     Json(player_data.cards.lock().await.clone())
 }
 
+#[openapi]
 #[get("/cards/<id>")]
 pub async fn get_card_json(id: usize, player_data: &State<PLayerData>) -> Result<Json<Card>, NotFound<Json<Status>>> {
     get_card(id, player_data)
@@ -41,6 +44,7 @@ pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Card
         .cloned()
 }
 
+#[openapi]
 #[post("/cards", format = "json", data = "<new_card>")]
 pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerData>) -> Created<&str> {
     let the_card = new_card.0;

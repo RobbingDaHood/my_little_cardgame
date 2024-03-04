@@ -3,6 +3,7 @@ use rocket::response::status::{BadRequest, Created, NotFound};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
 use rocket::State;
+use rocket_okapi::{JsonSchema, openapi};
 
 pub use crate::deck::card::Card;
 use crate::deck::card::get_card;
@@ -13,14 +14,14 @@ use crate::status_messages::{new_status, Status};
 pub mod card;
 pub mod card_state;
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Deck {
     cards: Vec<DeckCard>,
     id: usize,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct DeckCard {
     id: usize,
@@ -33,6 +34,7 @@ impl Deck {
     }
 }
 
+#[openapi]
 #[get("/decks")]
 pub async fn list_all_decks(player_data: &State<PLayerData>) -> Json<Vec<Deck>> {
     let mut result = vec![];
@@ -42,6 +44,7 @@ pub async fn list_all_decks(player_data: &State<PLayerData>) -> Json<Vec<Deck>> 
     Json(result)
 }
 
+#[openapi]
 #[get("/decks/<id>")]
 pub async fn get_deck(id: usize, player_data: &State<PLayerData>) -> Result<Json<Deck>, NotFound<Json<Status>>> {
     player_data.decks.lock().await.iter()
@@ -50,6 +53,7 @@ pub async fn get_deck(id: usize, player_data: &State<PLayerData>) -> Result<Json
         .ok_or(NotFound(new_status(format!("Deck with id {} does not exist!", id))))
 }
 
+#[openapi]
 #[get("/decks/<deck_id>/cards/<card_id>")]
 pub async fn get_card_in_deck(deck_id: usize, card_id: usize, player_data: &State<PLayerData>) -> Result<Json<DeckCard>, NotFound<Json<Status>>> {
     player_data.decks.lock().await.iter()
@@ -59,7 +63,7 @@ pub async fn get_card_in_deck(deck_id: usize, card_id: usize, player_data: &Stat
         .map(|existing| Json(existing.clone()))
         .ok_or(NotFound(new_status(format!("Either Deck with id {} or Card with id {} does not exist!", deck_id, card_id))))
 }
-
+#[openapi]
 #[post("/decks/<id>/cards", format = "json", data = "<new_card>")]
 pub async fn add_card_to_deck(id: usize, new_card: Json<DeckCard>, player_data: &State<PLayerData>) -> Result<Created<&str>, Either<NotFound<Json<Status>>, BadRequest<Json<Status>>>> {
     match get_card(new_card.id, player_data).await {
@@ -84,6 +88,7 @@ pub async fn add_card_to_deck(id: usize, new_card: Json<DeckCard>, player_data: 
     }
 }
 
+#[openapi]
 #[post("/decks", format = "json")]
 pub async fn create_deck(player_data: &State<PLayerData>) -> Created<&str> {
     let unused_id = *player_data.decks.lock().await.iter()
