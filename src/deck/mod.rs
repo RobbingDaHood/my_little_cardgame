@@ -7,12 +7,22 @@ use rocket_okapi::{JsonSchema, openapi};
 
 pub use crate::deck::card::Card;
 use crate::deck::card::get_card;
-use crate::deck::card_state::CardState;
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
 
 pub mod card;
-pub mod card_state;
+
+/// CardState represents the cards state in a deck.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum CardState {
+    /// The card is in the deck.
+    Deck,
+    /// The card is in your hand.
+    Hand,
+    /// The card is in the discard pile.
+    Discard,
+}
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]

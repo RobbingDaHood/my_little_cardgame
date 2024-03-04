@@ -4,23 +4,25 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::{JsonSchema, openapi};
 
-use crate::deck::card_state::CardState;
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Card {
+    /// Refers to the type of card
     card_type_id: usize,
-    state: CardState,
+    /// Unique id of the card
     id: usize,
 }
 
+/// Used in the request body to create a card
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CardCreate {
+    /// Refers to the type of card
     card_type_id: usize,
-    state: CardState,
 }
 
 #[openapi]
@@ -56,7 +58,6 @@ pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerD
     player_data.cards.lock().await.push(
         Card {
             card_type_id: the_card.card_type_id,
-            state: the_card.state,
             id: unused_id,
         }
     );
