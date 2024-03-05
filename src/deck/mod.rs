@@ -1,8 +1,8 @@
 use either::{Either, Left, Right};
+use rocket::{State};
 use rocket::response::status::{BadRequest, Created, NotFound};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
-use rocket::State;
 use rocket_okapi::{JsonSchema, openapi};
 
 pub use crate::deck::card::Card;
@@ -42,6 +42,11 @@ impl Deck {
     pub fn add_new_card(&mut self, new_card: DeckCard) {
         self.cards.push(new_card);
     }
+    pub fn delete_card(&mut self, card_id: usize) -> bool {
+        let length_before_deletion = self.cards.len();
+        self.cards.retain(|card| card.id != card_id);
+        length_before_deletion > self.cards.len()
+    }
 }
 
 #[openapi]
@@ -73,6 +78,8 @@ pub async fn get_card_in_deck(deck_id: usize, card_id: usize, player_data: &Stat
         .map(|existing| Json(existing.clone()))
         .ok_or(NotFound(new_status(format!("Either Deck with id {} or Card with id {} does not exist!", deck_id, card_id))))
 }
+
+/// Add a card to the deck. A card can exist in multiple decks, but they cannot be multiple times in the same deck
 #[openapi]
 #[post("/decks/<id>/cards", format = "json", data = "<new_card>")]
 pub async fn add_card_to_deck(id: usize, new_card: Json<DeckCard>, player_data: &State<PLayerData>) -> Result<Created<&str>, Either<NotFound<Json<Status>>, BadRequest<Json<Status>>>> {
@@ -95,6 +102,21 @@ pub async fn add_card_to_deck(id: usize, new_card: Json<DeckCard>, player_data: 
                 }
             }
         }
+    }
+}
+
+#[openapi]
+#[delete("/decks/<deck_id>/cards/<card_id>")]
+pub async fn delete_card_in_deck(deck_id: usize, card_id: usize, player_data: &State<PLayerData>) -> Result<(), NotFound<Json<Status>>> {
+    match player_data.decks.lock().await.iter_mut()
+        .find(|existing| existing.id == deck_id) {
+        None => Err(NotFound(new_status(format!("Deck with id {} does not exist!", deck_id)))),
+        Some(deck) =>
+            if deck.delete_card(card_id) {
+                Ok(())
+            } else {
+                Err(NotFound(new_status(format!("Card with id {} does not exist in deck!", card_id))))
+            }
     }
 }
 

@@ -7,7 +7,6 @@ use rocket_okapi::{JsonSchema, openapi};
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
 
-
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Card {
