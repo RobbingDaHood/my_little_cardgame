@@ -27,15 +27,15 @@ pub enum CardState {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Deck {
-    cards: Vec<DeckCard>,
-    id: usize,
+    pub cards: Vec<DeckCard>,
+    pub id: usize,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct DeckCard {
-    id: usize,
-    state: CardState,
+    pub(crate) id: usize,
+    pub(crate) state: CardState,
 }
 
 impl Deck {

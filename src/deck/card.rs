@@ -11,9 +11,9 @@ use crate::status_messages::{new_status, Status};
 #[serde(crate = "rocket::serde")]
 pub struct Card {
     /// Refers to the type of card
-    card_type_id: usize,
+    pub card_type_id: usize,
     /// Unique id of the card
-    id: usize,
+    pub id: usize,
 }
 
 /// Used in the request body to create a card
@@ -21,7 +21,7 @@ pub struct Card {
 #[serde(crate = "rocket::serde")]
 pub struct CardCreate {
     /// Refers to the type of card
-    card_type_id: usize,
+    pub(crate) card_type_id: usize,
 }
 
 #[openapi]

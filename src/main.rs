@@ -23,9 +23,10 @@ use crate::player_data::new as new_player;
 mod deck;
 mod player_data;
 mod status_messages;
+mod tests;
 
 #[launch]
-fn rocket() -> _ {
+fn rocket_initialize() -> _ {
     rocket::build()
         .mount("/", openapi_get_routes![list_all_decks, get_deck, add_card_to_deck, create_deck,
             list_all_cards, get_card_json, create_card, get_card_in_deck, delete_card_in_deck])
