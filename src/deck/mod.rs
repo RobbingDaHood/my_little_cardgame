@@ -1,8 +1,8 @@
 use either::{Either, Left, Right};
-use rocket::{State};
 use rocket::response::status::{BadRequest, Created, NotFound};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
+use rocket::State;
 use rocket_okapi::{JsonSchema, openapi};
 
 pub use crate::deck::card::Card;
@@ -22,7 +22,10 @@ pub enum CardState {
     Hand,
     /// The card is in the discard pile.
     Discard,
+    /// The card is marked as deleted. This is both used for a possible undo option, documentation and performance.
+    Deleted,
 }
+
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
@@ -42,10 +45,16 @@ impl Deck {
     pub fn add_new_card(&mut self, new_card: DeckCard) {
         self.cards.push(new_card);
     }
-    pub fn delete_card(&mut self, card_id: usize) -> bool {
-        let length_before_deletion = self.cards.len();
-        self.cards.retain(|card| card.id != card_id);
-        length_before_deletion > self.cards.len()
+
+    pub fn change_card_state(&mut self, card_id: usize, new_state: CardState) -> Result<(), ()> {
+        match self.cards.iter_mut()
+            .find(|card| card.id == card_id) {
+            None => Err(()),
+            Some(card) => {
+                card.state = new_state;
+                Ok(())
+            }
+        }
     }
 }
 
@@ -111,12 +120,11 @@ pub async fn delete_card_in_deck(deck_id: usize, card_id: usize, player_data: &S
     match player_data.decks.lock().await.iter_mut()
         .find(|existing| existing.id == deck_id) {
         None => Err(NotFound(new_status(format!("Deck with id {} does not exist!", deck_id)))),
-        Some(deck) =>
-            if deck.delete_card(card_id) {
-                Ok(())
-            } else {
-                Err(NotFound(new_status(format!("Card with id {} does not exist in deck!", card_id))))
-            }
+        Some(deck) => deck
+            .change_card_state(card_id, CardState::Deleted)
+            .map_err(
+                |_| NotFound(new_status(format!("Card with id {} does not exist in deck!", card_id)))
+            )
     }
 }
 

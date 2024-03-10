@@ -1,10 +1,8 @@
 #[cfg(test)]
 mod test {
-    use std::any::Any;
     use std::borrow::Cow;
 
     use rocket::http::{Header, Status};
-    use rocket::http::hyper::body::HttpBody;
     use rocket::http::uncased::Uncased;
     use rocket::local::blocking::Client;
     use rocket::serde::json::serde_json;
@@ -54,11 +52,17 @@ mod test {
 
         let created_deck = get_deck(&client, location_header_deck.clone());
         assert_eq!(1, created_deck.cards.len());
+        assert_eq!(0, created_deck.cards.iter()
+            .filter(|card| card.state == CardState::Deleted)
+            .count());
 
         delete_card_in_deck(&client, location_header_card_in_deck);
 
         let created_deck = get_deck(&client, location_header_deck);
-        assert_eq!(0, created_deck.cards.len());
+        assert_eq!(1, created_deck.cards.len());
+        assert_eq!(1, created_deck.cards.iter()
+            .filter(|card| card.state == CardState::Deleted)
+            .count());
     }
 
     fn get_decks(client: &Client, expected_number_of_decks: usize) {
@@ -98,6 +102,7 @@ mod test {
         let created_deck: DeckCard = serde_json::from_str(string_body.as_str()).unwrap();
         created_deck
     }
+
     fn post_card(client: &Client, new_card: &CardCreate) -> String {
         let body_json = serde_json::to_string(&new_card).unwrap();
         let response = client.post(uri!(create_card))
