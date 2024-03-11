@@ -24,6 +24,7 @@ mod deck;
 mod player_data;
 mod status_messages;
 mod tests;
+mod combat;
 
 #[launch]
 fn rocket_initialize() -> _ {
