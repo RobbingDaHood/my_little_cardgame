@@ -16,12 +16,18 @@ pub enum TokenType {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub enum TokenPermanence {
-    Permanent,
+    Permanent(PermanentDefinition),
     OneAtEndOfRound,
     AllAtEndOfRound,
     OneAtBeginningOfRound,
     AllAtBeginningOfRound,
     EndOutCombat,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct PermanentDefinition {
+    pub(crate) max_count: u32
 }
 
 /// Token defines state. Like how much health is accumulated or if the entity haveving the token is poisoned.

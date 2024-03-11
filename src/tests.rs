@@ -12,7 +12,7 @@ mod test {
     use crate::deck::card::rocket_uri_macro_create_card;
     use crate::deck::rocket_uri_macro_add_card_to_deck;
     use crate::deck::rocket_uri_macro_create_deck;
-    use crate::deck::token::{Token, TokenPermanence, TokenType};
+    use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
     use crate::rocket_initialize;
 
     #[test]
@@ -28,14 +28,22 @@ mod test {
                 Token {
                     token_type: TokenType::Health,
                     count: 1,
-                    permanence: TokenPermanence::Permanent
+                    permanence: TokenPermanence::Permanent(
+                        PermanentDefinition {
+                            max_count: 20,
+                        }
+                    )
                 }
             ],
             costs: vec![
                 Token {
                     token_type: TokenType::Mana,
                     count: 1,
-                    permanence: TokenPermanence::Permanent
+                    permanence: TokenPermanence::Permanent(
+                        PermanentDefinition {
+                            max_count: 20,
+                        }
+                    )
                 }
             ],
             count: 22,
