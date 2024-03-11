@@ -3,6 +3,7 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::{JsonSchema, openapi};
+use crate::deck::token::Token;
 
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
@@ -14,6 +15,9 @@ pub struct Card {
     pub card_type_id: usize,
     /// Unique id of the card
     pub id: usize,
+    pub effects: Vec<Token>,
+    pub costs: Vec<Token>,
+    pub count: u32
 }
 
 /// Used in the request body to create a card
@@ -22,6 +26,9 @@ pub struct Card {
 pub struct CardCreate {
     /// Refers to the type of card
     pub(crate) card_type_id: usize,
+    pub effects: Vec<Token>,
+    pub costs: Vec<Token>,
+    pub count: u32
 }
 
 #[openapi]
@@ -56,8 +63,11 @@ pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerD
         .get_or_insert(0);
     player_data.cards.lock().await.push(
         Card {
-            card_type_id: the_card.card_type_id,
             id: unused_id,
+            card_type_id: the_card.card_type_id,
+            effects: the_card.effects,
+            costs: the_card.costs,
+            count: the_card.count
         }
     );
     let location = uri!(get_card_json(unused_id));

@@ -12,6 +12,7 @@ mod test {
     use crate::deck::card::rocket_uri_macro_create_card;
     use crate::deck::rocket_uri_macro_add_card_to_deck;
     use crate::deck::rocket_uri_macro_create_deck;
+    use crate::deck::token::{Token, TokenPermanence, TokenType};
     use crate::rocket_initialize;
 
     #[test]
@@ -22,7 +23,22 @@ mod test {
         assert_eq!(0, list_of_cards.len());
 
         let new_card = CardCreate {
-            card_type_id: 1
+            card_type_id: 1,
+            effects: vec![
+                Token {
+                    token_type: TokenType::Health,
+                    count: 1,
+                    permanence: TokenPermanence::Permanent
+                }
+            ],
+            costs: vec![
+                Token {
+                    token_type: TokenType::Mana,
+                    count: 1,
+                    permanence: TokenPermanence::Permanent
+                }
+            ],
+            count: 22,
         };
         let location_header_card = post_card(&client, &new_card);
         assert_eq!("/cards/0", location_header_card);

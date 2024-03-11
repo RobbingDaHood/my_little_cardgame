@@ -11,7 +11,7 @@ use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
 
 pub mod card;
-mod token;
+pub mod token;
 
 /// CardState represents the cards state in a deck.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
