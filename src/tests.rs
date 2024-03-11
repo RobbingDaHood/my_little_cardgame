@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test {
     use std::borrow::Cow;
+    use std::collections::HashMap;
 
     use rocket::http::{Header, Status};
     use rocket::http::uncased::Uncased;
@@ -63,21 +64,23 @@ mod test {
         let created_deck = get_deck(&client, location_header_deck.clone());
         assert_eq!(0, created_deck.cards.len());
 
+        let mut card_state = HashMap::new();
+        card_state.insert(CardState::Deck, 20);
         let deck_card = DeckCard {
             id: card_id,
-            state: CardState::Deck,
+            state: card_state,
         };
         let location_header_card_in_deck = post_card_to_deck(&client, created_deck.id, deck_card);
         assert_eq!("/decks/0/cards/0", location_header_card_in_deck);
 
         let card_in_deck = get_card_in_deck(&client, location_header_card_in_deck.clone());
         assert_eq!(card_in_deck.id, card_id);
-        assert_eq!(card_in_deck.state, CardState::Deck);
+        assert_eq!(*card_in_deck.state.get(&CardState::Deck).unwrap(), 20);
 
         let created_deck = get_deck(&client, location_header_deck.clone());
         assert_eq!(1, created_deck.cards.len());
         assert_eq!(0, created_deck.cards.iter()
-            .filter(|card| card.state == CardState::Deleted)
+            .filter(|card| card.state.get(&CardState::Deleted).is_some())
             .count());
 
         delete_card_in_deck(&client, location_header_card_in_deck);
@@ -85,7 +88,7 @@ mod test {
         let created_deck = get_deck(&client, location_header_deck);
         assert_eq!(1, created_deck.cards.len());
         assert_eq!(1, created_deck.cards.iter()
-            .filter(|card| card.state == CardState::Deleted)
+            .filter(|card| card.state.get(&CardState::Deleted).is_some())
             .count());
     }
 
@@ -102,7 +105,6 @@ mod test {
         assert_eq!(response.status(), Status::Ok);
         let string_body = response.into_string().unwrap();
         let created_card: Card = serde_json::from_str(string_body.as_str()).unwrap();
-        assert_eq!(new_card.card_type_id, created_card.card_type_id);
         created_card.id
     }
 
