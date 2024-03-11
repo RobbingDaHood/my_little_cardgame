@@ -10,6 +10,10 @@ pub enum TokenType {
     Mana,
     /// Many cards requires a price to be pain in stamina
     Stamina,
+    /// Each dodge token prevents a full attack
+    Dodge,
+    /// Poison token increases the damage taken by one pr. attack
+    Poison,
 }
 
 /// Token permanence defines for how long time the token exists
@@ -22,6 +26,9 @@ pub enum TokenPermanence {
     OneAtBeginningOfRound,
     AllAtBeginningOfRound,
     EndOutCombat,
+    /// The tokens on a unit or player is permanent but does not define a maximum
+    UsedOnUnit,
+    Instant,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]

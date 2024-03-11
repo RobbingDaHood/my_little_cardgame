@@ -11,8 +11,6 @@ use crate::status_messages::{new_status, Status};
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Card {
-    /// Refers to the type of card
-    pub card_type_id: usize,
     /// Unique id of the card
     pub id: usize,
     pub effects: Vec<Token>,
@@ -64,7 +62,6 @@ pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerD
     player_data.cards.lock().await.push(
         Card {
             id: unused_id,
-            card_type_id: the_card.card_type_id,
             effects: the_card.effects,
             costs: the_card.costs,
             count: the_card.count

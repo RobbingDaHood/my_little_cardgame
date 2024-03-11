@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use either::{Either, Left, Right};
 use rocket::response::status::{BadRequest, Created, NotFound};
 use rocket::serde::{Deserialize, Serialize};
@@ -14,7 +16,7 @@ pub mod card;
 pub mod token;
 
 /// CardState represents the cards state in a deck.
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
 #[serde(crate = "rocket::serde")]
 pub enum CardState {
     /// The card is in the deck.
@@ -39,7 +41,7 @@ pub struct Deck {
 #[serde(crate = "rocket::serde")]
 pub struct DeckCard {
     pub(crate) id: usize,
-    pub(crate) state: CardState,
+    pub(crate) state: HashMap<CardState, u32>,
 }
 
 impl Deck {
@@ -47,13 +49,27 @@ impl Deck {
         self.cards.push(new_card);
     }
 
-    pub fn change_card_state(&mut self, card_id: usize, new_state: CardState) -> Result<(), ()> {
+    pub fn change_card_state(&mut self, card_id: usize, new_state: CardState, old_state: CardState) -> Result<(), ()> {
         match self.cards.iter_mut()
             .find(|card| card.id == card_id) {
             None => Err(()),
             Some(card) => {
-                card.state = new_state;
-                Ok(())
+                match card.state.get(&old_state) {
+                    None => Err(()),
+                    Some(old_state_count) => {
+                        card.state.insert(old_state, old_state_count - 1);
+                        match card.state.get(&new_state) {
+                            None => {
+                                card.state.insert(new_state, 1);
+                                Ok(())
+                            }
+                            Some(new_state_count) => {
+                                card.state.insert(new_state, new_state_count + 1);
+                                Ok(())
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -122,7 +138,7 @@ pub async fn delete_card_in_deck(deck_id: usize, card_id: usize, player_data: &S
         .find(|existing| existing.id == deck_id) {
         None => Err(NotFound(new_status(format!("Deck with id {} does not exist!", deck_id)))),
         Some(deck) => deck
-            .change_card_state(card_id, CardState::Deleted)
+            .change_card_state(card_id, CardState::Deleted, CardState::Deck)
             .map_err(
                 |_| NotFound(new_status(format!("Card with id {} does not exist in deck!", card_id)))
             )
