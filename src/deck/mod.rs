@@ -7,8 +7,8 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::{JsonSchema, openapi};
 
-pub use crate::deck::card::Card;
 use crate::deck::card::{CardType, get_card};
+pub use crate::deck::card::Card;
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
 
@@ -35,7 +35,7 @@ pub enum CardState {
 pub struct Deck {
     pub cards: Vec<DeckCard>,
     pub id: usize,
-    pub contains_card_types: Vec<CardType>
+    pub contains_card_types: Vec<CardType>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -48,9 +48,8 @@ pub struct DeckCard {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CreateDeck {
-    pub contains_card_types: Vec<CardType>
+    pub contains_card_types: Vec<CardType>,
 }
-
 
 
 impl Deck {
@@ -120,18 +119,22 @@ pub async fn get_card_in_deck(deck_id: usize, card_id: usize, player_data: &Stat
 pub async fn add_card_to_deck(id: usize, new_card: Json<DeckCard>, player_data: &State<PLayerData>) -> Result<Created<&str>, Either<NotFound<Json<Status>>, BadRequest<Json<Status>>>> {
     match get_card(new_card.id, player_data).await {
         None => Err(Left(NotFound(new_status(format!("Card with id {} does not exist!", new_card.id))))),
-        Some(_) => {
+        Some(existing_card) => {
             match player_data.decks.lock().await.iter_mut()
                 .find(|existing| existing.id == id) {
                 None => Err(Left(NotFound(new_status(format!("Deck with id {} does not exist!", id))))),
                 Some(existing_deck) => {
-                    match existing_deck.cards.iter()
-                        .find(|existing_card| existing_card.id == new_card.id) {
-                        Some(_) => Err(Right(BadRequest(new_status(format!("Deck with id {} does already contain a card with id {}!", id, new_card.id))))),
-                        None => {
-                            existing_deck.add_new_card(new_card.0.clone());
-                            let location = uri!(get_card_in_deck(id, new_card.id));
-                            Ok(Created::new(location.to_string()))
+                    if !existing_deck.contains_card_types.contains(&existing_card.card_type) {
+                        Err(Right(BadRequest(new_status(format!("Card with id {} is of type {:?} and that is not part of the types '{:?}' allowed in deck with id {}", new_card.id, existing_card.card_type, existing_deck.contains_card_types, existing_deck.id)))))
+                    } else {
+                        match existing_deck.cards.iter()
+                            .find(|existing_card| existing_card.id == new_card.id) {
+                            Some(_) => Err(Right(BadRequest(new_status(format!("Deck with id {} does already contain a card with id {}!", id, new_card.id))))),
+                            None => {
+                                existing_deck.add_new_card(new_card.0.clone());
+                                let location = uri!(get_card_in_deck(id, new_card.id));
+                                Ok(Created::new(location.to_string()))
+                            }
                         }
                     }
                 }
@@ -166,7 +169,7 @@ pub async fn create_deck(new_deck: Json<CreateDeck>, player_data: &State<PLayerD
         Deck {
             cards: vec![],
             id: unused_id,
-            contains_card_types: new_deck.0.contains_card_types
+            contains_card_types: new_deck.0.contains_card_types,
         }
     );
     let location = uri!(get_deck(unused_id));
