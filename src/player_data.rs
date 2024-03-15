@@ -38,6 +38,7 @@ pub fn new() -> PLayerData {
             Mutex::new(
                 vec![
                     Deck {
+                        contains_card_types: vec![CardType::Attack],
                         cards: vec![
                             DeckCard {
                                 id: 5,

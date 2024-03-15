@@ -8,7 +8,7 @@ use rocket::State;
 use rocket_okapi::{JsonSchema, openapi};
 
 pub use crate::deck::card::Card;
-use crate::deck::card::get_card;
+use crate::deck::card::{CardType, get_card};
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
 
@@ -35,6 +35,7 @@ pub enum CardState {
 pub struct Deck {
     pub cards: Vec<DeckCard>,
     pub id: usize,
+    pub contains_card_types: Vec<CardType>
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -42,6 +43,12 @@ pub struct Deck {
 pub struct DeckCard {
     pub(crate) id: usize,
     pub(crate) state: HashMap<CardState, u32>,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct CreateDeck {
+    pub contains_card_types: Vec<CardType>
 }
 
 
@@ -148,8 +155,8 @@ pub async fn delete_card_in_deck(deck_id: usize, card_id: usize, player_data: &S
 }
 
 #[openapi]
-#[post("/decks", format = "json")]
-pub async fn create_deck(player_data: &State<PLayerData>) -> Created<&str> {
+#[post("/decks", format = "json", data = "<new_deck>")]
+pub async fn create_deck(new_deck: Json<CreateDeck>, player_data: &State<PLayerData>) -> Created<&str> {
     let unused_id = *player_data.decks.lock().await.iter()
         .map(|existing| existing.id)
         .max()
@@ -159,6 +166,7 @@ pub async fn create_deck(player_data: &State<PLayerData>) -> Created<&str> {
         Deck {
             cards: vec![],
             id: unused_id,
+            contains_card_types: new_deck.0.contains_card_types
         }
     );
     let location = uri!(get_deck(unused_id));

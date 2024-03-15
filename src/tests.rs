@@ -8,8 +8,8 @@ mod test {
     use rocket::local::blocking::Client;
     use rocket::serde::json::serde_json;
 
-    use crate::deck::{Card, CardState, Deck, DeckCard, rocket_uri_macro_list_all_decks};
-    use crate::deck::card::{CardCreate, rocket_uri_macro_list_all_cards};
+    use crate::deck::{Card, CardState, CreateDeck, Deck, DeckCard, rocket_uri_macro_list_all_decks};
+    use crate::deck::card::{CardCreate, CardType, rocket_uri_macro_list_all_cards};
     use crate::deck::card::rocket_uri_macro_create_card;
     use crate::deck::rocket_uri_macro_add_card_to_deck;
     use crate::deck::rocket_uri_macro_create_deck;
@@ -21,10 +21,11 @@ mod test {
         let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
         let list_of_cards = get_cards(&client);
-        assert_eq!(0, list_of_cards.len());
+        assert_eq!(1, list_of_cards.len());
 
         let new_card = CardCreate {
             card_type_id: 1,
+            card_type: CardType::Attack,
             effects: vec![
                 Token {
                     token_type: TokenType::Health,
@@ -50,16 +51,16 @@ mod test {
             count: 22,
         };
         let location_header_card = post_card(&client, &new_card);
-        assert_eq!("/cards/0", location_header_card);
+        assert_eq!("/cards/6", location_header_card);
 
         let card_id = get_card(&client, new_card, location_header_card);
 
-        get_decks(&client, 0);
+        get_decks(&client, 1);
 
         let location_header_deck = post_deck(&client);
-        assert_eq!("/decks/0", location_header_deck);
+        assert_eq!("/decks/1", location_header_deck);
 
-        get_decks(&client, 1);
+        get_decks(&client, 2);
 
         let created_deck = get_deck(&client, location_header_deck.clone());
         assert_eq!(0, created_deck.cards.len());
@@ -71,7 +72,7 @@ mod test {
             state: card_state,
         };
         let location_header_card_in_deck = post_card_to_deck(&client, created_deck.id, deck_card);
-        assert_eq!("/decks/0/cards/0", location_header_card_in_deck);
+        assert_eq!("/decks/1/cards/6", location_header_card_in_deck);
 
         let card_in_deck = get_card_in_deck(&client, location_header_card_in_deck.clone());
         assert_eq!(card_in_deck.id, card_id);
@@ -158,10 +159,15 @@ mod test {
     }
 
     fn post_deck(client: &Client) -> String {
+        let create_deck = CreateDeck {
+            contains_card_types: vec![CardType::Attack],
+        };
+        let create_deck_json = serde_json::to_string(&create_deck).unwrap();
         let response = client.post(uri!(create_deck))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+            .body(create_deck_json)
             .dispatch();
-        assert_eq!(response.status(), Status::Created);
+        assert_eq!(Status::Created, response.status());
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
