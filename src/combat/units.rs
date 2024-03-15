@@ -2,6 +2,7 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 
 use crate::deck::Card;
+use crate::deck::card::CardType;
 use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -19,6 +20,7 @@ pub fn get_gnome() -> Unit {
         attack_deck: vec![
             Card {
                 id: 5,
+                card_type: CardType::Attack,
                 effects: vec![
                     Token {
                         token_type: TokenType::Poison,
@@ -37,6 +39,7 @@ pub fn get_gnome() -> Unit {
             },
             Card {
                 id: 5,
+                card_type: CardType::Attack,
                 effects: vec![
                     Token {
                         token_type: TokenType::Health,
@@ -55,6 +58,7 @@ pub fn get_gnome() -> Unit {
             },
             Card {
                 id: 5,
+                card_type: CardType::Attack,
                 effects: vec![
                     Token {
                         token_type: TokenType::Health,
@@ -73,6 +77,7 @@ pub fn get_gnome() -> Unit {
             },
             Card {
                 id: 5,
+                card_type: CardType::Attack,
                 effects: vec![
                     Token {
                         token_type: TokenType::Health,
@@ -87,6 +92,7 @@ pub fn get_gnome() -> Unit {
         defence_deck: vec![
             Card {
                 id: 4,
+                card_type: CardType::Defence,
                 effects: vec![
                     Token {
                         token_type: TokenType::Dodge,
@@ -107,6 +113,7 @@ pub fn get_gnome() -> Unit {
         resource_deck: vec![
             Card {
                 id: 1,
+                card_type: CardType::Ressource,
                 effects: vec![
                     Token {
                         token_type: TokenType::Stamina,
@@ -119,6 +126,7 @@ pub fn get_gnome() -> Unit {
             },
             Card {
                 id: 2,
+                card_type: CardType::Ressource,
                 effects: vec![
                     Token {
                         token_type: TokenType::Health,
@@ -136,6 +144,7 @@ pub fn get_gnome() -> Unit {
             },
             Card {
                 id: 3,
+                card_type: CardType::Ressource,
                 effects: vec![
                     Token {
                         token_type: TokenType::Mana,

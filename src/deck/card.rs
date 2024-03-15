@@ -15,7 +15,8 @@ pub struct Card {
     pub id: usize,
     pub effects: Vec<Token>,
     pub costs: Vec<Token>,
-    pub count: u32
+    pub count: u32,
+    pub card_type: CardType
 }
 
 /// Used in the request body to create a card
@@ -26,7 +27,16 @@ pub struct CardCreate {
     pub(crate) card_type_id: usize,
     pub effects: Vec<Token>,
     pub costs: Vec<Token>,
-    pub count: u32
+    pub count: u32,
+    pub card_type: CardType
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum CardType {
+    Attack,
+    Defence,
+    Ressource
 }
 
 #[openapi]
@@ -64,7 +74,8 @@ pub async fn create_card(new_card: Json<CardCreate>, player_data: &State<PLayerD
             id: unused_id,
             effects: the_card.effects,
             costs: the_card.costs,
-            count: the_card.count
+            count: the_card.count,
+            card_type: the_card.card_type
         }
     );
     let location = uri!(get_card_json(unused_id));

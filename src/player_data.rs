@@ -4,6 +4,7 @@ use std::sync::Arc;
 use rocket::futures::lock::Mutex;
 
 use crate::deck::{Card, CardState, DeckCard};
+use crate::deck::card::CardType;
 use crate::deck::Deck;
 use crate::deck::token::{Token, TokenPermanence, TokenType};
 
@@ -19,6 +20,7 @@ pub fn new() -> PLayerData {
                 vec![
                     Card {
                         id: 5,
+                        card_type: CardType::Attack,
                         effects: vec![
                             Token {
                                 token_type: TokenType::Health,
