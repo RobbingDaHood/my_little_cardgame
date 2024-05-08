@@ -1,25 +1,35 @@
+use std::collections::HashMap;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 
-use crate::deck::Card;
+use crate::deck::{Card, CardState, Deck, DeckCard};
 use crate::deck::card::CardType;
 use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Unit {
-    attack_deck: Vec<Card>,
-    defence_deck: Vec<Card>,
-    resource_deck: Vec<Card>,
+    attack_deck: Vec<UnitCard>,
+    defence_deck: Vec<UnitCard>,
+    resource_deck: Vec<UnitCard>,
     tokens: Vec<Token>,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct UnitCard {
+    /// Unique id of the card
+    pub effects: Vec<Token>,
+    pub costs: Vec<Token>,
+    pub card_type: CardType,
+    pub(crate) state: HashMap<CardState, u32>,
+}
 
 pub fn get_gnome() -> Unit {
     Unit {
         attack_deck: vec![
-            Card {
-                id: 5,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 5)]),
                 card_type: CardType::Attack,
                 effects: vec![
                     Token {
@@ -35,10 +45,9 @@ pub fn get_gnome() -> Unit {
                         count: 1,
                     }
                 ],
-                count: 5,
             },
-            Card {
-                id: 5,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 5)]),
                 card_type: CardType::Attack,
                 effects: vec![
                     Token {
@@ -54,10 +63,9 @@ pub fn get_gnome() -> Unit {
                         count: 2,
                     }
                 ],
-                count: 5,
             },
-            Card {
-                id: 5,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 10)]),
                 card_type: CardType::Attack,
                 effects: vec![
                     Token {
@@ -73,10 +81,9 @@ pub fn get_gnome() -> Unit {
                         count: 1,
                     }
                 ],
-                count: 10,
             },
-            Card {
-                id: 5,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 20)]),
                 card_type: CardType::Attack,
                 effects: vec![
                     Token {
@@ -86,12 +93,11 @@ pub fn get_gnome() -> Unit {
                     }
                 ],
                 costs: vec![],
-                count: 20,
             },
         ],
         defence_deck: vec![
-            Card {
-                id: 4,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 40)]),
                 card_type: CardType::Defence,
                 effects: vec![
                     Token {
@@ -107,12 +113,11 @@ pub fn get_gnome() -> Unit {
                         count: 2,
                     }
                 ],
-                count: 40,
             }
         ],
         resource_deck: vec![
-            Card {
-                id: 1,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 20)]),
                 card_type: CardType::Ressource,
                 effects: vec![
                     Token {
@@ -122,10 +127,9 @@ pub fn get_gnome() -> Unit {
                     }
                 ],
                 costs: vec![],
-                count: 20,
             },
-            Card {
-                id: 2,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 10)]),
                 card_type: CardType::Ressource,
                 effects: vec![
                     Token {
@@ -140,10 +144,9 @@ pub fn get_gnome() -> Unit {
                     },
                 ],
                 costs: vec![],
-                count: 10,
             },
-            Card {
-                id: 3,
+            UnitCard {
+                state: HashMap::from([(CardState::Deck, 10)]),
                 card_type: CardType::Ressource,
                 effects: vec![
                     Token {
@@ -158,7 +161,6 @@ pub fn get_gnome() -> Unit {
                     },
                 ],
                 costs: vec![],
-                count: 10,
             },
         ],
         tokens: vec![

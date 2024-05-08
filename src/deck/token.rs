@@ -21,9 +21,9 @@ pub enum TokenType {
 #[serde(crate = "rocket::serde")]
 pub enum TokenPermanence {
     Permanent(PermanentDefinition),
-    OneAtEndOfRound,
+    EndOfRound(ReductionDefinition),
     AllAtEndOfRound,
-    OneAtBeginningOfRound,
+    BeginningOfRound(ReductionDefinition),
     AllAtBeginningOfRound,
     EndOutCombat,
     /// The tokens on a unit or player is permanent but does not define a maximum
@@ -35,6 +35,12 @@ pub enum TokenPermanence {
 #[serde(crate = "rocket::serde")]
 pub struct PermanentDefinition {
     pub(crate) max_count: u32
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ReductionDefinition {
+    pub(crate) amount: u32
 }
 
 /// Token defines state. Like how much health is accumulated or if the entity haveving the token is poisoned.

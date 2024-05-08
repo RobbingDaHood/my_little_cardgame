@@ -7,6 +7,7 @@ mod test {
     use rocket::http::uncased::Uncased;
     use rocket::local::blocking::Client;
     use rocket::serde::json::serde_json;
+    use crate::combat::Combat;
 
     use crate::deck::{Card, CardState, CreateDeck, Deck, DeckCard, rocket_uri_macro_list_all_decks};
     use crate::deck::card::{CardCreate, CardType, rocket_uri_macro_list_all_cards};
@@ -14,6 +15,7 @@ mod test {
     use crate::deck::rocket_uri_macro_add_card_to_deck;
     use crate::deck::rocket_uri_macro_create_deck;
     use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
+    use crate::combat::rocket_uri_macro_get_combat;
     use crate::rocket_initialize;
     use crate::status_messages::new_status;
     use crate::status_messages::Status as MyStatus;
@@ -23,25 +25,25 @@ mod test {
         let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
         let list_of_cards = get_cards(&client);
-        assert_eq!(1, list_of_cards.len());
+        assert_eq!(3, list_of_cards.len());
 
         let new_card_attack = getAttackCard();
         let location_header_card_attack = post_card(&client, &new_card_attack);
-        assert_eq!("/cards/6", location_header_card_attack);
+        assert_eq!("/cards/3", location_header_card_attack);
 
         let new_card_ressource = getRessourceCard();
         let location_header_card_ressource = post_card(&client, &new_card_ressource);
-        assert_eq!("/cards/7", location_header_card_ressource);
+        assert_eq!("/cards/4", location_header_card_ressource);
 
         let card_id_attack = get_card(&client, new_card_attack, location_header_card_attack);
         let card_id_ressource = get_card(&client, new_card_ressource, location_header_card_ressource);
 
-        get_decks(&client, 1);
+        get_decks(&client, 3);
 
         let location_header_deck = post_deck(&client);
-        assert_eq!("/decks/1", location_header_deck);
+        assert_eq!("/decks/3", location_header_deck);
 
-        get_decks(&client, 2);
+        get_decks(&client, 4);
 
         let created_deck = get_deck(&client, location_header_deck.clone());
         assert_eq!(0, created_deck.cards.len());
@@ -51,14 +53,14 @@ mod test {
             state: HashMap::from([(CardState::Deck, 20)]),
         };
         let location_header_card_in_deck = post_card_to_deck(&client, created_deck.id, deck_card);
-        assert_eq!("/decks/1/cards/6", location_header_card_in_deck);
+        assert_eq!("/decks/3/cards/3", location_header_card_in_deck);
 
         let deck_card = DeckCard {
             id: card_id_ressource,
             state: HashMap::from([(CardState::Deck, 20)]),
         };
         post_card_to_deck_fail_on_type(&client, created_deck.id, deck_card,
-                                       "Card with id 7 is of type Ressource and that is not part of the types '[Attack]' allowed in deck with id 1");
+                                       "Card with id 4 is of type Ressource and that is not part of the types '[Attack]' allowed in deck with id 3");
 
         let card_in_deck = get_card_in_deck(&client, location_header_card_in_deck.clone());
         assert_eq!(card_in_deck.id, card_id_attack);
@@ -77,6 +79,8 @@ mod test {
         assert_eq!(1, created_deck.cards.iter()
             .filter(|card| card.state.get(&CardState::Deleted).is_some())
             .count());
+
+        assert_eq!(get_combat(&client), None);
     }
 
     fn getRessourceCard() -> CardCreate {
@@ -240,5 +244,13 @@ mod test {
         let string_body = response.into_string().unwrap();
         let list_of_decks: Vec<Card> = serde_json::from_str(string_body.as_str()).unwrap();
         list_of_decks
+    }
+
+    fn get_combat(client: &Client) -> Option<Combat> {
+        let response = client.get(uri!(get_combat)).dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        let string_body = response.into_string().unwrap();
+        let optional_combat: Option<Combat> = serde_json::from_str(string_body.as_str()).unwrap();
+        optional_combat
     }
 }
