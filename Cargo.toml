@@ -12,3 +12,5 @@ okapi = { version = "0.7.0-rc.1" }
 rocket_okapi = { version = "0.8.0-rc.2", features = ["swagger"] }
 serde = "1.0.197"
 either = "1.10.0"
+rand = "0.8.4"
+rand_pcg = { version = "0.3.1", features = ["serde1"] }

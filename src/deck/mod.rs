@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
 use either::{Either, Left, Right};
+use rand::Rng;
+use rand_pcg::Lcg64Xsh32;
 use rocket::response::status::{BadRequest, Created, NotFound};
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
@@ -16,7 +18,7 @@ pub mod card;
 pub mod token;
 
 /// CardState represents the cards state in a deck.
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash, Copy)]
 #[serde(crate = "rocket::serde")]
 pub enum CardState {
     /// The card is in the deck.
@@ -55,6 +57,20 @@ pub struct CreateDeck {
 impl Deck {
     pub fn add_new_card(&mut self, new_card: DeckCard) {
         self.cards.push(new_card);
+    }
+
+    pub fn draw_cards(&mut self, number_of_cards: usize, random_generator_state: &mut Lcg64Xsh32) -> Result<(), ()> {
+        self.change_random_cards_state(number_of_cards, CardState::Hand, CardState::Deck, random_generator_state)
+    }
+
+    pub fn change_random_cards_state(&mut self, number_of_cards: usize, new_state: CardState, old_state: CardState, random_generator_state: &mut Lcg64Xsh32) -> Result<(), ()> {
+        self.cards.len();
+        for _ in 0..number_of_cards {
+            let random_card_index = random_generator_state.gen_range(0..self.cards.len());
+            let random_card_id = self.cards.get(random_card_index).unwrap().id;
+            self.change_card_state(random_card_id, new_state, old_state)?;
+        };
+        Ok(())
     }
 
     pub fn change_card_state(&mut self, card_id: usize, new_state: CardState, old_state: CardState) -> Result<(), ()> {

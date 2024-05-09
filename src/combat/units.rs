@@ -1,9 +1,10 @@
 use std::collections::HashMap;
+
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 
-use crate::deck::{Card, CardState, Deck, DeckCard};
 use crate::deck::card::CardType;
+use crate::deck::CardState;
 use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]

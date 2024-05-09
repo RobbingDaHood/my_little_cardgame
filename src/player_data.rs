@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use rand::{RngCore, SeedableRng};
+use rand_pcg::{Lcg64Xsh32, Pcg32};
 use rocket::futures::lock::Mutex;
 
 use crate::combat::Combat;
@@ -17,10 +19,56 @@ pub struct PLayerData {
     pub(crate) resource_deck_id: Arc<Mutex<usize>>,
     pub(crate) tokens: Arc<Mutex<Vec<Token>>>,
     pub(crate) current_combat: Arc<Mutex<Box<Option<Combat>>>>,
+    pub(crate) seed: Arc<Mutex<[u8; 16]>>,
+    pub(crate) random_generator_state: Arc<Mutex<Lcg64Xsh32>>,
 }
 
 pub fn new() -> PLayerData {
+    let mut attack_deck = Deck {
+        contains_card_types: vec![CardType::Attack],
+        cards: vec![
+            DeckCard {
+                id: 0,
+                state: HashMap::from([
+                    (CardState::Deck, 40)
+                ]),
+            }
+        ],
+        id: 0,
+    };
+    let mut defence_deck = Deck {
+        contains_card_types: vec![CardType::Defence],
+        cards: vec![
+            DeckCard {
+                id: 1,
+                state: HashMap::from([
+                    (CardState::Deck, 40)
+                ]),
+            }
+        ],
+        id: 1,
+    };
+    let mut ressource_deck = Deck {
+        contains_card_types: vec![CardType::Ressource],
+        cards: vec![
+            DeckCard {
+                id: 2,
+                state: HashMap::from([
+                    (CardState::Deck, 40)
+                ]),
+            }
+        ],
+        id: 2,
+    };
+    let mut new_seed: [u8; 16] = [1; 16];
+    Pcg32::from_entropy().fill_bytes(&mut new_seed);
+    let mut random_generator = Pcg32::from_seed(new_seed);
+    let _ = attack_deck.draw_cards(5, &mut random_generator);
+    let _ = defence_deck.draw_cards(5, &mut random_generator);
+    let _ = ressource_deck.draw_cards(5, &mut random_generator);
     PLayerData {
+        seed: Arc::new(Mutex::new(new_seed)),
+        random_generator_state: Arc::new(Mutex::new(random_generator)),
         cards: Arc::new(
             Mutex::new(
                 vec![
@@ -75,42 +123,9 @@ pub fn new() -> PLayerData {
         decks: Arc::new(
             Mutex::new(
                 vec![
-                    Deck {
-                        contains_card_types: vec![CardType::Attack],
-                        cards: vec![
-                            DeckCard {
-                                id: 0,
-                                state: HashMap::from([
-                                    (CardState::Deck, 40)
-                                ]),
-                            }
-                        ],
-                        id: 0,
-                    },
-                    Deck {
-                        contains_card_types: vec![CardType::Defence],
-                        cards: vec![
-                            DeckCard {
-                                id: 1,
-                                state: HashMap::from([
-                                    (CardState::Deck, 40)
-                                ]),
-                            }
-                        ],
-                        id: 1,
-                    },
-                    Deck {
-                        contains_card_types: vec![CardType::Ressource],
-                        cards: vec![
-                            DeckCard {
-                                id: 2,
-                                state: HashMap::from([
-                                    (CardState::Deck, 40)
-                                ]),
-                            }
-                        ],
-                        id: 2,
-                    },
+                    attack_deck,
+                    defence_deck,
+                    ressource_deck,
                 ]
             )
         ),

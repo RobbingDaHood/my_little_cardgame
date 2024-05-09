@@ -37,10 +37,17 @@ mod test {
         let location_header_card_ressource = post_card(&client, &new_card_ressource);
         assert_eq!("/cards/4", location_header_card_ressource);
 
-        let card_id_attack = get_card(&client, new_card_attack, location_header_card_attack);
-        let card_id_ressource = get_card(&client, new_card_ressource, location_header_card_ressource);
+        let card_id_attack = get_card(&client, location_header_card_attack);
+        let card_id_ressource = get_card(&client, location_header_card_ressource);
 
         get_decks(&client, 3);
+
+        check_deck_card_states(&client, "/decks/0", &CardState::Deck, 35);
+        check_deck_card_states(&client, "/decks/0", &CardState::Hand, 5);
+        check_deck_card_states(&client, "/decks/1", &CardState::Deck, 35);
+        check_deck_card_states(&client, "/decks/1", &CardState::Hand, 5);
+        check_deck_card_states(&client, "/decks/2", &CardState::Deck, 35);
+        check_deck_card_states(&client, "/decks/2", &CardState::Hand, 5);
 
         let location_header_deck = post_deck(&client);
         assert_eq!("/decks/3", location_header_deck);
@@ -90,6 +97,14 @@ mod test {
             allies: vec![],
             enemies: vec![get_gnome()],
         }));
+    }
+
+    fn check_deck_card_states(client: &Client, location: &str, card_state: &CardState, count: u32) {
+        let first_deck = get_deck(&client, location.to_string());
+        assert_eq!(1, first_deck.cards.len());
+        print!("{:?}", first_deck);
+        let decked_cards_count = first_deck.cards.get(0).unwrap().state.get(card_state).unwrap();
+        assert_eq!(count, *decked_cards_count);
     }
 
     fn getRessourceCard() -> CardCreate {
@@ -160,7 +175,7 @@ mod test {
         assert_eq!(expected_number_of_decks, list_of_decks.len());
     }
 
-    fn get_card(client: &Client, new_card: CardCreate, location_header: String) -> usize {
+    fn get_card(client: &Client, location_header: String) -> usize {
         let response = client.get(location_header).dispatch();
         assert_eq!(response.status(), Status::Ok);
         let string_body = response.into_string().unwrap();

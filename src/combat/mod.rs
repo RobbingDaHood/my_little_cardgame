@@ -2,12 +2,9 @@ use rocket::response::status::Created;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
 use rocket::State;
-use rocket::yansi::Paint;
 use rocket_okapi::{JsonSchema, openapi};
 
 use crate::combat::units::{get_gnome, Unit};
-use crate::deck::{Card, Deck};
-use crate::deck::card::CardCreate;
 use crate::player_data::PLayerData;
 
 pub mod units;
