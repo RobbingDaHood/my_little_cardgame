@@ -16,6 +16,8 @@ mod test {
     use crate::deck::rocket_uri_macro_create_deck;
     use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
     use crate::combat::rocket_uri_macro_get_combat;
+    use crate::combat::rocket_uri_macro_initialize_combat;
+    use crate::combat::units::get_gnome;
     use crate::rocket_initialize;
     use crate::status_messages::new_status;
     use crate::status_messages::Status as MyStatus;
@@ -81,6 +83,13 @@ mod test {
             .count());
 
         assert_eq!(get_combat(&client), None);
+
+        initialize_combat(&client);
+
+        assert_eq!(get_combat(&client), Some(Combat {
+            allies: vec![],
+            enemies: vec![get_gnome()],
+        }));
     }
 
     fn getRessourceCard() -> CardCreate {
@@ -252,5 +261,15 @@ mod test {
         let string_body = response.into_string().unwrap();
         let optional_combat: Option<Combat> = serde_json::from_str(string_body.as_str()).unwrap();
         optional_combat
+    }
+
+    fn initialize_combat(client: &Client) {
+        let response = client.post(uri!(initialize_combat)).dispatch();
+        assert_eq!(response.status(), Status::Created);
+        let response_headers = response.headers();
+        let location_header_list: Vec<_> = response_headers.get("location").collect();
+        assert_eq!(1, location_header_list.len());
+        let location_header = location_header_list.get(0).unwrap();
+        assert_eq!("/combat", location_header.to_string());
     }
 }

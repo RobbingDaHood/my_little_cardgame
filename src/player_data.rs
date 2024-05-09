@@ -16,7 +16,7 @@ pub struct PLayerData {
     pub(crate) defence_deck_id: Arc<Mutex<usize>>,
     pub(crate) resource_deck_id: Arc<Mutex<usize>>,
     pub(crate) tokens: Arc<Mutex<Vec<Token>>>,
-    pub(crate) current_combat: Arc<Mutex<Option<Combat>>>,
+    pub(crate) current_combat: Arc<Mutex<Box<Option<Combat>>>>,
 }
 
 pub fn new() -> PLayerData {
@@ -127,6 +127,6 @@ pub fn new() -> PLayerData {
             ],
             )
         ),
-        current_combat: Arc::new(Mutex::new(None)),
+        current_combat: Arc::new(Mutex::new(Box::new(None))),
     }
 }
