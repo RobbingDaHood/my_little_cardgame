@@ -59,27 +59,27 @@ impl Deck {
         self.cards.push(new_card);
     }
 
-    pub fn draw_cards(&mut self, number_of_cards: usize, random_generator_state: &mut Lcg64Xsh32) -> Result<(), ()> {
+    pub fn draw_cards(&mut self, number_of_cards: usize, random_generator_state: &mut Lcg64Xsh32) -> Result<(), NotFound<Json<Status>>> {
         self.change_random_cards_state(number_of_cards, CardState::Hand, CardState::Deck, random_generator_state)
     }
 
-    pub fn change_random_cards_state(&mut self, number_of_cards: usize, new_state: CardState, old_state: CardState, random_generator_state: &mut Lcg64Xsh32) -> Result<(), ()> {
+    pub fn change_random_cards_state(&mut self, number_of_cards: usize, new_state: CardState, old_state: CardState, random_generator_state: &mut Lcg64Xsh32) -> Result<(), NotFound<Json<Status>>> {
         self.cards.len();
         for _ in 0..number_of_cards {
             let random_card_index = random_generator_state.gen_range(0..self.cards.len());
             let random_card_id = self.cards.get(random_card_index).unwrap().id;
-            self.change_card_state(random_card_id, new_state, old_state)?;
+            self.change_card_state(random_card_id, new_state, old_state)?
         };
         Ok(())
     }
 
-    pub fn change_card_state(&mut self, card_id: usize, new_state: CardState, old_state: CardState) -> Result<(), ()> {
+    pub fn change_card_state(&mut self, card_id: usize, new_state: CardState, old_state: CardState) -> Result<(), NotFound<Json<Status>>> {
         match self.cards.iter_mut()
             .find(|card| card.id == card_id) {
-            None => Err(()),
+            None => Err(NotFound(new_status(format!("Card {:?} does not exist on deck {:?}!", card_id, self.id)))),
             Some(card) => {
                 match card.state.get(&old_state) {
-                    None => Err(()),
+                    None => Err(NotFound(new_status(format!("State {:?} does not exist for card {:?} on deck {:?}!", old_state, card_id, self.id)))),
                     Some(old_state_count) => {
                         card.state.insert(old_state, old_state_count - 1);
                         match card.state.get(&new_state) {

@@ -15,6 +15,15 @@ pub mod units;
 pub struct Combat {
     pub allies: Vec<Unit>,
     pub enemies: Vec<Unit>,
+    pub state: CombatStates
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash, Copy)]
+#[serde(crate = "rocket::serde")]
+pub enum CombatStates {
+    PlayerDefending,
+    PlayerAttacking,
+    PlayerRessourcing
 }
 
 #[openapi]
@@ -29,6 +38,7 @@ pub async fn initialize_combat(player_data: &State<PLayerData>) -> Created<&str>
     player_data.current_combat.lock().await.replace(Combat {
         allies: vec![],
         enemies: vec![get_gnome()],
+        state: CombatStates::PlayerAttacking
     });
     Created::new("/combat")
 }

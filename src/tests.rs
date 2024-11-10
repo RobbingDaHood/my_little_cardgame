@@ -7,17 +7,21 @@ mod test {
     use rocket::http::uncased::Uncased;
     use rocket::local::blocking::Client;
     use rocket::serde::json::serde_json;
-    use crate::combat::Combat;
+    use crate::action::play_action;
+    use crate::action::rocket_uri_macro_play_action;
 
+    use crate::action::PlayerActions::PlayCard;
+    use crate::combat::Combat;
+    use crate::combat::CombatStates::PlayerAttacking;
+    use crate::combat::rocket_uri_macro_get_combat;
+    use crate::combat::rocket_uri_macro_initialize_combat;
+    use crate::combat::units::get_gnome;
     use crate::deck::{Card, CardState, CreateDeck, Deck, DeckCard, rocket_uri_macro_list_all_decks};
     use crate::deck::card::{CardCreate, CardType, rocket_uri_macro_list_all_cards};
     use crate::deck::card::rocket_uri_macro_create_card;
     use crate::deck::rocket_uri_macro_add_card_to_deck;
     use crate::deck::rocket_uri_macro_create_deck;
     use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
-    use crate::combat::rocket_uri_macro_get_combat;
-    use crate::combat::rocket_uri_macro_initialize_combat;
-    use crate::combat::units::get_gnome;
     use crate::rocket_initialize;
     use crate::status_messages::new_status;
     use crate::status_messages::Status as MyStatus;
@@ -96,7 +100,11 @@ mod test {
         assert_eq!(get_combat(&client), Some(Combat {
             allies: vec![],
             enemies: vec![get_gnome()],
+            state: PlayerAttacking,
         }));
+
+        action_play_cards(&client, 0, "ALL OKAY");
+        action_play_cards_not_found(&client, 90, "Card 90 does not exist on deck 0!");
     }
 
     fn check_deck_card_states(client: &Client, location: &str, card_state: &CardState, count: u32) {
@@ -286,5 +294,34 @@ mod test {
         assert_eq!(1, location_header_list.len());
         let location_header = location_header_list.get(0).unwrap();
         assert_eq!("/combat", location_header.to_string());
+    }
+
+    fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
+        let action = PlayCard(id);
+        let body_json = serde_json::to_string(&action).unwrap();
+        let response = client.post(uri!(play_action))
+            .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+            .body(body_json)
+            .dispatch();
+        assert_eq!(response.status(), Status::Created);
+        let response_headers = response.headers();
+        let location_header_list: Vec<_> = response_headers.get("location").collect();
+        assert_eq!(1, location_header_list.len());
+        let location_header = location_header_list.get(0).unwrap();
+        assert_eq!(expected_response, location_header.to_string());
+    }
+
+    fn action_play_cards_not_found(client: &Client, id: usize, expected_error_message: &str) {
+        let action = PlayCard(id);
+        let body_json = serde_json::to_string(&action).unwrap();
+        let response = client.post(uri!(play_action))
+            .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+            .body(body_json)
+            .dispatch();
+        assert_eq!(response.status(), Status::NotFound);
+        let body_json = response.into_string().unwrap();
+        let body: MyStatus = serde_json::from_str(body_json.as_str()).unwrap();
+        let expected_status: MyStatus = new_status(expected_error_message.to_string()).0;
+        assert_eq!(expected_status, body);
     }
 }
