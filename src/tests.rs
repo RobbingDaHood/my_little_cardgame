@@ -7,12 +7,11 @@ mod test {
     use rocket::http::uncased::Uncased;
     use rocket::local::blocking::Client;
     use rocket::serde::json::serde_json;
-    use crate::action::play_action;
-    use crate::action::rocket_uri_macro_play_action;
+    use crate::action::rocket_uri_macro_play;
 
     use crate::action::PlayerActions::PlayCard;
     use crate::combat::Combat;
-    use crate::combat::CombatStates::PlayerAttacking;
+    use crate::combat::States::Attacking;
     use crate::combat::rocket_uri_macro_get_combat;
     use crate::combat::rocket_uri_macro_initialize_combat;
     use crate::combat::units::get_gnome;
@@ -33,11 +32,11 @@ mod test {
         let list_of_cards = get_cards(&client);
         assert_eq!(3, list_of_cards.len());
 
-        let new_card_attack = getAttackCard();
+        let new_card_attack = get_attack_card();
         let location_header_card_attack = post_card(&client, &new_card_attack);
         assert_eq!("/cards/3", location_header_card_attack);
 
-        let new_card_ressource = getRessourceCard();
+        let new_card_ressource = get_ressource_card();
         let location_header_card_ressource = post_card(&client, &new_card_ressource);
         assert_eq!("/cards/4", location_header_card_ressource);
 
@@ -100,7 +99,7 @@ mod test {
         assert_eq!(get_combat(&client), Some(Combat {
             allies: vec![],
             enemies: vec![get_gnome()],
-            state: PlayerAttacking,
+            state: Attacking,
         }));
 
         action_play_cards(&client, 0, "ALL OKAY");
@@ -108,14 +107,14 @@ mod test {
     }
 
     fn check_deck_card_states(client: &Client, location: &str, card_state: &CardState, count: u32) {
-        let first_deck = get_deck(&client, location.to_string());
+        let first_deck = get_deck(client, location.to_string());
         assert_eq!(1, first_deck.cards.len());
-        print!("{:?}", first_deck);
-        let decked_cards_count = first_deck.cards.get(0).unwrap().state.get(card_state).unwrap();
+        print!("{first_deck:?}");
+        let decked_cards_count = first_deck.cards.first().unwrap().state.get(card_state).unwrap();
         assert_eq!(count, *decked_cards_count);
     }
 
-    fn getRessourceCard() -> CardCreate {
+    fn get_ressource_card() -> CardCreate {
         CardCreate {
             card_type_id: 1,
             card_type: CardType::Ressource,
@@ -145,7 +144,7 @@ mod test {
         }
     }
 
-    fn getAttackCard() -> CardCreate {
+    fn get_attack_card() -> CardCreate {
         CardCreate {
             card_type_id: 1,
             card_type: CardType::Attack,
@@ -222,8 +221,8 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.get(0).unwrap();
-        location_header.to_string()
+        let location_header = location_header_list.first().unwrap();
+        (*location_header).to_string()
     }
 
     fn post_card_to_deck(client: &Client, id: usize, new_card: DeckCard) -> String {
@@ -236,8 +235,8 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.get(0).unwrap();
-        location_header.to_string()
+        let location_header = location_header_list.first().unwrap();
+        (*location_header).to_string()
     }
 
     fn post_card_to_deck_fail_on_type(client: &Client, id: usize, new_card: DeckCard, expected_error_message: &str) {
@@ -266,8 +265,8 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.get(0).unwrap();
-        location_header.to_string()
+        let location_header = location_header_list.first().unwrap();
+        (*location_header).to_string()
     }
 
     fn get_cards(client: &Client) -> Vec<Card> {
@@ -292,14 +291,14 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.get(0).unwrap();
-        assert_eq!("/combat", location_header.to_string());
+        let location_header = location_header_list.first().unwrap();
+        assert_eq!("/combat", (*location_header).to_string());
     }
 
     fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
         let action = PlayCard(id);
         let body_json = serde_json::to_string(&action).unwrap();
-        let response = client.post(uri!(play_action))
+        let response = client.post(uri!(play))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(body_json)
             .dispatch();
@@ -307,14 +306,14 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.get(0).unwrap();
-        assert_eq!(expected_response, location_header.to_string());
+        let location_header = location_header_list.first().unwrap();
+        assert_eq!(expected_response, (*location_header).to_string());
     }
 
     fn action_play_cards_not_found(client: &Client, id: usize, expected_error_message: &str) {
         let action = PlayCard(id);
         let body_json = serde_json::to_string(&action).unwrap();
-        let response = client.post(uri!(play_action))
+        let response = client.post(uri!(play))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(body_json)
             .dispatch();

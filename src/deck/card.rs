@@ -51,7 +51,7 @@ pub async fn get_card_json(id: usize, player_data: &State<PLayerData>) -> Result
     get_card(id, player_data)
         .await
         .map(|existing| Json(existing.clone()))
-        .ok_or(NotFound(new_status(format!("Card with id {} does not exist!", id))))
+        .ok_or(NotFound(new_status(format!("Card with id {id} does not exist!"))))
 }
 
 pub async fn get_card(id: usize, player_data: &State<PLayerData>) -> Option<Card> {

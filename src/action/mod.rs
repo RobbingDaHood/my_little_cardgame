@@ -1,13 +1,12 @@
-use rocket::futures::StreamExt;
-use rocket::response::status::{Created, NotFound};
-use rocket::serde::{Deserialize, Serialize};
+use either::{Either, Left, Right};
+use rocket::response::status::{BadRequest, Created, NotFound};
 use rocket::serde::json::Json;
+use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
-use rocket_okapi::{JsonSchema, openapi};
+use rocket_okapi::{openapi, JsonSchema};
 
-use crate::combat::{Combat, CombatStates};
-use crate::combat::units::get_gnome;
-use crate::deck::{CardState, Deck};
+use crate::combat::{Combat, States};
+use crate::deck::CardState;
 use crate::player_data::PLayerData;
 use crate::status_messages::{new_status, Status};
 
@@ -21,31 +20,31 @@ pub enum PlayerActions {
 
 #[openapi]
 #[post("/action", format = "json", data = "<player_action>")]
-pub async fn play_action(player_data: &State<PLayerData>, player_action: Json<PlayerActions>) -> Result<Created<&str>, NotFound<Json<Status>>> {
+pub async fn play(player_data: &State<PLayerData>, player_action: Json<PlayerActions>) -> Result<Created<&str>, Either<NotFound<Json<Status>>, BadRequest<Json<Status>>>> {
     let action = player_action.0;
 
     match action {
         PlayerActions::PlayCard(card_id) => {
-            let mut combat_optional: Option<Combat> = *player_data.current_combat.lock().await.clone();
+            let combat_optional: Option<Combat> = *player_data.current_combat.lock().await.clone();
             match combat_optional {
                 Some(combat) => {
                     let deck_id = match combat.state {
-                        CombatStates::PlayerDefending => { player_data.defence_deck_id.lock().await.clone() }
-                        CombatStates::PlayerAttacking => { player_data.attack_deck_id.lock().await.clone() }
-                        CombatStates::PlayerRessourcing => { player_data.resource_deck_id.lock().await.clone() }
+                        States::Defending => { *player_data.defence_deck_id.lock().await }
+                        States::Attacking => { *player_data.attack_deck_id.lock().await }
+                        States::Resourcing => { *player_data.resource_deck_id.lock().await }
                     };
-                    return player_data.decks.lock().await
+                    player_data.decks.lock().await
                         .iter_mut()
                         .find(|deck| deck.id == deck_id)
                         .map_or(
-                            Err(NotFound(new_status(format!("Card with id {:?} does not exist in deck!", action)))),
+                            Err(Left(NotFound(new_status(format!("Card with id {action:?} does not exist in deck!"))))),
                             |deck| deck.change_card_state(card_id, CardState::Hand, CardState::Deck)
-                                .map(|_| Created::new("ALL OKAY")),
-                        );
+                                .map_err(Left)
+                                .map(|()| Created::new("ALL OKAY")),
+                        )
                 }
-                None => {}
+                None => Err(Right(BadRequest(new_status("Cannot play a card if there are no active combat!".to_string()))))
             }
         }
-    };
-    Err(NotFound(new_status(format!("Card with id {:?} does not exist in deck!", action))))
+    }
 }
