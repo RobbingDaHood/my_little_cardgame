@@ -1,5 +1,5 @@
 use crate::deck::token::Token;
-use rocket::response::status::{Created, NotFound};
+use rocket::response::status::{BadRequest, Created, NotFound};
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
@@ -74,8 +74,16 @@ pub async fn get_card(id: usize, player_data: &State<PlayerData>) -> Option<Card
 pub async fn create_card(
     new_card: Json<CardCreate>,
     player_data: &State<PlayerData>,
-) -> Created<&str> {
+) -> Result<Created<String>, BadRequest<Json<Status>>> {
     let the_card = new_card.0;
+    
+    // Validate count is positive
+    if the_card.count == 0 {
+        return Err(BadRequest(new_status(
+            "Card count must be greater than 0".to_string(),
+        )));
+    }
+    
     let unused_id = *player_data
         .cards
         .lock()
@@ -93,5 +101,5 @@ pub async fn create_card(
         card_type: the_card.card_type,
     });
     let location = uri!(get_card_json(unused_id));
-    Created::new(location.to_string())
+    Ok(Created::new(location.to_string()))
 }

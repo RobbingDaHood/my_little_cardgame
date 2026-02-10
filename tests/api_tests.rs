@@ -254,3 +254,45 @@ fn test_add_card_to_nonexistent_deck() {
 
     assert_eq!(response.status(), Status::NotFound);
 }
+
+#[test]
+fn test_create_card_with_zero_count_rejected() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    
+    let invalid_card_json = r#"{
+        "card_type_id": 1,
+        "card_type": "Attack",
+        "effects": [],
+        "costs": [],
+        "count": 0
+    }"#;
+    
+    let response = client
+        .post("/cards")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
+        .body(invalid_card_json)
+        .dispatch();
+    
+    assert_eq!(response.status(), Status::BadRequest);
+}
+
+#[test]
+fn test_create_deck_with_empty_card_types_rejected() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    
+    let invalid_deck_json = r#"{ "contains_card_types": [] }"#;
+    
+    let response = client
+        .post("/decks")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
+        .body(invalid_deck_json)
+        .dispatch();
+    
+    assert_eq!(response.status(), Status::BadRequest);
+}

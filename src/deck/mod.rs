@@ -261,7 +261,14 @@ pub async fn delete_card_in_deck(
 pub async fn create_deck(
     new_deck: Json<CreateDeck>,
     player_data: &State<PlayerData>,
-) -> Created<&str> {
+) -> Result<Created<String>, BadRequest<Json<Status>>> {
+    // Validate deck has at least one allowed card type
+    if new_deck.0.contains_card_types.is_empty() {
+        return Err(BadRequest(new_status(
+            "Deck must allow at least one card type".to_string(),
+        )));
+    }
+    
     let unused_id = *player_data
         .decks
         .lock()
@@ -277,5 +284,5 @@ pub async fn create_deck(
         contains_card_types: new_deck.0.contains_card_types,
     });
     let location = uri!(get_deck(unused_id));
-    Created::new(location.to_string())
+    Ok(Created::new(location.to_string()))
 }
