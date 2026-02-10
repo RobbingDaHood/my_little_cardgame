@@ -1,5 +1,5 @@
-use rocket::serde::{Deserialize, Serialize};
 use rocket::serde::json::Json;
+use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 
 /// Used for wrapping messages in responses so it can be returned as JSON

@@ -4,8 +4,8 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 
 use crate::deck::card::CardType;
-use crate::deck::CardState;
 use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
+use crate::deck::CardState;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
@@ -40,13 +40,11 @@ fn get_gnome_resource_deck() -> Vec<UnitCard> {
         UnitCard {
             state: HashMap::from([(CardState::Deck, 20)]),
             card_type: CardType::Ressource,
-            effects: vec![
-                Token {
-                    token_type: TokenType::Stamina,
-                    permanence: TokenPermanence::Permanent(PermanentDefinition { max_count: 20 }),
-                    count: 2,
-                }
-            ],
+            effects: vec![Token {
+                token_type: TokenType::Stamina,
+                permanence: TokenPermanence::Permanent(PermanentDefinition { max_count: 20 }),
+                count: 2,
+            }],
             costs: vec![],
         },
         UnitCard {
@@ -91,93 +89,73 @@ fn get_gnome_attack_deck() -> Vec<UnitCard> {
         UnitCard {
             state: HashMap::from([(CardState::Deck, 5)]),
             card_type: CardType::Attack,
-            effects: vec![
-                Token {
-                    token_type: TokenType::Poison,
-                    permanence: TokenPermanence::Instant,
-                    count: 1,
-                }
-            ],
-            costs: vec![
-                Token {
-                    token_type: TokenType::Mana,
-                    permanence: TokenPermanence::Instant,
-                    count: 1,
-                }
-            ],
+            effects: vec![Token {
+                token_type: TokenType::Poison,
+                permanence: TokenPermanence::Instant,
+                count: 1,
+            }],
+            costs: vec![Token {
+                token_type: TokenType::Mana,
+                permanence: TokenPermanence::Instant,
+                count: 1,
+            }],
         },
         UnitCard {
             state: HashMap::from([(CardState::Deck, 5)]),
             card_type: CardType::Attack,
-            effects: vec![
-                Token {
-                    token_type: TokenType::Health,
-                    permanence: TokenPermanence::Instant,
-                    count: 3,
-                }
-            ],
-            costs: vec![
-                Token {
-                    token_type: TokenType::Stamina,
-                    permanence: TokenPermanence::Instant,
-                    count: 2,
-                }
-            ],
+            effects: vec![Token {
+                token_type: TokenType::Health,
+                permanence: TokenPermanence::Instant,
+                count: 3,
+            }],
+            costs: vec![Token {
+                token_type: TokenType::Stamina,
+                permanence: TokenPermanence::Instant,
+                count: 2,
+            }],
         },
         UnitCard {
             state: HashMap::from([(CardState::Deck, 10)]),
             card_type: CardType::Attack,
-            effects: vec![
-                Token {
-                    token_type: TokenType::Health,
-                    permanence: TokenPermanence::Instant,
-                    count: 2,
-                }
-            ],
-            costs: vec![
-                Token {
-                    token_type: TokenType::Stamina,
-                    permanence: TokenPermanence::Instant,
-                    count: 1,
-                }
-            ],
+            effects: vec![Token {
+                token_type: TokenType::Health,
+                permanence: TokenPermanence::Instant,
+                count: 2,
+            }],
+            costs: vec![Token {
+                token_type: TokenType::Stamina,
+                permanence: TokenPermanence::Instant,
+                count: 1,
+            }],
         },
         UnitCard {
             state: HashMap::from([(CardState::Deck, 20)]),
             card_type: CardType::Attack,
-            effects: vec![
-                Token {
-                    token_type: TokenType::Health,
-                    permanence: TokenPermanence::Instant,
-                    count: 1,
-                }
-            ],
+            effects: vec![Token {
+                token_type: TokenType::Health,
+                permanence: TokenPermanence::Instant,
+                count: 1,
+            }],
             costs: vec![],
         },
     ]
 }
 
 fn get_gnome_defence_deck() -> Vec<UnitCard> {
-    vec![
-        UnitCard {
-            state: HashMap::from([(CardState::Deck, 40)]),
-            card_type: CardType::Defence,
-            effects: vec![
-                Token {
-                    token_type: TokenType::Dodge,
-                    permanence: TokenPermanence::AllAtBeginningOfRound,
-                    count: 1,
-                }
-            ],
-            costs: vec![
-                Token {
-                    token_type: TokenType::Stamina,
-                    permanence: TokenPermanence::Instant,
-                    count: 2,
-                }
-            ],
-        }
-    ]
+    vec![UnitCard {
+        state: HashMap::from([(CardState::Deck, 40)]),
+        card_type: CardType::Defence,
+        effects: vec![Token {
+            token_type: TokenType::Dodge,
+            permanence: TokenPermanence::AllAtBeginningOfRound,
+            count: 1,
+        }],
+        costs: vec![Token {
+            token_type: TokenType::Stamina,
+            permanence: TokenPermanence::Instant,
+            count: 2,
+        }],
+    }]
 }
 
 fn get_gnome_tokens() -> Vec<Token> {

@@ -34,13 +34,13 @@ pub enum TokenPermanence {
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct PermanentDefinition {
-    pub(crate) max_count: u32
+    pub(crate) max_count: u32,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct ReductionDefinition {
-    pub(crate) amount: u32
+    pub(crate) amount: u32,
 }
 
 /// Token defines state. Like how much health is accumulated or if the entity haveving the token is poisoned.
@@ -50,5 +50,5 @@ pub struct Token {
     pub(crate) token_type: TokenType,
     pub(crate) permanence: TokenPermanence,
     /// The numer of tokens
-    pub(crate) count: u32
+    pub(crate) count: u32,
 }
