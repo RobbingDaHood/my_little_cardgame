@@ -2,15 +2,17 @@
 name = "my-little-cardgame"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["RobbingDaHood"]
+description = "A card game where everything is a deck"
+license = "Apache-2.0"
+repository = "https://github.com/RobbingDaHood/my_little_cardgame"
 
 [dependencies]
-rocket = { version = "0.5.0-rc.2", default-features = false, features = ["json"] }
-schemars = "0.8.10"
-okapi = { version = "0.7.0-rc.1" }
-rocket_okapi = { version = "0.8.0-rc.2", features = ["swagger"] }
-serde = "1.0.197"
-either = "1.10.0"
-rand = "0.8.4"
-rand_pcg = { version = "0.3.1", features = ["serde1"] }
+rocket = { version = "0.5.1", default-features = false, features = ["json"] }
+schemars = "0.8"
+okapi = "0.7.0"
+rocket_okapi = { version = "0.9.0", features = ["swagger"] }
+serde = "1.0"
+either = "1.15"
+rand = "0.8"
+rand_pcg = { version = "0.3", features = ["serde1"] }
