@@ -1,3 +1,19 @@
+//! # My Little Card Game
+//!
+//! A web-based card game API where everything is represented as decks.
+//!
+//! ## Overview
+//!
+//! This library provides a RESTful API for managing cards, decks, and combat
+//! in a card game system. The game features three types of cards (Attack,
+//! Defence, Resource) that can be organized into decks and used in combat.
+//!
+//! ## Architecture
+//!
+//! The API is built using the Rocket web framework with OpenAPI documentation
+//! support. Game state is managed through thread-safe `Arc<Mutex<T>>` wrappers
+//! to allow concurrent access from multiple HTTP requests.
+
 // Rocket makes this a bit tricky to support
 #![allow(clippy::module_name_repetitions)]
 #[macro_use]
@@ -15,6 +31,22 @@ pub mod status_messages;
 // Re-export for tests
 pub use crate::player_data::new as player_data_new;
 
+/// Initializes and configures the Rocket web server with all routes and OpenAPI documentation.
+///
+/// # Returns
+///
+/// A configured Rocket instance ready to be launched.
+///
+/// # Example
+///
+/// ```no_run
+/// use my_little_cardgame::rocket_initialize;
+///
+/// #[rocket::main]
+/// async fn main() {
+///     rocket_initialize().launch().await.expect("Failed to launch rocket");
+/// }
+/// ```
 pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::action::okapi_add_operation_for_play_;
     use crate::action::play;
