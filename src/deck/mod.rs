@@ -79,7 +79,16 @@ impl Deck {
     ) -> Result<(), NotFound<Json<Status>>> {
         for _ in 0..number_of_cards {
             let random_card_index = random_generator_state.gen_range(0..self.cards.len());
-            let random_card_id = self.cards.get(random_card_index).unwrap().id;
+            let random_card_id = self
+                .cards
+                .get(random_card_index)
+                .ok_or_else(|| {
+                    NotFound(new_status(format!(
+                        "Card at index {} not found in deck",
+                        random_card_index
+                    )))
+                })?
+                .id;
             self.change_card_state(random_card_id, new_state, old_state)?;
         }
         Ok(())

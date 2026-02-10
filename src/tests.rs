@@ -76,7 +76,7 @@ mod test {
 
         let card_in_deck = get_card_in_deck(&client, location_header_card_in_deck.clone());
         assert_eq!(card_in_deck.id, card_id_attack);
-        assert_eq!(*card_in_deck.state.get(&CardState::Deck).unwrap(), 20);
+        assert_eq!(*card_in_deck.state.get(&CardState::Deck).expect("Test assertion failed"), 20);
 
         let created_deck = get_deck(&client, location_header_deck.clone());
         assert_eq!(1, created_deck.cards.len());
@@ -110,7 +110,7 @@ mod test {
         let first_deck = get_deck(client, location.to_string());
         assert_eq!(1, first_deck.cards.len());
         print!("{first_deck:?}");
-        let decked_cards_count = first_deck.cards.first().unwrap().state.get(card_state).unwrap();
+        let decked_cards_count = first_deck.cards.first().expect("Test assertion failed").state.get(card_state).expect("Test assertion failed");
         assert_eq!(count, *decked_cards_count);
     }
 
@@ -177,24 +177,24 @@ mod test {
     fn get_decks(client: &Client, expected_number_of_decks: usize) {
         let response = client.get(uri!(list_all_decks)).dispatch();
         assert_eq!(response.status(), Status::Ok);
-        let string_body = response.into_string().unwrap();
-        let list_of_decks: Vec<Deck> = serde_json::from_str(string_body.as_str()).unwrap();
+        let string_body = response.into_string().expect("Test assertion failed");
+        let list_of_decks: Vec<Deck> = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         assert_eq!(expected_number_of_decks, list_of_decks.len());
     }
 
     fn get_card(client: &Client, location_header: String) -> usize {
         let response = client.get(location_header).dispatch();
         assert_eq!(response.status(), Status::Ok);
-        let string_body = response.into_string().unwrap();
-        let created_card: Card = serde_json::from_str(string_body.as_str()).unwrap();
+        let string_body = response.into_string().expect("Test assertion failed");
+        let created_card: Card = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         created_card.id
     }
 
     fn get_deck(client: &Client, location_header: String) -> Deck {
         let response = client.get(location_header).dispatch();
         assert_eq!(response.status(), Status::Ok);
-        let string_body = response.into_string().unwrap();
-        let created_deck: Deck = serde_json::from_str(string_body.as_str()).unwrap();
+        let string_body = response.into_string().expect("Test assertion failed");
+        let created_deck: Deck = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         created_deck
     }
 
@@ -206,13 +206,13 @@ mod test {
     fn get_card_in_deck(client: &Client, location_header: String) -> DeckCard {
         let response = client.get(location_header).dispatch();
         assert_eq!(response.status(), Status::Ok);
-        let string_body = response.into_string().unwrap();
-        let created_deck: DeckCard = serde_json::from_str(string_body.as_str()).unwrap();
+        let string_body = response.into_string().expect("Test assertion failed");
+        let created_deck: DeckCard = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         created_deck
     }
 
     fn post_card(client: &Client, new_card: &CardCreate) -> String {
-        let body_json = serde_json::to_string(&new_card).unwrap();
+        let body_json = serde_json::to_string(&new_card).expect("Test assertion failed");
         let response = client.post(uri!(create_card))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(body_json)
@@ -221,12 +221,12 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.first().unwrap();
+        let location_header = location_header_list.first().expect("Test assertion failed");
         (*location_header).to_string()
     }
 
     fn post_card_to_deck(client: &Client, id: usize, new_card: DeckCard) -> String {
-        let body_json = serde_json::to_string(&new_card).unwrap();
+        let body_json = serde_json::to_string(&new_card).expect("Test assertion failed");
         let response = client.post(uri!(add_card_to_deck(id)))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(body_json)
@@ -235,19 +235,19 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.first().unwrap();
+        let location_header = location_header_list.first().expect("Test assertion failed");
         (*location_header).to_string()
     }
 
     fn post_card_to_deck_fail_on_type(client: &Client, id: usize, new_card: DeckCard, expected_error_message: &str) {
-        let body_json = serde_json::to_string(&new_card).unwrap();
+        let body_json = serde_json::to_string(&new_card).expect("Test assertion failed");
         let response = client.post(uri!(add_card_to_deck(id)))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(body_json)
             .dispatch();
         assert_eq!(Status::BadRequest, response.status());
-        let body_json = response.into_string().unwrap();
-        let body: MyStatus = serde_json::from_str(body_json.as_str()).unwrap();
+        let body_json = response.into_string().expect("Test assertion failed");
+        let body: MyStatus = serde_json::from_str(body_json.as_str()).expect("Test assertion failed");
         let expected_status: MyStatus = new_status(expected_error_message.to_string()).0;
         assert_eq!(expected_status, body);
     }
@@ -256,7 +256,7 @@ mod test {
         let create_deck = CreateDeck {
             contains_card_types: vec![CardType::Attack],
         };
-        let create_deck_json = serde_json::to_string(&create_deck).unwrap();
+        let create_deck_json = serde_json::to_string(&create_deck).expect("Test assertion failed");
         let response = client.post(uri!(create_deck))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(create_deck_json)
@@ -265,23 +265,23 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.first().unwrap();
+        let location_header = location_header_list.first().expect("Test assertion failed");
         (*location_header).to_string()
     }
 
     fn get_cards(client: &Client) -> Vec<Card> {
         let response = client.get(uri!(list_all_cards)).dispatch();
         assert_eq!(response.status(), Status::Ok);
-        let string_body = response.into_string().unwrap();
-        let list_of_decks: Vec<Card> = serde_json::from_str(string_body.as_str()).unwrap();
+        let string_body = response.into_string().expect("Test assertion failed");
+        let list_of_decks: Vec<Card> = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         list_of_decks
     }
 
     fn get_combat(client: &Client) -> Option<Combat> {
         let response = client.get(uri!(get_combat)).dispatch();
         assert_eq!(response.status(), Status::Ok);
-        let string_body = response.into_string().unwrap();
-        let optional_combat: Option<Combat> = serde_json::from_str(string_body.as_str()).unwrap();
+        let string_body = response.into_string().expect("Test assertion failed");
+        let optional_combat: Option<Combat> = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         optional_combat
     }
 
@@ -291,13 +291,13 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.first().unwrap();
+        let location_header = location_header_list.first().expect("Test assertion failed");
         assert_eq!("/combat", (*location_header).to_string());
     }
 
     fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
         let action = PlayCard(id);
-        let body_json = serde_json::to_string(&action).unwrap();
+        let body_json = serde_json::to_string(&action).expect("Test assertion failed");
         let response = client.post(uri!(play))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(body_json)
@@ -306,20 +306,20 @@ mod test {
         let response_headers = response.headers();
         let location_header_list: Vec<_> = response_headers.get("location").collect();
         assert_eq!(1, location_header_list.len());
-        let location_header = location_header_list.first().unwrap();
+        let location_header = location_header_list.first().expect("Test assertion failed");
         assert_eq!(expected_response, (*location_header).to_string());
     }
 
     fn action_play_cards_not_found(client: &Client, id: usize, expected_error_message: &str) {
         let action = PlayCard(id);
-        let body_json = serde_json::to_string(&action).unwrap();
+        let body_json = serde_json::to_string(&action).expect("Test assertion failed");
         let response = client.post(uri!(play))
             .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
             .body(body_json)
             .dispatch();
         assert_eq!(response.status(), Status::NotFound);
-        let body_json = response.into_string().unwrap();
-        let body: MyStatus = serde_json::from_str(body_json.as_str()).unwrap();
+        let body_json = response.into_string().expect("Test assertion failed");
+        let body: MyStatus = serde_json::from_str(body_json.as_str()).expect("Test assertion failed");
         let expected_status: MyStatus = new_status(expected_error_message.to_string()).0;
         assert_eq!(expected_status, body);
     }

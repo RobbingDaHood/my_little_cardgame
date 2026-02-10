@@ -13,7 +13,8 @@ fn test_list_initial_cards() {
     let response = client.get("/cards").dispatch();
     assert_eq!(response.status(), Status::Ok);
 
-    let cards: Vec<Card> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let cards: Vec<Card> = serde_json::from_str(&response.into_string().expect("Failed to read response body"))
+        .expect("Failed to parse cards JSON");
     assert_eq!(cards.len(), 3);
 }
 
@@ -76,7 +77,7 @@ fn test_add_wrong_card_type_to_deck() {
         })
         .body(deck_json)
         .dispatch();
-    let deck_location = deck_response.headers().get_one("location").unwrap();
+    let deck_location = deck_response.headers().get_one("location").expect("Missing location header");
 
     let card_json =
         r#"{ "card_type_id": 1, "card_type": "Defence", "effects": [], "costs": [], "count": 10 }"#;
@@ -88,8 +89,8 @@ fn test_add_wrong_card_type_to_deck() {
         })
         .body(card_json)
         .dispatch();
-    let card_location = card_response.headers().get_one("location").unwrap();
-    let card_id: usize = card_location.trim_start_matches("/cards/").parse().unwrap();
+    let card_location = card_response.headers().get_one("location").expect("Missing location header");
+    let card_id: usize = card_location.trim_start_matches("/cards/").parse().expect("Invalid card ID");
 
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Deck": 10 }} }}"#, card_id);
     let add_response = client
@@ -156,7 +157,7 @@ fn test_get_combat_before_initialization() {
     let response = client.get("/combat").dispatch();
     assert_eq!(response.status(), Status::Ok);
 
-    let combat_json = response.into_string().unwrap();
+    let combat_json = response.into_string().expect("Failed to read combat response");
     assert_eq!(combat_json, "null");
 }
 
@@ -170,7 +171,7 @@ fn test_initialize_combat_creates_attacking_state() {
 
     // Verify combat is in Attacking state
     let get_response = client.get("/combat").dispatch();
-    let combat_str = get_response.into_string().unwrap();
+    let combat_str = get_response.into_string().expect("Failed to read combat response");
 
     assert!(combat_str.contains("\"state\":\"Attacking\""));
     assert!(combat_str.contains("\"enemies\""));
@@ -190,7 +191,7 @@ fn test_add_duplicate_card_to_deck() {
         })
         .body(deck_json)
         .dispatch();
-    let deck_location = deck_response.headers().get_one("location").unwrap();
+    let deck_location = deck_response.headers().get_one("location").expect("Missing location header");
 
     // Create a card
     let card_json = r#"{
@@ -208,8 +209,8 @@ fn test_add_duplicate_card_to_deck() {
         })
         .body(card_json)
         .dispatch();
-    let card_location = card_response.headers().get_one("location").unwrap();
-    let card_id: usize = card_location.trim_start_matches("/cards/").parse().unwrap();
+    let card_location = card_response.headers().get_one("location").expect("Missing location header");
+    let card_id: usize = card_location.trim_start_matches("/cards/").parse().expect("Invalid card ID");
 
     // Add card to deck
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Deck": 10 }} }}"#, card_id);
