@@ -16,3 +16,5 @@ serde = "1.0"
 either = "1.15"
 rand = "0.8"
 rand_pcg = { version = "0.3", features = ["serde1"] }
+log = "0.4"
+env_logger = "0.10"

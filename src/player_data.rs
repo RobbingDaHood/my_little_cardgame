@@ -20,6 +20,7 @@ pub struct PlayerData {
     #[allow(dead_code)]
     pub(crate) tokens: Arc<Mutex<Vec<Token>>>,
     pub(crate) current_combat: Arc<Mutex<Box<Option<Combat>>>>,
+    pub(crate) last_combat_result: Arc<Mutex<Option<crate::combat::CombatResult>>>,
     #[allow(dead_code)]
     pub(crate) seed: Arc<Mutex<[u8; 16]>>,
     #[allow(dead_code)]
@@ -53,6 +54,7 @@ pub fn new() -> PlayerData {
             count: 20,
         }])),
         current_combat: Arc::new(Mutex::new(Box::new(None))),
+        last_combat_result: Arc::new(Mutex::new(None)),
     }
 }
 

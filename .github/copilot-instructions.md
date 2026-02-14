@@ -1,0 +1,51 @@
+# Copilot instructions for my_little_cardgame
+
+This file guides Copilot CLI sessions and other assistive agents working on this repository.
+
+Build, test, and lint commands
+
+- Build: `cargo build --release` (or `cargo build` for dev).
+- Run (development server): `cargo run` (server listens on http://localhost:8000 by default).
+- Run full test suite: `cargo test`.
+- Run a single test by name: `cargo test <test_name>` (use a substring of the test function name).
+- Run tests with visible output: `cargo test -- --nocapture`.
+- Lint with Clippy: `cargo clippy`.
+- Format: `cargo fmt`.
+
+High-level architecture
+
+- Project is a Rust web API built with Rocket exposing REST endpoints for cards, decks, and combat.
+- Core crates and layout:
+  - `src/lib.rs` — library entry point exposing the public API used by the binary.
+  - `src/main.rs` — binary entry that mounts Rocket routes and serves the OpenAPI/Swagger UI.
+  - `src/deck/` — deck and card management (card definitions, deck operations, token handling).
+  - `src/combat/` — combat resolution and play logic.
+  - `src/action/` — player action handling and request processing.
+  - `src/player_data.rs` — player state and persistence logic.
+  - `src/status_messages.rs` — standardized API response messages.
+- All runtime behaviour is exposed via HTTP endpoints; most internal functionality is tested with integration tests that drive the API.
+
+Key conventions and repository-specific notes
+
+- "Everything is a deck" design: core game state is modelled as decks (Attack, Defence, Resource) and cards move between Deck, Hand, Discarded, Deleted states.
+- Tests: integration tests call the HTTP API (see `tests/` and `src/tests.rs`). When running a single integration test, use the test name shown in source (substring matching is supported by `cargo test`).
+- OpenAPI/Swagger is enabled using `rocket_okapi`; when the server is running, view Swagger UI at `/swagger-ui/`.
+- No unwraps and zero Clippy warnings policy: avoid adding unwrap() in production code; prefer Result propagation and explicit error handling.
+- Features and dependencies: Rocket is built with `json` feature disabled by default — follow existing Cargo.toml features when adding dependencies.
+- Prefer simpler code wrapped in well-named wrapper methods instead of relying on long explanatory comments; remove obvious comments that merely restate what clear function/variable names communicate. Favor expressive names and small helper functions over comment-heavy implementations.
+
+Files to check for agent config
+
+- Existing repo files inspected: README.md, Cargo.toml, src/.
+- If present, include and merge guidance from: CLAUDE.md, AGENTS.md, CONVENTIONS.md, AIDER_CONVENTIONS.md, .cursorrules, .cursor/, .windsurfrules, .clinerules, .cline_rules. (None were found at time of creation.)
+- Always respect everything written in the files in the docks/ folder; treat those files as authoritative guidance for the repository and follow them without contradiction.
+
+Notes for Copilot sessions
+
+- Prefer reading `README.md` and `src/` modules before making changes; the README contains useful usage and testing commands.
+- When adding or changing endpoints, update both `src/lib.rs` and `src/main.rs` and add an integration test under `tests/`.
+- Keep changes minimal and run `cargo test` and `cargo clippy` before opening PRs.
+
+MCP servers
+
+Would you like to configure any MCP servers (e.g., Playwright for web/API testing) for this repository? If so, specify which servers to configure.

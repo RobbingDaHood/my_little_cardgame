@@ -10,10 +10,10 @@ use crate::deck::CardState;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct Unit {
-    attack_deck: Vec<UnitCard>,
-    defence_deck: Vec<UnitCard>,
-    resource_deck: Vec<UnitCard>,
-    tokens: Vec<Token>,
+    pub attack_deck: Vec<UnitCard>,
+    pub defence_deck: Vec<UnitCard>,
+    pub resource_deck: Vec<UnitCard>,
+    pub tokens: Vec<Token>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]

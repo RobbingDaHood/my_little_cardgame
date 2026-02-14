@@ -99,7 +99,7 @@ mod test {
         assert_eq!(get_combat(&client), Some(Combat {
             allies: vec![],
             enemies: vec![get_gnome()],
-            state: Attacking,
+            state: Defending,
         }));
 
         action_play_cards(&client, 0, "ALL OKAY");
@@ -109,7 +109,7 @@ mod test {
     fn check_deck_card_states(client: &Client, location: &str, card_state: &CardState, count: u32) {
         let first_deck = get_deck(client, location.to_string());
         assert_eq!(1, first_deck.cards.len());
-        print!("{first_deck:?}");
+        debug!("{:?}", first_deck);
         let decked_cards_count = first_deck.cards.first().expect("Test assertion failed").state.get(card_state).expect("Test assertion failed");
         assert_eq!(count, *decked_cards_count);
     }

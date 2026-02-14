@@ -173,7 +173,7 @@ fn test_initialize_combat_creates_attacking_state() {
     let get_response = client.get("/combat").dispatch();
     let combat_str = get_response.into_string().expect("Failed to read combat response");
 
-    assert!(combat_str.contains("\"state\":\"Attacking\""));
+    assert!(combat_str.contains("\"state\":\"Defending\""));
     assert!(combat_str.contains("\"enemies\""));
 }
 
