@@ -191,3 +191,19 @@ Apache-2.0
 ## Author
 
 RobbingDaHood
+
+### Developer setup - pre-commit hooks
+
+Install pre-commit (pip install --user pre-commit) and enable the hooks:
+
+```bash
+make install-hooks
+# or
+./scripts/install-hooks.sh
+```
+
+The hooks run:
+- `cargo fmt -- --check`
+- `cargo clippy --all-targets --all-features -- -D warnings`
+- `make coverage` (enforces 85% coverage)
+
