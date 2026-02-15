@@ -219,7 +219,7 @@ impl GameState {
     pub fn new() -> Self {
         let registry = TokenRegistry::with_canonical();
         let mut balances = HashMap::new();
-        for (id, _t) in &registry.tokens {
+        for id in registry.tokens.keys() {
             balances.insert(id.clone(), 0i64);
         }
         Self {
@@ -245,7 +245,7 @@ impl GameState {
     pub fn replay_from_log(registry: TokenRegistry, log: &ActionLog) -> Self {
         let mut gs = {
             let mut balances = HashMap::new();
-            for (id, _t) in &registry.tokens {
+            for id in registry.tokens.keys() {
                 balances.insert(id.clone(), 0i64);
             }
             Self {
@@ -274,6 +274,12 @@ impl GameState {
             }
         }
         gs
+    }
+}
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

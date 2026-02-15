@@ -6,11 +6,11 @@ use rocket_okapi::{openapi, JsonSchema};
 
 use crate::combat::units::{get_gnome, Unit};
 use crate::deck::card::CardType;
-use rand::RngCore;
 use crate::player_data::PlayerData;
+use rand::RngCore;
 
-pub mod units;
 pub mod resolve;
+pub mod units;
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
@@ -54,7 +54,12 @@ pub async fn initialize_combat(player_data: &State<PlayerData>) -> Created<&str>
         if let Some(combat_box) = combat_lock.as_mut() {
             for enemy in combat_box.enemies.iter_mut() {
                 use crate::deck::CardState;
-                for uc in enemy.defence_deck.iter_mut().chain(enemy.attack_deck.iter_mut()).chain(enemy.resource_deck.iter_mut()) {
+                for uc in enemy
+                    .defence_deck
+                    .iter_mut()
+                    .chain(enemy.attack_deck.iter_mut())
+                    .chain(enemy.resource_deck.iter_mut())
+                {
                     uc.state.insert(CardState::Hand, 1);
                 }
             }
@@ -122,7 +127,10 @@ pub async fn enemy_play(player_data: &State<PlayerData>) -> Created<&'static str
                 if let Some(hand_count) = deck_vec[uc_idx].state.get_mut(&CardState::Hand) {
                     *hand_count = hand_count.saturating_sub(1);
                 }
-                let discard_entry = deck_vec[uc_idx].state.entry(CardState::Discard).or_insert(0);
+                let discard_entry = deck_vec[uc_idx]
+                    .state
+                    .entry(CardState::Discard)
+                    .or_insert(0);
                 *discard_entry += 1;
                 // clone effects and resolve after lock release
                 effects_to_resolve = Some(deck_vec[uc_idx].effects.clone());
@@ -132,11 +140,18 @@ pub async fn enemy_play(player_data: &State<PlayerData>) -> Created<&'static str
                     use crate::deck::token::{Token, TokenPermanence, TokenType};
                     if !combat_box.enemies.is_empty() {
                         let enemy = &mut combat_box.enemies[0];
-                        let existing = enemy.tokens.iter_mut().find(|t| t.token_type == TokenType::Dodge);
+                        let existing = enemy
+                            .tokens
+                            .iter_mut()
+                            .find(|t| t.token_type == TokenType::Dodge);
                         if let Some(t) = existing {
                             t.count += 1;
                         } else {
-                            enemy.tokens.push(Token { token_type: TokenType::Dodge, permanence: TokenPermanence::UsedOnUnit, count: 1 });
+                            enemy.tokens.push(Token {
+                                token_type: TokenType::Dodge,
+                                permanence: TokenPermanence::UsedOnUnit,
+                                count: 1,
+                            });
                         }
                     }
                 } else {
@@ -148,18 +163,16 @@ pub async fn enemy_play(player_data: &State<PlayerData>) -> Created<&'static str
 
     if let Some(effects) = effects_to_resolve {
         crate::combat::resolve::apply_effects(&effects, false, player_data).await;
-    } else {
-        if desired_card_type != CardType::Defence {
-            if let Some(card) = player_data
-                .cards
-                .lock()
-                .await
-                .iter()
-                .find(|c| c.card_type == desired_card_type)
-                .cloned()
-            {
-                crate::combat::resolve::resolve_card_effects(card.id, false, player_data).await;
-            }
+    } else if desired_card_type != CardType::Defence {
+        if let Some(card) = player_data
+            .cards
+            .lock()
+            .await
+            .iter()
+            .find(|c| c.card_type == desired_card_type)
+            .cloned()
+        {
+            crate::combat::resolve::resolve_card_effects(card.id, false, player_data).await;
         }
     }
 
