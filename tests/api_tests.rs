@@ -17,20 +17,7 @@ fn test_get_nonexistent_card() {
     assert_eq!(response.status(), Status::NotFound);
 }
 
-#[test]
-fn test_create_deck() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    let deck_json = r#"{ "contains_card_types": ["Attack"] }"#;
-    let response = client
-        .post("/decks")
-        .header(Header {
-            name: Uncased::from("Content-Type"),
-            value: Cow::from("application/json"),
-        })
-        .body(deck_json)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-}
+// test_create_deck removed (covered by api_end_to_end)
 
 #[test]
 fn test_add_wrong_card_type_to_deck() {
@@ -140,23 +127,7 @@ fn test_get_combat_before_initialization() {
     assert_eq!(combat_json, "null");
 }
 
-#[test]
-fn test_initialize_combat_creates_attacking_state() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    // Initialize combat
-    let init_response = client.post("/combat").dispatch();
-    assert_eq!(init_response.status(), Status::Created);
-
-    // Verify combat is in Attacking state
-    let get_response = client.get("/combat").dispatch();
-    let combat_str = get_response
-        .into_string()
-        .expect("Failed to read combat response");
-
-    assert!(combat_str.contains("\"state\":\"Defending\""));
-    assert!(combat_str.contains("\"enemies\""));
-}
+// test_initialize_combat_creates_attacking_state removed (duplicate of api_end_to_end)
 
 #[test]
 fn test_add_duplicate_card_to_deck() {
