@@ -260,14 +260,13 @@ impl GameState {
             }
         };
         for e in log.entries() {
-            if let ActionPayload::GrantToken { token_id, amount } = &e.payload {
-                let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
-                *v += *amount;
-                gs.action_log.entries.lock().unwrap().push(e.clone());
-                let cur = gs.action_log.seq.load(Ordering::SeqCst);
-                if cur < e.seq {
-                    gs.action_log.seq.store(e.seq, Ordering::SeqCst);
-                }
+            let ActionPayload::GrantToken { token_id, amount } = &e.payload;
+            let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
+            *v += *amount;
+            gs.action_log.entries.lock().unwrap().push(e.clone());
+            let cur = gs.action_log.seq.load(Ordering::SeqCst);
+            if cur < e.seq {
+                gs.action_log.seq.store(e.seq, Ordering::SeqCst);
             }
         }
         gs
