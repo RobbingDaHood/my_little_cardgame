@@ -11,8 +11,8 @@ use crate::deck::CardState;
 use crate::player_data::PlayerData;
 use crate::status_messages::{new_status, Status};
 
-use rand_pcg::Lcg64Xsh32;
 use rand::SeedableRng;
+use rand_pcg::Lcg64Xsh32;
 
 /// Player actions
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]

@@ -290,8 +290,8 @@ pub async fn create_deck(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_pcg::Lcg64Xsh32;
     use rand::SeedableRng;
+    use rand_pcg::Lcg64Xsh32;
     use std::collections::HashMap;
 
     #[test]
@@ -301,44 +301,65 @@ mod tests {
             id: 42,
             contains_card_types: vec![],
         };
-        assert!(deck.change_card_state(99, CardState::Hand, CardState::Deck).is_err());
+        assert!(deck
+            .change_card_state(99, CardState::Hand, CardState::Deck)
+            .is_err());
     }
 
     #[test]
     fn change_card_state_missing_state_returns_error() {
         let mut deck = Deck {
-            cards: vec![DeckCard { id: 1, state: HashMap::from([(CardState::Deck, 1)]) }],
+            cards: vec![DeckCard {
+                id: 1,
+                state: HashMap::from([(CardState::Deck, 1)]),
+            }],
             id: 1,
             contains_card_types: vec![],
         };
-        assert!(deck.change_card_state(1, CardState::Hand, CardState::Discard).is_err());
+        assert!(deck
+            .change_card_state(1, CardState::Hand, CardState::Discard)
+            .is_err());
     }
 
     #[test]
     fn change_random_cards_state_calls_change_card_state_error_when_old_state_missing() {
         let mut deck = Deck {
-            cards: vec![DeckCard { id: 7, state: HashMap::from([(CardState::Deck, 1)]) }],
+            cards: vec![DeckCard {
+                id: 7,
+                state: HashMap::from([(CardState::Deck, 1)]),
+            }],
             id: 3,
             contains_card_types: vec![],
         };
         let mut rng = Lcg64Xsh32::from_seed([0u8; 16]);
         // old_state Discard does not exist, so change_card_state should return Err and propagate
-        assert!(deck.change_random_cards_state(1, CardState::Hand, CardState::Discard, &mut rng).is_err());
+        assert!(deck
+            .change_random_cards_state(1, CardState::Hand, CardState::Discard, &mut rng)
+            .is_err());
     }
 
     #[test]
     fn draw_cards_moves_to_hand() {
         let mut deck = Deck {
             cards: vec![
-                DeckCard { id: 1, state: HashMap::from([(CardState::Deck, 2)]) },
-                DeckCard { id: 2, state: HashMap::from([(CardState::Deck, 2)]) },
+                DeckCard {
+                    id: 1,
+                    state: HashMap::from([(CardState::Deck, 2)]),
+                },
+                DeckCard {
+                    id: 2,
+                    state: HashMap::from([(CardState::Deck, 2)]),
+                },
             ],
             id: 4,
             contains_card_types: vec![],
         };
         let mut rng = Lcg64Xsh32::from_seed([1u8; 16]);
         let _ = deck.draw_cards(1, &mut rng);
-        let has_hand = deck.cards.iter().any(|c| c.state.get(&CardState::Hand).is_some());
+        let has_hand = deck
+            .cards
+            .iter()
+            .any(|c| c.state.get(&CardState::Hand).is_some());
         assert!(has_hand);
     }
 }

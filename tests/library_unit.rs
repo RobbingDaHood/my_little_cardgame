@@ -1,7 +1,7 @@
 // Tests moved from src/library.rs
+use my_little_cardgame::library::{action_log, types::ActionPayload, GameState};
 use std::sync::Arc;
 use std::thread;
-use my_little_cardgame::library::{GameState, action_log, types::ActionPayload};
 
 #[test]
 fn grant_and_replay() {
@@ -13,7 +13,10 @@ fn grant_and_replay() {
 
     // replay
     let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
-    assert_eq!(replayed.token_balances.get("Insight").copied().unwrap_or(0), 10);
+    assert_eq!(
+        replayed.token_balances.get("Insight").copied().unwrap_or(0),
+        10
+    );
     assert_eq!(replayed.action_log.entries().len(), 1);
 }
 
@@ -27,7 +30,10 @@ fn action_log_concurrent_append() {
         let log_clone = Arc::clone(&log);
         handles.push(thread::spawn(move || {
             for j in 0..per_thread {
-                let payload = ActionPayload::GrantToken { token_id: format!("t{}_{}", i, j), amount: j as i64 };
+                let payload = ActionPayload::GrantToken {
+                    token_id: format!("t{}_{}", i, j),
+                    amount: j as i64,
+                };
                 log_clone.append("GrantToken", payload);
             }
         }));

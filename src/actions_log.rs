@@ -1,7 +1,7 @@
 use rocket::serde::json::Json;
 use rocket_okapi::openapi;
 
-use crate::library::{GameState, types::ActionEntry};
+use crate::library::{types::ActionEntry, GameState};
 
 #[openapi]
 #[get("/actions/log")]

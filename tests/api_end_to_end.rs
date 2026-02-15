@@ -1,17 +1,17 @@
-use std::borrow::Cow;
-use std::collections::HashMap;
-use rocket::http::{Header, Status};
+use log::debug;
+use my_little_cardgame::action::PlayerActions::PlayCard;
+use my_little_cardgame::combat::units::get_gnome;
+use my_little_cardgame::combat::Combat;
+use my_little_cardgame::combat::States::Defending;
+use my_little_cardgame::deck::card::CardType;
+use my_little_cardgame::deck::{Card, CardState, CreateDeck};
 use rocket::http::uncased::Uncased;
+use rocket::http::{Header, Status};
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 use serde::{Deserialize, Serialize};
-use log::debug;
-use my_little_cardgame::action::PlayerActions::PlayCard;
-use my_little_cardgame::combat::Combat;
-use my_little_cardgame::combat::States::Defending;
-use my_little_cardgame::combat::units::get_gnome;
-use my_little_cardgame::deck::{Card, CardState, CreateDeck};
-use my_little_cardgame::deck::card::CardType;
+use std::borrow::Cow;
+use std::collections::HashMap;
 
 use my_little_cardgame::rocket_initialize;
 use my_little_cardgame::status_messages::new_status;
@@ -87,21 +87,37 @@ fn hello_world() {
 
     let card_in_deck = get_card_in_deck(&client, location_header_card_in_deck.clone());
     assert_eq!(card_in_deck.id, card_id_attack);
-    assert_eq!(*card_in_deck.state.get(&CardState::Deck).expect("Test assertion failed"), 20);
+    assert_eq!(
+        *card_in_deck
+            .state
+            .get(&CardState::Deck)
+            .expect("Test assertion failed"),
+        20
+    );
 
     let created_deck = get_deck(&client, location_header_deck.clone());
     assert_eq!(1, created_deck.cards.len());
-    assert_eq!(0, created_deck.cards.iter()
-        .filter(|card| card.state.get(&CardState::Deleted).is_some())
-        .count());
+    assert_eq!(
+        0,
+        created_deck
+            .cards
+            .iter()
+            .filter(|card| card.state.get(&CardState::Deleted).is_some())
+            .count()
+    );
 
     delete_card_in_deck(&client, location_header_card_in_deck);
 
     let created_deck = get_deck(&client, location_header_deck);
     assert_eq!(1, created_deck.cards.len());
-    assert_eq!(1, created_deck.cards.iter()
-        .filter(|card| card.state.get(&CardState::Deleted).is_some())
-        .count());
+    assert_eq!(
+        1,
+        created_deck
+            .cards
+            .iter()
+            .filter(|card| card.state.get(&CardState::Deleted).is_some())
+            .count()
+    );
 
     assert_eq!(get_combat(&client), None);
 
@@ -115,18 +131,32 @@ fn hello_world() {
     assert_eq!(actual_combat.enemies.len(), 1);
     let expected_enemy = get_gnome();
     let actual_enemy = &actual_combat.enemies[0];
-    assert_eq!(actual_enemy.attack_deck.len(), expected_enemy.attack_deck.len());
-    assert_eq!(actual_enemy.defence_deck.len(), expected_enemy.defence_deck.len());
-    assert_eq!(actual_enemy.resource_deck.len(), expected_enemy.resource_deck.len());
+    assert_eq!(
+        actual_enemy.attack_deck.len(),
+        expected_enemy.attack_deck.len()
+    );
+    assert_eq!(
+        actual_enemy.defence_deck.len(),
+        expected_enemy.defence_deck.len()
+    );
+    assert_eq!(
+        actual_enemy.resource_deck.len(),
+        expected_enemy.resource_deck.len()
+    );
     assert_eq!(actual_enemy.tokens.len(), expected_enemy.tokens.len());
-
 }
 
 fn check_deck_card_states(client: &Client, location: &str, card_state: &CardState, count: u32) {
     let first_deck = get_deck(client, location.to_string());
     assert_eq!(1, first_deck.cards.len());
     debug!("{:?}", first_deck);
-    let decked_cards_count = first_deck.cards.first().expect("Test assertion failed").state.get(card_state).expect("Test assertion failed");
+    let decked_cards_count = first_deck
+        .cards
+        .first()
+        .expect("Test assertion failed")
+        .state
+        .get(card_state)
+        .expect("Test assertion failed");
     assert_eq!(count, *decked_cards_count);
 }
 
@@ -178,7 +208,8 @@ fn get_decks(client: &Client, expected_number_of_decks: usize) {
     let response = client.get("/decks").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let string_body = response.into_string().expect("Test assertion failed");
-    let list_of_decks: Vec<DeckJson> = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
+    let list_of_decks: Vec<DeckJson> =
+        serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
     assert_eq!(expected_number_of_decks, list_of_decks.len());
 }
 
@@ -186,7 +217,8 @@ fn get_card(client: &Client, location_header: String) -> usize {
     let response = client.get(location_header).dispatch();
     assert_eq!(response.status(), Status::Ok);
     let string_body = response.into_string().expect("Test assertion failed");
-    let created_card: Card = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
+    let created_card: Card =
+        serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
     created_card.id
 }
 
@@ -194,7 +226,8 @@ fn get_deck(client: &Client, location_header: String) -> DeckJson {
     let response = client.get(location_header).dispatch();
     assert_eq!(response.status(), Status::Ok);
     let string_body = response.into_string().expect("Test assertion failed");
-    let created_deck: DeckJson = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
+    let created_deck: DeckJson =
+        serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
     created_deck
 }
 
@@ -207,14 +240,19 @@ fn get_card_in_deck(client: &Client, location_header: String) -> DeckCardJson {
     let response = client.get(location_header).dispatch();
     assert_eq!(response.status(), Status::Ok);
     let string_body = response.into_string().expect("Test assertion failed");
-    let created_deck: DeckCardJson = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
+    let created_deck: DeckCardJson =
+        serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
     created_deck
 }
 
 fn post_card(client: &Client, new_card: &serde_json::Value) -> String {
     let body_json = serde_json::to_string(&new_card).expect("Test assertion failed");
-    let response = client.post("/cards")
-        .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+    let response = client
+        .post("/cards")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
         .body(body_json)
         .dispatch();
     assert_eq!(response.status(), Status::Created);
@@ -227,8 +265,12 @@ fn post_card(client: &Client, new_card: &serde_json::Value) -> String {
 
 fn post_card_to_deck(client: &Client, id: usize, new_card: &DeckCardPayload) -> String {
     let body_json = serde_json::to_string(&new_card).expect("Test assertion failed");
-    let response = client.post(format!("/decks/{}/cards", id))
-        .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+    let response = client
+        .post(format!("/decks/{}/cards", id))
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
         .body(body_json)
         .dispatch();
     assert_eq!(Status::Created, response.status());
@@ -239,10 +281,19 @@ fn post_card_to_deck(client: &Client, id: usize, new_card: &DeckCardPayload) -> 
     (*location_header).to_string()
 }
 
-fn post_card_to_deck_fail_on_type(client: &Client, id: usize, new_card: &DeckCardPayload, expected_error_message: &str) {
+fn post_card_to_deck_fail_on_type(
+    client: &Client,
+    id: usize,
+    new_card: &DeckCardPayload,
+    expected_error_message: &str,
+) {
     let body_json = serde_json::to_string(&new_card).expect("Test assertion failed");
-    let response = client.post(format!("/decks/{}/cards", id))
-        .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+    let response = client
+        .post(format!("/decks/{}/cards", id))
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
         .body(body_json)
         .dispatch();
     assert_eq!(Status::BadRequest, response.status());
@@ -257,8 +308,12 @@ fn post_deck(client: &Client) -> String {
         contains_card_types: vec![CardType::Attack],
     };
     let create_deck_json = serde_json::to_string(&create_deck).expect("Test assertion failed");
-    let response = client.post("/decks")
-        .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+    let response = client
+        .post("/decks")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
         .body(create_deck_json)
         .dispatch();
     assert_eq!(Status::Created, response.status());
@@ -273,7 +328,8 @@ fn get_cards(client: &Client) -> Vec<Card> {
     let response = client.get("/cards").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let string_body = response.into_string().expect("Test assertion failed");
-    let list_of_decks: Vec<Card> = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
+    let list_of_decks: Vec<Card> =
+        serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
     list_of_decks
 }
 
@@ -281,7 +337,8 @@ fn get_combat(client: &Client) -> Option<Combat> {
     let response = client.get("/combat").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let string_body = response.into_string().expect("Test assertion failed");
-    let optional_combat: Option<Combat> = serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
+    let optional_combat: Option<Combat> =
+        serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
     optional_combat
 }
 
@@ -299,8 +356,12 @@ fn initialize_combat(client: &Client) {
 fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
     let action = PlayCard(id);
     let body_json = serde_json::to_string(&action).expect("Test assertion failed");
-    let response = client.post("/action")
-        .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+    let response = client
+        .post("/action")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
         .body(body_json)
         .dispatch();
     assert_eq!(response.status(), Status::Created);
@@ -315,8 +376,12 @@ fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
 fn action_play_cards_not_found(client: &Client, id: usize, expected_error_message: &str) {
     let action = PlayCard(id);
     let body_json = serde_json::to_string(&action).expect("Test assertion failed");
-    let response = client.post("/action")
-        .header(Header { name: Uncased::from("Content-Type"), value: Cow::from("application/json") })
+    let response = client
+        .post("/action")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
         .body(body_json)
         .dispatch();
     assert_eq!(response.status(), Status::NotFound);

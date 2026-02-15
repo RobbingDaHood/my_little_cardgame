@@ -23,10 +23,10 @@ use rocket_okapi::openapi_get_routes;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 
 pub mod action;
+pub mod actions_log;
 pub mod combat;
 pub mod deck;
 pub mod library;
-pub mod actions_log;
 pub mod player_data;
 pub mod player_seed;
 pub mod player_tokens;
@@ -54,6 +54,8 @@ pub use crate::player_data::new as player_data_new;
 pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::action::okapi_add_operation_for_play_;
     use crate::action::play;
+    use crate::actions_log::list_actions_log;
+    use crate::actions_log::okapi_add_operation_for_list_actions_log_;
     use crate::combat::okapi_add_operation_for_advance_phase_;
     use crate::combat::okapi_add_operation_for_enemy_play_;
     use crate::combat::okapi_add_operation_for_get_combat_;
@@ -78,9 +80,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     };
     use crate::library::list_library_cards;
     use crate::library::list_library_tokens;
-    use crate::actions_log::list_actions_log;
     use crate::library::okapi_add_operation_for_list_library_tokens_;
-    use crate::actions_log::okapi_add_operation_for_list_actions_log_;
     use crate::player_seed::okapi_add_operation_for_set_seed_;
     use crate::player_seed::set_seed;
     use crate::player_tokens::get_player_tokens;
@@ -116,7 +116,9 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
         .mount("/swagger", make_swagger_ui(&get_docs()))
         .mount("/", rocket::routes![list_library_cards])
         .manage(player_data::new())
-        .manage(std::sync::Arc::new(rocket::futures::lock::Mutex::new(library::GameState::new())))
+        .manage(std::sync::Arc::new(rocket::futures::lock::Mutex::new(
+            library::GameState::new(),
+        )))
 }
 
 fn get_docs() -> SwaggerUIConfig {

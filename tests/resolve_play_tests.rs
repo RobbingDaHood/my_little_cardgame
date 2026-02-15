@@ -1,8 +1,8 @@
 use my_little_cardgame::rocket_initialize;
-use rocket::local::blocking::Client;
-use rocket::http::Status;
 use rocket::http::uncased::Uncased;
 use rocket::http::Header;
+use rocket::http::Status;
+use rocket::local::blocking::Client;
 use std::borrow::Cow;
 
 #[test]
@@ -42,7 +42,7 @@ fn test_play_defence_card_adds_tokens() {
     // Use the default defence deck
     let deck_location = "/decks/1".to_string();
 
-        // Add the card to the deck with one card in Hand so it can be played
+    // Add the card to the deck with one card in Hand so it can be played
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 1 }} }}"#, card_id);
     let add_response = client
         .post(format!("{}/cards", deck_location))
@@ -120,7 +120,7 @@ fn test_play_defence_card_health_kills_enemy() {
     // Use the default defence deck
     let deck_location = "/decks/1".to_string();
 
-        // Add the card to the deck with one card in Hand so it can be played
+    // Add the card to the deck with one card in Hand so it can be played
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 1 }} }}"#, card_id);
     let add_response = client
         .post(format!("{}/cards", deck_location))

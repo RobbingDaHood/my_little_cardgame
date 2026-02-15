@@ -1,4 +1,3 @@
-
 use my_little_cardgame::rocket_initialize;
 use rocket::http::uncased::Uncased;
 use rocket::http::{Header, Status};

@@ -240,7 +240,10 @@ impl GameState {
         if !self.registry.contains(token_id) {
             return Err(format!("Unknown token '{}'", token_id));
         }
-        let payload = ActionPayload::GrantToken { token_id: token_id.to_string(), amount };
+        let payload = ActionPayload::GrantToken {
+            token_id: token_id.to_string(),
+            amount,
+        };
         let entry = self.action_log.append("GrantToken", payload);
         let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
         *v += amount;
