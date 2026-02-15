@@ -50,7 +50,7 @@ The server will start on `http://localhost:8000` by default.
 
 Once the server is running, access the interactive Swagger UI documentation at:
 ```
-http://localhost:8000/swagger-ui/
+http://localhost:8000/swagger/
 ```
 
 ### Key Endpoints
