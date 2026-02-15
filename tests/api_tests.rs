@@ -6,45 +6,9 @@ use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 use std::borrow::Cow;
 
-#[test]
-fn test_list_initial_cards() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+// test_list_initial_cards removed (duplicate of api_end_to_end)
 
-    let response = client.get("/cards").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-
-    let cards: Vec<Card> = serde_json::from_str(
-        &response
-            .into_string()
-            .expect("Failed to read response body"),
-    )
-    .expect("Failed to parse cards JSON");
-    assert_eq!(cards.len(), 3);
-}
-
-#[test]
-fn test_create_attack_card() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let card_json = r#"{
-        "card_type_id": 1,
-        "card_type": "Attack",
-        "effects": [],
-        "costs": [],
-        "count": 10
-    }"#;
-
-    let response = client
-        .post("/cards")
-        .header(Header {
-            name: Uncased::from("Content-Type"),
-            value: Cow::from("application/json"),
-        })
-        .body(card_json)
-        .dispatch();
-
-    assert_eq!(response.status(), Status::Created);
-}
+// test_create_attack_card removed (duplicate of api_end_to_end)
 
 #[test]
 fn test_get_nonexistent_card() {
