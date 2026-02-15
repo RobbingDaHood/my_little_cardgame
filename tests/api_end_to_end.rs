@@ -23,6 +23,7 @@ struct DeckCardJson {
     state: HashMap<CardState, u32>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct DeckJson {
     cards: Vec<DeckCardJson>,
@@ -102,7 +103,7 @@ fn hello_world() {
         created_deck
             .cards
             .iter()
-            .filter(|card| card.state.get(&CardState::Deleted).is_some())
+            .filter(|card| card.state.contains_key(&CardState::Deleted))
             .count()
     );
 
@@ -115,7 +116,7 @@ fn hello_world() {
         created_deck
             .cards
             .iter()
-            .filter(|card| card.state.get(&CardState::Deleted).is_some())
+            .filter(|card| card.state.contains_key(&CardState::Deleted))
             .count()
     );
 

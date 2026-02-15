@@ -41,7 +41,7 @@ pub async fn play(
             }
         }
         PlayerActions::SetSeed { seed } => {
-            let mut gs = game_state.lock().await;
+            let gs = game_state.lock().await;
             // append to action log
             let payload = crate::library::types::ActionPayload::SetSeed { seed };
             gs.action_log.append("SetSeed", payload);

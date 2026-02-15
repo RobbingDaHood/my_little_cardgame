@@ -359,7 +359,7 @@ mod tests {
         let has_hand = deck
             .cards
             .iter()
-            .any(|c| c.state.get(&CardState::Hand).is_some());
+            .any(|c| c.state.contains_key(&CardState::Hand));
         assert!(has_hand);
     }
 }
