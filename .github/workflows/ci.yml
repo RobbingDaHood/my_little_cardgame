@@ -21,3 +21,14 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
       - name: Run tests
         run: cargo test --workspace --all-features -- --nocapture
+      - name: Install llvm tools
+        run: rustup component add llvm-tools-preview
+      - name: Install cargo-llvm-cov
+        run: cargo install --locked cargo-llvm-cov
+      - name: Run coverage
+        run: cargo llvm-cov --workspace --lcov --output-path target/lcov.info --fail-under-lines 85
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov
+          path: target/lcov.info
