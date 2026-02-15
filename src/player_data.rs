@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use rand::{RngCore, SeedableRng};
-use rand_pcg::{Lcg64Xsh32, Pcg32};
+use rand_pcg::Lcg64Xsh32;
 use rocket::futures::lock::Mutex;
 
 use crate::combat::Combat;
@@ -34,8 +34,8 @@ pub fn new() -> PlayerData {
     let mut new_seed: [u8; 16] = [1; 16];
 
     // Draw some cards
-    Pcg32::from_entropy().fill_bytes(&mut new_seed);
-    let mut random_generator = Pcg32::from_seed(new_seed);
+    Lcg64Xsh32::from_entropy().fill_bytes(&mut new_seed);
+    let mut random_generator = Lcg64Xsh32::from_seed(new_seed);
     let _ = attack_deck.draw_cards(5, &mut random_generator);
     let _ = defence_deck.draw_cards(5, &mut random_generator);
     let _ = ressource_deck.draw_cards(5, &mut random_generator);

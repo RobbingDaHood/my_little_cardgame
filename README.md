@@ -104,6 +104,14 @@ curl -X POST http://localhost:8000/combat
 
 ## Development
 
+### Seeding and reproducibility
+
+- Set the session RNG seed: POST /player/seed with JSON body `{ "seed": 42 }` to initialize deterministic runs.
+- The server records the seed (and key RNG draws) in the ActionLog (GET /actions/log) so runs can be reproduced from seed + action log.
+- Snapshot and restore helpers are available in the player_seed utilities to serialize RNG state (used for replay or debugging).
+
+
+
 ### Running Tests
 
 Run the full test suite:
@@ -183,3 +191,19 @@ Apache-2.0
 ## Author
 
 RobbingDaHood
+
+### Developer setup - pre-commit hooks
+
+Install pre-commit (pip install --user pre-commit) and enable the hooks:
+
+```bash
+make install-hooks
+# or
+./scripts/install-hooks.sh
+```
+
+The hooks run:
+- `cargo fmt -- --check`
+- `cargo clippy --all-targets --all-features -- -D warnings`
+- `make coverage` (enforces 85% coverage)
+
