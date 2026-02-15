@@ -217,7 +217,7 @@ pub async fn list_library_cards(player_data: &rocket::State<crate::player_data::
             let ct = match c.card_type {
                 crate::deck::card::CardType::Attack => "Attack",
                 crate::deck::card::CardType::Defence => "Defence",
-                crate::deck::card::CardType::Ressource => "Resource",
+                crate::deck::card::CardType::Resource => "Resource",
             };
             format!("{{\"id\":{},\"name\":\"card_{}\",\"card_type\":\"{}\"}}", c.id, c.id, ct)
         })

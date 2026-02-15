@@ -78,7 +78,7 @@ pub async fn enemy_play(player_data: &State<PlayerData>) -> Created<&'static str
     let desired_card_type = match phase {
         States::Defending => CardType::Defence,
         States::Attacking => CardType::Attack,
-        States::Resourcing => CardType::Ressource,
+        States::Resourcing => CardType::Resource,
     };
 
     // If the phase is Defending, attempt to pick a UnitCard from enemy defence_deck, otherwise pick from the matching deck
@@ -95,7 +95,7 @@ pub async fn enemy_play(player_data: &State<PlayerData>) -> Created<&'static str
                 let deck_vec = match desired_card_type {
                     CardType::Defence => &enemy.defence_deck,
                     CardType::Attack => &enemy.attack_deck,
-                    CardType::Ressource => &enemy.resource_deck,
+                    CardType::Resource => &enemy.resource_deck,
                 };
                 for (uci, uc) in deck_vec.iter().enumerate() {
                     if let Some(count) = uc.state.get(&CardState::Hand) {
@@ -116,7 +116,7 @@ pub async fn enemy_play(player_data: &State<PlayerData>) -> Created<&'static str
                 let deck_vec = match desired_card_type {
                     CardType::Defence => &mut enemy.defence_deck,
                     CardType::Attack => &mut enemy.attack_deck,
-                    CardType::Ressource => &mut enemy.resource_deck,
+                    CardType::Resource => &mut enemy.resource_deck,
                 };
                 // decrement Hand and increment Discard
                 if let Some(hand_count) = deck_vec[uc_idx].state.get_mut(&CardState::Hand) {

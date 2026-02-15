@@ -72,7 +72,7 @@ mod test {
             state: HashMap::from([(CardState::Deck, 20)]),
         };
         post_card_to_deck_fail_on_type(&client, created_deck.id, deck_card,
-                                       "Card with id 4 is of type Ressource and that is not part of the types '[Attack]' allowed in deck with id 3");
+                                       "Card with id 4 is of type Resource and that is not part of the types '[Attack]' allowed in deck with id 3");
 
         let card_in_deck = get_card_in_deck(&client, location_header_card_in_deck.clone());
         assert_eq!(card_in_deck.id, card_id_attack);
@@ -117,7 +117,7 @@ mod test {
     fn get_ressource_card() -> CardCreate {
         CardCreate {
             card_type_id: 1,
-            card_type: CardType::Ressource,
+            card_type: CardType::Resource,
             effects: vec![
                 Token {
                     token_type: TokenType::Health,

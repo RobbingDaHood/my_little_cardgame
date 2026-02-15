@@ -47,7 +47,7 @@ pub struct CardCreate {
 pub enum CardType {
     Attack,
     Defence,
-    Ressource,
+    Resource,
 }
 
 #[openapi]

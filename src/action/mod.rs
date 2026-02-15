@@ -40,7 +40,7 @@ pub async fn play(
                             let allowed = match combat.state {
                                 States::Defending => CardType::Defence,
                                 States::Attacking => CardType::Attack,
-                                States::Resourcing => CardType::Ressource,
+                                States::Resourcing => CardType::Resource,
                             };
                             if card.card_type != allowed {
                                 return Err(Right(BadRequest(new_status(format!("Card with id {} is not playable in current phase", card_id)))));

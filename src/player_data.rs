@@ -88,7 +88,7 @@ fn initialize_player_cards() -> Arc<Mutex<Vec<Card>>> {
         },
         Card {
             id: 2,
-            card_type: CardType::Ressource,
+            card_type: CardType::Resource,
             effects: vec![Token {
                 token_type: TokenType::Stamina,
                 permanence: TokenPermanence::Permanent(PermanentDefinition { max_count: 20 }),
@@ -102,7 +102,7 @@ fn initialize_player_cards() -> Arc<Mutex<Vec<Card>>> {
 
 fn initialize_player_resource_deck() -> Deck {
     Deck {
-        contains_card_types: vec![CardType::Ressource],
+        contains_card_types: vec![CardType::Resource],
         cards: vec![DeckCard {
             id: 2,
             state: HashMap::from([(CardState::Deck, 40)]),
