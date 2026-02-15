@@ -268,7 +268,7 @@ pub async fn create_deck(
             "Deck must allow at least one card type".to_string(),
         )));
     }
-    
+
     let unused_id = *player_data
         .decks
         .lock()

@@ -87,14 +87,14 @@ pub async fn create_card(
     player_data: &State<PlayerData>,
 ) -> Result<Created<String>, BadRequest<Json<Status>>> {
     let the_card = new_card.0;
-    
+
     // Validate count is positive
     if the_card.count == 0 {
         return Err(BadRequest(new_status(
             "Card count must be greater than 0".to_string(),
         )));
     }
-    
+
     let unused_id = *player_data
         .cards
         .lock()
