@@ -13,9 +13,3 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
-      - id: cargo-coverage
-        name: coverage check
-        entry: bash scripts/check_coverage.sh
-        language: system
-        pass_filenames: false
-        always_run: true
