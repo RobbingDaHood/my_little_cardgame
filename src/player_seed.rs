@@ -1,5 +1,5 @@
 use crate::player_data::PlayerData;
-use rand::{SeedableRng, RngCore};
+use rand::{RngCore, SeedableRng};
 use rand_pcg::Lcg64Xsh32;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
