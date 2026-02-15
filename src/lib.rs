@@ -104,8 +104,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 get_player_tokens,
                 set_seed,
                 get_combat_result,
-                list_library_tokens,
-                list_library_cards
+                list_library_tokens
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))
