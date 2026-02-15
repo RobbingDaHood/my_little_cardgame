@@ -29,11 +29,35 @@ Key conventions and repository-specific notes
 
 - "Everything is a deck" design: core game state is modelled as decks (Attack, Defence, Resource) and cards move between Deck, Hand, Discarded, Deleted states.
 - Tests: place tests in separate files under the top-level `tests/` directory (do not put tests inline in `src` files). Prefer integration tests that exercise the public HTTP API (see `tests/` and `src/tests.rs`). Do not make items `pub` solely to enable unit testing — keep as much of the program private as possible and test through integration tests instead. When running a single integration test, use the test name shown in source (substring matching is supported by `cargo test`). Aim for at least 90% test coverage before committing; ensure coverage is measured and enforced in CI.
-- OpenAPI/Swagger is enabled using `rocket_okapi`; when the server is running, view Swagger UI at `/swagger-ui/`.
+- OpenAPI/Swagger is enabled using `rocket_okapi`; when the server is running, view Swagger UI at `/swagger/`.
 - No unwraps and zero Clippy warnings policy: avoid adding unwrap() in production code; prefer Result propagation and explicit error handling.
 - Features and dependencies: Rocket is built with `json` feature disabled by default — follow existing Cargo.toml features when adding dependencies.
 - Prefer simpler code wrapped in well-named wrapper methods instead of relying on long explanatory comments; remove obvious comments that merely restate what clear function/variable names communicate. Favor expressive names and small helper functions over comment-heavy implementations.
  - Consider using Rust enums for discrete states or variant data (e.g., deck or card states); prefer enums over ad-hoc strings or booleans when it improves clarity, type-safety, and enables exhaustive matching.
+
+  - When to use enums vs newtypes vs strings:
+    - Use enums for closed sets of variants (CardType, CardState, TokenLifecycle).
+    - Use newtype wrappers (e.g., struct TokenId(String)) when the value is opaque but needs stronger typing.
+    - Use plain strings only for truly dynamic, designer-driven values.
+
+  - Examples:
+    - CardType: derive Serialize/Deserialize/JsonSchema and use in API structs:
+      ```rust
+      #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+      #[serde(crate = "rocket::serde")]
+      pub enum CardType { Attack, Defence, Resource }
+      ```
+    - TokenId/newtype:
+      ```rust
+      #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+      #[serde(transparent, crate = "rocket::serde")]
+      pub struct TokenId(pub String);
+      ```
+
+  - Implementation notes for agents:
+    - Prefer returning typed `Json<T>` from handlers and deriving JsonSchema so OpenAPI is accurate.
+    - Avoid building JSON strings by hand (RawJson); map domain types to serde-serializable structs instead.
+    - For action payloads, prefer structured payloads (serde_json::Value or a serde enum) instead of pipe-separated strings; start with `serde_json::Value` for minimal change and migrate to typed enums later.
 
 Files to check for agent config
 
