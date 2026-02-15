@@ -8,11 +8,13 @@
 
 use std::collections::HashMap;
 use rocket::serde::json::Json;
-use rocket_okapi::openapi;
+use rocket::serde::{Deserialize, Serialize};
+use rocket_okapi::{openapi, JsonSchema};
 
 pub mod types {
     /// Canonical card definition (minimal)
-    #[derive(Debug, Clone)]
+    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
     pub struct CardDef {
         pub id: u64,
         pub name: String,
