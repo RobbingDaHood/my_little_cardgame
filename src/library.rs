@@ -204,3 +204,24 @@ pub async fn list_library_tokens() -> Json<Vec<String>> {
     let reg = TokenRegistry::with_canonical();
     Json(reg.tokens.iter().map(|t| t.id.clone()).collect())
 }
+
+/// Minimal "library" view exposing canonical card entries derived from current player_data.
+#[openapi]
+#[get("/library/cards")]
+pub async fn list_library_cards(player_data: &rocket::State<crate::player_data::PlayerData>) -> Json<Vec<types::CardDef>> {
+    // Map existing cards into a minimal CardDef view; this is a thin wrapper for now.
+    let cards = player_data.cards.lock().await.clone();
+    let defs: Vec<types::CardDef> = cards
+        .into_iter()
+        .map(|c| types::CardDef {
+            id: c.id as u64,
+            name: format!("card_{}", c.id),
+            card_type: match c.card_type {
+                crate::deck::card::CardType::Attack => "Attack".into(),
+                crate::deck::card::CardType::Defence => "Defence".into(),
+                crate::deck::card::CardType::Ressource => "Resource".into(),
+            },
+        })
+        .collect();
+    Json(defs)
+}
