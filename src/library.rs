@@ -14,7 +14,6 @@ use std::sync::atomic::Ordering;
 pub mod types {
     use rocket::serde::{Deserialize, Serialize};
     use rocket_okapi::JsonSchema;
-    use serde_json::Value;
     /// Canonical card definition (minimal)
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
@@ -59,13 +58,20 @@ pub mod types {
         GrantToken { token_id: String, amount: i64 },
     }
 
+    /// Action payloads for the append-only log
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "type")]
+    pub enum ActionPayload {
+        GrantToken { token_id: String, amount: i64 },
+    }
+
     /// Stored action entry in the append-only action log.
-    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct ActionEntry {
         pub seq: u64,
         pub action_type: String,
-        pub payload: Value, // structured payload for replay
+        pub payload: ActionPayload, // structured payload for replay
     }
 }
 
@@ -147,8 +153,7 @@ pub mod registry {
 }
 
 pub mod action_log {
-    use super::types::ActionEntry;
-    use serde_json::Value;
+    use super::types::{ActionEntry, ActionPayload};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
 
@@ -184,7 +189,7 @@ pub mod action_log {
         }
 
         /// Append an action entry, assigning an incrementing sequence number.
-        pub fn append(&self, action_type: &str, payload: Value) -> ActionEntry {
+        pub fn append(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
             let seq = self.seq.fetch_add(1, Ordering::SeqCst) + 1;
             let entry = ActionEntry {
                 seq,
@@ -204,7 +209,7 @@ pub mod action_log {
 
 use action_log::ActionLog;
 use registry::TokenRegistry;
-use types::ActionEntry;
+use types::{ActionEntry, ActionPayload};
 
 /// Minimal in-memory game state driven by the library's mutator API.
 #[derive(Debug, Clone)]
@@ -234,7 +239,7 @@ impl GameState {
         if !self.registry.contains(token_id) {
             return Err(format!("Unknown token '{}'", token_id));
         }
-        let payload = serde_json::json!({"type":"GrantToken","token_id":token_id,"amount":amount});
+        let payload = ActionPayload::GrantToken { token_id: token_id.to_string(), amount };
         let entry = self.action_log.append("GrantToken", payload);
         let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
         *v += amount;
@@ -255,21 +260,13 @@ impl GameState {
             }
         };
         for e in log.entries() {
-            if e.action_type == "GrantToken" {
-                if let Some(token_id_val) = e.payload.get("token_id") {
-                    if let Some(token_id) = token_id_val.as_str() {
-                        if let Some(amount_val) = e.payload.get("amount") {
-                            if let Some(amount) = amount_val.as_i64() {
-                                let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
-                                *v += amount;
-                                gs.action_log.entries.lock().unwrap().push(e.clone());
-                                let cur = gs.action_log.seq.load(Ordering::SeqCst);
-                                if cur < e.seq {
-                                    gs.action_log.seq.store(e.seq, Ordering::SeqCst);
-                                }
-                            }
-                        }
-                    }
+            if let ActionPayload::GrantToken { token_id, amount } = &e.payload {
+                let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
+                *v += *amount;
+                gs.action_log.entries.lock().unwrap().push(e.clone());
+                let cur = gs.action_log.seq.load(Ordering::SeqCst);
+                if cur < e.seq {
+                    gs.action_log.seq.store(e.seq, Ordering::SeqCst);
                 }
             }
         }
@@ -316,7 +313,7 @@ mod tests {
             let log_clone = Arc::clone(&log);
             handles.push(thread::spawn(move || {
                 for j in 0..per_thread {
-                    let payload = serde_json::json!({"thread": i, "iter": j});
+                    let payload = ActionPayload::GrantToken { token_id: format!("t{}_{}", i, j), amount: j as i64 };
                     log_clone.append("GrantToken", payload);
                 }
             }));
