@@ -11,8 +11,8 @@ use my_little_cardgame::combat::Combat;
 use my_little_cardgame::combat::States::Defending;
 use my_little_cardgame::combat::units::get_gnome;
 use my_little_cardgame::deck::{Card, CardState, CreateDeck};
-use my_little_cardgame::deck::card::{CardCreate, CardType};
-use my_little_cardgame::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
+use my_little_cardgame::deck::card::CardType;
+
 use my_little_cardgame::rocket_initialize;
 use my_little_cardgame::status_messages::new_status;
 use my_little_cardgame::status_messages::Status as MyStatus;
@@ -295,6 +295,7 @@ fn initialize_combat(client: &Client) {
     assert_eq!("/combat", (*location_header).to_string());
 }
 
+#[allow(dead_code)]
 fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
     let action = PlayCard(id);
     let body_json = serde_json::to_string(&action).expect("Test assertion failed");
@@ -310,6 +311,7 @@ fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
     assert_eq!(expected_response, (*location_header).to_string());
 }
 
+#[allow(dead_code)]
 fn action_play_cards_not_found(client: &Client, id: usize, expected_error_message: &str) {
     let action = PlayCard(id);
     let body_json = serde_json::to_string(&action).expect("Test assertion failed");

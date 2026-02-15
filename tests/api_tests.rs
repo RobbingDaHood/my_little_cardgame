@@ -1,9 +1,9 @@
-use my_little_cardgame::deck::Card;
+
 use my_little_cardgame::rocket_initialize;
 use rocket::http::uncased::Uncased;
 use rocket::http::{Header, Status};
 use rocket::local::blocking::Client;
-use rocket::serde::json::serde_json;
+
 use std::borrow::Cow;
 
 // test_list_initial_cards removed (duplicate of api_end_to_end)
