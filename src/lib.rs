@@ -26,6 +26,7 @@ pub mod action;
 pub mod combat;
 pub mod deck;
 pub mod library;
+pub mod actions_log;
 pub mod player_data;
 pub mod player_seed;
 pub mod player_tokens;
@@ -77,7 +78,9 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     };
     use crate::library::list_library_cards;
     use crate::library::list_library_tokens;
+    use crate::actions_log::list_actions_log;
     use crate::library::okapi_add_operation_for_list_library_tokens_;
+    use crate::actions_log::okapi_add_operation_for_list_actions_log_;
     use crate::player_seed::okapi_add_operation_for_set_seed_;
     use crate::player_seed::set_seed;
     use crate::player_tokens::get_player_tokens;
@@ -106,12 +109,14 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 get_player_tokens,
                 set_seed,
                 get_combat_result,
-                list_library_tokens
+                list_library_tokens,
+                list_actions_log
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))
         .mount("/", rocket::routes![list_library_cards])
         .manage(player_data::new())
+        .manage(std::sync::Arc::new(rocket::futures::lock::Mutex::new(library::GameState::new())))
 }
 
 fn get_docs() -> SwaggerUIConfig {
