@@ -208,22 +208,21 @@ pub async fn list_library_tokens() -> Json<Vec<String>> {
 }
 
 /// Minimal "library" view exposing canonical card entries derived from current player_data.
-#[openapi]
 #[get("/library/cards")]
-pub async fn list_library_cards(player_data: &rocket::State<crate::player_data::PlayerData>) -> Json<Vec<types::CardDef>> {
-    // Map existing cards into a minimal CardDef view; this is a thin wrapper for now.
+pub async fn list_library_cards(player_data: &rocket::State<crate::player_data::PlayerData>) -> rocket::response::content::RawJson<String> {
+    // Map existing cards into a minimal CardDef-like JSON string; this avoids requiring new derives.
     let cards = player_data.cards.lock().await.clone();
-    let defs: Vec<types::CardDef> = cards
+    let items: Vec<String> = cards
         .into_iter()
-        .map(|c| types::CardDef {
-            id: c.id as u64,
-            name: format!("card_{}", c.id),
-            card_type: match c.card_type {
-                crate::deck::card::CardType::Attack => "Attack".into(),
-                crate::deck::card::CardType::Defence => "Defence".into(),
-                crate::deck::card::CardType::Ressource => "Resource".into(),
-            },
+        .map(|c| {
+            let ct = match c.card_type {
+                crate::deck::card::CardType::Attack => "Attack",
+                crate::deck::card::CardType::Defence => "Defence",
+                crate::deck::card::CardType::Ressource => "Resource",
+            };
+            format!("{{\"id\":{},\"name\":\"card_{}\",\"card_type\":\"{}\"}}", c.id, c.id, ct)
         })
         .collect();
-    Json(defs)
+    let json = format!("[{}]", items.join(","));
+    rocket::response::content::RawJson(json)
 }
