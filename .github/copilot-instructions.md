@@ -9,8 +9,9 @@ Build, test, and lint commands
 - Run full test suite: `cargo test`.
 - Run a single test by name: `cargo test <test_name>` (use a substring of the test function name).
 - Run tests with visible output: `cargo test -- --nocapture`.
-- Lint with Clippy: `cargo clippy`.
+- Lint with Clippy: `cargo clippy --all-targets --all-features -- -D warnings`. Run this command before each commit.
 - Format: `cargo fmt`.
+- Ensure formatting checks pass before committing: `cargo fmt -- --check`.
 
 High-level architecture
 
@@ -69,7 +70,7 @@ Notes for Copilot sessions
 
 - Prefer reading `README.md` and `src/` modules before making changes; the README contains useful usage and testing commands.
 - When adding or changing endpoints, update both `src/lib.rs` and `src/main.rs` and add an integration test under `tests/`.
-- Keep changes minimal and run `cargo test` and `cargo clippy` before opening PRs.
+- Keep changes minimal and run `cargo test` and `cargo clippy --all-targets --all-features -- -D warnings` before opening PRs.
 
 MCP servers
 

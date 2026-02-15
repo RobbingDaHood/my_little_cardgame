@@ -120,12 +120,18 @@ cargo test -- --nocapture
 
 Check for linting issues:
 ```bash
-cargo clippy
+cargo clippy --all-targets --all-features -- -D warnings
 ```
+Run this command before each commit to ensure zero clippy warnings.
 
 Format code:
 ```bash
 cargo fmt
+```
+
+Ensure formatting checks pass before committing:
+```bash
+cargo fmt -- --check
 ```
 
 ### Project Structure
