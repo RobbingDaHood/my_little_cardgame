@@ -1,5 +1,5 @@
 use either::{Either, Left, Right};
-use rocket::response::status::{BadRequest, Created, NotFound};
+use rocket::response::status::{BadRequest, NotFound};
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
@@ -29,14 +29,14 @@ pub async fn play(
     player_data: &State<PlayerData>,
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
     player_action: Json<PlayerActions>,
-) -> Result<Created<&'static str>, Either<NotFound<Json<Status>>, BadRequest<Json<Status>>>> {
+) -> Result<Json<serde_json::Value>, Either<NotFound<Json<Status>>, BadRequest<Json<Status>>>> {
     let action = player_action.0;
 
     match action {
         PlayerActions::GrantToken { token_id, amount } => {
             let mut gs = game_state.lock().await;
             match gs.apply_grant(&token_id, amount) {
-                Ok(_entry) => Ok(Created::new("OK")),
+                Ok(entry) => Ok(Json(serde_json::json!({"entry": entry}))),
                 Err(e) => Err(Right(BadRequest(new_status(e)))),
             }
         }
@@ -44,7 +44,7 @@ pub async fn play(
             let gs = game_state.lock().await;
             // append to action log
             let payload = crate::library::types::ActionPayload::SetSeed { seed };
-            gs.append_action("SetSeed", payload);
+            let entry = gs.append_action("SetSeed", payload);
             // apply to PlayerData RNG/seed
             let s = seed;
             let mut seed_bytes: [u8; 16] = [0u8; 16];
@@ -53,7 +53,7 @@ pub async fn play(
             *player_data.seed.lock().await = seed_bytes;
             let new_rng = Lcg64Xsh32::from_seed(seed_bytes);
             *player_data.random_generator_state.lock().await = new_rng;
-            Ok(Created::new("OK"))
+            Ok(Json(serde_json::json!({"entry": entry})))
         }
         PlayerActions::PlayCard(card_id) => {
             let combat_optional: Option<Combat> = *player_data.current_combat.lock().await.clone();
@@ -89,23 +89,22 @@ pub async fn play(
                                     "Card with id {action:?} does not exist in deck!"
                                 ))))),
                                 Some(deck) => {
-                                    let res = deck
-                                        .change_card_state(
-                                            card_id,
-                                            CardState::Discard,
-                                            CardState::Hand,
-                                        )
-                                        .map_err(Left)
-                                        .map(|()| Created::new("ALL OKAY"));
-                                    if res.is_ok() {
-                                        crate::combat::resolve::resolve_card_effects(
-                                            card_id,
-                                            true,
-                                            player_data,
-                                        )
-                                        .await;
+                                    match deck.change_card_state(
+                                        card_id,
+                                        CardState::Discard,
+                                        CardState::Hand,
+                                    ) {
+                                        Ok(()) => {
+                                            crate::combat::resolve::resolve_card_effects(
+                                                card_id,
+                                                true,
+                                                player_data,
+                                            )
+                                            .await;
+                                            Ok(Json(serde_json::json!({"status":"ALL OKAY"})))
+                                        }
+                                        Err(e) => Err(Left(e)),
                                     }
-                                    res
                                 }
                             }
                         }
