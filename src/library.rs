@@ -13,8 +13,7 @@ use rocket_okapi::{openapi, JsonSchema};
 
 pub mod types {
     /// Canonical card definition (minimal)
-    #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-    #[serde(crate = "rocket::serde")]
+    #[derive(Debug, Clone)]
     pub struct CardDef {
         pub id: u64,
         pub name: String,
