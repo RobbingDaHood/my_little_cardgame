@@ -1,9 +1,9 @@
-use rocket::State;
 use rocket::serde::json::Json;
-use rocket_okapi::{openapi, JsonSchema};
+use rocket::State;
+use rocket_okapi::openapi;
 
-use crate::player_data::PlayerData;
 use crate::deck::token::Token;
+use crate::player_data::PlayerData;
 
 #[openapi]
 #[get("/player/tokens")]

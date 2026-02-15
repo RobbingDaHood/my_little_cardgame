@@ -1,10 +1,10 @@
-use rocket::State;
-use rocket::serde::json::Json;
-use rocket::serde::{Deserialize, Serialize};
-use rocket_okapi::{openapi, JsonSchema};
+use crate::player_data::PlayerData;
 use rand::SeedableRng;
 use rand_pcg::Lcg64Xsh32;
-use crate::player_data::PlayerData;
+use rocket::serde::json::Json;
+use rocket::serde::{Deserialize, Serialize};
+use rocket::State;
+use rocket_okapi::{openapi, JsonSchema};
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
@@ -14,7 +14,10 @@ pub struct SeedRequest {
 
 #[openapi]
 #[post("/player/seed", format = "json", data = "<seed_req>")]
-pub async fn set_seed(seed_req: Json<SeedRequest>, player_data: &State<PlayerData>) -> Json<String> {
+pub async fn set_seed(
+    seed_req: Json<SeedRequest>,
+    player_data: &State<PlayerData>,
+) -> Json<String> {
     let s = seed_req.seed;
     let mut seed_bytes: [u8; 16] = [0u8; 16];
     // fill with two copies of the u64

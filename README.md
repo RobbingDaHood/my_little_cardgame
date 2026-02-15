@@ -50,7 +50,7 @@ The server will start on `http://localhost:8000` by default.
 
 Once the server is running, access the interactive Swagger UI documentation at:
 ```
-http://localhost:8000/swagger-ui/
+http://localhost:8000/swagger/
 ```
 
 ### Key Endpoints
@@ -120,12 +120,18 @@ cargo test -- --nocapture
 
 Check for linting issues:
 ```bash
-cargo clippy
+cargo clippy --all-targets --all-features -- -D warnings
 ```
+Run this command before each commit to ensure zero clippy warnings.
 
 Format code:
 ```bash
 cargo fmt
+```
+
+Ensure formatting checks pass before committing:
+```bash
+cargo fmt -- --check
 ```
 
 ### Project Structure

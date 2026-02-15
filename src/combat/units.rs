@@ -39,7 +39,7 @@ fn get_gnome_resource_deck() -> Vec<UnitCard> {
     vec![
         UnitCard {
             state: HashMap::from([(CardState::Deck, 20)]),
-            card_type: CardType::Ressource,
+            card_type: CardType::Resource,
             effects: vec![Token {
                 token_type: TokenType::Stamina,
                 permanence: TokenPermanence::Permanent(PermanentDefinition { max_count: 20 }),
@@ -49,7 +49,7 @@ fn get_gnome_resource_deck() -> Vec<UnitCard> {
         },
         UnitCard {
             state: HashMap::from([(CardState::Deck, 10)]),
-            card_type: CardType::Ressource,
+            card_type: CardType::Resource,
             effects: vec![
                 Token {
                     token_type: TokenType::Health,
@@ -66,7 +66,7 @@ fn get_gnome_resource_deck() -> Vec<UnitCard> {
         },
         UnitCard {
             state: HashMap::from([(CardState::Deck, 10)]),
-            card_type: CardType::Ressource,
+            card_type: CardType::Resource,
             effects: vec![
                 Token {
                     token_type: TokenType::Mana,
