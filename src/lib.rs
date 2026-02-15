@@ -25,6 +25,7 @@ use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 pub mod action;
 pub mod combat;
 pub mod deck;
+pub mod library;
 pub mod player_data;
 pub mod player_tokens;
 pub mod player_seed;
