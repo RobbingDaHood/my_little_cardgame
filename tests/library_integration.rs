@@ -1,6 +1,5 @@
 use rocket::http::Status;
 use rocket::local::blocking::Client;
-use rocket::serde::json::Json;
 
 #[test]
 fn library_tokens_endpoint_returns_list() {
