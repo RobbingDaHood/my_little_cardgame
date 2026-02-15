@@ -76,6 +76,8 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::player_tokens::get_player_tokens;
     use crate::player_seed::okapi_add_operation_for_set_seed_;
     use crate::player_seed::set_seed;
+    use crate::library::okapi_add_operation_for_list_library_tokens_;
+    use crate::library::list_library_tokens;
 
     #[allow(clippy::no_effect_underscore_binding)]
     let _ = env_logger::try_init();
@@ -99,7 +101,8 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 play,
                 get_player_tokens,
                 set_seed,
-                get_combat_result
+                get_combat_result,
+                list_library_tokens
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))

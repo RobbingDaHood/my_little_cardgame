@@ -7,6 +7,8 @@
 //! This file provides small, well-scoped domain primitives used by higher-level systems.
 
 use std::collections::HashMap;
+use rocket::serde::json::Json;
+use rocket_okapi::openapi;
 
 pub mod types {
     /// Canonical card definition (minimal)
@@ -193,4 +195,12 @@ mod tests {
         assert_eq!(replayed.token_balances.get("Insight").copied().unwrap_or(0), 10);
         assert_eq!(replayed.action_log.entries.len(), 1);
     }
+}
+
+/// Expose a thin HTTP/OKAPI-friendly endpoint that returns canonical token ids
+#[openapi]
+#[get("/library/tokens")]
+pub async fn list_library_tokens() -> Json<Vec<String>> {
+    let reg = TokenRegistry::with_canonical();
+    Json(reg.tokens.iter().map(|t| t.id.clone()).collect())
 }
