@@ -57,7 +57,7 @@ Key conventions and repository-specific notes
   - Implementation notes for agents:
     - Prefer returning typed `Json<T>` from handlers and deriving JsonSchema so OpenAPI is accurate.
     - Avoid building JSON strings by hand (RawJson); map domain types to serde-serializable structs instead.
-    - For action payloads, prefer structured payloads (serde_json::Value or a serde enum) instead of pipe-separated strings; start with `serde_json::Value` for minimal change and migrate to typed enums later.
+    - For action payloads, prefer structured payloads (typed serde enums) instead of pipe-separated strings; prefer a strongly-typed serde enum (derive Serialize/Deserialize/JsonSchema) and use `serde_json::Value` only as a short-term fallback when necessary.
 
 Files to check for agent config
 
