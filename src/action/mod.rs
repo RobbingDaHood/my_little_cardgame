@@ -6,9 +6,8 @@ use rocket::State;
 use rocket_okapi::{openapi, JsonSchema};
 
 use crate::combat::{Combat, States};
-use crate::deck::CardState;
 use crate::deck::card::{get_card, CardType};
-use crate::combat;
+use crate::deck::CardState;
 use crate::player_data::PlayerData;
 use crate::status_messages::{new_status, Status};
 
@@ -35,7 +34,10 @@ pub async fn play(
                 Some(combat) => {
                     // check card exists and is of allowed type for the phase
                     match get_card(card_id, player_data).await {
-                        None => Err(Left(NotFound(new_status(format!("Card {:?} does not exist!", card_id))))),
+                        None => Err(Left(NotFound(new_status(format!(
+                            "Card {:?} does not exist!",
+                            card_id
+                        ))))),
                         Some(card) => {
                             let allowed = match combat.state {
                                 States::Defending => CardType::Defence,
@@ -43,7 +45,10 @@ pub async fn play(
                                 States::Resourcing => CardType::Resource,
                             };
                             if card.card_type != allowed {
-                                return Err(Right(BadRequest(new_status(format!("Card with id {} is not playable in current phase", card_id)))));
+                                return Err(Right(BadRequest(new_status(format!(
+                                    "Card with id {} is not playable in current phase",
+                                    card_id
+                                )))));
                             }
                             let deck_id = match combat.state {
                                 States::Defending => *player_data.defence_deck_id.lock().await,
@@ -57,9 +62,21 @@ pub async fn play(
                                     "Card with id {action:?} does not exist in deck!"
                                 ))))),
                                 Some(deck) => {
-                                    let res = deck.change_card_state(card_id, CardState::Discard, CardState::Hand).map_err(Left).map(|()| Created::new("ALL OKAY"));
+                                    let res = deck
+                                        .change_card_state(
+                                            card_id,
+                                            CardState::Discard,
+                                            CardState::Hand,
+                                        )
+                                        .map_err(Left)
+                                        .map(|()| Created::new("ALL OKAY"));
                                     if res.is_ok() {
-                                        crate::combat::resolve::resolve_card_effects(card_id, true, player_data).await;
+                                        crate::combat::resolve::resolve_card_effects(
+                                            card_id,
+                                            true,
+                                            player_data,
+                                        )
+                                        .await;
                                     }
                                     res
                                 }
