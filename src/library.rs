@@ -7,12 +7,9 @@
 //! This file provides small, well-scoped domain primitives used by higher-level systems.
 
 use rocket::serde::json::Json;
-use rocket::serde::{Deserialize, Serialize};
-use rocket_okapi::{openapi, JsonSchema};
-use serde_json::Value;
+use rocket_okapi::openapi;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::atomic::Ordering;
 
 pub mod types {
     use rocket::serde::{Deserialize, Serialize};
