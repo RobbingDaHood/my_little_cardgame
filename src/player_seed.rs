@@ -33,7 +33,7 @@ pub async fn set_seed(
     {
         let gs = game_state.lock().await;
         let payload = crate::library::types::ActionPayload::SetSeed { seed: s };
-        gs.action_log.append("SetSeed", payload);
+        gs.append_action("SetSeed", payload);
     }
 
     Json(format!("seed set to {}", s))
@@ -53,7 +53,7 @@ pub async fn derive_subseed(
             purpose: purpose.to_string(),
             value,
         };
-        gs.action_log.append("RngDraw", payload);
+        gs.append_action("RngDraw", payload);
     }
     value
 }

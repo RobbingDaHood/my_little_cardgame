@@ -75,6 +75,10 @@ pub mod types {
         pub seq: u64,
         pub action_type: String,
         pub payload: ActionPayload, // structured payload for replay
+        pub timestamp: String,      // milliseconds since epoch as string
+        pub actor: Option<String>,
+        pub request_id: Option<String>,
+        pub version: Option<u32>,
     }
 }
 
@@ -191,13 +195,34 @@ pub mod action_log {
             Self::default()
         }
 
-        /// Append an action entry, assigning an incrementing sequence number.
+        /// Append an action entry (simple) — backward compatible wrapper using no metadata.
         pub fn append(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
+            self.append_with_meta(action_type, payload, None, None, None)
+        }
+
+        /// Append an action entry with metadata, assigning an incrementing sequence number.
+        pub fn append_with_meta(
+            &self,
+            action_type: &str,
+            payload: ActionPayload,
+            actor: Option<String>,
+            request_id: Option<String>,
+            version: Option<u32>,
+        ) -> ActionEntry {
             let seq = self.seq.fetch_add(1, Ordering::SeqCst) + 1;
+            let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            {
+                Ok(dur) => format!("{}", dur.as_millis()),
+                Err(_) => "0".to_string(),
+            };
             let entry = ActionEntry {
                 seq,
                 action_type: action_type.to_string(),
                 payload: payload.clone(),
+                timestamp,
+                actor,
+                request_id,
+                version,
             };
             self.entries.lock().unwrap().push(entry.clone());
             entry
@@ -246,10 +271,15 @@ impl GameState {
             token_id: token_id.to_string(),
             amount,
         };
-        let entry = self.action_log.append("GrantToken", payload);
+        let entry = self.append_action("GrantToken", payload);
         let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
         *v += amount;
         Ok(entry)
+    }
+
+    /// Append an action to the action log with optional metadata; returns the appended entry.
+    pub fn append_action(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
+        self.action_log.append(action_type, payload)
     }
 
     /// Reconstruct state from a registry and an existing action log (seed not modelled here).
