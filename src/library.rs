@@ -9,12 +9,15 @@
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::{openapi, JsonSchema};
-use std::collections::HashMap;
 use serde_json::Value;
-use std::sync::{Mutex};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 pub mod types {
+    use rocket::serde::{Deserialize, Serialize};
+    use rocket_okapi::JsonSchema;
+    use serde_json::Value;
     /// Canonical card definition (minimal)
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
@@ -80,7 +83,9 @@ pub mod registry {
 
     impl TokenRegistry {
         pub fn new() -> Self {
-            Self { tokens: HashMap::new() }
+            Self {
+                tokens: HashMap::new(),
+            }
         }
         pub fn register(&mut self, token: TokenType) {
             self.tokens.insert(token.id.clone(), token);
@@ -90,15 +95,51 @@ pub mod registry {
         pub fn with_canonical() -> Self {
             use TokenLifecycle::*;
             let mut r = Self::new();
-            r.register(TokenType { id: "Insight".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Renown".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Refinement".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Stability".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Foresight".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Momentum".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Corruption".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Exhaustion".into(), lifecycle: PersistentCounter, cap: Some(9999) });
-            r.register(TokenType { id: "Durability".into(), lifecycle: PersistentCounter, cap: Some(9999) });
+            r.register(TokenType {
+                id: "Insight".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Renown".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Refinement".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Stability".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Foresight".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Momentum".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Corruption".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Exhaustion".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Durability".into(),
+                lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
             r
         }
 
@@ -111,8 +152,8 @@ pub mod registry {
 pub mod action_log {
     use super::types::ActionEntry;
     use serde_json::Value;
-    use std::sync::Mutex;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Mutex;
 
     #[derive(Debug)]
     pub struct ActionLog {
@@ -133,23 +174,34 @@ pub mod action_log {
 
     impl Default for ActionLog {
         fn default() -> Self {
-            ActionLog { entries: Mutex::new(Vec::new()), seq: AtomicU64::new(0) }
+            ActionLog {
+                entries: Mutex::new(Vec::new()),
+                seq: AtomicU64::new(0),
+            }
         }
     }
 
     impl ActionLog {
-        pub fn new() -> Self { Self::default() }
+        pub fn new() -> Self {
+            Self::default()
+        }
 
         /// Append an action entry, assigning an incrementing sequence number.
         pub fn append(&self, action_type: &str, payload: Value) -> ActionEntry {
             let seq = self.seq.fetch_add(1, Ordering::SeqCst) + 1;
-            let entry = ActionEntry { seq, action_type: action_type.to_string(), payload: payload.clone() };
+            let entry = ActionEntry {
+                seq,
+                action_type: action_type.to_string(),
+                payload: payload.clone(),
+            };
             self.entries.lock().unwrap().push(entry.clone());
             entry
         }
 
         /// Return a cloned snapshot of entries for replay/inspection
-        pub fn entries(&self) -> Vec<ActionEntry> { self.entries.lock().unwrap().clone() }
+        pub fn entries(&self) -> Vec<ActionEntry> {
+            self.entries.lock().unwrap().clone()
+        }
     }
 }
 
@@ -173,12 +225,18 @@ impl GameState {
         for (id, _t) in &registry.tokens {
             balances.insert(id.clone(), 0i64);
         }
-        Self { registry, action_log: ActionLog::new(), token_balances: balances }
+        Self {
+            registry,
+            action_log: ActionLog::new(),
+            token_balances: balances,
+        }
     }
 
     /// Apply a simple GrantToken action: update balances and append to the action log.
     pub fn apply_grant(&mut self, token_id: &str, amount: i64) -> Result<ActionEntry, String> {
-        if !self.registry.contains(token_id) { return Err(format!("Unknown token '{}'", token_id)); }
+        if !self.registry.contains(token_id) {
+            return Err(format!("Unknown token '{}'", token_id));
+        }
         let payload = serde_json::json!({"type":"GrantToken","token_id":token_id,"amount":amount});
         let entry = self.action_log.append("GrantToken", payload);
         let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
@@ -190,8 +248,14 @@ impl GameState {
     pub fn replay_from_log(registry: TokenRegistry, log: &ActionLog) -> Self {
         let mut gs = {
             let mut balances = HashMap::new();
-            for (id, _t) in &registry.tokens { balances.insert(id.clone(), 0i64); }
-            Self { registry, action_log: ActionLog::new(), token_balances: balances }
+            for (id, _t) in &registry.tokens {
+                balances.insert(id.clone(), 0i64);
+            }
+            Self {
+                registry,
+                action_log: ActionLog::new(),
+                token_balances: balances,
+            }
         };
         for e in log.entries() {
             if e.action_type == "GrantToken" {
@@ -203,7 +267,9 @@ impl GameState {
                                 *v += amount;
                                 gs.action_log.entries.lock().unwrap().push(e.clone());
                                 let cur = gs.action_log.seq.load(Ordering::SeqCst);
-                                if cur < e.seq { gs.action_log.seq.store(e.seq, Ordering::SeqCst); }
+                                if cur < e.seq {
+                                    gs.action_log.seq.store(e.seq, Ordering::SeqCst);
+                                }
                             }
                         }
                     }
@@ -228,7 +294,10 @@ mod tests {
 
         // replay
         let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
-        assert_eq!(replayed.token_balances.get("Insight").copied().unwrap_or(0), 10);
+        assert_eq!(
+            replayed.token_balances.get("Insight").copied().unwrap_or(0),
+            10
+        );
         assert_eq!(replayed.action_log.entries().len(), 1);
     }
 }
@@ -256,7 +325,11 @@ pub async fn list_library_cards(
                 crate::deck::card::CardType::Defence => "Defence".to_string(),
                 crate::deck::card::CardType::Resource => "Resource".to_string(),
             };
-            types::CardDef { id: c.id as u64, name: format!("card_{}", c.id), card_type: ct }
+            types::CardDef {
+                id: c.id as u64,
+                name: format!("card_{}", c.id),
+                card_type: ct,
+            }
         })
         .collect();
     Json(items)
