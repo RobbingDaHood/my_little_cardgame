@@ -64,6 +64,8 @@ pub mod types {
     pub enum ActionPayload {
         GrantToken { token_id: String, amount: i64 },
         SetSeed { seed: u64 },
+        RngDraw { purpose: String, value: u64 },
+        RngSnapshot { snapshot: String },
     }
 
     /// Stored action entry in the append-only action log.
@@ -271,6 +273,9 @@ impl GameState {
                 }
                 ActionPayload::SetSeed { .. } => {
                     // SetSeed is recorded but not applied to token balances during replay here
+                }
+                _ => {
+                    // Other action payloads (RngDraw, RngSnapshot, etc.) are recorded for audit but don't affect token balances
                 }
             }
             gs.action_log.entries.lock().unwrap().push(e.clone());
