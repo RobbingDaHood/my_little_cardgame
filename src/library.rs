@@ -385,6 +385,13 @@ impl GameState {
         }
         gs
     }
+
+    /// Graceful shutdown helper to flush and close any background writer.
+    pub fn shutdown(&self) {
+        if let Some(w) = &self.action_log.writer {
+            w.close();
+        }
+    }
 }
 
 impl Default for GameState {
