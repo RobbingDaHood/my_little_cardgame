@@ -66,6 +66,7 @@ pub mod types {
         SetSeed { seed: u64 },
         RngDraw { purpose: String, value: u64 },
         RngSnapshot { snapshot: String },
+        PlayCard { card_id: usize },
     }
 
     /// Stored action entry in the append-only action log.
