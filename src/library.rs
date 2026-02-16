@@ -161,6 +161,7 @@ pub mod registry {
 
 pub mod action_log {
     use super::types::{ActionEntry, ActionPayload};
+    use crate::action::persistence::FileWriter;
     use std::fs::{File, OpenOptions};
     use std::io::{BufRead, BufReader, Write};
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -170,6 +171,7 @@ pub mod action_log {
     pub struct ActionLog {
         pub entries: Mutex<Vec<ActionEntry>>,
         pub seq: AtomicU64,
+        pub writer: Option<FileWriter>,
     }
 
     impl Clone for ActionLog {
@@ -179,6 +181,7 @@ pub mod action_log {
             ActionLog {
                 entries: Mutex::new(entries),
                 seq: AtomicU64::new(seq),
+                writer: self.writer.clone(),
             }
         }
     }
@@ -188,6 +191,7 @@ pub mod action_log {
             ActionLog {
                 entries: Mutex::new(Vec::new()),
                 seq: AtomicU64::new(0),
+                writer: None,
             }
         }
     }
@@ -195,6 +199,10 @@ pub mod action_log {
     impl ActionLog {
         pub fn new() -> Self {
             Self::default()
+        }
+
+        pub fn set_writer(&mut self, writer: Option<FileWriter>) {
+            self.writer = writer;
         }
 
         pub fn append(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
@@ -229,22 +237,9 @@ pub mod action_log {
                 guard.push(entry.clone());
             }
 
-            // Async-safe persistence: if ACTION_LOG_FILE is set, spawn a background thread to append the entry.
-            if let Ok(path) = std::env::var("ACTION_LOG_FILE") {
-                let entry_clone = entry.clone();
-                let path_clone = path.clone();
-                std::thread::spawn(move || {
-                    if let Ok(mut f) = OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open(path_clone)
-                    {
-                        if let Ok(line) = serde_json::to_string(&entry_clone) {
-                            let _ = writeln!(f, "{}", line);
-                            let _ = f.flush();
-                        }
-                    }
-                });
+            // Send to writer queue if present
+            if let Some(w) = &self.writer {
+                w.send(entry.clone());
             }
 
             entry
@@ -288,6 +283,7 @@ pub mod action_log {
             Ok(ActionLog {
                 entries: Mutex::new(entries_vec),
                 seq: AtomicU64::new(seq),
+                writer: None,
             })
         }
     }
@@ -314,10 +310,18 @@ impl GameState {
             balances.insert(id.clone(), 0i64);
         }
         let action_log = match std::env::var("ACTION_LOG_FILE") {
-            Ok(path) => match action_log::ActionLog::load_from_file(&path) {
-                Ok(log) => log,
-                Err(_) => ActionLog::new(),
-            },
+            Ok(path) => {
+                let mut log = match action_log::ActionLog::load_from_file(&path) {
+                    Ok(l) => l,
+                    Err(_) => ActionLog::new(),
+                };
+                if let Ok(writer) =
+                    crate::action::persistence::FileWriter::new(std::path::PathBuf::from(&path))
+                {
+                    log.set_writer(Some(writer));
+                }
+                log
+            }
             Err(_) => ActionLog::new(),
         };
         Self {

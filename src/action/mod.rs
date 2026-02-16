@@ -5,6 +5,8 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
 use rocket_okapi::{openapi, JsonSchema};
 
+pub mod persistence;
+
 use crate::combat::{Combat, States};
 use crate::deck::card::{get_card, CardType};
 use crate::deck::CardState;
