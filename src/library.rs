@@ -161,6 +161,8 @@ pub mod registry {
 
 pub mod action_log {
     use super::types::{ActionEntry, ActionPayload};
+    use std::fs::{File, OpenOptions};
+    use std::io::{BufRead, BufReader, Write};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
 
@@ -195,12 +197,10 @@ pub mod action_log {
             Self::default()
         }
 
-        /// Append an action entry (simple) — backward compatible wrapper using no metadata.
         pub fn append(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
             self.append_with_meta(action_type, payload, None, None, None)
         }
 
-        /// Append an action entry with metadata, assigning an incrementing sequence number.
         pub fn append_with_meta(
             &self,
             action_type: &str,
@@ -224,13 +224,71 @@ pub mod action_log {
                 request_id,
                 version,
             };
-            self.entries.lock().unwrap().push(entry.clone());
+            {
+                let mut guard = self.entries.lock().unwrap();
+                guard.push(entry.clone());
+            }
+
+            // Async-safe persistence: if ACTION_LOG_FILE is set, spawn a background thread to append the entry.
+            if let Ok(path) = std::env::var("ACTION_LOG_FILE") {
+                let entry_clone = entry.clone();
+                let path_clone = path.clone();
+                std::thread::spawn(move || {
+                    if let Ok(mut f) = OpenOptions::new()
+                        .create(true)
+                        .append(true)
+                        .open(path_clone)
+                    {
+                        if let Ok(line) = serde_json::to_string(&entry_clone) {
+                            let _ = writeln!(f, "{}", line);
+                            let _ = f.flush();
+                        }
+                    }
+                });
+            }
+
             entry
         }
 
         /// Return a cloned snapshot of entries for replay/inspection
         pub fn entries(&self) -> Vec<ActionEntry> {
             self.entries.lock().unwrap().clone()
+        }
+
+        /// Write all in-memory entries to the given file path (overwrites existing file).
+        pub fn write_all_to_file(&self, path: &str) -> Result<(), String> {
+            let entries = self.entries();
+            let mut f = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(path)
+                .map_err(|e| e.to_string())?;
+            for e in entries {
+                let line = serde_json::to_string(&e).map_err(|e| e.to_string())?;
+                writeln!(f, "{}", line).map_err(|e| e.to_string())?;
+            }
+            f.flush().map_err(|e| e.to_string())
+        }
+
+        /// Load an ActionLog from a JSON-lines file where each line is a serialized ActionEntry.
+        pub fn load_from_file(path: &str) -> Result<ActionLog, String> {
+            let file = File::open(path).map_err(|e| e.to_string())?;
+            let reader = BufReader::new(file);
+            let mut entries_vec: Vec<ActionEntry> = vec![];
+            for line_res in reader.lines() {
+                let line = line_res.map_err(|e| e.to_string())?;
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let entry: ActionEntry = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+                entries_vec.push(entry);
+            }
+            let seq = entries_vec.last().map(|e| e.seq).unwrap_or(0);
+            Ok(ActionLog {
+                entries: Mutex::new(entries_vec),
+                seq: AtomicU64::new(seq),
+            })
         }
     }
 }
@@ -255,9 +313,16 @@ impl GameState {
         for id in registry.tokens.keys() {
             balances.insert(id.clone(), 0i64);
         }
+        let action_log = match std::env::var("ACTION_LOG_FILE") {
+            Ok(path) => match action_log::ActionLog::load_from_file(&path) {
+                Ok(log) => log,
+                Err(_) => ActionLog::new(),
+            },
+            Err(_) => ActionLog::new(),
+        };
         Self {
             registry,
-            action_log: ActionLog::new(),
+            action_log,
             token_balances: balances,
         }
     }
