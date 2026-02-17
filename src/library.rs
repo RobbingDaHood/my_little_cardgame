@@ -66,6 +66,7 @@ pub mod types {
         SetSeed { seed: u64 },
         RngDraw { purpose: String, value: u64 },
         RngSnapshot { snapshot: String },
+        PlayCard { card_id: usize },
     }
 
     /// Stored action entry in the append-only action log.
@@ -75,6 +76,10 @@ pub mod types {
         pub seq: u64,
         pub action_type: String,
         pub payload: ActionPayload, // structured payload for replay
+        pub timestamp: String,      // milliseconds since epoch as string
+        pub actor: Option<String>,
+        pub request_id: Option<String>,
+        pub version: Option<u32>,
     }
 }
 
@@ -157,6 +162,9 @@ pub mod registry {
 
 pub mod action_log {
     use super::types::{ActionEntry, ActionPayload};
+    use crate::action::persistence::FileWriter;
+    use std::fs::{File, OpenOptions};
+    use std::io::{BufRead, BufReader, Write};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Mutex;
 
@@ -164,6 +172,7 @@ pub mod action_log {
     pub struct ActionLog {
         pub entries: Mutex<Vec<ActionEntry>>,
         pub seq: AtomicU64,
+        pub writer: Option<FileWriter>,
     }
 
     impl Clone for ActionLog {
@@ -173,6 +182,7 @@ pub mod action_log {
             ActionLog {
                 entries: Mutex::new(entries),
                 seq: AtomicU64::new(seq),
+                writer: self.writer.clone(),
             }
         }
     }
@@ -182,6 +192,7 @@ pub mod action_log {
             ActionLog {
                 entries: Mutex::new(Vec::new()),
                 seq: AtomicU64::new(0),
+                writer: None,
             }
         }
     }
@@ -191,21 +202,90 @@ pub mod action_log {
             Self::default()
         }
 
-        /// Append an action entry, assigning an incrementing sequence number.
+        pub fn set_writer(&mut self, writer: Option<FileWriter>) {
+            self.writer = writer;
+        }
+
         pub fn append(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
+            self.append_with_meta(action_type, payload, None, None, None)
+        }
+
+        pub fn append_with_meta(
+            &self,
+            action_type: &str,
+            payload: ActionPayload,
+            actor: Option<String>,
+            request_id: Option<String>,
+            version: Option<u32>,
+        ) -> ActionEntry {
             let seq = self.seq.fetch_add(1, Ordering::SeqCst) + 1;
+            let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            {
+                Ok(dur) => format!("{}", dur.as_millis()),
+                Err(_) => "0".to_string(),
+            };
             let entry = ActionEntry {
                 seq,
                 action_type: action_type.to_string(),
                 payload: payload.clone(),
+                timestamp,
+                actor,
+                request_id,
+                version,
             };
-            self.entries.lock().unwrap().push(entry.clone());
+            {
+                let mut guard = self.entries.lock().unwrap();
+                guard.push(entry.clone());
+            }
+
+            // Send to writer queue if present
+            if let Some(w) = &self.writer {
+                w.send(entry.clone());
+            }
+
             entry
         }
 
         /// Return a cloned snapshot of entries for replay/inspection
         pub fn entries(&self) -> Vec<ActionEntry> {
             self.entries.lock().unwrap().clone()
+        }
+
+        /// Write all in-memory entries to the given file path (overwrites existing file).
+        pub fn write_all_to_file(&self, path: &str) -> Result<(), String> {
+            let entries = self.entries();
+            let mut f = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(path)
+                .map_err(|e| e.to_string())?;
+            for e in entries {
+                let line = serde_json::to_string(&e).map_err(|e| e.to_string())?;
+                writeln!(f, "{}", line).map_err(|e| e.to_string())?;
+            }
+            f.flush().map_err(|e| e.to_string())
+        }
+
+        /// Load an ActionLog from a JSON-lines file where each line is a serialized ActionEntry.
+        pub fn load_from_file(path: &str) -> Result<ActionLog, String> {
+            let file = File::open(path).map_err(|e| e.to_string())?;
+            let reader = BufReader::new(file);
+            let mut entries_vec: Vec<ActionEntry> = vec![];
+            for line_res in reader.lines() {
+                let line = line_res.map_err(|e| e.to_string())?;
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let entry: ActionEntry = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+                entries_vec.push(entry);
+            }
+            let seq = entries_vec.last().map(|e| e.seq).unwrap_or(0);
+            Ok(ActionLog {
+                entries: Mutex::new(entries_vec),
+                seq: AtomicU64::new(seq),
+                writer: None,
+            })
         }
     }
 }
@@ -230,9 +310,24 @@ impl GameState {
         for id in registry.tokens.keys() {
             balances.insert(id.clone(), 0i64);
         }
+        let action_log = match std::env::var("ACTION_LOG_FILE") {
+            Ok(path) => {
+                let mut log = match action_log::ActionLog::load_from_file(&path) {
+                    Ok(l) => l,
+                    Err(_) => ActionLog::new(),
+                };
+                if let Ok(writer) =
+                    crate::action::persistence::FileWriter::new(std::path::PathBuf::from(&path))
+                {
+                    log.set_writer(Some(writer));
+                }
+                log
+            }
+            Err(_) => ActionLog::new(),
+        };
         Self {
             registry,
-            action_log: ActionLog::new(),
+            action_log,
             token_balances: balances,
         }
     }
@@ -246,10 +341,15 @@ impl GameState {
             token_id: token_id.to_string(),
             amount,
         };
-        let entry = self.action_log.append("GrantToken", payload);
+        let entry = self.append_action("GrantToken", payload);
         let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
         *v += amount;
         Ok(entry)
+    }
+
+    /// Append an action to the action log with optional metadata; returns the appended entry.
+    pub fn append_action(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
+        self.action_log.append(action_type, payload)
     }
 
     /// Reconstruct state from a registry and an existing action log (seed not modelled here).
@@ -285,6 +385,13 @@ impl GameState {
             }
         }
         gs
+    }
+
+    /// Graceful shutdown helper to flush and close any background writer.
+    pub fn shutdown(&self) {
+        if let Some(w) = &self.action_log.writer {
+            w.close();
+        }
     }
 }
 
