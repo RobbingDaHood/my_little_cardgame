@@ -88,7 +88,12 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
 
     #[allow(clippy::no_effect_underscore_binding)]
     let _ = env_logger::try_init();
-    rocket::build()
+
+    use rocket::fairing::AdHoc;
+
+    let gs = std::sync::Arc::new(rocket::futures::lock::Mutex::new(library::GameState::new()));
+
+    let rocket = rocket::build()
         .mount(
             "/",
             openapi_get_routes![
@@ -116,9 +121,41 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
         .mount("/swagger", make_swagger_ui(&get_docs()))
         .mount("/", rocket::routes![list_library_cards])
         .manage(player_data::new())
-        .manage(std::sync::Arc::new(rocket::futures::lock::Mutex::new(
-            library::GameState::new(),
-        )))
+        .manage(gs.clone())
+        .attach(AdHoc::on_liftoff("actionlog-shutdown", |rocket| {
+            Box::pin(async move {
+                // When the process receives SIGINT/SIGTERM (or ctrl-c), flush the action log writer
+                if let Some(gs_state) = rocket
+                    .state::<std::sync::Arc<rocket::futures::lock::Mutex<library::GameState>>>()
+                    .cloned()
+                {
+                    rocket::tokio::spawn(async move {
+                        #[cfg(unix)]
+                        {
+                            use rocket::tokio::signal::unix::{signal, SignalKind};
+                            let mut sigterm = signal(SignalKind::terminate())
+                                .expect("failed to set SIGTERM handler");
+                            let mut sigint = signal(SignalKind::interrupt())
+                                .expect("failed to set SIGINT handler");
+                            rocket::tokio::select! {
+                                _ = sigterm.recv() => {},
+                                _ = sigint.recv() => {},
+                            }
+                        }
+                        #[cfg(not(unix))]
+                        {
+                            let _ = rocket::tokio::signal::ctrl_c().await;
+                        }
+
+                        // call shutdown helper to flush file writer
+                        let gs = gs_state.lock().await;
+                        gs.shutdown();
+                    });
+                }
+            })
+        }));
+
+    rocket
 }
 
 fn get_docs() -> SwaggerUIConfig {
