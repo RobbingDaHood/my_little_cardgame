@@ -17,7 +17,15 @@ fn grant_token_via_action() {
     let response = client.get("/actions/log").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().expect("response body");
-    let entries: Vec<ActionEntry> = serde_json::from_str(&body).expect("valid json");
+    #[allow(dead_code)]
+    #[derive(serde::Deserialize)]
+    struct ActionLogResponse {
+        entries: Vec<ActionEntry>,
+        next_seq: Option<u64>,
+        limit: usize,
+    }
+    let resp: ActionLogResponse = serde_json::from_str(&body).expect("valid json");
+    let entries = resp.entries;
     let found = entries.iter().any(|e| match &e.payload {
         ActionPayload::GrantToken { token_id, amount } => token_id == "Insight" && *amount == 10,
         _ => false,
@@ -39,7 +47,15 @@ fn set_seed_via_action_records_log() {
     let response = client.get("/actions/log").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().expect("response body");
-    let entries: Vec<ActionEntry> = serde_json::from_str(&body).expect("valid json");
+    #[allow(dead_code)]
+    #[derive(serde::Deserialize)]
+    struct ActionLogResponse {
+        entries: Vec<ActionEntry>,
+        next_seq: Option<u64>,
+        limit: usize,
+    }
+    let resp: ActionLogResponse = serde_json::from_str(&body).expect("valid json");
+    let entries = resp.entries;
     let found = entries.iter().any(|e| match &e.payload {
         ActionPayload::SetSeed { seed } => *seed == 42u64,
         _ => false,
