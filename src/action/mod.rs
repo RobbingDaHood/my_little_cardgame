@@ -94,7 +94,8 @@ pub async fn play(
                             let mut decks = player_data.decks.lock().await;
                             match decks.iter_mut().find(|deck| deck.id == deck_id) {
                                 None => Err(Left(NotFound(new_status(format!(
-                                    "Card with id {action:?} does not exist in deck!"
+                                    "Card with id {} does not exist in deck!",
+                                    card_id
                                 ))))),
                                 Some(deck) => {
                                     match deck.change_card_state(
