@@ -177,7 +177,10 @@ pub mod action_log {
 
     impl Clone for ActionLog {
         fn clone(&self) -> Self {
-            let entries = self.entries.lock().unwrap().clone();
+            let entries = match self.entries.lock() {
+                Ok(g) => g.clone(),
+                Err(e) => e.into_inner().clone(),
+            };
             let seq = self.seq.load(Ordering::SeqCst);
             ActionLog {
                 entries: Mutex::new(entries),
@@ -233,22 +236,19 @@ pub mod action_log {
                 request_id,
                 version,
             };
-            {
-                let mut guard = self.entries.lock().unwrap();
-                guard.push(entry.clone());
-            }
-
-            // Send to writer queue if present
-            if let Some(w) = &self.writer {
-                w.send(entry.clone());
-            }
-
+            match self.entries.lock() {
+                Ok(mut g) => g.push(entry.clone()),
+                Err(e) => e.into_inner().push(entry.clone()),
+            };
             entry
         }
 
         /// Return a cloned snapshot of entries for replay/inspection
         pub fn entries(&self) -> Vec<ActionEntry> {
-            self.entries.lock().unwrap().clone()
+            match self.entries.lock() {
+                Ok(g) => g.clone(),
+                Err(e) => e.into_inner().clone(),
+            }
         }
 
         /// Write all in-memory entries to the given file path (overwrites existing file).
@@ -378,7 +378,10 @@ impl GameState {
                     // Other action payloads (RngDraw, RngSnapshot, etc.) are recorded for audit but don't affect token balances
                 }
             }
-            gs.action_log.entries.lock().unwrap().push(e.clone());
+            match gs.action_log.entries.lock() {
+                Ok(mut g) => g.push(e.clone()),
+                Err(err) => err.into_inner().push(e.clone()),
+            };
             let cur = gs.action_log.seq.load(Ordering::SeqCst);
             if cur < e.seq {
                 gs.action_log.seq.store(e.seq, Ordering::SeqCst);

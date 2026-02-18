@@ -76,7 +76,10 @@ pub async fn enemy_play(player_data: &State<PlayerData>) -> Created<&'static str
     if combat_opt.is_none() {
         return Created::new("/combat/enemy_play");
     }
-    let combat = combat_opt.unwrap();
+    let combat = match *combat_opt {
+        Some(c) => c,
+        None => return Created::new("/combat/enemy_play"),
+    };
     let phase = combat.state;
 
     // Map phase to card type

@@ -29,7 +29,10 @@ pub async fn apply_effects(
     // perform mutations inside a scoped borrow so we can decide to end combat afterwards
     let mut end_combat = false;
     {
-        let combat = combat_option.as_mut().unwrap();
+        let combat = match combat_option.as_mut() {
+            Some(c) => c,
+            None => return,
+        };
 
         // Determine target: if owner is player, target is first enemy unit; else target is player tokens
         if owner_is_player {
