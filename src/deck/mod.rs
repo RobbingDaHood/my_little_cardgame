@@ -375,4 +375,32 @@ mod tests {
             .any(|c| c.state.contains_key(&CardState::Hand));
         assert!(has_hand);
     }
+
+    #[test]
+    fn change_random_cards_state_on_empty_deck_returns_error() {
+        let mut deck = Deck {
+            cards: vec![],
+            id: 99,
+            contains_card_types: vec![],
+        };
+        let mut rng = Lcg64Xsh32::from_seed([0u8; 16]);
+        assert!(deck
+            .change_random_cards_state(1, CardState::Hand, CardState::Deck, &mut rng)
+            .is_err());
+    }
+
+    #[test]
+    fn change_card_state_zero_count_returns_error() {
+        let mut deck = Deck {
+            cards: vec![DeckCard {
+                id: 5,
+                state: HashMap::from([(CardState::Hand, 0u32), (CardState::Deck, 1u32)]),
+            }],
+            id: 7,
+            contains_card_types: vec![],
+        };
+        assert!(deck
+            .change_card_state(5, CardState::Discard, CardState::Hand)
+            .is_err());
+    }
 }

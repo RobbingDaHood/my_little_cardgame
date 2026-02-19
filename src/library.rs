@@ -251,41 +251,29 @@ pub mod action_log {
             }
         }
 
-        /// Write all in-memory entries to the given file path (overwrites existing file).
-        pub fn write_all_to_file(&self, path: &str) -> Result<(), String> {
-            let entries = self.entries();
-            let mut f = OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(true)
-                .open(path)
-                .map_err(|e| e.to_string())?;
-            for e in entries {
-                let line = serde_json::to_string(&e).map_err(|e| e.to_string())?;
-                writeln!(f, "{}", line).map_err(|e| e.to_string())?;
-            }
-            f.flush().map_err(|e| e.to_string())
-        }
-
-        /// Load an ActionLog from a JSON-lines file where each line is a serialized ActionEntry.
-        pub fn load_from_file(path: &str) -> Result<ActionLog, String> {
-            let file = File::open(path).map_err(|e| e.to_string())?;
-            let reader = BufReader::new(file);
-            let mut entries_vec: Vec<ActionEntry> = vec![];
-            for line_res in reader.lines() {
-                let line = line_res.map_err(|e| e.to_string())?;
-                if line.trim().is_empty() {
-                    continue;
-                }
-                let entry: ActionEntry = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-                entries_vec.push(entry);
-            }
-            let seq = entries_vec.last().map(|e| e.seq).unwrap_or(0);
-            Ok(ActionLog {
-                entries: Mutex::new(entries_vec),
-                seq: AtomicU64::new(seq),
-                writer: None,
-            })
+        /// Async append that performs the append in a blocking thread so async contexts won't block the executor.
+        pub async fn append_async(
+            self: std::sync::Arc<Self>,
+            action_type: &str,
+            payload: ActionPayload,
+        ) -> ActionEntry {
+            let action_type_s = action_type.to_string();
+            let payload_clone = payload.clone();
+            let arc = std::sync::Arc::clone(&self);
+            let handle = tokio::task::spawn_blocking(move || {
+                let seq = arc.seq.fetch_add(1, Ordering::SeqCst) + 1;
+                let entry = ActionEntry {
+                    seq,
+                    action_type: action_type_s.clone(),
+                    payload: payload_clone.clone(),
+                };
+                match arc.entries.lock() {
+                    Ok(mut g) => g.push(entry.clone()),
+                    Err(e) => e.into_inner().push(entry.clone()),
+                };
+                entry
+            });
+            handle.await.expect("spawn_blocking panicked")
         }
     }
 }
@@ -298,7 +286,7 @@ use types::{ActionEntry, ActionPayload};
 #[derive(Debug, Clone)]
 pub struct GameState {
     pub registry: TokenRegistry,
-    pub action_log: ActionLog,
+    pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<String, i64>,
 }
 
@@ -327,7 +315,7 @@ impl GameState {
         };
         Self {
             registry,
-            action_log,
+            action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
         }
     }
@@ -361,7 +349,7 @@ impl GameState {
             }
             Self {
                 registry,
-                action_log: ActionLog::new(),
+                action_log: std::sync::Arc::new(ActionLog::new()),
                 token_balances: balances,
             }
         };

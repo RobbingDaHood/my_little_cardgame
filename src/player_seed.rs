@@ -53,7 +53,8 @@ pub async fn derive_subseed(
             purpose: purpose.to_string(),
             value,
         };
-        gs.append_action("RngDraw", payload);
+        let log_arc = std::sync::Arc::clone(&gs.action_log);
+        log_arc.append_async("RngDraw", payload).await;
     }
     value
 }

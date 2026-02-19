@@ -52,7 +52,8 @@ pub async fn play(
             let gs = game_state.lock().await;
             // append to action log
             let payload = crate::library::types::ActionPayload::SetSeed { seed };
-            let entry = gs.append_action("SetSeed", payload);
+            let log_arc = std::sync::Arc::clone(&gs.action_log);
+            log_arc.append_async("SetSeed", payload).await;
             // apply to PlayerData RNG/seed
             let s = seed;
             let mut seed_bytes: [u8; 16] = [0u8; 16];
