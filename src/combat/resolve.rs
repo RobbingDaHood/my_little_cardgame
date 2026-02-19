@@ -63,7 +63,10 @@ pub async fn apply_effects(
             }
 
             // Work on the first enemy deterministically
-            let enemy = &mut combat.enemies[0];
+            let enemy = match combat.enemies.get_mut(0) {
+                Some(e) => e,
+                None => return,
+            };
 
             // Snapshot current dodge and health counters
             let mut dodge_count: u32 = enemy
@@ -111,7 +114,10 @@ pub async fn apply_effects(
             if combat.enemies.is_empty() {
                 return;
             }
-            let enemy = &mut combat.enemies[0];
+            let enemy = match combat.enemies.get_mut(0) {
+                Some(e) => e,
+                None => return,
+            };
 
             // Snapshot enemy dodge
             let mut dodge_count: u32 = enemy
