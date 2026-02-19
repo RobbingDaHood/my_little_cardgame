@@ -111,6 +111,13 @@ impl Deck {
                     old_state, card_id, self.id
                 )))),
                 Some(old_state_count) => {
+                    // Guard against underflow: ensure the source state's count is > 0 before subtracting
+                    if *old_state_count == 0 {
+                        return Err(NotFound(new_status(format!(
+                            "State {:?} for card {:?} on deck {:?} has zero count!",
+                            old_state, card_id, self.id
+                        ))));
+                    }
                     card.state.insert(old_state, old_state_count - 1);
                     match card.state.get(&new_state) {
                         None => {

@@ -3,6 +3,14 @@ use crate::deck::token::{Token, TokenPermanence};
 use crate::player_data::PlayerData;
 use rocket::State;
 
+// Lock acquisition and ordering
+// - Always avoid holding `current_combat` while awaiting other async locks (e.g., `tokens`, `last_combat_result`).
+// - Pattern used by apply_effects:
+//   1) Acquire `current_combat` and snapshot necessary data into local `ops` vector.
+//   2) Release `current_combat` and acquire other locks (e.g., `tokens`) to apply player-facing ops.
+//   3) Re-acquire `current_combat` to apply enemy-facing ops and finalize combat state.
+// This ordering reduces risk of deadlocks and minimizes async lock hold-time; preserve it when modifying combat logic.
+
 pub async fn resolve_card_effects(
     card_id: usize,
     owner_is_player: bool,
