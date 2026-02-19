@@ -47,7 +47,7 @@ Prioritized actionable tasks (short)
 2. Medium: Replace std::sync::Mutex in ActionLog with an async-aware or lower-latency primitive or document lock usage and avoid long holds. (owner: dev)
 3. Medium: Add unit tests for error message payloads and deck edge-cases. (owner: dev)
 4. Low: Add snapshot+replay integration test that includes RngDraw entries. (owner: dev)
-5. Medium: Run cargo-audit in CI (security workflow added) and triage advisories if present. (owner: dev/infra)
+5. Medium: Run cargo-audit in CI (security workflow added) and triage advisories if present. Local run produced no advisories (see artifacts). (owner: dev/infra)
 
 Files changed as part of audit
 - Replaced unwraps in production code (committed).
