@@ -1,5 +1,5 @@
 use crate::deck::card::get_card;
-use crate::deck::token::{Token, TokenPermanence, TokenType};
+use crate::deck::token::{Token, TokenPermanence};
 use crate::player_data::PlayerData;
 use rocket::State;
 
@@ -19,189 +19,283 @@ pub async fn apply_effects(
     owner_is_player: bool,
     player_data: &State<PlayerData>,
 ) {
-    // Acquire combat lock to find targets
-    let mut combat_lock = player_data.current_combat.lock().await;
-    let combat_option: &mut Option<crate::combat::Combat> = combat_lock.as_mut();
-    if combat_option.is_none() {
-        return;
+    use crate::deck::token::TokenType as TT;
+
+    // Local operation types to apply after building them under the combat lock
+    #[derive(Debug)]
+    enum Op {
+        AddPlayerToken(Token),
+        DamagePlayer(u32),
+        /// Set enemy token counts (None means leave unchanged)
+        SetEnemyTokenCounts {
+            enemy_idx: usize,
+            health: Option<u32>,
+            dodge: Option<u32>,
+        },
     }
 
-    // perform mutations inside a scoped borrow so we can decide to end combat afterwards
-    let mut end_combat = false;
+    let mut ops: Vec<Op> = Vec::new();
+
+    // Snapshot and prepare operations while holding the combat lock, but do not await other locks here.
     {
+        let mut combat_lock = player_data.current_combat.lock().await;
+        let combat_option: &mut Option<crate::combat::Combat> = combat_lock.as_mut();
+        if combat_option.is_none() {
+            return;
+        }
+
         let combat = match combat_option.as_mut() {
             Some(c) => c,
             None => return,
         };
 
-        // Determine target: if owner is player, target is first enemy unit; else target is player tokens
         if owner_is_player {
             if combat.enemies.is_empty() {
                 return;
             }
-            // target first enemy
+
+            // Work on the first enemy deterministically
             let enemy = &mut combat.enemies[0];
-            // Apply each token effect
+
+            // Snapshot current dodge and health counters
+            let mut dodge_count: u32 = enemy
+                .tokens
+                .iter()
+                .find(|t| t.token_type == TT::Dodge)
+                .map(|t| t.count)
+                .unwrap_or(0);
+            let mut health_count: u32 = enemy
+                .tokens
+                .iter()
+                .find(|t| t.token_type == TT::Health)
+                .map(|t| t.count)
+                .unwrap_or(0);
+
             for token in effects.iter() {
                 match token.token_type {
-                    TokenType::Dodge => {
-                        // add dodge tokens to the owner (player)
-                        let mut player_tokens = player_data.tokens.lock().await;
-                        let existing = player_tokens
-                            .iter_mut()
-                            .find(|t| t.token_type == TokenType::Dodge);
-                        if let Some(t) = existing {
-                            t.count += token.count;
-                        } else {
-                            player_tokens.push(Token {
-                                token_type: TokenType::Dodge,
-                                permanence: TokenPermanence::UsedOnUnit,
-                                count: token.count,
-                            });
-                        }
+                    TT::Dodge => {
+                        ops.push(Op::AddPlayerToken(token.clone()));
                     }
-                    TokenType::Stamina | TokenType::Mana => {
-                        let mut player_tokens = player_data.tokens.lock().await;
-                        let existing = player_tokens
-                            .iter_mut()
-                            .find(|t| t.token_type == token.token_type);
-                        if let Some(t) = existing {
-                            t.count += token.count;
-                        } else {
-                            player_tokens.push(Token {
-                                token_type: token.token_type.clone(),
-                                permanence: TokenPermanence::UsedOnUnit,
-                                count: token.count,
-                            });
-                        }
+                    TT::Stamina | TT::Mana => {
+                        ops.push(Op::AddPlayerToken(token.clone()));
                     }
-                    TokenType::Health => {
-                        // interpret as damage to target
-                        // First consume dodge tokens on target
-                        let mut dodge_opt = enemy
-                            .tokens
-                            .iter_mut()
-                            .find(|t| t.token_type == TokenType::Dodge);
-                        let mut remaining = token.count as i32;
-                        if let Some(dodge) = dodge_opt.as_mut() {
-                            let used = std::cmp::min(dodge.count, token.count);
-                            dodge.count -= used;
-                            remaining -= used as i32;
-                        }
+                    TT::Health => {
+                        // Damage to enemy: consume enemy dodge first (snapshot), then reduce health
+                        let used = std::cmp::min(dodge_count, token.count);
+                        dodge_count = dodge_count.saturating_sub(used);
+                        let remaining = token.count.saturating_sub(used);
                         if remaining > 0 {
-                            let mut health_opt = enemy
-                                .tokens
-                                .iter_mut()
-                                .find(|t| t.token_type == TokenType::Health);
-                            if let Some(h) = health_opt.as_mut() {
-                                let new_count = (h.count as i32 - remaining) as u32;
-                                h.count = new_count;
-                            }
+                            health_count = health_count.saturating_sub(remaining);
                         }
                     }
                     _ => {}
                 }
             }
 
-            // check if target enemy died
-            let target_unit = &combat.enemies[0];
-            let mut enemy_health = 0i32;
-            for t in target_unit.tokens.iter() {
-                if t.token_type == TokenType::Health {
-                    enemy_health = t.count as i32;
-                    break;
-                }
-            }
-            if enemy_health <= 0 {
-                end_combat = true;
-            }
+            // Record final enemy counts to set later
+            ops.push(Op::SetEnemyTokenCounts {
+                enemy_idx: 0,
+                health: Some(health_count),
+                dodge: Some(dodge_count),
+            });
         } else {
-            // owner is enemy, target is player
+            // owner is enemy; target player for damage, but enemy tokens (dodge) are stored on enemy in combat
+            if combat.enemies.is_empty() {
+                return;
+            }
+            let enemy = &mut combat.enemies[0];
+
+            // Snapshot enemy dodge
+            let mut dodge_count: u32 = enemy
+                .tokens
+                .iter()
+                .find(|t| t.token_type == TT::Dodge)
+                .map(|t| t.count)
+                .unwrap_or(0);
+
             for token in effects.iter() {
                 match token.token_type {
-                    TokenType::Dodge => {
-                        // add dodge to enemy: enemy.first
-                        if combat.enemies.is_empty() {
-                            continue;
-                        }
-                        let enemy = &mut combat.enemies[0];
-                        let existing = enemy
-                            .tokens
-                            .iter_mut()
-                            .find(|t| t.token_type == TokenType::Dodge);
-                        if let Some(t) = existing {
-                            t.count += token.count;
-                        } else {
-                            enemy.tokens.push(Token {
-                                token_type: TokenType::Dodge,
-                                permanence: TokenPermanence::UsedOnUnit,
-                                count: token.count,
-                            });
-                        }
+                    TT::Dodge => {
+                        dodge_count = dodge_count.saturating_add(token.count);
                     }
-                    TokenType::Stamina | TokenType::Mana => {
-                        // enemy resource: ignore for now
+                    TT::Stamina | TT::Mana => {
+                        // ignore for now
                     }
-                    TokenType::Health => {
-                        // attack: damage player
-                        let mut player_tokens = player_data.tokens.lock().await;
-                        let mut dodge_opt = player_tokens
-                            .iter_mut()
-                            .find(|t| t.token_type == TokenType::Dodge);
-                        let mut remaining = token.count as i32;
-                        if let Some(dodge) = dodge_opt.as_mut() {
-                            let used = std::cmp::min(dodge.count, token.count);
-                            dodge.count -= used;
-                            remaining -= used as i32;
-                        }
-                        if remaining > 0 {
-                            let mut health_opt = player_tokens
-                                .iter_mut()
-                                .find(|t| t.token_type == TokenType::Health);
-                            if let Some(h) = health_opt.as_mut() {
-                                let new_count = (h.count as i32 - remaining) as u32;
-                                h.count = new_count;
-                            }
-                        }
+                    TT::Health => {
+                        // record player damage to apply after dropping combat lock
+                        ops.push(Op::DamagePlayer(token.count));
                     }
                     _ => {}
                 }
             }
 
-            // check if player died
-            let mut player_health = 0i32;
-            for t in player_data.tokens.lock().await.iter() {
-                if t.token_type == TokenType::Health {
-                    player_health = t.count as i32;
-                    break;
+            // Record final enemy dodge count
+            ops.push(Op::SetEnemyTokenCounts {
+                enemy_idx: 0,
+                health: None,
+                dodge: Some(dodge_count),
+            });
+        }
+    }
+
+    // Apply player-targeting ops (add tokens, damage player) while holding player tokens lock
+    {
+        let mut player_tokens = player_data.tokens.lock().await;
+        for op in ops.iter() {
+            match op {
+                Op::AddPlayerToken(token) => {
+                    let existing = player_tokens
+                        .iter_mut()
+                        .find(|t| t.token_type == token.token_type);
+                    if let Some(t) = existing {
+                        t.count += token.count;
+                    } else {
+                        player_tokens.push(Token {
+                            token_type: token.token_type.clone(),
+                            permanence: token.permanence.clone(),
+                            count: token.count,
+                        });
+                    }
                 }
-            }
-            if player_health <= 0 {
-                end_combat = true;
+                Op::DamagePlayer(dmg) => {
+                    let mut remaining = *dmg as i32;
+                    let mut dodge_opt =
+                        player_tokens.iter_mut().find(|t| t.token_type == TT::Dodge);
+                    if let Some(dodge) = dodge_opt.as_mut() {
+                        let used = std::cmp::min(dodge.count, *dmg);
+                        dodge.count -= used;
+                        remaining -= used as i32;
+                    }
+                    if remaining > 0 {
+                        let mut health_opt = player_tokens
+                            .iter_mut()
+                            .find(|t| t.token_type == TT::Health);
+                        if let Some(h) = health_opt.as_mut() {
+                            let new_count = (h.count as i32 - remaining) as u32;
+                            h.count = new_count;
+                        }
+                    }
+                }
+                _ => {}
             }
         }
     }
 
-    if end_combat {
-        // determine winner and store result
-        let mut player_health = 0i32;
-        for t in player_data.tokens.lock().await.iter() {
-            if t.token_type == TokenType::Health {
-                player_health = t.count as i32;
-                break;
-            }
+    // Apply enemy-targeting ops (set token counts) under the combat lock
+    {
+        let mut combat_lock = player_data.current_combat.lock().await;
+        let combat_option: &mut Option<crate::combat::Combat> = combat_lock.as_mut();
+        if combat_option.is_none() {
+            // Combat already ended concurrently
+            return;
         }
-        let mut enemy_health = 0i32;
-        if let Some(combat_box) = combat_option.as_ref() {
-            if !combat_box.enemies.is_empty() {
-                for t in combat_box.enemies[0].tokens.iter() {
-                    if t.token_type == TokenType::Health {
-                        enemy_health = t.count as i32;
-                        break;
+        let combat = match combat_option.as_mut() {
+            Some(c) => c,
+            None => return,
+        };
+
+        for op in ops.iter() {
+            if let Op::SetEnemyTokenCounts {
+                enemy_idx,
+                health,
+                dodge,
+            } = op
+            {
+                if *enemy_idx < combat.enemies.len() {
+                    let enemy = &mut combat.enemies[*enemy_idx];
+                    if let Some(d) = *dodge {
+                        let existing = enemy.tokens.iter_mut().find(|t| t.token_type == TT::Dodge);
+                        if let Some(t) = existing {
+                            t.count = d;
+                        } else {
+                            enemy.tokens.push(Token {
+                                token_type: TT::Dodge,
+                                permanence: TokenPermanence::UsedOnUnit,
+                                count: d,
+                            });
+                        }
+                    }
+                    if let Some(h) = *health {
+                        let existing = enemy.tokens.iter_mut().find(|t| t.token_type == TT::Health);
+                        if let Some(t) = existing {
+                            t.count = h;
+                        } else {
+                            enemy.tokens.push(Token {
+                                token_type: TT::Health,
+                                permanence: TokenPermanence::UsedOnUnit,
+                                count: h,
+                            });
+                        }
                     }
                 }
             }
         }
+    }
+
+    // Determine if combat ended and record result if so
+    let mut end_combat = false;
+    // compute player health
+    let player_health = {
+        let tokens = player_data.tokens.lock().await;
+        tokens
+            .iter()
+            .find(|t| t.token_type == TT::Health)
+            .map(|t| t.count as i32)
+            .unwrap_or(0)
+    };
+    // compute enemy health
+    let enemy_health = {
+        let combat_opt = player_data.current_combat.lock().await.clone();
+        if let Some(combat_box) = combat_opt.as_ref() {
+            if !combat_box.enemies.is_empty() {
+                let mut eh = 0i32;
+                for t in combat_box.enemies[0].tokens.iter() {
+                    if t.token_type == TT::Health {
+                        eh = t.count as i32;
+                        break;
+                    }
+                }
+                eh
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    };
+
+    if enemy_health <= 0 || player_health <= 0 {
+        end_combat = true;
+    }
+
+    if end_combat {
+        let player_health = {
+            let tokens = player_data.tokens.lock().await;
+            tokens
+                .iter()
+                .find(|t| t.token_type == TT::Health)
+                .map(|t| t.count as i32)
+                .unwrap_or(0)
+        };
+        let enemy_health = {
+            let combat_opt = player_data.current_combat.lock().await.clone();
+            if let Some(combat_box) = combat_opt.as_ref() {
+                if !combat_box.enemies.is_empty() {
+                    let mut eh = 0i32;
+                    for t in combat_box.enemies[0].tokens.iter() {
+                        if t.token_type == TT::Health {
+                            eh = t.count as i32;
+                            break;
+                        }
+                    }
+                    eh
+                } else {
+                    0
+                }
+            } else {
+                0
+            }
+        };
         let winner = if enemy_health <= 0 && player_health > 0 {
             "Player"
         } else if player_health <= 0 && enemy_health > 0 {
@@ -216,6 +310,8 @@ pub async fn apply_effects(
         });
 
         // drop the combat by setting it to None
+        let mut combat_lock = player_data.current_combat.lock().await;
+        let combat_option: &mut Option<crate::combat::Combat> = combat_lock.as_mut();
         *combat_option = None;
     }
 }
