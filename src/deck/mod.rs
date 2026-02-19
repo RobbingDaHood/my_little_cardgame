@@ -77,6 +77,12 @@ impl Deck {
         old_state: CardState,
         random_generator_state: &mut Lcg64Xsh32,
     ) -> Result<(), NotFound<Json<Status>>> {
+        if self.cards.is_empty() {
+            return Err(NotFound(new_status(format!(
+                "Deck with id {} has no cards!",
+                self.id
+            ))));
+        }
         for _ in 0..number_of_cards {
             let random_card_index = random_generator_state.gen_range(0..self.cards.len());
             let random_card_id = self
@@ -276,7 +282,7 @@ pub async fn create_deck(
         )));
     }
 
-    let unused_id = *player_data
+    let unused_id = player_data
         .decks
         .lock()
         .await
@@ -284,7 +290,7 @@ pub async fn create_deck(
         .map(|existing| existing.id)
         .max()
         .map(|existing_id| existing_id + 1)
-        .get_or_insert(0);
+        .unwrap_or(0);
     player_data.decks.lock().await.push(Deck {
         cards: vec![],
         id: unused_id,
