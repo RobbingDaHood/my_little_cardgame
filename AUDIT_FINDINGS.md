@@ -27,7 +27,7 @@ High-level findings & recommendations
 - Action: message fix committed.
 
 3) src/deck (severity: low)
-- Findings: Deck and card state transitions appear consistent and are well-covered by tests. Edge-cases around saturating subtraction and zero counts are handled.
+- Findings: Deck and card state transitions appear consistent and are well-covered by tests. Potential underflow risk: Deck::change_card_state subtracts 1 from the source state's count without explicitly checking that the count is > 0; add a guard to avoid underflow or ensure counts are never stored as zero. Add unit tests covering zero-count boundary cases.
 - Recommendation: add explicit unit tests for boundary cases (e.g., draw when deck empty, change state when missing from source state).
 
 4) src/library & ActionLog (severity: low/medium)
