@@ -2,6 +2,9 @@ use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 pub mod endpoints;
+pub mod scouting;
+
+pub use scouting::ScoutingParams;
 
 /// Encounter lifecycle states
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
