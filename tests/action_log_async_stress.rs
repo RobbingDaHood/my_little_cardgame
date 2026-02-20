@@ -1,36 +1,16 @@
-// Tests moved from src/library.rs
-use my_little_cardgame::library::{action_log, types::ActionPayload, GameState};
+// Async stress test for ActionLog using tokio tasks
+use my_little_cardgame::library::{action_log, types::ActionPayload};
 use std::sync::Arc;
-use std::thread;
 
-#[test]
-fn grant_and_replay() {
-    let mut gs = GameState::new();
-    assert_eq!(gs.token_balances.get("Insight").copied().unwrap_or(0), 0);
-    let entry = gs
-        .apply_grant("Insight", 10, None)
-        .expect("apply_grant failed");
-    assert_eq!(entry.seq, 1);
-    assert_eq!(gs.token_balances.get("Insight").copied().unwrap_or(0), 10);
-
-    // replay
-    let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
-    assert_eq!(
-        replayed.token_balances.get("Insight").copied().unwrap_or(0),
-        10
-    );
-    assert_eq!(replayed.action_log.entries().len(), 1);
-}
-
-#[test]
-fn action_log_concurrent_append() {
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn action_log_async_stress() {
     let log = Arc::new(action_log::ActionLog::new());
     let threads = 8usize;
     let per_thread = 100usize;
     let mut handles = Vec::new();
     for i in 0..threads {
         let log_clone = Arc::clone(&log);
-        handles.push(thread::spawn(move || {
+        handles.push(tokio::spawn(async move {
             for j in 0..per_thread {
                 let payload = ActionPayload::GrantToken {
                     token_id: format!("t{}_{}", i, j),
@@ -38,12 +18,16 @@ fn action_log_concurrent_append() {
                     reason: None,
                     resulting_amount: j as i64,
                 };
+                // append synchronously from async task (should be safe); yield occasionally
                 log_clone.append("GrantToken", payload);
+                if j % 10 == 0 {
+                    tokio::task::yield_now().await;
+                }
             }
         }));
     }
     for h in handles {
-        h.join().expect("thread panicked");
+        h.await.expect("task panicked");
     }
     let entries = log.entries();
     assert_eq!(entries.len(), threads * per_thread);

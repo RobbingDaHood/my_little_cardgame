@@ -207,3 +207,123 @@ The hooks run:
 - `cargo clippy --all-targets --all-features -- -D warnings`
 - `make coverage` (enforces 85% coverage)
 
+
+## Development notes
+
+See docs/dev/CONTRIBUTING.md and docs/dev/SECURITY.md for developer guidelines, testing, and security audit instructions.
+
+## Documentation Structure
+
+- `docs/design/` — Vision, roadmap, and current state
+  - `vision.md` — High-level design principles and core mechanics
+  - `roadmap.md` — Implementation roadmap with 18 steps
+  - `current_state.md` — Current implementation status
+- `docs/dev/` — Developer guidance
+  - `CONTRIBUTING.md` — Code standards and testing expectations
+  - `SECURITY.md` — Security audit procedures
+- `docs/audits/` — Security and quality audits
+  - `AUDIT_FINDINGS.md` — Key findings from code audit
+  - `AUDIT_ISSUES.md` — Unwrap/panic/expect usage tracking
+- `docs/issues/` — Specific technical issues and fixes
+- `docs/examples/` — Example API usage and scripts
+
+Run tests: 
+running 4 tests
+test deck::tests::change_card_state_missing_state_returns_error ... ok
+test deck::tests::change_card_state_nonexistent_card_returns_error ... ok
+test deck::tests::change_random_cards_state_calls_change_card_state_error_when_old_state_missing ... ok
+test deck::tests::draw_cards_moves_to_hand ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test grant_token_via_action ... ok
+test set_seed_via_action_records_log ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 1 test
+test hello_world ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 9 tests
+test test_add_card_to_nonexistent_deck ... ok
+test test_add_duplicate_card_to_deck ... ok
+test test_add_wrong_card_type_to_deck ... ok
+test test_create_card_with_zero_count_rejected ... ok
+test test_create_deck_with_empty_card_types_rejected ... ok
+test test_get_combat_before_initialization ... ok
+test test_get_nonexistent_card ... ok
+test test_play_card_without_active_combat ... ok
+test test_play_nonexistent_card_in_combat ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+
+running 1 test
+test action_log_stress_append ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 8 tests
+test test_dodge_consumed_by_enemy_attack ... ok
+test test_advance_phase_rotates_state ... ok
+test test_enemy_play_adds_dodge_to_enemy_in_defending ... ok
+test test_enemy_unit_hand_to_discard_on_play ... ok
+test test_phase_enforcement_attack_in_defending_should_fail ... ok
+test test_player_kills_enemy_and_combat_ends ... ok
+test test_play_defence_moves_card_to_discard ... ok
+test test_seed_determinism_for_enemy_selection ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+
+running 1 test
+test library_tokens_endpoint_returns_list ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 2 tests
+test grant_and_replay ... ok
+test action_log_concurrent_append ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test proptest_replay_preserves_balances ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 1 test
+test replay_from_log_reproduces_balances_randomized ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 2 tests
+test test_play_defence_card_adds_tokens ... ok
+test test_play_defence_card_health_kills_enemy ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 1 test
+test src/lib.rs - rocket_initialize (line 46) - compile ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+Run coverage locally: Filename                      Regions    Missed Regions     Cover   Functions  Missed Functions  Executed       Lines      Missed Lines     Cover    Branches   Missed Branches     Cover
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+action/mod.rs                     103                 7    93.20

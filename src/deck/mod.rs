@@ -77,6 +77,12 @@ impl Deck {
         old_state: CardState,
         random_generator_state: &mut Lcg64Xsh32,
     ) -> Result<(), NotFound<Json<Status>>> {
+        if self.cards.is_empty() {
+            return Err(NotFound(new_status(format!(
+                "Deck with id {} has no cards!",
+                self.id
+            ))));
+        }
         for _ in 0..number_of_cards {
             let random_card_index = random_generator_state.gen_range(0..self.cards.len());
             let random_card_id = self
@@ -111,6 +117,13 @@ impl Deck {
                     old_state, card_id, self.id
                 )))),
                 Some(old_state_count) => {
+                    // Guard against underflow: ensure the source state's count is > 0 before subtracting
+                    if *old_state_count == 0 {
+                        return Err(NotFound(new_status(format!(
+                            "State {:?} for card {:?} on deck {:?} has zero count!",
+                            old_state, card_id, self.id
+                        ))));
+                    }
                     card.state.insert(old_state, old_state_count - 1);
                     match card.state.get(&new_state) {
                         None => {
@@ -269,7 +282,7 @@ pub async fn create_deck(
         )));
     }
 
-    let unused_id = *player_data
+    let unused_id = player_data
         .decks
         .lock()
         .await
@@ -277,7 +290,7 @@ pub async fn create_deck(
         .map(|existing| existing.id)
         .max()
         .map(|existing_id| existing_id + 1)
-        .get_or_insert(0);
+        .unwrap_or(0);
     player_data.decks.lock().await.push(Deck {
         cards: vec![],
         id: unused_id,
@@ -361,5 +374,67 @@ mod tests {
             .iter()
             .any(|c| c.state.contains_key(&CardState::Hand));
         assert!(has_hand);
+    }
+
+    #[test]
+    fn change_random_cards_state_on_empty_deck_returns_error() {
+        let mut deck = Deck {
+            cards: vec![],
+            id: 99,
+            contains_card_types: vec![],
+        };
+        let mut rng = Lcg64Xsh32::from_seed([0u8; 16]);
+        assert!(deck
+            .change_random_cards_state(1, CardState::Hand, CardState::Deck, &mut rng)
+            .is_err());
+    }
+
+    #[test]
+    fn change_card_state_zero_count_returns_error() {
+        let mut deck = Deck {
+            cards: vec![DeckCard {
+                id: 5,
+                state: HashMap::from([(CardState::Hand, 0u32), (CardState::Deck, 1u32)]),
+            }],
+            id: 7,
+            contains_card_types: vec![],
+        };
+        assert!(deck
+            .change_card_state(5, CardState::Discard, CardState::Hand)
+            .is_err());
+    }
+
+    #[test]
+    fn create_deck_unused_id_empty_and_nonempty_behaviour() {
+        // empty decks -> unused id should be 0
+        let decks_empty: Vec<Deck> = vec![];
+        let unused_empty = decks_empty
+            .iter()
+            .map(|d| d.id)
+            .max()
+            .map(|id| id + 1)
+            .unwrap_or(0);
+        assert_eq!(unused_empty, 0);
+
+        // existing decks -> unused id is max + 1
+        let decks = [
+            Deck {
+                cards: vec![],
+                id: 0,
+                contains_card_types: vec![],
+            },
+            Deck {
+                cards: vec![],
+                id: 2,
+                contains_card_types: vec![],
+            },
+        ];
+        let unused = decks
+            .iter()
+            .map(|d| d.id)
+            .max()
+            .map(|id| id + 1)
+            .unwrap_or(0);
+        assert_eq!(unused, 3);
     }
 }

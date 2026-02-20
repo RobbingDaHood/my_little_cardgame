@@ -11,6 +11,8 @@ fn write_and_load_actionlog_file() {
         ActionPayload::GrantToken {
             token_id: "Insight".to_string(),
             amount: 3,
+            reason: None,
+            resulting_amount: 3,
         },
     );
     log.append(
@@ -18,6 +20,8 @@ fn write_and_load_actionlog_file() {
         ActionPayload::GrantToken {
             token_id: "Renown".to_string(),
             amount: 7,
+            reason: None,
+            resulting_amount: 7,
         },
     );
 

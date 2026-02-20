@@ -27,7 +27,12 @@ fn grant_token_via_action() {
     let resp: ActionLogResponse = serde_json::from_str(&body).expect("valid json");
     let entries = resp.entries;
     let found = entries.iter().any(|e| match &e.payload {
-        ActionPayload::GrantToken { token_id, amount } => token_id == "Insight" && *amount == 10,
+        ActionPayload::GrantToken {
+            token_id,
+            amount,
+            reason: _,
+            resulting_amount: _,
+        } => token_id == "Insight" && *amount == 10,
         _ => false,
     });
     assert!(found);

@@ -3,8 +3,8 @@ use my_little_cardgame::library::{registry::TokenRegistry, GameState};
 #[test]
 fn replay_from_log_reproduces_state() {
     let mut gs = GameState::new();
-    let _ = gs.apply_grant("Insight", 10).unwrap();
-    let _ = gs.apply_grant("Renown", 5).unwrap();
+    let _ = gs.apply_grant("Insight", 10, None).unwrap();
+    let _ = gs.apply_grant("Renown", 5, None).unwrap();
 
     // clone action log and replay
     let log_clone = gs.action_log.clone();

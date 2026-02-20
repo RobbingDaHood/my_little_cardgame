@@ -43,7 +43,7 @@ pub async fn play(
     match action {
         PlayerActions::GrantToken { token_id, amount } => {
             let mut gs = game_state.lock().await;
-            match gs.apply_grant(&token_id, amount) {
+            match gs.apply_grant(&token_id, amount, None) {
                 Ok(entry) => Ok((rocket::http::Status::Created, Json(entry))),
                 Err(e) => Err(Right(BadRequest(new_status(e)))),
             }
@@ -52,7 +52,8 @@ pub async fn play(
             let gs = game_state.lock().await;
             // append to action log
             let payload = crate::library::types::ActionPayload::SetSeed { seed };
-            let entry = gs.append_action("SetSeed", payload);
+            let log_arc = std::sync::Arc::clone(&gs.action_log);
+            let entry = log_arc.append_async("SetSeed", payload).await;
             // apply to PlayerData RNG/seed
             let s = seed;
             let mut seed_bytes: [u8; 16] = [0u8; 16];
@@ -94,7 +95,8 @@ pub async fn play(
                             let mut decks = player_data.decks.lock().await;
                             match decks.iter_mut().find(|deck| deck.id == deck_id) {
                                 None => Err(Left(NotFound(new_status(format!(
-                                    "Card with id {action:?} does not exist in deck!"
+                                    "Card with id {} does not exist in deck!",
+                                    card_id
                                 ))))),
                                 Some(deck) => {
                                     match deck.change_card_state(
@@ -114,6 +116,8 @@ pub async fn play(
                                             let payload =
                                                 crate::library::types::ActionPayload::PlayCard {
                                                     card_id,
+                                                    deck_id: Some(deck_id.to_string()),
+                                                    reason: None,
                                                 };
                                             let entry = gs.append_action("PlayCard", payload);
                                             Ok((rocket::http::Status::Created, Json(entry)))

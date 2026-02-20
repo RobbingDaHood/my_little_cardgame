@@ -1,32 +1,13 @@
-// Tests moved from src/library.rs
-use my_little_cardgame::library::{action_log, types::ActionPayload, GameState};
+// Stress test for ActionLog concurrent append
+use my_little_cardgame::library::{action_log, types::ActionPayload};
 use std::sync::Arc;
 use std::thread;
 
 #[test]
-fn grant_and_replay() {
-    let mut gs = GameState::new();
-    assert_eq!(gs.token_balances.get("Insight").copied().unwrap_or(0), 0);
-    let entry = gs
-        .apply_grant("Insight", 10, None)
-        .expect("apply_grant failed");
-    assert_eq!(entry.seq, 1);
-    assert_eq!(gs.token_balances.get("Insight").copied().unwrap_or(0), 10);
-
-    // replay
-    let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
-    assert_eq!(
-        replayed.token_balances.get("Insight").copied().unwrap_or(0),
-        10
-    );
-    assert_eq!(replayed.action_log.entries().len(), 1);
-}
-
-#[test]
-fn action_log_concurrent_append() {
+fn action_log_stress_append() {
     let log = Arc::new(action_log::ActionLog::new());
-    let threads = 8usize;
-    let per_thread = 100usize;
+    let threads = 16usize;
+    let per_thread = 1000usize;
     let mut handles = Vec::new();
     for i in 0..threads {
         let log_clone = Arc::clone(&log);
