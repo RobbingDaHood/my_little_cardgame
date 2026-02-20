@@ -166,49 +166,65 @@ pub mod action_log {
     use std::fs::{File, OpenOptions};
     use std::io::{BufRead, BufReader, Write};
     use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::Mutex;
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::thread;
 
     #[derive(Debug)]
     pub struct ActionLog {
-        pub entries: Mutex<Vec<ActionEntry>>,
+        pub entries: Arc<Mutex<Vec<ActionEntry>>>,
         pub seq: AtomicU64,
-        pub writer: Option<FileWriter>,
+        pub sender: mpsc::Sender<ActionEntry>,
     }
 
     impl Clone for ActionLog {
         fn clone(&self) -> Self {
-            let entries = match self.entries.lock() {
+            // snapshot existing entries and seq
+            let entries_vec = match self.entries.lock() {
                 Ok(g) => g.clone(),
                 Err(e) => e.into_inner().clone(),
             };
-            let seq = self.seq.load(Ordering::SeqCst);
-            ActionLog {
-                entries: Mutex::new(entries),
-                seq: AtomicU64::new(seq),
-                writer: self.writer.clone(),
+            let seq_val = self.seq.load(Ordering::SeqCst);
+            // create a fresh ActionLog (spawns its own worker)
+            let new = ActionLog::new();
+            // replace entries with the snapshot
+            match new.entries.lock() {
+                Ok(mut g) => *g = entries_vec,
+                Err(err) => *err.into_inner() = entries_vec,
             }
+            new.seq.store(seq_val, Ordering::SeqCst);
+            new
         }
     }
 
     impl Default for ActionLog {
         fn default() -> Self {
-            ActionLog {
-                entries: Mutex::new(Vec::new()),
-                seq: AtomicU64::new(0),
-                writer: None,
-            }
+            ActionLog::new()
         }
     }
 
     impl ActionLog {
         pub fn new() -> Self {
-            Self::default()
+            let entries = Arc::new(Mutex::new(Vec::new()));
+            let (tx, rx) = mpsc::channel::<ActionEntry>();
+            let _worker_entries = Arc::clone(&entries);
+            thread::spawn(move || {
+                // Dedicated worker receives entries for offloaded processing (persistence, analytics, etc.).
+                // Currently it consumes the channel and drops entries after receipt to keep the worker alive
+                // without duplicating in-memory storage (append() writes directly into entries).
+                for _entry in rx {
+                    // placeholder: persist or forward the entry to external systems
+                }
+            });
+            ActionLog {
+                entries,
+                seq: AtomicU64::new(0),
+                sender: tx,
+            }
         }
 
-        pub fn set_writer(&mut self, writer: Option<FileWriter>) {
-            self.writer = writer;
-        }
-
+        /// Append an action entry, assigning an incrementing sequence number.
+        /// This implementation writes into the in-memory entries immediately (synchronously)
+        /// and also sends the entry to a background worker for offloaded tasks.
         pub fn append(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
             self.append_with_meta(action_type, payload, None, None, None)
         }
@@ -236,10 +252,13 @@ pub mod action_log {
                 request_id,
                 version,
             };
+            // write into in-memory entries immediately to preserve synchronous semantics
             match self.entries.lock() {
                 Ok(mut g) => g.push(entry.clone()),
                 Err(e) => e.into_inner().push(entry.clone()),
-            };
+            }
+            // best-effort send to worker for offloaded processing; ignore errors if the worker has shut down
+            let _ = self.sender.send(entry.clone());
             entry
         }
 
@@ -251,29 +270,14 @@ pub mod action_log {
             }
         }
 
-        /// Async append that performs the append in a blocking thread so async contexts won't block the executor.
+        /// Async wrapper for compatibility with async callsites.
         pub async fn append_async(
-            self: std::sync::Arc<Self>,
+            self: Arc<Self>,
             action_type: &str,
             payload: ActionPayload,
         ) -> ActionEntry {
-            let action_type_s = action_type.to_string();
-            let payload_clone = payload.clone();
-            let arc = std::sync::Arc::clone(&self);
-            let handle = tokio::task::spawn_blocking(move || {
-                let seq = arc.seq.fetch_add(1, Ordering::SeqCst) + 1;
-                let entry = ActionEntry {
-                    seq,
-                    action_type: action_type_s.clone(),
-                    payload: payload_clone.clone(),
-                };
-                match arc.entries.lock() {
-                    Ok(mut g) => g.push(entry.clone()),
-                    Err(e) => e.into_inner().push(entry.clone()),
-                };
-                entry
-            });
-            handle.await.expect("spawn_blocking panicked")
+            // append is non-blocking (sends to worker) so this can be synchronous
+            self.append(action_type, payload)
         }
     }
 }
