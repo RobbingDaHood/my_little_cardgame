@@ -33,7 +33,10 @@ pub async fn set_seed(
     {
         let gs = game_state.lock().await;
         let payload = crate::library::types::ActionPayload::SetSeed { seed: s };
-        gs.append_action("SetSeed", payload);
+        let log_arc = std::sync::Arc::clone(&gs.action_log);
+        drop(gs);
+        // append asynchronously to avoid holding async lock while performing any blocking ops
+        log_arc.append_async("SetSeed", payload).await;
     }
 
     Json(format!("seed set to {}", s))
