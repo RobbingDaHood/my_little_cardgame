@@ -5,6 +5,7 @@ use rand::{RngCore, SeedableRng};
 use rand_pcg::Lcg64Xsh32;
 use rocket::futures::lock::Mutex;
 
+use crate::area_deck::AreaDeck;
 use crate::combat::Combat;
 use crate::deck::card::CardType;
 use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
@@ -25,6 +26,7 @@ pub struct PlayerData {
     pub(crate) seed: Arc<Mutex<[u8; 16]>>,
     #[allow(dead_code)]
     pub(crate) random_generator_state: Arc<Mutex<Lcg64Xsh32>>,
+    pub(crate) area_decks: Arc<Mutex<HashMap<String, AreaDeck>>>,
 }
 
 pub fn new() -> PlayerData {
@@ -55,6 +57,7 @@ pub fn new() -> PlayerData {
         }])),
         current_combat: Arc::new(Mutex::new(Box::new(None))),
         last_combat_result: Arc::new(Mutex::new(None)),
+        area_decks: Arc::new(Mutex::new(HashMap::new())),
     }
 }
 
