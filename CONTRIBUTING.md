@@ -8,6 +8,7 @@ Developer expectations
 - Ensure tests pass locally: `cargo test`.
 - Maintain test coverage and fix regressions; CI enforces an 85% coverage threshold.
 - Avoid `unwrap()`/`expect()` in production code; prefer Result propagation or handle poisoned mutexes.
+- ActionLog concurrency: when recording actions from async contexts prefer `append_async` (or clone the Arc<ActionLog> and call `append_async` after dropping async locks) to avoid blocking async executors; see repository docs for rationale.
 
 Pre-commit hooks
 - Install pre-commit hooks:
