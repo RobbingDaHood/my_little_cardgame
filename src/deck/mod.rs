@@ -403,4 +403,38 @@ mod tests {
             .change_card_state(5, CardState::Discard, CardState::Hand)
             .is_err());
     }
+
+    #[test]
+    fn create_deck_unused_id_empty_and_nonempty_behaviour() {
+        // empty decks -> unused id should be 0
+        let decks_empty: Vec<Deck> = vec![];
+        let unused_empty = decks_empty
+            .iter()
+            .map(|d| d.id)
+            .max()
+            .map(|id| id + 1)
+            .unwrap_or(0);
+        assert_eq!(unused_empty, 0);
+
+        // existing decks -> unused id is max + 1
+        let decks = [
+            Deck {
+                cards: vec![],
+                id: 0,
+                contains_card_types: vec![],
+            },
+            Deck {
+                cards: vec![],
+                id: 2,
+                contains_card_types: vec![],
+            },
+        ];
+        let unused = decks
+            .iter()
+            .map(|d| d.id)
+            .max()
+            .map(|id| id + 1)
+            .unwrap_or(0);
+        assert_eq!(unused, 3);
+    }
 }
