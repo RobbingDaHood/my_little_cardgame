@@ -15,6 +15,8 @@ fn concurrent_appends_produce_unique_seqs() {
                 ActionPayload::GrantToken {
                     token_id: "Insight".to_string(),
                     amount: 1,
+                    reason: None,
+                    resulting_amount: 1,
                 },
             );
         });

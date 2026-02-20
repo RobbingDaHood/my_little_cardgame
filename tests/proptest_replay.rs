@@ -10,7 +10,7 @@ proptest! {
     ) {
         let mut gs = GameState::new();
         let _prev = gs.token_balances.get(&token_id).copied().unwrap_or(0);
-        gs.apply_grant(&token_id, amount).expect("apply_grant failed");
+        gs.apply_grant(&token_id, amount, None).expect("apply_grant failed");
         let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
         prop_assert_eq!(gs.token_balances, replayed.token_balances);
     }

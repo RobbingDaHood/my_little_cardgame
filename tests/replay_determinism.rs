@@ -20,7 +20,7 @@ fn replay_from_log_reproduces_balances_randomized() {
             let idx = (rng.next_u64() as usize) % token_ids.len();
             let token_id = token_ids[idx].clone();
             let amount = (rng.next_u64() % 2001) as i64 - 1000; // range -1000..1000
-            gs.apply_grant(&token_id, amount)
+            gs.apply_grant(&token_id, amount, None)
                 .expect("apply_grant failed");
         }
         let gs2 = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);

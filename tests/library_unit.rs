@@ -7,7 +7,9 @@ use std::thread;
 fn grant_and_replay() {
     let mut gs = GameState::new();
     assert_eq!(gs.token_balances.get("Insight").copied().unwrap_or(0), 0);
-    let entry = gs.apply_grant("Insight", 10).expect("apply_grant failed");
+    let entry = gs
+        .apply_grant("Insight", 10, None)
+        .expect("apply_grant failed");
     assert_eq!(entry.seq, 1);
     assert_eq!(gs.token_balances.get("Insight").copied().unwrap_or(0), 10);
 
@@ -33,6 +35,8 @@ fn action_log_concurrent_append() {
                 let payload = ActionPayload::GrantToken {
                     token_id: format!("t{}_{}", i, j),
                     amount: j as i64,
+                    reason: None,
+                    resulting_amount: j as i64,
                 };
                 log_clone.append("GrantToken", payload);
             }

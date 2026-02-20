@@ -62,11 +62,38 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde", tag = "type")]
     pub enum ActionPayload {
-        GrantToken { token_id: String, amount: i64 },
-        SetSeed { seed: u64 },
-        RngDraw { purpose: String, value: u64 },
-        RngSnapshot { snapshot: String },
-        PlayCard { card_id: usize },
+        GrantToken {
+            token_id: String,
+            amount: i64,
+            reason: Option<String>,
+            resulting_amount: i64,
+        },
+        ConsumeToken {
+            token_id: String,
+            amount: i64,
+            reason: Option<String>,
+            resulting_amount: i64,
+        },
+        ExpireToken {
+            token_id: String,
+            amount: i64,
+            reason: Option<String>,
+        },
+        SetSeed {
+            seed: u64,
+        },
+        RngDraw {
+            purpose: String,
+            value: u64,
+        },
+        RngSnapshot {
+            snapshot: String,
+        },
+        PlayCard {
+            card_id: usize,
+            deck_id: Option<String>,
+            reason: Option<String>,
+        },
     }
 
     /// Stored action entry in the append-only action log.
@@ -174,6 +201,7 @@ pub mod action_log {
         pub entries: Arc<Mutex<Vec<ActionEntry>>>,
         pub seq: AtomicU64,
         pub sender: mpsc::Sender<ActionEntry>,
+        pub writer: Option<FileWriter>,
     }
 
     impl Clone for ActionLog {
@@ -192,7 +220,12 @@ pub mod action_log {
                 Err(err) => *err.into_inner() = entries_vec,
             }
             new.seq.store(seq_val, Ordering::SeqCst);
-            new
+            Self {
+                entries: new.entries,
+                seq: new.seq,
+                sender: new.sender,
+                writer: self.writer.clone(),
+            }
         }
     }
 
@@ -219,7 +252,54 @@ pub mod action_log {
                 entries,
                 seq: AtomicU64::new(0),
                 sender: tx,
+                writer: None,
             }
+        }
+
+        pub fn set_writer(&mut self, writer: Option<FileWriter>) {
+            self.writer = writer;
+        }
+
+        pub fn load_from_file(path: &str) -> Result<ActionLog, String> {
+            let file = File::open(path).map_err(|e| e.to_string())?;
+            let reader = BufReader::new(file);
+            let mut entries = Vec::new();
+            let mut max_seq = 0u64;
+            for line in reader.lines() {
+                let line = line.map_err(|e| e.to_string())?;
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let entry: ActionEntry = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+                if entry.seq > max_seq {
+                    max_seq = entry.seq;
+                }
+                entries.push(entry);
+            }
+            let log = ActionLog::new();
+            {
+                match log.entries.lock() {
+                    Ok(mut g) => *g = entries,
+                    Err(e) => *e.into_inner() = entries,
+                };
+            }
+            log.seq.store(max_seq, Ordering::SeqCst);
+            Ok(log)
+        }
+
+        pub fn write_all_to_file(&self, path: &str) -> Result<(), String> {
+            let entries = self.entries();
+            let mut f = OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(path)
+                .map_err(|e| e.to_string())?;
+            for e in entries {
+                let line = serde_json::to_string(&e).map_err(|e| e.to_string())?;
+                writeln!(f, "{}", line).map_err(|e| e.to_string())?;
+            }
+            f.flush().map_err(|e| e.to_string())
         }
 
         /// Append an action entry, assigning an incrementing sequence number.
@@ -302,8 +382,9 @@ impl GameState {
         for id in registry.tokens.keys() {
             balances.insert(id.clone(), 0i64);
         }
-        let action_log = match std::env::var("ACTION_LOG_FILE") {
+        let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
+                #[allow(clippy::manual_unwrap_or_default)]
                 let mut log = match action_log::ActionLog::load_from_file(&path) {
                     Ok(l) => l,
                     Err(_) => ActionLog::new(),
@@ -325,17 +406,72 @@ impl GameState {
     }
 
     /// Apply a simple GrantToken action: update balances and append to the action log.
-    pub fn apply_grant(&mut self, token_id: &str, amount: i64) -> Result<ActionEntry, String> {
-        if !self.registry.contains(token_id) {
-            return Err(format!("Unknown token '{}'", token_id));
+    pub fn apply_grant(
+        &mut self,
+        token_id: &str,
+        amount: i64,
+        reason: Option<String>,
+    ) -> Result<ActionEntry, String> {
+        let token_type = self
+            .registry
+            .tokens
+            .get(token_id)
+            .ok_or_else(|| format!("Unknown token '{}'", token_id))?;
+
+        // Check cap if present
+        if let Some(cap) = token_type.cap {
+            let current = self.token_balances.get(token_id).copied().unwrap_or(0);
+            if current + amount > cap as i64 {
+                return Err(format!(
+                    "Token '{}' would exceed cap of {} (current: {})",
+                    token_id, cap, current
+                ));
+            }
         }
+
+        let current = self.token_balances.get(token_id).copied().unwrap_or(0);
+        let resulting_amount = current + amount;
         let payload = ActionPayload::GrantToken {
             token_id: token_id.to_string(),
             amount,
+            reason,
+            resulting_amount,
         };
         let entry = self.append_action("GrantToken", payload);
         let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
         *v += amount;
+        Ok(entry)
+    }
+
+    /// Apply a ConsumeToken action: deduct from balances and append to the action log.
+    pub fn apply_consume(
+        &mut self,
+        token_id: &str,
+        amount: i64,
+        reason: Option<String>,
+    ) -> Result<ActionEntry, String> {
+        if !self.registry.contains(token_id) {
+            return Err(format!("Unknown token '{}'", token_id));
+        }
+
+        let current = self.token_balances.get(token_id).copied().unwrap_or(0);
+        if current < amount {
+            return Err(format!(
+                "Cannot consume {} of token '{}': insufficient balance (have {})",
+                amount, token_id, current
+            ));
+        }
+
+        let resulting_amount = current - amount;
+        let payload = ActionPayload::ConsumeToken {
+            token_id: token_id.to_string(),
+            amount,
+            reason,
+            resulting_amount,
+        };
+        let entry = self.append_action("ConsumeToken", payload);
+        let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
+        *v -= amount;
         Ok(entry)
     }
 
@@ -359,15 +495,29 @@ impl GameState {
         };
         for e in log.entries() {
             match &e.payload {
-                ActionPayload::GrantToken { token_id, amount } => {
+                ActionPayload::GrantToken {
+                    token_id, amount, ..
+                } => {
                     let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
                     *v += *amount;
+                }
+                ActionPayload::ConsumeToken {
+                    token_id, amount, ..
+                } => {
+                    let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
+                    *v -= *amount;
+                }
+                ActionPayload::ExpireToken {
+                    token_id, amount, ..
+                } => {
+                    let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
+                    *v = (*v - *amount).max(0);
                 }
                 ActionPayload::SetSeed { .. } => {
                     // SetSeed is recorded but not applied to token balances during replay here
                 }
                 _ => {
-                    // Other action payloads (RngDraw, RngSnapshot, etc.) are recorded for audit but don't affect token balances
+                    // Other action payloads (RngDraw, RngSnapshot, PlayCard, etc.) are recorded for audit but don't affect token balances
                 }
             }
             match gs.action_log.entries.lock() {

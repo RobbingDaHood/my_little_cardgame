@@ -15,7 +15,7 @@ proptest! {
     ) {
         let mut gs = GameState::new();
         for (token_id, amount) in &seq {
-            gs.apply_grant(token_id, *amount).expect("apply_grant failed");
+            gs.apply_grant(token_id, *amount, None).expect("apply_grant failed");
         }
         let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
         prop_assert_eq!(gs.token_balances, replayed.token_balances);
@@ -34,7 +34,7 @@ proptest! {
         let mut gs = GameState::new();
         let mut seq_numbers: Vec<u64> = Vec::new();
         for (token_id, amount) in &seq {
-            let entry = gs.apply_grant(token_id, *amount).expect("apply_grant failed");
+            let entry = gs.apply_grant(token_id, *amount, None).expect("apply_grant failed");
             seq_numbers.push(entry.seq);
         }
         for (i, s) in seq_numbers.iter().enumerate() {

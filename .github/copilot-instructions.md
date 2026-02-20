@@ -64,7 +64,7 @@ Files to check for agent config
 
 - Existing repo files inspected: README.md, Cargo.toml, src/.
 - If present, include and merge guidance from: CLAUDE.md, AGENTS.md, CONVENTIONS.md, AIDER_CONVENTIONS.md, .cursorrules, .cursor/, .windsurfrules, .clinerules, .cline_rules. (None were found at time of creation.)
-- Always respect everything written in the files in the docks/ folder; treat those files as authoritative guidance for the repository and follow them without contradiction.
+- Always respect everything written in the files in the docs/ folder; treat those files as authoritative guidance for the repository and follow them without contradiction.
 
 Notes for Copilot sessions
 

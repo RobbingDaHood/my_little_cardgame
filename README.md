@@ -210,7 +210,22 @@ The hooks run:
 
 ## Development notes
 
-See CONTRIBUTING.md and SECURITY.md for developer guidelines, testing, and security audit instructions.
+See docs/dev/CONTRIBUTING.md and docs/dev/SECURITY.md for developer guidelines, testing, and security audit instructions.
+
+## Documentation Structure
+
+- `docs/design/` — Vision, roadmap, and current state
+  - `vision.md` — High-level design principles and core mechanics
+  - `roadmap.md` — Implementation roadmap with 18 steps
+  - `current_state.md` — Current implementation status
+- `docs/dev/` — Developer guidance
+  - `CONTRIBUTING.md` — Code standards and testing expectations
+  - `SECURITY.md` — Security audit procedures
+- `docs/audits/` — Security and quality audits
+  - `AUDIT_FINDINGS.md` — Key findings from code audit
+  - `AUDIT_ISSUES.md` — Unwrap/panic/expect usage tracking
+- `docs/issues/` — Specific technical issues and fixes
+- `docs/examples/` — Example API usage and scripts
 
 Run tests: 
 running 4 tests

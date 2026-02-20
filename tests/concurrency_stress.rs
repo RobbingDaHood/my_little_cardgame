@@ -16,6 +16,8 @@ fn action_log_stress_append() {
                 let payload = ActionPayload::GrantToken {
                     token_id: format!("t{}_{}", i, j),
                     amount: j as i64,
+                    reason: None,
+                    resulting_amount: j as i64,
                 };
                 log_clone.append("GrantToken", payload);
             }
