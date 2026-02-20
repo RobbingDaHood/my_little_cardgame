@@ -57,6 +57,9 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::action::play;
     use crate::actions_log::list_actions_log;
     use crate::actions_log::okapi_add_operation_for_list_actions_log_;
+    use crate::area_deck::endpoints::okapi_add_operation_for_get_area_;
+    use crate::area_deck::endpoints::okapi_add_operation_for_get_area_encounters_;
+    use crate::area_deck::endpoints::{get_area, get_area_encounters};
     use crate::combat::okapi_add_operation_for_advance_phase_;
     use crate::combat::okapi_add_operation_for_enemy_play_;
     use crate::combat::okapi_add_operation_for_get_combat_;
@@ -116,7 +119,9 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 set_seed,
                 get_combat_result,
                 list_library_tokens,
-                list_actions_log
+                list_actions_log,
+                get_area,
+                get_area_encounters
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))

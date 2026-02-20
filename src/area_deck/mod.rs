@@ -1,6 +1,8 @@
 use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+pub mod endpoints;
+
 /// Encounter lifecycle states
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
