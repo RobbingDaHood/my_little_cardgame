@@ -55,7 +55,7 @@ fn test_play_defence_card_adds_tokens() {
     assert_eq!(add_response.status(), Status::Created);
 
     // Initialize combat (starts in Defending)
-    let init_response = client.post("/combat").dispatch();
+    let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
     // Play the card
@@ -133,7 +133,7 @@ fn test_play_defence_card_health_kills_enemy() {
     assert_eq!(add_response.status(), Status::Created);
 
     // Initialize combat (starts in Defending)
-    let init_response = client.post("/combat").dispatch();
+    let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
     // Play the card

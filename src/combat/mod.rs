@@ -49,8 +49,12 @@ pub async fn get_combat(
     }
 }
 
+/// Initialize combat for testing purposes.
+///
+/// **TESTING ENDPOINT ONLY** - This endpoint is provided for testing purposes only
+/// and may be replaced with an action-based initialization mechanism in the future.
 #[openapi]
-#[post("/combat")]
+#[post("/tests/combat")]
 pub async fn initialize_combat(player_data: &State<PlayerData>) -> Created<&str> {
     player_data.current_combat.lock().await.replace(Combat {
         allies: vec![],
@@ -74,7 +78,7 @@ pub async fn initialize_combat(player_data: &State<PlayerData>) -> Created<&str>
             }
         }
     }
-    Created::new("/combat")
+    Created::new("/tests/combat")
 }
 
 #[openapi]

@@ -49,7 +49,7 @@ fn interleaved_player_and_enemy_actions() {
     assert_eq!(add_response.status(), Status::Created);
 
     // Initialize combat (starts in Defending)
-    let init_response = client.post("/combat").dispatch();
+    let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
     // Interleave plays and enemy plays sequentially to exercise locking

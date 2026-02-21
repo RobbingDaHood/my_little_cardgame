@@ -349,13 +349,13 @@ fn get_combat(client: &Client) -> Option<Combat> {
 }
 
 fn initialize_combat(client: &Client) {
-    let response = client.post("/combat").dispatch();
+    let response = client.post("/tests/combat").dispatch();
     assert_eq!(response.status(), Status::Created);
     let response_headers = response.headers();
     let location_header_list: Vec<_> = response_headers.get("location").collect();
     assert_eq!(1, location_header_list.len());
     let location_header = location_header_list.first().expect("Test assertion failed");
-    assert_eq!("/combat", (*location_header).to_string());
+    assert_eq!("/tests/combat", (*location_header).to_string());
 }
 
 #[allow(dead_code)]

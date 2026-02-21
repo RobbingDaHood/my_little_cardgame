@@ -96,7 +96,7 @@ fn test_play_nonexistent_card_in_combat() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
     // Initialize combat
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
 
     // Try to play a card that doesn't exist
     let action_json = r#"{ "PlayCard": 99999 }"#;
