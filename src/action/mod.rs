@@ -45,7 +45,7 @@ pub enum PlayerActions {
     },
     // Encounter actions (Step 7)
     EncounterPickEncounter {
-        area_id: String,
+        card_id: String,
     },
     EncounterPlayCard {
         card_id: u64,
@@ -252,15 +252,35 @@ pub async fn play(
             }
         }
         // Step 7: Encounter action handlers
-        PlayerActions::EncounterPickEncounter { area_id } => {
-            let gs = game_state.lock().await;
-            let payload = crate::library::types::ActionPayload::DrawEncounter {
-                area_id: area_id.clone(),
-                encounter_id: "from_action".to_string(),
-                reason: Some("Player initiated encounter".to_string()),
-            };
-            let entry = gs.append_action("EncounterPickEncounter", payload);
-            Ok((rocket::http::Status::Created, Json(entry)))
+        PlayerActions::EncounterPickEncounter { card_id } => {
+            let mut current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_mut() {
+                Some(area_deck) => match area_deck.get_encounter(&card_id) {
+                    Some(enc) => {
+                        if enc.state != crate::area_deck::EncounterState::Available {
+                            return Err(Right(BadRequest(new_status(format!(
+                                "Encounter {} is not available (on hand)",
+                                card_id
+                            )))));
+                        }
+                        let gs = game_state.lock().await;
+                        let payload = crate::library::types::ActionPayload::DrawEncounter {
+                            area_id: "current".to_string(),
+                            encounter_id: card_id,
+                            reason: Some("Player picked encounter by card_id".to_string()),
+                        };
+                        let entry = gs.append_action("EncounterPickEncounter", payload);
+                        Ok((rocket::http::Status::Created, Json(entry)))
+                    }
+                    None => Err(Left(NotFound(new_status(format!(
+                        "Encounter card {} not found in area deck",
+                        card_id
+                    ))))),
+                },
+                None => Err(Left(NotFound(new_status(
+                    "No current area set".to_string(),
+                )))),
+            }
         }
         PlayerActions::EncounterPlayCard {
             card_id,

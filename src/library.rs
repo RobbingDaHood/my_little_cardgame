@@ -255,7 +255,7 @@ pub mod types {
     #[serde(crate = "rocket::serde", tag = "action_type")]
     pub enum EncounterAction {
         /// Pick an encounter from the area deck and initialize combat
-        PickEncounter { area_id: String },
+        PickEncounter { card_id: String },
         /// Play a card during combat (moves turn forward)
         PlayCard { card_id: u64, effects: Vec<String> },
         /// Make a scouting choice post-encounter
@@ -502,7 +502,7 @@ pub mod encounter {
     pub fn apply_action(state: &EncounterState, action: EncounterAction) -> Option<EncounterState> {
         match (&state.phase, action) {
             // Ready phase: can pick encounter or finish
-            (EncounterPhase::Ready, EncounterAction::PickEncounter { area_id: _ }) => {
+            (EncounterPhase::Ready, EncounterAction::PickEncounter { card_id: _ }) => {
                 let mut new_state = state.clone();
                 new_state.phase = EncounterPhase::InCombat;
                 Some(new_state)

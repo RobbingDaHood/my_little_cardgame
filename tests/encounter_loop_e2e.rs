@@ -45,7 +45,7 @@ mod tests {
         let state_after_pick = encounter::apply_action(
             &initial_state,
             EncounterAction::PickEncounter {
-                area_id: "forest".to_string(),
+                card_id: "encounter_1".to_string(),
             },
         );
         assert!(state_after_pick.is_some());
