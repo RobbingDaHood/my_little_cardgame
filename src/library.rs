@@ -41,6 +41,61 @@ pub mod types {
         OnOpponent,
     }
 
+    // ====== Library types (card location model from vision.md) ======
+
+    /// Exclusive copy counts describing where player copies reside.
+    /// [library, deck, hand, discard] — each copy exists in exactly one location.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CardCounts {
+        pub library: u32,
+        pub deck: u32,
+        pub hand: u32,
+        pub discard: u32,
+    }
+
+    impl CardCounts {
+        pub fn total(&self) -> u32 {
+            self.library + self.deck + self.hand + self.discard
+        }
+    }
+
+    /// The kind of card and its type-specific payload.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "kind")]
+    pub enum CardKind {
+        Attack { effects: Vec<CardEffect> },
+        Defence { effects: Vec<CardEffect> },
+        Resource { effects: Vec<CardEffect> },
+        CombatEncounter { combatant_def: CombatantDef },
+    }
+
+    /// Definition of an enemy combatant for a combat encounter card.
+    /// Enemies are self-contained: their cards are inline, not Library references.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatantDef {
+        pub initial_tokens: HashMap<String, i64>,
+        pub attack_deck: Vec<EnemyCardDef>,
+        pub defence_deck: Vec<EnemyCardDef>,
+        pub resource_deck: Vec<EnemyCardDef>,
+    }
+
+    /// A simple inline card definition for enemy decks.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct EnemyCardDef {
+        pub effects: Vec<CardEffect>,
+    }
+
+    /// A single entry in the Library. Index in the Vec = card ID.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct LibraryCard {
+        pub kind: CardKind,
+        pub counts: CardCounts,
+    }
+
     /// Token type metadata and lifecycle
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]

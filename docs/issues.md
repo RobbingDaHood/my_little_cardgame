@@ -1,103 +1,93 @@
-# Issues and suggested fixes (cleanup: after step 7, before step 8)
+The follwing is a list of cleanups that need to be performed. You do not need to do it in the order of writing and you should plan them in the order that makes the most sense. 
 
-This document collects issues observed while implementing the encounter loop (post-step 7) and proposes minimal fixes to align the implementation with vision.md and roadmap.md (pre-step 8).
+# The library is missing!
 
-## EncounterPick — use card_id, not area_id
+Now I see a major reason for some design drift in the code and this is a very high priority to fix. 
 
-EncounterPick should accept a card_id rather than an area_id because the encounter is a card drawn from the area deck's hand (a Library card).
+The library does not even exist! 
 
-Requirements:
-- The card must be an area-type card.
-- At least one copy must be "on hand".
+THere is a "/library/cards" endpoint that make a lookup in player_data.cards, but this is wrong. 
 
-When both requirements are satisfied, the card can be played.
+The "GameState" should contain a "Library" that is an array of cards: the index of the array is the ID of the card. All cards that does not belong to an enemy is in this library, no matter the type etc. 
 
-## EncounterPlayCard — avoid deck_id
+The Library defines the state of all the cards of a certain type: as explained in the vision under "card location model and counts": BTW this section is authoritive when it comes to anything that mentions card counts and placement, so suggest change to the vision.md wherever this section is contradicted. 
 
-Do not require explicit deck_id values. Every card type belongs to an implicit deck of that type; callers should provide a card_id and the server should validate deck semantics.
+# All card ids is the index in the library 
 
-When playing a card (by card_id) ensure:
-- The card has the correct type.
-- There is at least one copy on hand.
+So it is fine to still state the IDs as long as they refer back to their index in the library and can be used for a lookup. 
 
-Handle these semantics via the Library/implicit-deck model; avoid exposing explicit deck_id fields in the public API.
+# Cards do not solely express combat cards
 
-## EncounterApplyScouting — accept card_id(s)
+There are "combat encounter"-cards (read below), attack cards, defence cards, ressource cards, encounter cards etc. 
 
-EncounterApplyScouting should use card_id with the same restrictions described above. It may accept a list of card_id values when the action involves multiple cards.
+In the future there will be way more cards. 
 
-## EncounterFinish should not be a player action
+So the CardDef need to represent this flexibility. 
 
-After an encounter starts, players play cards until it finishes; the system then applies the scouting update (EncounterApplyScouting) and presents the next encounter. There is no need for a separate player-invoked EncounterFinish action.
+Likely change the "card_type" and "effect" with some enum that can contain the payload relevant for that enum.
 
-## /combat/simulate should not be public
+# Encounters are a card too in the library 
 
-Combat resolution must be driven through the single mutator action endpoint (POST /action). If /combat/simulate is useful for debugging or tests, move it under the test endpoints (e.g., /tests/*) and document it as temporary.
+They have the type "encounter". 
 
-## CombatEvent is rarely needed
+They have no "entry_cost", "state", affixes". 
 
-The ActionLog records player actions. Combined with the initial seed, the action log is sufficient to reproduce state; avoid adding redundant reporting events like CombatEvent unless they provide metadata that cannot be reconstructed from seed+action log.
+In case of a combat encounter (The only one that exists at this stage in the roadmap) then the "Combat encounter" does define a full comabant: 
+1. Initial tokens
+1. The three decks (attack, deffence, ressourcing) that defines the unit, with all the cards in each. (Enemies are the only ones that defines an actual deck explicitly). 
 
-## Combatant and HP modelling
+You can remove the "reward_deck_id" too, in a later step we will implement rewards. It will be a number of cards that can be drawn from the combat reward deck, but that is for furture implementation. 
 
-Combatants do not need separate external IDs for players. current_hp and max_hp should be modelled as tokens rather than ad-hoc fields — consistent with the "everything is a deck or a token" principle.
+# There are still decks being made and that is not allowed. 
 
-## CombatAction and Combat state
+This is a fundamental change and VERY important. 
 
-CombatAction is largely redundant if Encounter actions already capture the available plays. Combat state should be derivable from:
-- the player's tokens,
-- the combatant's tokens,
-- card states stored in the Library (counts/locations).
+All cards are in the library and is solely represented there. 
 
-Keep the runtime state minimal and rely on the ActionLog + seed for replayability.
+Decks do not exist explicitly, only implicitley as all cards of the same type in the library belongs to the same deck. 
 
-## CombatLogEntry / CombatLog
+It is fine to have helper functions that help interact with library: But there are no decks explicit in the data, it all refers back to the library. 
 
-There should be a single canonical log: the ActionLog. Avoid introducing a separate CombatLog unless there is a strong, documented need for a secondary reporting trail.
+The only exception to this is the combat encounters mentioned above. That deck setup should be close to the combatant models and clearly express that they should only be used in that context. 
 
-## EncounterState and EncounterPhase
+# TokenLifecycle.TokenLifecycle need to define what EncounterPhase it counts. 
 
-EncounterState does not need separate fields for encounter_id, area_id, combat_state, or scouting_parameters; these can be reconstructed from tokens and Library state. One EncounterPhase enum is sufficient; refine phase names rather than adding many ad-hoc flags.
+So it should keep the u64 but also add an enum. 
 
-Suggested EncounterPhase adjustments:
-- Remove a separate "ready" flag.
-- Expand "InCombat" to include explicit combat sub-phases (resolve tick, resolve turn, etc.) if needed.
-- Replace "Finished" with a neutral state like "NoEncounter".
-- Rename "PostEncounter" to "Scouting" for clarity.
+The idea is that the duration should count down every time we get to a specific phase. 
 
-## ScoutingParameters
+Better yet, make it a list of phases: in case we want to count down in multiple different phases. 
 
-Represent scouting-related parameters via tokens and deterministic parameters derived from those tokens. Scouting should deterministically bias replacement generation using token-driven parameters and the ActionLog; do not hard-code separate global bias structures.
+# The combatant does not need an ID
 
-## Combat module placement
+The combatant is always the current combat encounter and never the player. 
 
-Combat logic should interact with the Library and the canonical data model but does not need to live in library.rs. Place combat code in an appropriate core module while preserving the Library as the authoritative card registry.
-
-## resolve_combat_tick signature
-
-Prefer a card_id-based API (resolve_combat_tick(card_id, ...)) that:
-1. Reads and validates the card definition and type.
-2. Checks that the card's cost can be paid and returns a clear error if not.
-3. Applies the card's effect by manipulating tokens (player or combatant tokens).
-4. Checks victory/defeat conditions (e.g., HP tokens reaching zero) and transitions to the Scouting phase when resolved.
-
-## encounter.apply_action
-
-Update encounter.apply_action to follow the rules above and to rely on card_id-based actions, token manipulation, and the single POST /action mutator.
-
-## Startup: initialize area decks for quick play
-
-Ensure the server initialization populates the Library with a small set of combat encounters (correct counts) and marks some copies "on hand" so a developer can immediately pick an encounter and progress through the simple combat loop after startup.
-
-## Simple combat is fine initially
-
-The first combat implementation can be deliberately minimal (attack cards that reduce HP). Add dodge, stamina, and other complexity incrementally in later roadmap steps.
-
-## Suggested clarifications to vision.md and roadmap.md
-
-Suggest changes to vision.md and roadmap.md to avoid making the same mistake again. These suggestions should be put in a file, the file may NOT be placed in docs/design.
+It just need current tokens and current decks state (only exception for decks in the whole code base). 
 
 
----
+# CombatState is reduntant. 
 
-This file is a cleanup note following step 7 (encounter play loop) and intended to be applied before proceeding with step 8 (expanding encounter variety).
+The full state can be represented with player and enemy tokens and cards + the EncounterPhase.
+
+So remove CombatState. 
+
+# Token registry 
+
+Use the token type as the key and the hashmap then maps to a count of that type of token. 
+
+# Overall: 
+
+Everything should much more refer to the "library" when it comes to the player cards. 
+
+The cards are much more flexible and can represent a lot of different cards. 
+
+The tokens represent current state of the player and if in a combat the combatant. 
+
+
+# When done with all of this then update the subbestions-vision-roadmap.md 
+
+It represents suggested changes to vision.md and roadmap.md that would clarify them for the future. 
+
+If I instructed you to do something that you could not read from those two files, then suggest how they can be changed to avoid that in the future. 
+
+Also give me a list of contradictions and areas of improvements. 
