@@ -19,7 +19,6 @@ pub mod types {
     #[serde(crate = "rocket::serde")]
     pub struct CardDef {
         pub id: u64,
-        pub name: String,
         pub card_type: String,
     }
 
@@ -596,7 +595,6 @@ pub async fn list_library_cards(
             };
             types::CardDef {
                 id: c.id as u64,
-                name: format!("card_{}", c.id),
                 card_type: ct,
             }
         })

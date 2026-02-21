@@ -7,12 +7,8 @@ use my_little_cardgame::{
 fn test_area_deck_draw_and_replace() {
     let mut area = AreaDeck::new("area_1".to_string(), "Forest".to_string());
 
-    let enc1 = Encounter::new(
-        "enc_1".to_string(),
-        "Goblin".to_string(),
-        "Combat".to_string(),
-    );
-    let enc2 = Encounter::new("enc_2".to_string(), "Orc".to_string(), "Combat".to_string());
+    let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string());
+    let enc2 = Encounter::new("enc_2".to_string(), "Combat".to_string());
 
     area.add_encounter(enc1);
     area.add_encounter(enc2);
@@ -25,11 +21,7 @@ fn test_area_deck_draw_and_replace() {
 
     area.resolve_encounter("enc_1").unwrap();
 
-    let mut new_encounter = Encounter::new(
-        "enc_3".to_string(),
-        "Dragon".to_string(),
-        "Combat".to_string(),
-    );
+    let mut new_encounter = Encounter::new("enc_3".to_string(), "Combat".to_string());
     new_encounter = new_encounter.with_affixes(vec!["fireresistant".to_string()]);
 
     let replacement = area.replace_encounter("enc_1", new_encounter).unwrap();
@@ -61,24 +53,15 @@ fn test_scouting_influences_replacement_seed() {
 
 #[test]
 fn test_encounter_with_entry_cost() {
-    let encounter = Encounter::new(
-        "enc_1".to_string(),
-        "Boss".to_string(),
-        "Combat".to_string(),
-    )
-    .with_entry_cost(50);
+    let encounter = Encounter::new("enc_1".to_string(), "Combat".to_string()).with_entry_cost(50);
 
     assert_eq!(encounter.entry_cost, Some(50));
 }
 
 #[test]
 fn test_encounter_with_reward_deck() {
-    let encounter = Encounter::new(
-        "enc_1".to_string(),
-        "Boss".to_string(),
-        "Combat".to_string(),
-    )
-    .with_reward_deck("reward_deck_1".to_string());
+    let encounter = Encounter::new("enc_1".to_string(), "Combat".to_string())
+        .with_reward_deck("reward_deck_1".to_string());
 
     assert_eq!(encounter.reward_deck_id, Some("reward_deck_1".to_string()));
 }
@@ -87,12 +70,8 @@ fn test_encounter_with_reward_deck() {
 fn test_get_available_encounters() {
     let mut area = AreaDeck::new("area_1".to_string(), "Forest".to_string());
 
-    let enc1 = Encounter::new(
-        "enc_1".to_string(),
-        "Goblin".to_string(),
-        "Combat".to_string(),
-    );
-    let enc2 = Encounter::new("enc_2".to_string(), "Orc".to_string(), "Combat".to_string());
+    let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string());
+    let enc2 = Encounter::new("enc_2".to_string(), "Combat".to_string());
 
     area.add_encounter(enc1);
     area.add_encounter(enc2);
@@ -109,12 +88,8 @@ fn test_get_available_encounters() {
 fn test_cannot_replace_non_resolved_encounter() {
     let mut area = AreaDeck::new("area_1".to_string(), "Forest".to_string());
 
-    let enc1 = Encounter::new(
-        "enc_1".to_string(),
-        "Goblin".to_string(),
-        "Combat".to_string(),
-    );
-    let new_enc = Encounter::new("enc_2".to_string(), "Orc".to_string(), "Combat".to_string());
+    let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string());
+    let new_enc = Encounter::new("enc_2".to_string(), "Combat".to_string());
 
     area.add_encounter(enc1);
 

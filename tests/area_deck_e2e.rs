@@ -13,18 +13,8 @@ async fn test_full_area_deck_flow_with_action_log() {
     // Create area deck with initial encounters
     let mut area = AreaDeck::new("forest_area".to_string(), "Ancient Forest".to_string());
 
-    let enc1 = Encounter::new(
-        "enc_1".to_string(),
-        "Goblin Camp".to_string(),
-        "Combat".to_string(),
-    )
-    .with_entry_cost(10);
-    let enc2 = Encounter::new(
-        "enc_2".to_string(),
-        "Orc Band".to_string(),
-        "Combat".to_string(),
-    )
-    .with_entry_cost(20);
+    let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string()).with_entry_cost(10);
+    let enc2 = Encounter::new("enc_2".to_string(), "Combat".to_string()).with_entry_cost(20);
 
     area.add_encounter(enc1);
     area.add_encounter(enc2);
@@ -143,13 +133,9 @@ fn test_scouting_biases_different_seeds() {
 
 #[test]
 fn test_area_deck_reward_binding() {
-    let encounter = Encounter::new(
-        "encounter_boss".to_string(),
-        "Dragon".to_string(),
-        "Combat".to_string(),
-    )
-    .with_reward_deck("dragon_reward_deck".to_string())
-    .with_entry_cost(100);
+    let encounter = Encounter::new("encounter_boss".to_string(), "Combat".to_string())
+        .with_reward_deck("dragon_reward_deck".to_string())
+        .with_entry_cost(100);
 
     assert_eq!(
         encounter.reward_deck_id,
