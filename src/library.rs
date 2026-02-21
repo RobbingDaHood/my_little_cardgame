@@ -213,6 +213,59 @@ pub mod types {
         pub entries: Vec<CombatLogEntry>,
         pub final_state: CombatState,
     }
+
+    // ====== Encounter types for the encounter loop (Step 7) ======
+
+    /// Represents the state of a single encounter session.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct EncounterState {
+        pub encounter_id: String,
+        pub area_id: String,
+        pub combat_state: CombatState,
+        pub phase: EncounterPhase,
+        pub scouting_parameters: ScoutingParameters,
+    }
+
+    /// Phases of an encounter (Step 7 state machine)
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[serde(crate = "rocket::serde")]
+    pub enum EncounterPhase {
+        /// Encounter has been drawn; player can start combat
+        Ready,
+        /// Combat is currently active
+        InCombat,
+        /// Combat has finished; post-encounter scouting is available
+        PostEncounter,
+        /// Encounter is finished (resolved or abandoned)
+        Finished,
+    }
+
+    /// Parameters controlling how replacement encounters are generated (Step 7)
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct ScoutingParameters {
+        pub preview_count: u64, // How many cards can be peeked ahead
+        pub affix_bias: String, // Bias towards certain affixes
+        pub pool_modifier: f64, // Modifier on encounter generation pool
+    }
+
+    /// User actions during an encounter (Step 7)
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "action_type")]
+    pub enum EncounterAction {
+        /// Pick an encounter from the area deck and initialize combat
+        PickEncounter { area_id: String },
+        /// Play a card during combat (moves turn forward)
+        PlayCard { card_id: u64, effects: Vec<String> },
+        /// Make a scouting choice post-encounter
+        ApplyScouting {
+            choice_id: String,
+            parameters: ScoutingParameters,
+        },
+        /// Finish/abandon the encounter
+        FinishEncounter,
+    }
 }
 
 pub mod combat {
