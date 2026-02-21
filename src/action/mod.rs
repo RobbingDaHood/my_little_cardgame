@@ -18,7 +18,7 @@ use rand_pcg::Lcg64Xsh32;
 
 /// Player actions
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
-#[serde(crate = "rocket::serde")]
+#[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
     PlayCard(usize),
     GrantToken {
@@ -41,6 +41,19 @@ pub enum PlayerActions {
         area_id: String,
         parameters: String,
     },
+    // Encounter actions (Step 7)
+    EncounterPickEncounter {
+        area_id: String,
+    },
+    EncounterPlayCard {
+        card_id: u64,
+        effects: Vec<String>,
+    },
+    EncounterApplyScouting {
+        choice_id: String,
+        parameters: serde_json::Value,
+    },
+    EncounterFinish,
 }
 
 #[openapi]
@@ -235,6 +248,53 @@ pub async fn play(
                     "No current area set".to_string(),
                 )))),
             }
+        }
+        // Step 7: Encounter action handlers
+        PlayerActions::EncounterPickEncounter { area_id } => {
+            let gs = game_state.lock().await;
+            let payload = crate::library::types::ActionPayload::DrawEncounter {
+                area_id: area_id.clone(),
+                encounter_id: "from_action".to_string(),
+                reason: Some("Player initiated encounter".to_string()),
+            };
+            let entry = gs.append_action("EncounterPickEncounter", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterPlayCard {
+            card_id,
+            effects: _,
+        } => {
+            let gs = game_state.lock().await;
+            let payload = crate::library::types::ActionPayload::PlayCard {
+                card_id: card_id as usize,
+                deck_id: Some("encounter_deck".to_string()),
+                reason: Some("Player played card during encounter".to_string()),
+            };
+            let entry = gs.append_action("EncounterPlayCard", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterApplyScouting {
+            choice_id: _,
+            parameters,
+        } => {
+            let gs = game_state.lock().await;
+            let payload = crate::library::types::ActionPayload::ApplyScouting {
+                area_id: "encounter".to_string(),
+                parameters: serde_json::to_string(&parameters).unwrap_or_default(),
+                reason: Some("Player applied scouting after encounter".to_string()),
+            };
+            let entry = gs.append_action("EncounterApplyScouting", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterFinish => {
+            let gs = game_state.lock().await;
+            let payload = crate::library::types::ActionPayload::DrawEncounter {
+                area_id: "encounter".to_string(),
+                encounter_id: "finished".to_string(),
+                reason: Some("Player finished encounter".to_string()),
+            };
+            let entry = gs.append_action("EncounterFinish", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
         }
     }
 }
