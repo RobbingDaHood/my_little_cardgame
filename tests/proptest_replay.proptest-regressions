@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc fe592e21eda6dd623f49977c4ae2a4b7e91f5669f87eaea3b52e7e7ba88ca089 # shrinks to token_id = "Stamina", amount = 101
+cc 47a29e61818aae8aec53d9ef5f53ad2daf101fb929ab3b68397b40ac8e066db7 # shrinks to token_id = "Mana", amount = 101
+cc 73de2b1ab848cd6e94d43ec4af4dbe011b1f1befffbe2f2846845cb53cde9cd5 # shrinks to token_id = "Stamina", amount = 101
