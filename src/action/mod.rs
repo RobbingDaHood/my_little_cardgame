@@ -286,14 +286,48 @@ pub async fn play(
             card_id,
             effects: _,
         } => {
-            let gs = game_state.lock().await;
-            let payload = crate::library::types::ActionPayload::PlayCard {
-                card_id: card_id as usize,
-                deck_id: Some("encounter_deck".to_string()),
-                reason: Some("Player played card during encounter".to_string()),
-            };
-            let entry = gs.append_action("EncounterPlayCard", payload);
-            Ok((rocket::http::Status::Created, Json(entry)))
+            // Validate card exists and is on hand
+            match get_card(card_id as usize, player_data).await {
+                None => Err(Left(NotFound(new_status(format!(
+                    "Card {} does not exist",
+                    card_id
+                ))))),
+                Some(card) => {
+                    // Derive deck from card type (implicit deck semantics)
+                    let deck_id = match card.card_type {
+                        CardType::Defence => *player_data.defence_deck_id.lock().await,
+                        CardType::Attack => *player_data.attack_deck_id.lock().await,
+                        CardType::Resource => *player_data.resource_deck_id.lock().await,
+                    };
+                    let decks = player_data.decks.lock().await;
+                    let on_hand = decks
+                        .iter()
+                        .find(|d| d.id == deck_id)
+                        .and_then(|d| {
+                            d.cards
+                                .iter()
+                                .find(|c| c.id == card_id as usize)
+                                .and_then(|c| c.state.get(&CardState::Hand).copied())
+                        })
+                        .unwrap_or(0);
+                    if on_hand == 0 {
+                        return Err(Right(BadRequest(new_status(format!(
+                            "Card {} is not on hand",
+                            card_id
+                        )))));
+                    }
+                    drop(decks);
+
+                    let gs = game_state.lock().await;
+                    let payload = crate::library::types::ActionPayload::PlayCard {
+                        card_id: card_id as usize,
+                        deck_id: None,
+                        reason: Some("Player played card during encounter".to_string()),
+                    };
+                    let entry = gs.append_action("EncounterPlayCard", payload);
+                    Ok((rocket::http::Status::Created, Json(entry)))
+                }
+            }
         }
         PlayerActions::EncounterApplyScouting {
             choice_id: _,
