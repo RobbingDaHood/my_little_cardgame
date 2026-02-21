@@ -84,6 +84,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
         add_card_to_deck, create_deck, delete_card_in_deck, get_card_in_deck, get_deck,
         list_all_decks,
     };
+    use crate::library::add_test_library_card;
     use crate::library::list_library_cards;
     use crate::library::list_library_tokens;
     use crate::library::okapi_add_operation_for_list_library_tokens_;
@@ -128,7 +129,10 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))
-        .mount("/", rocket::routes![list_library_cards])
+        .mount(
+            "/",
+            rocket::routes![list_library_cards, add_test_library_card],
+        )
         .manage(player_data::new())
         .manage(gs.clone())
         .attach(AdHoc::on_liftoff("actionlog-shutdown", |rocket| {

@@ -1134,3 +1134,15 @@ pub async fn list_library_cards(
     let gs = game_state.lock().await;
     Json(gs.library.cards.clone())
 }
+
+/// Test endpoint: add a card to the Library with specified kind and counts.
+#[openapi]
+#[post("/tests/library/cards", data = "<card>")]
+pub async fn add_test_library_card(
+    card: Json<types::LibraryCard>,
+    game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
+) -> rocket::response::status::Created<String> {
+    let mut gs = game_state.lock().await;
+    let id = gs.library.add_card(card.0.kind, card.0.counts);
+    rocket::response::status::Created::new(format!("/library/cards/{}", id))
+}
