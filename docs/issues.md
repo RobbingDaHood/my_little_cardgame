@@ -1,98 +1,103 @@
-# Summary
+# Issues and suggested fixes (cleanup: after step 7, before step 8)
 
-The following is a list of issues in the current implementation. 
+This document collects issues observed while implementing the encounter loop (post-step 7) and proposes minimal fixes to align the implementation with vision.md and roadmap.md (pre-step 8).
 
-When I mention integration tests, then I mean: Spinning up the server and call endpoints to achieve what not to be tested. 
+## EncounterPick — use card_id, not area_id
 
-# We can add cards in a cards POST endpoint. 
+EncounterPick should accept a card_id rather than an area_id because the encounter is a card drawn from the area deck's hand (a Library card).
 
-It is fine to have this for now for testing purposes, please add to the documentation of this endpoint that it is solely for testing purposes and at a later point in the roadmap it needs to be removed. Move the POST cards endpoint to "/tests/cards/" to make it very clear it is a testing endpoint. 
+Requirements:
+- The card must be an area-type card.
+- At least one copy must be "on hand".
 
-Maybe it can be removed as early as when we have implemented the ressearch flow: so we now can add cards. 
+When both requirements are satisfied, the card can be played.
 
-Because of the reproduceable nature of this project, then it is fine to setup somewhat complex integration tests that plays the game to a point where we add the cards we are interested in. Because everything is in memory-then it should not be that slow. 
+## EncounterPlayCard — avoid deck_id
 
-# There still seems to be a decks endpoint 
+Do not require explicit deck_id values. Every card type belongs to an implicit deck of that type; callers should provide a card_id and the server should validate deck semantics.
 
-That is a leftover from before the vision and roadmap, from before we started refactoring. 
+When playing a card (by card_id) ensure:
+- The card has the correct type.
+- There is at least one copy on hand.
 
-I do not think it is nessesary anymore. Because:
-1. The library should have all the cards.
-1. The player only have one deck of each type. 
-1. So when the library states that X cards are "on hand" then we know what deck they are in. 
-1. So a filter on the library get endpoint where it is possible to filter by card type and "is at lean one on hand" would be a replacement for the decks endpoints. 
+Handle these semantics via the Library/implicit-deck model; avoid exposing explicit deck_id fields in the public API.
 
-I want this to be changed now. Implement the remaing refactor so the endpoints are clear and make sure all tests are updated too. Remember that we favour testing through the endpoint in integration tests. 
+## EncounterApplyScouting — accept card_id(s)
 
-I assume a lot of complexity can be remvoed from the code: because now it i not possible to add cards to the wrong type, create decks etc. 
+EncounterApplyScouting should use card_id with the same restrictions described above. It may accept a list of card_id values when the action involves multiple cards.
 
-## Side point: Testing endpoints
+## EncounterFinish should not be a player action
 
-If this means that we currently cannot test some functionality, then implement some nessesary endpoints under "/tests" to achieve coverage. 
+After an encounter starts, players play cards until it finishes; the system then applies the scouting update (EncounterApplyScouting) and presents the next encounter. There is no need for a separate player-invoked EncounterFinish action.
 
-# If the combat is not initialized yet then return 404 and no null
+## /combat/simulate should not be public
 
-That makes for a cleaner interface. 
+Combat resolution must be driven through the single mutator action endpoint (POST /action). If /combat/simulate is useful for debugging or tests, move it under the test endpoints (e.g., /tests/*) and document it as temporary.
 
-# Remove all descriptions and names from the game. 
+## CombatEvent is rarely needed
 
-I am quite sure that is part of the vision.md
+The ActionLog records player actions. Combined with the initial seed, the action log is sufficient to reproduce state; avoid adding redundant reporting events like CombatEvent unless they provide metadata that cannot be reconstructed from seed+action log.
 
-We will not use time on naming anything like "forest_area" or "Ancient Forest". The only thing that does have names are enums, classes, variables etc. all the data. 
+## Combatant and HP modelling
 
-It is left up to the imagination of the user what the different entities are. 
+Combatants do not need separate external IDs for players. current_hp and max_hp should be modelled as tokens rather than ad-hoc fields — consistent with the "everything is a deck or a token" principle.
 
-# AreaDeck represents wherever the player is right now
+## CombatAction and Combat state
 
-So there will not be multiple area decks, there will be one area deck that represents where the player is now. Then that deck will loose and add new encounters as the player progresses. 
+CombatAction is largely redundant if Encounter actions already capture the available plays. Combat state should be derivable from:
+- the player's tokens,
+- the combatant's tokens,
+- card states stored in the Library (counts/locations).
 
-Make sure the code reflects this. 
+Keep the runtime state minimal and rely on the ActionLog + seed for replayability.
 
-As an example (and I did not check if that is already implemented like this): All cards in the "AreaDeck" is in the library like all the other cards with the counts like all the other cards: with an area type. No need to represent them otherwise anywhere. 
+## CombatLogEntry / CombatLog
 
-# ScoutingParams
+There should be a single canonical log: the ActionLog. Avoid introducing a separate CombatLog unless there is a strong, documented need for a secondary reporting trail.
 
-I am quite sure that is not part of the vision. I can also see the vision is a bit unclear. So here is some clear statements about scouting: 
-1. It is a post-encounter step and not an encounter on its own. 
-1. Scouting gives no bias and no affinity.
-    1. I can see this is written here and there in the vison but that is wrong. 
-1. The scouting post-encounter step is all about building the next encounter, as stated in the "affix generation" under scouting in the vision. 
-1. There are in total 3 scouting related tokens
-    1. Foresight: Deciding the max handsize of the "area dek"
-        1. So this token is not directly related to the scouting post-encounter step
-    1. Scouting candidate pool size: Controls how many affix cards are picked for the new card during the scouting post-encounter step. 
-        1. This is part of roadmap step 7, so maybe not relevant yet. 
-    1. Scouting canditate pick size: How many affixes can be picked for the new card during the scouting post-encounter step. 
-        1. This is part of roadmap step 7, so maybe not relevant yet. 
+## EncounterState and EncounterPhase
 
-Quite a lot of this is likely implemented in future steps of the roadmap, but I see stuff like ScoutingParams as a contradiction of the above: So here are the options:
-1. Either replace it with something that is closer to the vision
-1. Move it to some test endpoint until it can be replaced in future steps. Only pick this option if: 
-    1. It is critical for tests and test coverage. 
-    1. And that it would be very complex to move closer to the vison. 
-    1. So likely you should just replace it. 
+EncounterState does not need separate fields for encounter_id, area_id, combat_state, or scouting_parameters; these can be reconstructed from tokens and Library state. One EncounterPhase enum is sufficient; refine phase names rather than adding many ad-hoc flags.
 
-# Initiaze comabe should be an /action and not a POST comabat endpoint
+Suggested EncounterPhase adjustments:
+- Remove a separate "ready" flag.
+- Expand "InCombat" to include explicit combat sub-phases (resolve tick, resolve turn, etc.) if needed.
+- Replace "Finished" with a neutral state like "NoEncounter".
+- Rename "PostEncounter" to "Scouting" for clarity.
 
-All mutations should go through the action endpoint. 
+## ScoutingParameters
 
-Only exceptions are endpoints mved to "/test" for testing purpose. 
+Represent scouting-related parameters via tokens and deterministic parameters derived from those tokens. Scouting should deterministically bias replacement generation using token-driven parameters and the ActionLog; do not hard-code separate global bias structures.
 
-So if the POST "/combat" is strictly needed for tests then move it to "/tests/combat". 
+## Combat module placement
 
-I am quite sure you can just use "/action" now. 
+Combat logic should interact with the Library and the canonical data model but does not need to live in library.rs. Place combat code in an appropriate core module while preserving the Library as the authoritative card registry.
 
-# Tokens are it own endpoint and not under the library
+## resolve_combat_tick signature
 
-So it is is GET "/tokens" and not "/library/tokens". 
+Prefer a card_id-based API (resolve_combat_tick(card_id, ...)) that:
+1. Reads and validates the card definition and type.
+2. Checks that the card's cost can be paid and returns a clear error if not.
+3. Applies the card's effect by manipulating tokens (player or combatant tokens).
+4. Checks victory/defeat conditions (e.g., HP tokens reaching zero) and transitions to the Scouting phase when resolved.
 
-# Add 80% test coverage in the form of "integration tests"
+## encounter.apply_action
 
-An by integration tests i mean tests that spins up the server and calls the endpoints until some use case have been asserted. 
+Update encounter.apply_action to follow the rules above and to rely on card_id-based actions, token manipulation, and the single POST /action mutator.
 
-This is because these tests are very easy to review and see how the interface "works" and in the current setup it should not be too expensive to execute. 
+## Startup: initialize area decks for quick play
 
-# Clarify vision
-When done with all the above then analyze the vision and roadmap and suggest (do not change) imporvements. Espetially if some of the above fixes were not clear from the vision, then i want to add parts to the vision so it alligns. 
+Ensure the server initialization populates the Library with a small set of combat encounters (correct counts) and marks some copies "on hand" so a developer can immediately pick an encounter and progress through the simple combat loop after startup.
 
-Make both a vision_suggest.md document with all the suggestions and a final_vision.md where all the suggestions have been applied to a copy of the vision.md. None of these files may be places in docs/design. 
+## Simple combat is fine initially
+
+The first combat implementation can be deliberately minimal (attack cards that reduce HP). Add dodge, stamina, and other complexity incrementally in later roadmap steps.
+
+## Suggested clarifications to vision.md and roadmap.md
+
+Suggest changes to vision.md and roadmap.md to avoid making the same mistake again. These suggestions should be put in a file, the file may NOT be placed in docs/design.
+
+
+---
+
+This file is a cleanup note following step 7 (encounter play loop) and intended to be applied before proceeding with step 8 (expanding encounter variety).

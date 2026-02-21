@@ -18,9 +18,11 @@ use rand_pcg::Lcg64Xsh32;
 
 /// Player actions
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
-#[serde(crate = "rocket::serde")]
+#[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
-    PlayCard(usize),
+    PlayCard {
+        card_id: usize,
+    },
     GrantToken {
         token_id: String,
         amount: i64,
@@ -40,6 +42,17 @@ pub enum PlayerActions {
     ApplyScouting {
         area_id: String,
         parameters: String,
+    },
+    // Encounter actions (Step 7)
+    EncounterPickEncounter {
+        card_id: String,
+    },
+    EncounterPlayCard {
+        card_id: u64,
+        effects: Vec<String>,
+    },
+    EncounterApplyScouting {
+        card_ids: Vec<String>,
     },
 }
 
@@ -82,7 +95,7 @@ pub async fn play(
             *player_data.random_generator_state.lock().await = new_rng;
             Ok((rocket::http::Status::Created, Json(entry)))
         }
-        PlayerActions::PlayCard(card_id) => {
+        PlayerActions::PlayCard { card_id } => {
             let combat_optional: Option<Combat> = *player_data.current_combat.lock().await.clone();
             match combat_optional {
                 Some(combat) => {
@@ -229,6 +242,131 @@ pub async fn play(
                         reason: Some("Player applied scouting".to_string()),
                     };
                     let entry = gs.append_action("ApplyScouting", payload);
+                    Ok((rocket::http::Status::Created, Json(entry)))
+                }
+                None => Err(Left(NotFound(new_status(
+                    "No current area set".to_string(),
+                )))),
+            }
+        }
+        // Step 7: Encounter action handlers
+        PlayerActions::EncounterPickEncounter { card_id } => {
+            let mut current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_mut() {
+                Some(area_deck) => match area_deck.get_encounter(&card_id) {
+                    Some(enc) => {
+                        if enc.state != crate::area_deck::EncounterState::Available {
+                            return Err(Right(BadRequest(new_status(format!(
+                                "Encounter {} is not available (on hand)",
+                                card_id
+                            )))));
+                        }
+                        let gs = game_state.lock().await;
+                        let payload = crate::library::types::ActionPayload::DrawEncounter {
+                            area_id: "current".to_string(),
+                            encounter_id: card_id,
+                            reason: Some("Player picked encounter by card_id".to_string()),
+                        };
+                        let entry = gs.append_action("EncounterPickEncounter", payload);
+                        Ok((rocket::http::Status::Created, Json(entry)))
+                    }
+                    None => Err(Left(NotFound(new_status(format!(
+                        "Encounter card {} not found in area deck",
+                        card_id
+                    ))))),
+                },
+                None => Err(Left(NotFound(new_status(
+                    "No current area set".to_string(),
+                )))),
+            }
+        }
+        PlayerActions::EncounterPlayCard {
+            card_id,
+            effects: _,
+        } => {
+            // Validate card exists and is on hand
+            match get_card(card_id as usize, player_data).await {
+                None => Err(Left(NotFound(new_status(format!(
+                    "Card {} does not exist",
+                    card_id
+                ))))),
+                Some(card) => {
+                    // Derive deck from card type (implicit deck semantics)
+                    let deck_id = match card.card_type {
+                        CardType::Defence => *player_data.defence_deck_id.lock().await,
+                        CardType::Attack => *player_data.attack_deck_id.lock().await,
+                        CardType::Resource => *player_data.resource_deck_id.lock().await,
+                    };
+                    let decks = player_data.decks.lock().await;
+                    let on_hand = decks
+                        .iter()
+                        .find(|d| d.id == deck_id)
+                        .and_then(|d| {
+                            d.cards
+                                .iter()
+                                .find(|c| c.id == card_id as usize)
+                                .and_then(|c| c.state.get(&CardState::Hand).copied())
+                        })
+                        .unwrap_or(0);
+                    if on_hand == 0 {
+                        return Err(Right(BadRequest(new_status(format!(
+                            "Card {} is not on hand",
+                            card_id
+                        )))));
+                    }
+                    drop(decks);
+
+                    let gs = game_state.lock().await;
+                    let payload = crate::library::types::ActionPayload::PlayCard {
+                        card_id: card_id as usize,
+                        deck_id: None,
+                        reason: Some("Player played card during encounter".to_string()),
+                    };
+                    let entry = gs.append_action("EncounterPlayCard", payload);
+                    Ok((rocket::http::Status::Created, Json(entry)))
+                }
+            }
+        }
+        PlayerActions::EncounterApplyScouting { card_ids } => {
+            // Validate each card_id exists in the area deck and is available
+            let current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_ref() {
+                Some(area_deck) => {
+                    for cid in &card_ids {
+                        match area_deck.get_encounter(cid) {
+                            Some(enc) => {
+                                if enc.state != crate::area_deck::EncounterState::Available {
+                                    return Err(Right(BadRequest(new_status(format!(
+                                        "Card {} is not available for scouting",
+                                        cid
+                                    )))));
+                                }
+                            }
+                            None => {
+                                return Err(Left(NotFound(new_status(format!(
+                                    "Card {} not found in area deck",
+                                    cid
+                                )))));
+                            }
+                        }
+                    }
+                    drop(current_area);
+
+                    let parameters = match serde_json::to_string(&card_ids) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            return Err(Left(NotFound(new_status(format!(
+                                "Failed to serialize card_ids: {e}"
+                            )))));
+                        }
+                    };
+                    let gs = game_state.lock().await;
+                    let payload = crate::library::types::ActionPayload::ApplyScouting {
+                        area_id: "current".to_string(),
+                        parameters,
+                        reason: Some("Player applied scouting with card_ids".to_string()),
+                    };
+                    let entry = gs.append_action("EncounterApplyScouting", payload);
                     Ok((rocket::http::Status::Created, Json(entry)))
                 }
                 None => Err(Left(NotFound(new_status(

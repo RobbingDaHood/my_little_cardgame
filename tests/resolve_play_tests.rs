@@ -59,7 +59,7 @@ fn test_play_defence_card_adds_tokens() {
     assert_eq!(init_response.status(), Status::Created);
 
     // Play the card
-    let action_json = format!(r#"{{ "PlayCard": {} }}"#, card_id);
+    let action_json = format!(r#"{{ "action_type": "PlayCard", "card_id": {} }}"#, card_id);
     let play_response = client
         .post("/action")
         .header(Header {
@@ -137,7 +137,7 @@ fn test_play_defence_card_health_kills_enemy() {
     assert_eq!(init_response.status(), Status::Created);
 
     // Play the card
-    let action_json = format!(r#"{{ "PlayCard": {} }}"#, card_id);
+    let action_json = format!(r#"{{ "action_type": "PlayCard", "card_id": {} }}"#, card_id);
     let play_response = client
         .post("/action")
         .header(Header {

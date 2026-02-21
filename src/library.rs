@@ -14,12 +14,31 @@ use std::sync::atomic::Ordering;
 pub mod types {
     use rocket::serde::{Deserialize, Serialize};
     use rocket_okapi::JsonSchema;
+    use std::collections::HashMap;
     /// Canonical card definition (minimal)
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CardDef {
         pub id: u64,
         pub card_type: String,
+        pub effects: Vec<CardEffect>,
+    }
+
+    /// A single effect a card applies when played.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CardEffect {
+        pub target: EffectTarget,
+        pub token_id: String,
+        pub amount: i64,
+    }
+
+    /// Who a card effect targets.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[serde(crate = "rocket::serde")]
+    pub enum EffectTarget {
+        OnSelf,
+        OnOpponent,
     }
 
     /// Token type metadata and lifecycle
@@ -129,6 +148,270 @@ pub mod types {
         pub actor: Option<String>,
         pub request_id: Option<String>,
         pub version: Option<u32>,
+    }
+
+    // ====== Combat types for deterministic, logged combat resolution (Step 6) ======
+
+    /// Represents a combatant (player or enemy) in combat.
+    /// Pure-data representation of combat state.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct Combatant {
+        pub id: String, // unique identifier (e.g., "player", "enemy_0")
+        pub active_tokens: HashMap<String, i64>, // includes "health" and "max_health"
+    }
+
+    /// A combat action is a card play by a combatant.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatAction {
+        pub combatant_id: String,
+        pub card_id: u64,
+    }
+
+    /// Represents the overall state of combat at any point.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatState {
+        pub round: u64,
+        pub current_turn: String, // "player" or specific combatant id
+        pub combatants: Vec<Combatant>,
+        pub is_finished: bool,
+        pub winner: Option<String>, // None if ongoing, Some(id) if finished
+    }
+
+    // ====== Encounter types for the encounter loop (Step 7) ======
+
+    /// Represents the state of a single encounter session.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct EncounterState {
+        pub phase: EncounterPhase,
+    }
+
+    /// Phases of an encounter (Step 7 state machine)
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[serde(crate = "rocket::serde")]
+    pub enum EncounterPhase {
+        /// Encounter has been drawn; player can start combat
+        Ready,
+        /// Combat is currently active
+        InCombat,
+        /// Combat has finished; scouting is available
+        Scouting,
+        /// No active encounter
+        NoEncounter,
+    }
+
+    /// User actions during an encounter (Step 7)
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "action_type")]
+    pub enum EncounterAction {
+        /// Pick an encounter from the area deck and initialize combat
+        PickEncounter { card_id: String },
+        /// Play a card during combat
+        PlayCard { card_id: u64 },
+        /// Make a scouting choice post-encounter using card_ids
+        ApplyScouting { card_ids: Vec<String> },
+        /// System-driven: finish/conclude the encounter (not a player action)
+        FinishEncounter,
+    }
+}
+
+pub mod combat {
+    //! Deterministic, pure-data combat resolution (Step 6)
+    //!
+    //! This module provides pure functions for resolving combat deterministically
+    //! using seeded RNG. Current combat scope is minimal: attack cards reduce
+    //! opponent HP via token manipulation. Features like dodge, stamina, and
+    //! advanced mechanics are deferred to later roadmap steps.
+
+    use super::types::{CardDef, CombatAction, CombatState, EffectTarget};
+    use rand::RngCore;
+    use rand_pcg::Lcg64Xsh32;
+    use std::collections::HashMap;
+
+    /// Resolve a single combat action (card play) deterministically.
+    ///
+    /// Looks up the card definition, applies its effects as token operations,
+    /// checks victory/defeat, and advances the turn.
+    /// Returns an error if the card_id is unknown.
+    pub fn resolve_combat_tick(
+        current_state: &CombatState,
+        action: &CombatAction,
+        card_defs: &HashMap<u64, CardDef>,
+        rng: &mut Lcg64Xsh32,
+    ) -> Result<(CombatState, Vec<u64>), String> {
+        let card = card_defs
+            .get(&action.card_id)
+            .ok_or_else(|| format!("Unknown card_id: {}", action.card_id))?;
+
+        let mut rng_values = Vec::new();
+        let mut state_after = current_state.clone();
+
+        let rng_val = rng.next_u64();
+        rng_values.push(rng_val);
+
+        let opponent_id = state_after
+            .combatants
+            .iter()
+            .find(|c| c.id != action.combatant_id)
+            .map(|c| c.id.clone());
+
+        for effect in &card.effects {
+            let target_id = match effect.target {
+                EffectTarget::OnSelf => &action.combatant_id,
+                EffectTarget::OnOpponent => match &opponent_id {
+                    Some(id) => id,
+                    None => continue,
+                },
+            };
+            if let Some(combatant) = state_after
+                .combatants
+                .iter_mut()
+                .find(|c| c.id == *target_id)
+            {
+                let entry = combatant
+                    .active_tokens
+                    .entry(effect.token_id.clone())
+                    .or_insert(0);
+                *entry = (*entry + effect.amount).max(0);
+
+                if effect.token_id == "health" && *entry == 0 {
+                    let winner = state_after
+                        .combatants
+                        .iter()
+                        .find(|c| c.id != *target_id)
+                        .map(|c| c.id.clone());
+                    state_after.is_finished = true;
+                    state_after.winner = winner;
+                }
+            }
+        }
+
+        if !state_after.is_finished {
+            state_after.current_turn = if state_after.current_turn == "player" {
+                "enemy_0".to_string()
+            } else {
+                "player".to_string()
+            };
+        }
+
+        Ok((state_after, rng_values))
+    }
+
+    /// Simulate a full combat encounter from a seed and initial state.
+    ///
+    /// Returns the final combat state. Pure-data; no side effects.
+    pub fn simulate_combat(
+        initial_state: CombatState,
+        seed: u64,
+        actions: Vec<CombatAction>,
+        card_defs: &HashMap<u64, CardDef>,
+    ) -> CombatState {
+        use rand::SeedableRng;
+
+        let seed_bytes: [u8; 16] = {
+            let s = seed.to_le_bytes();
+            let mut bytes = [0u8; 16];
+            bytes[0..8].copy_from_slice(&s);
+            bytes[8..16].copy_from_slice(&s);
+            bytes
+        };
+        let mut rng = Lcg64Xsh32::from_seed(seed_bytes);
+
+        let mut current_state = initial_state;
+
+        for action in &actions {
+            match resolve_combat_tick(&current_state, action, card_defs, &mut rng) {
+                Ok((next_state, _rng_vals)) => {
+                    current_state = next_state;
+                    if current_state.is_finished {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+
+        current_state
+    }
+}
+
+pub mod encounter {
+    //! Encounter loop state machine (Step 7)
+    //!
+    //! Pure-data functions that manage encounter state transitions
+    //! based on player actions. Works with EncounterAction and EncounterState.
+
+    use super::types::{EncounterAction, EncounterPhase, EncounterState};
+
+    /// Process an EncounterAction and transition state accordingly.
+    ///
+    /// Returns the new EncounterState after applying the action.
+    /// Returns None if the action is invalid for the current phase.
+    pub fn apply_action(state: &EncounterState, action: EncounterAction) -> Option<EncounterState> {
+        match (&state.phase, action) {
+            // Ready phase: can pick encounter or finish
+            (EncounterPhase::Ready, EncounterAction::PickEncounter { card_id: _ }) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::InCombat;
+                Some(new_state)
+            }
+            (EncounterPhase::Ready, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::NoEncounter;
+                Some(new_state)
+            }
+
+            // InCombat phase: play cards or end encounter
+            (EncounterPhase::InCombat, EncounterAction::PlayCard { .. }) => {
+                let new_state = state.clone();
+                Some(new_state)
+            }
+            (EncounterPhase::InCombat, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::NoEncounter;
+                Some(new_state)
+            }
+
+            // Scouting phase: apply scouting or finish
+            (EncounterPhase::Scouting, EncounterAction::ApplyScouting { card_ids: _ }) => {
+                let new_state = state.clone();
+                // Scouting keeps encounter in Scouting phase until explicitly finished
+                Some(new_state)
+            }
+            (EncounterPhase::Scouting, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::NoEncounter;
+                Some(new_state)
+            }
+
+            // Invalid: all other state/action combinations
+            _ => None,
+        }
+    }
+
+    /// Check if encounter is finished
+    pub fn is_finished(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::NoEncounter
+    }
+
+    /// Check if combat is active
+    pub fn is_in_combat(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::InCombat
+    }
+
+    /// Check if post-encounter scouting is available
+    pub fn can_scout(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::Scouting
+    }
+
+    /// Derive preview count from Foresight tokens.
+    ///
+    /// Base preview is 1; each Foresight token adds 1 additional preview.
+    pub fn derive_preview_count(foresight_tokens: u64) -> u64 {
+        1 + foresight_tokens
     }
 }
 
@@ -596,6 +879,7 @@ pub async fn list_library_cards(
             types::CardDef {
                 id: c.id as u64,
                 card_type: ct,
+                effects: vec![],
             }
         })
         .collect();

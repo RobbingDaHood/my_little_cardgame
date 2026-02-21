@@ -72,6 +72,21 @@ Notes for Copilot sessions
 - When adding or changing endpoints, update both `src/lib.rs` and `src/main.rs` and add an integration test under `tests/`.
 - Keep changes minimal and run `cargo test` and `cargo clippy --all-targets --all-features -- -D warnings` before opening PRs.
 
+Suggest changes to vision.md and roadmap.md
+
+- vision.md and roadmap.md is the authoritative. 
+- At the end of any plan suggest improvement to both files and save that in a file. Do not place the file in docs/design.
+- The suggestions should be based on new information given or found during planning and execution of the plan. 
+- The goal is to keep vision.md and roadmap.md up to date and in high quality. 
+
 MCP servers
 
 Would you like to configure any MCP servers (e.g., Playwright for web/API testing) for this repository? If so, specify which servers to configure.
+
+Rate limits 
+
+If you ever get a message about being rate limited then stop the current plan and wait for me to continue the plan later. 
+
+Messages could contain phrases like "rate limit that restricts the number of Copilot model requests" but is not limited to that. 
+
+Do not continue retrying if that message shows up! 
