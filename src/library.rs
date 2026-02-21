@@ -208,6 +208,165 @@ pub mod types {
     }
 }
 
+pub mod combat {
+    //! Deterministic, pure-data combat resolution (Step 6)
+    //!
+    //! This module provides pure functions for resolving combat deterministically
+    //! using seeded RNG. All state changes are captured in a CombatLog for replay.
+
+    use super::types::{CombatAction, CombatLog, CombatLogEntry, CombatState};
+    use rand::RngCore;
+    use rand_pcg::Lcg64Xsh32;
+
+    /// Resolve a single tick (one action) of combat deterministically.
+    ///
+    /// Takes current combat state and RNG, applies one action, and returns
+    /// the updated state plus the log entry recording the change.
+    pub fn resolve_combat_tick(
+        current_state: &CombatState,
+        action: CombatAction,
+        rng: &mut Lcg64Xsh32,
+    ) -> (CombatState, CombatLogEntry, Vec<u64>) {
+        let mut rng_values = Vec::new();
+        let state_before = current_state.clone();
+
+        // Apply action to produce new state
+        let mut state_after = current_state.clone();
+
+        match &action {
+            CombatAction::DealDamage {
+                source,
+                target,
+                amount,
+            } => {
+                // Find target combatant and reduce HP
+                if let Some(target_combatant) =
+                    state_after.combatants.iter_mut().find(|c| &c.id == target)
+                {
+                    target_combatant.current_hp = (target_combatant.current_hp - amount).max(0);
+
+                    // Check if target is defeated
+                    if target_combatant.current_hp == 0 {
+                        state_after.is_finished = true;
+                        state_after.winner = Some(source.clone());
+                    }
+                }
+            }
+            CombatAction::GrantToken {
+                combatant_id,
+                token_id,
+                amount,
+            } => {
+                if let Some(combatant) = state_after
+                    .combatants
+                    .iter_mut()
+                    .find(|c| &c.id == combatant_id)
+                {
+                    let entry = combatant.active_tokens.entry(token_id.clone()).or_insert(0);
+                    *entry += amount;
+                }
+            }
+            CombatAction::ConsumeToken {
+                combatant_id,
+                token_id,
+                amount,
+            } => {
+                if let Some(combatant) = state_after
+                    .combatants
+                    .iter_mut()
+                    .find(|c| &c.id == combatant_id)
+                {
+                    if let Some(entry) = combatant.active_tokens.get_mut(token_id) {
+                        *entry = (*entry - amount).max(0);
+                    }
+                }
+            }
+            CombatAction::PlayCard {
+                combatant_id: _,
+                card_id: _,
+                effects: _,
+            } => {
+                // Card play typically triggers effects; we'd apply them here
+                // For now, just record the draw
+                let rng_val = rng.next_u64();
+                rng_values.push(rng_val);
+            }
+            CombatAction::DrawCard {
+                combatant_id: _,
+                card_id: _,
+            } => {
+                let rng_val = rng.next_u64();
+                rng_values.push(rng_val);
+            }
+        }
+
+        // Advance turn if combat not finished
+        if !state_after.is_finished {
+            state_after.current_turn = if state_after.current_turn == "player" {
+                "enemy_0".to_string()
+            } else {
+                "player".to_string()
+            };
+        }
+
+        let entry = CombatLogEntry {
+            step: 0, // Will be set by caller based on sequence
+            action,
+            state_before,
+            state_after: state_after.clone(),
+            rng_values: rng_values.clone(),
+        };
+
+        (state_after, entry, rng_values)
+    }
+
+    /// Simulate a full combat encounter from a seed and initial state.
+    ///
+    /// Returns the deterministic log of the entire combat.
+    /// This is pure-data; no side effects on game state.
+    pub fn simulate_combat(
+        initial_state: CombatState,
+        seed: u64,
+        actions: Vec<CombatAction>,
+    ) -> CombatLog {
+        use rand::SeedableRng;
+
+        let seed_bytes: [u8; 16] = {
+            let s = seed.to_le_bytes();
+            let mut bytes = [0u8; 16];
+            bytes[0..8].copy_from_slice(&s);
+            bytes[8..16].copy_from_slice(&s);
+            bytes
+        };
+        let mut rng = Lcg64Xsh32::from_seed(seed_bytes);
+
+        let mut current_state = initial_state.clone();
+        let mut entries = Vec::new();
+        let mut all_rng_values = Vec::new();
+
+        for action in actions {
+            let (next_state, mut entry, rng_vals) =
+                resolve_combat_tick(&current_state, action, &mut rng);
+            entry.step = entries.len() as u64;
+            all_rng_values.extend(rng_vals);
+            entries.push(entry);
+            current_state = next_state;
+
+            // Stop if combat finished
+            if current_state.is_finished {
+                break;
+            }
+        }
+
+        CombatLog {
+            seed,
+            initial_state: initial_state.clone(),
+            entries,
+            final_state: current_state,
+        }
+    }
+}
+
 pub mod registry {
     use super::types::{TokenLifecycle, TokenType};
     use std::collections::HashMap;
