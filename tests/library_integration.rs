@@ -5,7 +5,7 @@ use rocket::local::blocking::Client;
 fn library_tokens_endpoint_returns_list() {
     let client =
         Client::tracked(my_little_cardgame::rocket_initialize()).expect("valid rocket instance");
-    let response = client.get("/library/tokens").dispatch();
+    let response = client.get("/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().expect("response body");
     // Parse JSON and assert canonical tokens are present
