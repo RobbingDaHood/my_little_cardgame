@@ -6,6 +6,7 @@ mod tests {
     use my_little_cardgame::library::types::{
         CombatState, Combatant, EncounterAction, EncounterPhase, EncounterState, ScoutingParameters,
     };
+    use std::collections::HashMap;
 
     #[test]
     fn test_encounter_full_loop_ready_to_combat_to_scouting() {
@@ -19,15 +20,17 @@ mod tests {
                 combatants: vec![
                     Combatant {
                         id: "player".to_string(),
-                        current_hp: 100,
-                        max_hp: 100,
-                        active_tokens: std::collections::HashMap::new(),
+                        active_tokens: HashMap::from([
+                            ("health".to_string(), 100),
+                            ("max_health".to_string(), 100),
+                        ]),
                     },
                     Combatant {
                         id: "enemy_0".to_string(),
-                        current_hp: 30,
-                        max_hp: 30,
-                        active_tokens: std::collections::HashMap::new(),
+                        active_tokens: HashMap::from([
+                            ("health".to_string(), 30),
+                            ("max_health".to_string(), 30),
+                        ]),
                     },
                 ],
                 is_finished: false,

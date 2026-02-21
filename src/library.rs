@@ -140,9 +140,7 @@ pub mod types {
     #[serde(crate = "rocket::serde")]
     pub struct Combatant {
         pub id: String, // unique identifier (e.g., "player", "enemy_0")
-        pub current_hp: i64,
-        pub max_hp: i64,
-        pub active_tokens: HashMap<String, i64>, // token_id -> count
+        pub active_tokens: HashMap<String, i64>, // includes "health" and "max_health"
     }
 
     /// Represents a single action taken during combat.
@@ -289,14 +287,19 @@ pub mod combat {
                 target,
                 amount,
             } => {
-                // Find target combatant and reduce HP
+                // Find target combatant and reduce health token
                 if let Some(target_combatant) =
                     state_after.combatants.iter_mut().find(|c| &c.id == target)
                 {
-                    target_combatant.current_hp = (target_combatant.current_hp - amount).max(0);
+                    let current_health =
+                        *target_combatant.active_tokens.get("health").unwrap_or(&0);
+                    let new_health = (current_health - amount).max(0);
+                    target_combatant
+                        .active_tokens
+                        .insert("health".to_string(), new_health);
 
                     // Check if target is defeated
-                    if target_combatant.current_hp == 0 {
+                    if new_health == 0 {
                         state_after.is_finished = true;
                         state_after.winner = Some(source.clone());
                     }

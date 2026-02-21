@@ -4,6 +4,7 @@
 mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{CombatAction, CombatState, Combatant};
+    use std::collections::HashMap;
 
     #[test]
     fn test_deterministic_combat_same_seed_same_log() {
@@ -14,15 +15,17 @@ mod tests {
             combatants: vec![
                 Combatant {
                     id: "player".to_string(),
-                    current_hp: 100,
-                    max_hp: 100,
-                    active_tokens: std::collections::HashMap::new(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 100),
+                        ("max_health".to_string(), 100),
+                    ]),
                 },
                 Combatant {
                     id: "enemy_0".to_string(),
-                    current_hp: 50,
-                    max_hp: 50,
-                    active_tokens: std::collections::HashMap::new(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 50),
+                        ("max_health".to_string(), 50),
+                    ]),
                 },
             ],
             is_finished: false,
@@ -66,8 +69,14 @@ mod tests {
             .zip(log2.final_state.combatants.iter())
         {
             assert_eq!(c1.id, c2.id);
-            assert_eq!(c1.current_hp, c2.current_hp);
-            assert_eq!(c1.max_hp, c2.max_hp);
+            assert_eq!(
+                c1.active_tokens.get("health"),
+                c2.active_tokens.get("health")
+            );
+            assert_eq!(
+                c1.active_tokens.get("max_health"),
+                c2.active_tokens.get("max_health")
+            );
         }
     }
 
@@ -79,15 +88,17 @@ mod tests {
             combatants: vec![
                 Combatant {
                     id: "player".to_string(),
-                    current_hp: 100,
-                    max_hp: 100,
-                    active_tokens: std::collections::HashMap::new(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 100),
+                        ("max_health".to_string(), 100),
+                    ]),
                 },
                 Combatant {
                     id: "enemy_0".to_string(),
-                    current_hp: 50,
-                    max_hp: 50,
-                    active_tokens: std::collections::HashMap::new(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 50),
+                        ("max_health".to_string(), 50),
+                    ]),
                 },
             ],
             is_finished: false,
@@ -124,9 +135,10 @@ mod tests {
             current_turn: "player".to_string(),
             combatants: vec![Combatant {
                 id: "player".to_string(),
-                current_hp: 100,
-                max_hp: 100,
-                active_tokens: std::collections::HashMap::new(),
+                active_tokens: HashMap::from([
+                    ("health".to_string(), 100),
+                    ("max_health".to_string(), 100),
+                ]),
             }],
             is_finished: false,
             winner: None,
@@ -147,15 +159,17 @@ mod tests {
             combatants: vec![
                 Combatant {
                     id: "player".to_string(),
-                    current_hp: 100,
-                    max_hp: 100,
-                    active_tokens: std::collections::HashMap::new(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 100),
+                        ("max_health".to_string(), 100),
+                    ]),
                 },
                 Combatant {
                     id: "enemy_0".to_string(),
-                    current_hp: 30,
-                    max_hp: 50,
-                    active_tokens: std::collections::HashMap::new(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 30),
+                        ("max_health".to_string(), 50),
+                    ]),
                 },
             ],
             is_finished: false,
@@ -191,9 +205,10 @@ mod tests {
             current_turn: "player".to_string(),
             combatants: vec![Combatant {
                 id: "player".to_string(),
-                current_hp: 100,
-                max_hp: 100,
-                active_tokens: std::collections::HashMap::new(),
+                active_tokens: HashMap::from([
+                    ("health".to_string(), 100),
+                    ("max_health".to_string(), 100),
+                ]),
             }],
             is_finished: false,
             winner: None,
