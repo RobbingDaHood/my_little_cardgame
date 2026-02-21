@@ -14,6 +14,7 @@ use std::sync::atomic::Ordering;
 pub mod types {
     use rocket::serde::{Deserialize, Serialize};
     use rocket_okapi::JsonSchema;
+    use std::collections::HashMap;
     /// Canonical card definition (minimal)
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
@@ -129,6 +130,81 @@ pub mod types {
         pub actor: Option<String>,
         pub request_id: Option<String>,
         pub version: Option<u32>,
+    }
+
+    // ====== Combat types for deterministic, logged combat resolution (Step 6) ======
+
+    /// Represents a combatant (player or enemy) in combat.
+    /// Pure-data representation of combat state.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct Combatant {
+        pub id: String, // unique identifier (e.g., "player", "enemy_0")
+        pub current_hp: i64,
+        pub max_hp: i64,
+        pub active_tokens: HashMap<String, i64>, // token_id -> count
+    }
+
+    /// Represents a single action taken during combat.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "action_type")]
+    pub enum CombatAction {
+        PlayCard {
+            combatant_id: String,
+            card_id: u64,
+            effects: Vec<String>, // effect descriptions
+        },
+        DealDamage {
+            source: String,
+            target: String,
+            amount: i64,
+        },
+        GrantToken {
+            combatant_id: String,
+            token_id: String,
+            amount: i64,
+        },
+        ConsumeToken {
+            combatant_id: String,
+            token_id: String,
+            amount: i64,
+        },
+        DrawCard {
+            combatant_id: String,
+            card_id: u64,
+        },
+    }
+
+    /// Represents the overall state of combat at any point.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatState {
+        pub round: u64,
+        pub current_turn: String, // "player" or specific combatant id
+        pub combatants: Vec<Combatant>,
+        pub is_finished: bool,
+        pub winner: Option<String>, // None if ongoing, Some(id) if finished
+    }
+
+    /// Represents a single event that occurred during combat resolution.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatLogEntry {
+        pub step: u64, // sequence number within combat
+        pub action: CombatAction,
+        pub state_before: CombatState,
+        pub state_after: CombatState,
+        pub rng_values: Vec<u64>, // RNG values consumed by this step
+    }
+
+    /// Complete deterministic log of a combat encounter.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatLog {
+        pub seed: u64,
+        pub initial_state: CombatState,
+        pub entries: Vec<CombatLogEntry>,
+        pub final_state: CombatState,
     }
 }
 
