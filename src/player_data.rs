@@ -5,7 +5,7 @@ use rand::{RngCore, SeedableRng};
 use rand_pcg::Lcg64Xsh32;
 use rocket::futures::lock::Mutex;
 
-use crate::area_deck::AreaDeck;
+use crate::area_deck::{AreaDeck, Encounter};
 use crate::combat::Combat;
 use crate::deck::card::CardType;
 use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
@@ -58,8 +58,22 @@ pub fn new() -> PlayerData {
         }])),
         current_combat: Arc::new(Mutex::new(Box::new(None))),
         last_combat_result: Arc::new(Mutex::new(None)),
-        current_area_deck: Arc::new(Mutex::new(None)),
+        current_area_deck: Arc::new(Mutex::new(Some(initialize_area_deck()))),
     }
+}
+
+fn initialize_area_deck() -> AreaDeck {
+    let mut deck = AreaDeck::new("starter_area".to_string());
+    deck.add_encounter(Encounter::new(
+        "enc_goblin".to_string(),
+        "combat".to_string(),
+    ));
+    deck.add_encounter(Encounter::new(
+        "enc_skeleton".to_string(),
+        "combat".to_string(),
+    ));
+    deck.add_encounter(Encounter::new("enc_wolf".to_string(), "combat".to_string()));
+    deck
 }
 
 fn initialize_player_cards() -> Arc<Mutex<Vec<Card>>> {
