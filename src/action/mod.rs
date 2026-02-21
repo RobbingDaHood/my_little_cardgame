@@ -21,8 +21,26 @@ use rand_pcg::Lcg64Xsh32;
 #[serde(crate = "rocket::serde")]
 pub enum PlayerActions {
     PlayCard(usize),
-    GrantToken { token_id: String, amount: i64 },
-    SetSeed { seed: u64 },
+    GrantToken {
+        token_id: String,
+        amount: i64,
+    },
+    SetSeed {
+        seed: u64,
+    },
+    DrawEncounter {
+        area_id: String,
+        encounter_id: String,
+    },
+    ReplaceEncounter {
+        area_id: String,
+        old_encounter_id: String,
+        new_encounter_id: String,
+    },
+    ApplyScouting {
+        area_id: String,
+        parameters: String,
+    },
 }
 
 #[openapi]
@@ -132,6 +150,93 @@ pub async fn play(
                 None => Err(Right(BadRequest(new_status(
                     "Cannot play a card if there are no active combat!".to_string(),
                 )))),
+            }
+        }
+        PlayerActions::DrawEncounter {
+            area_id,
+            encounter_id,
+        } => {
+            let mut area_decks = player_data.area_decks.lock().await;
+            match area_decks.get_mut(&area_id) {
+                Some(area_deck) => match area_deck.draw_encounter(&encounter_id) {
+                    Ok(_) => {
+                        let gs = game_state.lock().await;
+                        let payload = crate::library::types::ActionPayload::DrawEncounter {
+                            area_id,
+                            encounter_id,
+                            reason: Some("Player drew encounter".to_string()),
+                        };
+                        let entry = gs.append_action("DrawEncounter", payload);
+                        Ok((rocket::http::Status::Created, Json(entry)))
+                    }
+                    Err(e) => Err(Left(NotFound(new_status(e)))),
+                },
+                None => Err(Left(NotFound(new_status(format!(
+                    "Area {} not found",
+                    area_id
+                ))))),
+            }
+        }
+        PlayerActions::ReplaceEncounter {
+            area_id,
+            old_encounter_id,
+            new_encounter_id,
+        } => {
+            let mut area_decks = player_data.area_decks.lock().await;
+            match area_decks.get_mut(&area_id) {
+                Some(area_deck) => match area_deck.get_encounter(&new_encounter_id) {
+                    Some(new_enc) => {
+                        let affixes = new_enc.affixes.clone();
+                        match area_deck.replace_encounter(&old_encounter_id, new_enc) {
+                            Ok(_) => {
+                                let gs = game_state.lock().await;
+                                let payload =
+                                    crate::library::types::ActionPayload::ReplaceEncounter {
+                                        area_id,
+                                        old_encounter_id,
+                                        new_encounter_id,
+                                        affixes_applied: affixes,
+                                        reason: Some(
+                                            "Player replaced resolved encounter".to_string(),
+                                        ),
+                                    };
+                                let entry = gs.append_action("ReplaceEncounter", payload);
+                                Ok((rocket::http::Status::Created, Json(entry)))
+                            }
+                            Err(e) => Err(Left(NotFound(new_status(e)))),
+                        }
+                    }
+                    None => Err(Left(NotFound(new_status(format!(
+                        "New encounter {} not found",
+                        new_encounter_id
+                    ))))),
+                },
+                None => Err(Left(NotFound(new_status(format!(
+                    "Area {} not found",
+                    area_id
+                ))))),
+            }
+        }
+        PlayerActions::ApplyScouting {
+            area_id,
+            parameters,
+        } => {
+            let area_decks = player_data.area_decks.lock().await;
+            match area_decks.get(&area_id) {
+                Some(_) => {
+                    let gs = game_state.lock().await;
+                    let payload = crate::library::types::ActionPayload::ApplyScouting {
+                        area_id,
+                        parameters,
+                        reason: Some("Player applied scouting".to_string()),
+                    };
+                    let entry = gs.append_action("ApplyScouting", payload);
+                    Ok((rocket::http::Status::Created, Json(entry)))
+                }
+                None => Err(Left(NotFound(new_status(format!(
+                    "Area {} not found",
+                    area_id
+                ))))),
             }
         }
     }

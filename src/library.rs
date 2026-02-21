@@ -94,6 +94,29 @@ pub mod types {
             deck_id: Option<String>,
             reason: Option<String>,
         },
+        DrawEncounter {
+            area_id: String,
+            encounter_id: String,
+            reason: Option<String>,
+        },
+        ReplaceEncounter {
+            area_id: String,
+            old_encounter_id: String,
+            new_encounter_id: String,
+            affixes_applied: Vec<String>,
+            reason: Option<String>,
+        },
+        ConsumEntryCost {
+            area_id: String,
+            encounter_id: String,
+            cost_amount: i64,
+            reason: Option<String>,
+        },
+        ApplyScouting {
+            area_id: String,
+            parameters: String,
+            reason: Option<String>,
+        },
     }
 
     /// Stored action entry in the append-only action log.
