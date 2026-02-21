@@ -38,12 +38,12 @@ mod tests {
         let state = state_after_play.unwrap();
         assert_eq!(state.phase, EncounterPhase::InCombat);
 
-        // Step 3: Simulate transition to PostEncounter (caller handles this externally)
+        // Step 3: Simulate transition to Scouting (caller handles this externally)
         let state = EncounterState {
-            phase: EncounterPhase::PostEncounter,
+            phase: EncounterPhase::Scouting,
         };
 
-        // Step 4: Apply scouting (PostEncounter -> PostEncounter with updated params)
+        // Step 4: Apply scouting (Scouting -> Scouting with updated params)
         let state_after_scout = encounter::apply_action(
             &state,
             EncounterAction::ApplyScouting {
@@ -52,14 +52,14 @@ mod tests {
         );
         assert!(state_after_scout.is_some());
         let state = state_after_scout.unwrap();
-        assert_eq!(state.phase, EncounterPhase::PostEncounter);
+        assert_eq!(state.phase, EncounterPhase::Scouting);
         assert!(encounter::can_scout(&state));
 
-        // Step 5: Finish encounter (PostEncounter -> Finished)
+        // Step 5: Finish encounter (Scouting -> NoEncounter)
         let state_after_finish = encounter::apply_action(&state, EncounterAction::FinishEncounter);
         assert!(state_after_finish.is_some());
         let final_state = state_after_finish.unwrap();
-        assert_eq!(final_state.phase, EncounterPhase::Finished);
+        assert_eq!(final_state.phase, EncounterPhase::NoEncounter);
         assert!(encounter::is_finished(&final_state));
     }
 
@@ -133,13 +133,13 @@ mod tests {
         let result = encounter::apply_action(&state, EncounterAction::FinishEncounter);
         assert!(result.is_some());
         let finished = result.unwrap();
-        assert_eq!(finished.phase, EncounterPhase::Finished);
+        assert_eq!(finished.phase, EncounterPhase::NoEncounter);
     }
 
     #[test]
     fn test_encounter_multiple_scouting_choices_sequential() {
         let mut state = EncounterState {
-            phase: EncounterPhase::PostEncounter,
+            phase: EncounterPhase::Scouting,
         };
 
         // First scouting choice
@@ -151,7 +151,7 @@ mod tests {
         );
         assert!(scout1.is_some());
         state = scout1.unwrap();
-        assert_eq!(state.phase, EncounterPhase::PostEncounter);
+        assert_eq!(state.phase, EncounterPhase::Scouting);
 
         // Second scouting choice (overrides first)
         let scout2 = encounter::apply_action(
@@ -162,6 +162,6 @@ mod tests {
         );
         assert!(scout2.is_some());
         let final_state = scout2.unwrap();
-        assert_eq!(final_state.phase, EncounterPhase::PostEncounter);
+        assert_eq!(final_state.phase, EncounterPhase::Scouting);
     }
 }

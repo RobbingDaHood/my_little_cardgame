@@ -192,10 +192,10 @@ pub mod types {
         Ready,
         /// Combat is currently active
         InCombat,
-        /// Combat has finished; post-encounter scouting is available
-        PostEncounter,
-        /// Encounter is finished (resolved or abandoned)
-        Finished,
+        /// Combat has finished; scouting is available
+        Scouting,
+        /// No active encounter
+        NoEncounter,
     }
 
     /// Parameters controlling how replacement encounters are generated (Step 7)
@@ -371,7 +371,7 @@ pub mod encounter {
             }
             (EncounterPhase::Ready, EncounterAction::FinishEncounter) => {
                 let mut new_state = state.clone();
-                new_state.phase = EncounterPhase::Finished;
+                new_state.phase = EncounterPhase::NoEncounter;
                 Some(new_state)
             }
 
@@ -382,19 +382,19 @@ pub mod encounter {
             }
             (EncounterPhase::InCombat, EncounterAction::FinishEncounter) => {
                 let mut new_state = state.clone();
-                new_state.phase = EncounterPhase::Finished;
+                new_state.phase = EncounterPhase::NoEncounter;
                 Some(new_state)
             }
 
-            // PostEncounter phase: apply scouting or finish
-            (EncounterPhase::PostEncounter, EncounterAction::ApplyScouting { card_ids: _ }) => {
+            // Scouting phase: apply scouting or finish
+            (EncounterPhase::Scouting, EncounterAction::ApplyScouting { card_ids: _ }) => {
                 let new_state = state.clone();
-                // Scouting keeps encounter in PostEncounter phase until explicitly finished
+                // Scouting keeps encounter in Scouting phase until explicitly finished
                 Some(new_state)
             }
-            (EncounterPhase::PostEncounter, EncounterAction::FinishEncounter) => {
+            (EncounterPhase::Scouting, EncounterAction::FinishEncounter) => {
                 let mut new_state = state.clone();
-                new_state.phase = EncounterPhase::Finished;
+                new_state.phase = EncounterPhase::NoEncounter;
                 Some(new_state)
             }
 
@@ -405,7 +405,7 @@ pub mod encounter {
 
     /// Check if encounter is finished
     pub fn is_finished(state: &EncounterState) -> bool {
-        state.phase == EncounterPhase::Finished
+        state.phase == EncounterPhase::NoEncounter
     }
 
     /// Check if combat is active
@@ -415,7 +415,7 @@ pub mod encounter {
 
     /// Check if post-encounter scouting is available
     pub fn can_scout(state: &EncounterState) -> bool {
-        state.phase == EncounterPhase::PostEncounter
+        state.phase == EncounterPhase::Scouting
     }
 
     /// Generate replacement encounter parameters based on scouting.
