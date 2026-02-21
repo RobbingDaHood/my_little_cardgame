@@ -21,6 +21,24 @@ pub mod types {
     pub struct CardDef {
         pub id: u64,
         pub card_type: String,
+        pub effects: Vec<CardEffect>,
+    }
+
+    /// A single effect a card applies when played.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CardEffect {
+        pub target: EffectTarget,
+        pub token_id: String,
+        pub amount: i64,
+    }
+
+    /// Who a card effect targets.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[serde(crate = "rocket::serde")]
+    pub enum EffectTarget {
+        OnSelf,
+        OnOpponent,
     }
 
     /// Token type metadata and lifecycle
@@ -143,25 +161,12 @@ pub mod types {
         pub active_tokens: HashMap<String, i64>, // includes "health" and "max_health"
     }
 
-    /// Represents a single action taken during combat.
+    /// A combat action is a card play by a combatant.
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-    #[serde(crate = "rocket::serde", tag = "action_type")]
-    pub enum CombatAction {
-        PlayCard {
-            combatant_id: String,
-            card_id: u64,
-            effects: Vec<String>,
-        },
-        GrantToken {
-            combatant_id: String,
-            token_id: String,
-            amount: i64,
-        },
-        ConsumeToken {
-            combatant_id: String,
-            token_id: String,
-            amount: i64,
-        },
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatAction {
+        pub combatant_id: String,
+        pub card_id: u64,
     }
 
     /// Represents the overall state of combat at any point.
@@ -219,79 +224,69 @@ pub mod combat {
     //! This module provides pure functions for resolving combat deterministically
     //! using seeded RNG.
 
-    use super::types::{CombatAction, CombatState};
+    use super::types::{CardDef, CombatAction, CombatState, EffectTarget};
     use rand::RngCore;
     use rand_pcg::Lcg64Xsh32;
+    use std::collections::HashMap;
 
-    /// Resolve a single tick (one action) of combat deterministically.
+    /// Resolve a single combat action (card play) deterministically.
     ///
-    /// Takes current combat state and RNG, applies one action, and returns
-    /// the updated state plus the log entry recording the change.
+    /// Looks up the card definition, applies its effects as token operations,
+    /// checks victory/defeat, and advances the turn.
+    /// Returns an error if the card_id is unknown.
     pub fn resolve_combat_tick(
         current_state: &CombatState,
-        action: CombatAction,
+        action: &CombatAction,
+        card_defs: &HashMap<u64, CardDef>,
         rng: &mut Lcg64Xsh32,
-    ) -> (CombatState, Vec<u64>) {
-        let mut rng_values = Vec::new();
+    ) -> Result<(CombatState, Vec<u64>), String> {
+        let card = card_defs
+            .get(&action.card_id)
+            .ok_or_else(|| format!("Unknown card_id: {}", action.card_id))?;
 
-        // Apply action to produce new state
+        let mut rng_values = Vec::new();
         let mut state_after = current_state.clone();
 
-        match &action {
-            CombatAction::GrantToken {
-                combatant_id,
-                token_id,
-                amount,
-            } => {
-                if let Some(combatant) = state_after
-                    .combatants
-                    .iter_mut()
-                    .find(|c| &c.id == combatant_id)
-                {
-                    let entry = combatant.active_tokens.entry(token_id.clone()).or_insert(0);
-                    *entry += amount;
+        let rng_val = rng.next_u64();
+        rng_values.push(rng_val);
+
+        let opponent_id = state_after
+            .combatants
+            .iter()
+            .find(|c| c.id != action.combatant_id)
+            .map(|c| c.id.clone());
+
+        for effect in &card.effects {
+            let target_id = match effect.target {
+                EffectTarget::OnSelf => &action.combatant_id,
+                EffectTarget::OnOpponent => match &opponent_id {
+                    Some(id) => id,
+                    None => continue,
+                },
+            };
+            if let Some(combatant) = state_after
+                .combatants
+                .iter_mut()
+                .find(|c| c.id == *target_id)
+            {
+                let entry = combatant
+                    .active_tokens
+                    .entry(effect.token_id.clone())
+                    .or_insert(0);
+                *entry = (*entry + effect.amount).max(0);
+
+                if effect.token_id == "health" && *entry == 0 {
+                    let winner = state_after
+                        .combatants
+                        .iter()
+                        .find(|c| c.id != *target_id)
+                        .map(|c| c.id.clone());
+                    state_after.is_finished = true;
+                    state_after.winner = winner;
                 }
-            }
-            CombatAction::ConsumeToken {
-                combatant_id,
-                token_id,
-                amount,
-            } => {
-                if let Some(combatant) = state_after
-                    .combatants
-                    .iter_mut()
-                    .find(|c| &c.id == combatant_id)
-                {
-                    if let Some(entry) = combatant.active_tokens.get_mut(token_id) {
-                        *entry = (*entry - amount).max(0);
-                    }
-                    // Check defeat when health reaches 0
-                    if token_id == "health" {
-                        let health = combatant.active_tokens.get("health").copied().unwrap_or(0);
-                        if health == 0 {
-                            // Find the other combatant as winner
-                            let winner = state_after
-                                .combatants
-                                .iter()
-                                .find(|c| &c.id != combatant_id)
-                                .map(|c| c.id.clone());
-                            state_after.is_finished = true;
-                            state_after.winner = winner;
-                        }
-                    }
-                }
-            }
-            CombatAction::PlayCard {
-                combatant_id: _,
-                card_id: _,
-                effects: _,
-            } => {
-                let rng_val = rng.next_u64();
-                rng_values.push(rng_val);
             }
         }
 
-        // Advance turn if combat not finished
         if !state_after.is_finished {
             state_after.current_turn = if state_after.current_turn == "player" {
                 "enemy_0".to_string()
@@ -300,17 +295,17 @@ pub mod combat {
             };
         }
 
-        (state_after, rng_values)
+        Ok((state_after, rng_values))
     }
 
     /// Simulate a full combat encounter from a seed and initial state.
     ///
-    /// Returns the deterministic log of the entire combat.
-    /// This is pure-data; no side effects on game state.
+    /// Returns the final combat state. Pure-data; no side effects.
     pub fn simulate_combat(
         initial_state: CombatState,
         seed: u64,
         actions: Vec<CombatAction>,
+        card_defs: &HashMap<u64, CardDef>,
     ) -> CombatState {
         use rand::SeedableRng;
 
@@ -325,13 +320,15 @@ pub mod combat {
 
         let mut current_state = initial_state;
 
-        for action in actions {
-            let (next_state, _rng_vals) = resolve_combat_tick(&current_state, action, &mut rng);
-            current_state = next_state;
-
-            // Stop if combat finished
-            if current_state.is_finished {
-                break;
+        for action in &actions {
+            match resolve_combat_tick(&current_state, action, card_defs, &mut rng) {
+                Ok((next_state, _rng_vals)) => {
+                    current_state = next_state;
+                    if current_state.is_finished {
+                        break;
+                    }
+                }
+                Err(_) => break,
             }
         }
 
@@ -880,6 +877,7 @@ pub async fn list_library_cards(
             types::CardDef {
                 id: c.id as u64,
                 card_type: ct,
+                effects: vec![],
             }
         })
         .collect();

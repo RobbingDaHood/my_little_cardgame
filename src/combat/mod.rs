@@ -236,6 +236,7 @@ pub async fn simulate_combat_endpoint(
         request.initial_state.clone(),
         request.seed,
         request.actions.clone(),
+        &request.card_defs,
     );
     Json(result)
 }
@@ -246,4 +247,5 @@ pub struct SimulateCombatRequest {
     pub initial_state: crate::library::types::CombatState,
     pub seed: u64,
     pub actions: Vec<crate::library::types::CombatAction>,
+    pub card_defs: std::collections::HashMap<u64, crate::library::types::CardDef>,
 }
