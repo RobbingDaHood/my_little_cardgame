@@ -269,7 +269,7 @@ fn test_player_kills_enemy_and_combat_ends() {
         "count": 1
     }"#;
     let resp = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),

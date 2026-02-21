@@ -80,8 +80,13 @@ pub async fn get_card(id: usize, player_data: &State<PlayerData>) -> Option<Card
         .cloned()
 }
 
+/// Creates a new card.
+///
+/// **TESTING ENDPOINT ONLY** - This endpoint is provided for testing purposes only
+/// and will be removed once the research flow is implemented. Do not rely on this
+/// endpoint for production use.
 #[openapi]
-#[post("/cards", format = "json", data = "<new_card>")]
+#[post("/tests/cards", format = "json", data = "<new_card>")]
 pub async fn create_card(
     new_card: Json<CardCreate>,
     player_data: &State<PlayerData>,

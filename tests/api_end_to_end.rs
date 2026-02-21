@@ -249,7 +249,7 @@ fn get_card_in_deck(client: &Client, location_header: String) -> DeckCardJson {
 fn post_card(client: &Client, new_card: &serde_json::Value) -> String {
     let body_json = serde_json::to_string(&new_card).expect("Test assertion failed");
     let response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),

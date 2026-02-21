@@ -22,7 +22,7 @@ fn test_play_defence_card_adds_tokens() {
     }"#;
 
     let response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -100,7 +100,7 @@ fn test_play_defence_card_health_kills_enemy() {
     }"#;
 
     let response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),

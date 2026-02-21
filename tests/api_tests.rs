@@ -39,7 +39,7 @@ fn test_add_wrong_card_type_to_deck() {
     let card_json =
         r#"{ "card_type_id": 1, "card_type": "Defence", "effects": [], "costs": [], "count": 10 }"#;
     let card_response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -156,7 +156,7 @@ fn test_add_duplicate_card_to_deck() {
         "count": 10
     }"#;
     let card_response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -228,7 +228,7 @@ fn test_create_card_with_zero_count_rejected() {
     }"#;
 
     let response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),

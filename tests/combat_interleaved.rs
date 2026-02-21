@@ -19,7 +19,7 @@ fn interleaved_player_and_enemy_actions() {
     }"#;
 
     let response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
