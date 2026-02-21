@@ -16,12 +16,18 @@ Deck types (examples):
 - Encounter decks: Enemy, Trap, Puzzle
 - Treasure decks: Ore, Lumber, Herbs, Loot, MerchantOffers
 - Recipe deck: Recipes that can be drawn/selected to craft items
-- Area decks: Each explorable area is represented by a deck of encounters and treasures
+- Area deck: Represents the players current location. There is one deck with encounters. 
 - Library: a canonical collection of all cards accessible via the library endpoint; any card present in the library can be added to a deck provided the deck is of the appropriate type (deck-type constraints apply)
+
+The Player's decks (Attack, Defence, Resource etc.) are fixed and initialized at game start. Only the Library manages the canonical card definitions and the internal deck representation. The API does not expose deck-creation or deck-deletion endpoints; player deck composition is managed only through adding Library cards to decks via the deck-management flow.
 
 Tokens and state:
 - Tokens represent persistent or semi-persistent objects like equipped items, active status effects, or resource counters.
 - Moving a card between decks (Hand, Deck, Discard, Deleted) represents the lifecycle of that object or effect.
+
+### Canonical Data Omits Flavor
+
+The canonical Library stores only structural identifiers (card IDs, types, tokens, numeric parameters). All user-facing names, descriptions, and flavor text are delegated to client presentation layers. The API responses use only ID-based references; naming/presentation is the client's responsibility based on a separate design specification. This ensures the game state remains minimal, reproducible, and suitable for replay and analysis. It also leaves a lot to the imagination of the player. 
 
 ## Current combat setup
 
@@ -38,9 +44,10 @@ Combat is fully reproducible by recording the game's single initial seed used to
 
 - Visiting an area is modelled by opening an Area deck: each card is an encounter or a treasure.
 - Example: Mine area has an `Iron Ore` treasure deck and an `Ore Encounter` deck. When you visit a mining node, a card is drawn from the Iron Ore deck to determine the type/quality of ore and any modifiers.
+- At any given time, the player has one active area deck representing their current location. Moving to a new area replaces the current area deck. This simplifies the state model and ensures area-specific effects (like scouting bias) are applied to the player's active context.
 
 Example - Iron Ore node:
-- Player visits a mine node: a card is drawn from `areas/mine/iron_ore.deck`.
+- Player visits a mine node: a card is drawn from the ore deck.
 - The drawn card might be `SmallIronVein`, `EncrustedIron`, or `ElementalCore` with varying difficulty and loot.
 - Some treasure spots explicitly allow alternate interactions such as "learning" or scouting-related actions: learning can grant recipes, lore, or crafting shortcuts; scouting is not a standalone encounter but a post-resolution step that biases future Area draws and participates in the area-update pipeline. After any encounter resolves (win, loss, or retreat) the resolved card is removed from the Area deck and immediately replaced by a new encounter of the same base type with affix modifiers; scouting controls how those replacement encounters are generated (see Scouting mechanics below).
 - A special "combat" starts where the player's `Mining` deck is used to interact with the ore card: mining cards represent mining tools/techniques, resource cards provide stamina/endurance, and failure/success is resolved as if the ore were an enemy with HP and resistances.
@@ -505,14 +512,9 @@ Concrete examples
 
 11) Scouting / Recon (system)
 
-- Scouting parameters: preview_scope, risk_multiplier, upgrade_options (these are parameters applied during post-resolution replacement and encounter-selection steps).
-- Visibility: scouting-related options (cost, scope hints) are shown as part of area interactions or treasure options; they are not separate encounter pre-starts.
 - Lifecycle placement: scouting is applied as the post-resolution area-update step of the encounter lifecycle (Setup → Player Phase(s) → Encounter Phase(s) → Resolution → Post-resolution scouting/update).
-- Scouting actions: Recon, Stealth, and Invest cards are played during the encounter or as immediate post-resolution spends to bias replacement creation or preview; spending Foresight/Rations extends scope or candidate/pick parameters.
 - Decks involved: Area deck and Modifier Deck (scouting reuses these decks; there is no separate persistent 'Scouting' deck).
-- Tokens: Foresight, Rations, Stealth-like tokens.
-- Difficulty progression: deeper scouting effects require higher investment and carry higher risk.
-- Outcomes: successful scouting yields previewed information, reduced future encounter difficulty, or upgrade unlocks; failure wastes investment and may increase difficulty or alert status.
+- Tokens: Foresight, Scouting candidate pool size, Scouting canditate pick size, Rations, Stealth-like tokens.
 
 12) Merchant / Trading interactions
 
@@ -537,6 +539,20 @@ Cross-discipline notes
 ## Open-ended sandbox
 
 - The game is intentionally designed as an open-ended sandbox rather than a single finite campaign: there will be no final, absolute win or loss state. Players pursue personal goals, collections, and milestones; milestones function as optional, player-paced objectives and progression markers rather than an end condition. Milestones provide pacing, challenge, and meaningful rewards, but players are free to continue exploring, crafting, and experimenting indefinitely.
+
+## Endpoint organization
+
+Public endpoints (without /tests prefix) represent the stable gameplay API. Endpoints under /tests/* are temporary testing utilities and may be removed as implementation progresses. 
+
+The only public endpoint that can mutate any data is the /action endpoint, every other public endpoint is a GET endpoint. 
+
+## Automatic test setup 
+
+Favor tests that spin up the server and verifies a test case by calling the public endpoints. It is okay that the test gets a bit long in an effort to get to a specific point: consider helper functions to wrap longer series of calls. Thisis fine becuase all changes are in memory so should go fast. It also ensures that all cases are reachable on the server and it makes it easy to review how the endpoints are used. 
+
+## Entity ids 
+
+If an id is a string then it has to be a UUID else favour using unsigned integers. 
 
 ## Closing
 
