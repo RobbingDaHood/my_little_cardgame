@@ -5,7 +5,7 @@ use my_little_cardgame::{
 
 #[test]
 fn test_area_deck_draw_and_replace() {
-    let mut area = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+    let mut area = AreaDeck::new("area_1".to_string());
 
     let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string());
     let enc2 = Encounter::new("enc_2".to_string(), "Combat".to_string());
@@ -31,8 +31,8 @@ fn test_area_deck_draw_and_replace() {
 
 #[test]
 fn test_deterministic_encounter_generation() {
-    let mut area1 = AreaDeck::new("area_1".to_string(), "Forest".to_string());
-    let mut area2 = AreaDeck::new("area_2".to_string(), "Forest".to_string());
+    let mut area1 = AreaDeck::new("area_1".to_string());
+    let mut area2 = AreaDeck::new("area_2".to_string());
 
     let enc1 = area1.generate_encounter("Combat".to_string(), 42);
     let enc2 = area2.generate_encounter("Combat".to_string(), 42);
@@ -68,7 +68,7 @@ fn test_encounter_with_reward_deck() {
 
 #[test]
 fn test_get_available_encounters() {
-    let mut area = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+    let mut area = AreaDeck::new("area_1".to_string());
 
     let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string());
     let enc2 = Encounter::new("enc_2".to_string(), "Combat".to_string());
@@ -86,7 +86,7 @@ fn test_get_available_encounters() {
 
 #[test]
 fn test_cannot_replace_non_resolved_encounter() {
-    let mut area = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+    let mut area = AreaDeck::new("area_1".to_string());
 
     let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string());
     let new_enc = Encounter::new("enc_2".to_string(), "Combat".to_string());
@@ -111,7 +111,7 @@ fn test_multiple_scouting_params_produce_same_seed() {
 
 #[test]
 fn test_area_deck_encounter_id_increments() {
-    let mut area = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+    let mut area = AreaDeck::new("area_1".to_string());
 
     let enc1 = area.generate_encounter("Combat".to_string(), 100);
     let enc2 = area.generate_encounter("Combat".to_string(), 200);

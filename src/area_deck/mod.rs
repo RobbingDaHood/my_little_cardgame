@@ -115,17 +115,15 @@ impl Default for AffixPipeline {
 #[serde(crate = "rocket::serde")]
 pub struct AreaDeck {
     pub id: String,
-    pub name: String,
     pub encounters: Vec<Encounter>,
     pub affix_pipeline: AffixPipeline,
     pub next_encounter_id: u64,
 }
 
 impl AreaDeck {
-    pub fn new(id: String, name: String) -> Self {
+    pub fn new(id: String) -> Self {
         AreaDeck {
             id,
-            name,
             encounters: Vec::new(),
             affix_pipeline: AffixPipeline::new(),
             next_encounter_id: 0,
@@ -227,15 +225,14 @@ mod tests {
 
     #[test]
     fn test_area_deck_creation() {
-        let deck = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+        let deck = AreaDeck::new("area_1".to_string());
         assert_eq!(deck.id, "area_1");
-        assert_eq!(deck.name, "Forest");
         assert!(deck.encounters.is_empty());
     }
 
     #[test]
     fn test_add_and_draw_encounter() {
-        let mut deck = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+        let mut deck = AreaDeck::new("area_1".to_string());
         let encounter = Encounter::new("enc_1".to_string(), "Combat".to_string());
         deck.add_encounter(encounter.clone());
 
@@ -245,7 +242,7 @@ mod tests {
 
     #[test]
     fn test_resolve_and_replace() {
-        let mut deck = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+        let mut deck = AreaDeck::new("area_1".to_string());
         let encounter = Encounter::new("enc_1".to_string(), "Combat".to_string());
         deck.add_encounter(encounter);
 
@@ -259,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_deterministic_affix_generation() {
-        let mut deck = AreaDeck::new("area_1".to_string(), "Forest".to_string());
+        let mut deck = AreaDeck::new("area_1".to_string());
         let enc1 = deck.generate_encounter("Combat".to_string(), 12345);
         let enc2 = deck.generate_encounter("Combat".to_string(), 12345);
 

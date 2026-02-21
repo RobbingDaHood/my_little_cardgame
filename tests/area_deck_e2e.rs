@@ -11,7 +11,7 @@ async fn test_full_area_deck_flow_with_action_log() {
     let gs = Arc::new(Mutex::new(GameState::new()));
 
     // Create area deck with initial encounters
-    let mut area = AreaDeck::new("forest_area".to_string(), "Ancient Forest".to_string());
+    let mut area = AreaDeck::new("forest_area".to_string());
 
     let enc1 = Encounter::new("enc_1".to_string(), "Combat".to_string()).with_entry_cost(10);
     let enc2 = Encounter::new("enc_2".to_string(), "Combat".to_string()).with_entry_cost(20);
@@ -107,8 +107,8 @@ async fn test_deterministic_replay_from_seed() {
     // Identical seeds should produce identical results
     assert_eq!(seed1, seed2);
 
-    let mut area1 = AreaDeck::new("area1".to_string(), "Test".to_string());
-    let mut area2 = AreaDeck::new("area2".to_string(), "Test".to_string());
+    let mut area1 = AreaDeck::new("area1".to_string());
+    let mut area2 = AreaDeck::new("area2".to_string());
 
     let enc1 = area1.generate_encounter("Combat".to_string(), seed1);
     let enc2 = area2.generate_encounter("Combat".to_string(), seed2);
@@ -146,7 +146,7 @@ fn test_area_deck_reward_binding() {
 
 #[test]
 fn test_multiple_replacements_increment_ids() {
-    let mut area = AreaDeck::new("test_area".to_string(), "Test".to_string());
+    let mut area = AreaDeck::new("test_area".to_string());
 
     // Generate and add 5 encounters
     let mut encounters = vec![];
