@@ -3,9 +3,7 @@
 #[cfg(test)]
 mod tests {
     use my_little_cardgame::library::encounter;
-    use my_little_cardgame::library::types::{
-        EncounterAction, EncounterPhase, EncounterState, ScoutingParameters,
-    };
+    use my_little_cardgame::library::types::{EncounterAction, EncounterPhase, EncounterState};
 
     #[test]
     fn test_encounter_full_loop_ready_to_combat_to_scouting() {
@@ -90,37 +88,13 @@ mod tests {
     }
 
     #[test]
-    fn test_scouting_parameters_apply_more_preview() {
-        let base = ScoutingParameters {
-            preview_count: 1,
-            affix_bias: "balanced".to_string(),
-            pool_modifier: 1.0,
-        };
-
-        let updated = encounter::apply_scouting_parameters(&base, "more_preview");
-        assert_eq!(updated.preview_count, 2); // incremented by 1
-        assert_eq!(updated.pool_modifier, 1.0); // unchanged
+    fn test_derive_preview_count_base() {
+        assert_eq!(encounter::derive_preview_count(0), 1);
     }
 
     #[test]
-    fn test_scouting_parameters_apply_affix_boost() {
-        let base = ScoutingParameters {
-            preview_count: 1,
-            affix_bias: "balanced".to_string(),
-            pool_modifier: 1.0,
-        };
-
-        let updated = encounter::apply_scouting_parameters(&base, "affix_boost");
-        assert_eq!(updated.preview_count, 1); // unchanged
-        assert!(updated.pool_modifier > 1.0); // boosted by 10%
-    }
-
-    #[test]
-    fn test_reset_scouting_parameters_returns_defaults() {
-        let defaults = encounter::reset_scouting_parameters();
-        assert_eq!(defaults.preview_count, 1);
-        assert_eq!(defaults.affix_bias, "balanced".to_string());
-        assert_eq!(defaults.pool_modifier, 1.0);
+    fn test_derive_preview_count_with_foresight() {
+        assert_eq!(encounter::derive_preview_count(3), 4);
     }
 
     #[test]

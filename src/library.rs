@@ -198,15 +198,6 @@ pub mod types {
         NoEncounter,
     }
 
-    /// Parameters controlling how replacement encounters are generated (Step 7)
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-    #[serde(crate = "rocket::serde")]
-    pub struct ScoutingParameters {
-        pub preview_count: u64, // How many cards can be peeked ahead
-        pub affix_bias: String, // Bias towards certain affixes
-        pub pool_modifier: f64, // Modifier on encounter generation pool
-    }
-
     /// User actions during an encounter (Step 7)
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde", tag = "action_type")]
@@ -354,7 +345,6 @@ pub mod encounter {
     //! Pure-data functions that manage encounter state transitions
     //! based on player actions. Works with EncounterAction and EncounterState.
 
-    use super::types::ScoutingParameters;
     use super::types::{EncounterAction, EncounterPhase, EncounterState};
 
     /// Process an EncounterAction and transition state accordingly.
@@ -418,42 +408,11 @@ pub mod encounter {
         state.phase == EncounterPhase::Scouting
     }
 
-    /// Generate replacement encounter parameters based on scouting.
+    /// Derive preview count from Foresight tokens.
     ///
-    /// Returns updated ScoutingParameters that would be applied to the
-    /// next area deck draw/replacement operation.
-    pub fn apply_scouting_parameters(
-        base_parameters: &ScoutingParameters,
-        scouting_bias: &str,
-    ) -> ScoutingParameters {
-        // Simple implementation: boost preview count and affix bias based on choice
-        let mut new_params = base_parameters.clone();
-        match scouting_bias {
-            "more_preview" => {
-                new_params.preview_count = new_params.preview_count.saturating_add(1);
-            }
-            "affix_boost" => {
-                new_params.pool_modifier *= 1.1; // 10% boost
-            }
-            "balanced" => {
-                // Keep as-is
-            }
-            _ => {
-                // Unknown scouting choice: default to balanced
-            }
-        }
-        new_params
-    }
-
-    /// Reset scouting parameters after an encounter finishes.
-    ///
-    /// Returns default ScoutingParameters for the next encounter.
-    pub fn reset_scouting_parameters() -> ScoutingParameters {
-        ScoutingParameters {
-            preview_count: 1,
-            affix_bias: "balanced".to_string(),
-            pool_modifier: 1.0,
-        }
+    /// Base preview is 1; each Foresight token adds 1 additional preview.
+    pub fn derive_preview_count(foresight_tokens: u64) -> u64 {
+        1 + foresight_tokens
     }
 }
 
