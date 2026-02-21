@@ -360,7 +360,7 @@ fn initialize_combat(client: &Client) {
 
 #[allow(dead_code)]
 fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
-    let action = PlayCard(id);
+    let action = PlayCard { card_id: id };
     let body_json = serde_json::to_string(&action).expect("Test assertion failed");
     let response = client
         .post("/action")
@@ -380,7 +380,7 @@ fn action_play_cards(client: &Client, id: usize, expected_response: &str) {
 
 #[allow(dead_code)]
 fn action_play_cards_not_found(client: &Client, id: usize, expected_error_message: &str) {
-    let action = PlayCard(id);
+    let action = PlayCard { card_id: id };
     let body_json = serde_json::to_string(&action).expect("Test assertion failed");
     let response = client
         .post("/action")

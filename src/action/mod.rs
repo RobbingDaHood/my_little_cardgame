@@ -20,7 +20,9 @@ use rand_pcg::Lcg64Xsh32;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
 #[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
-    PlayCard(usize),
+    PlayCard {
+        card_id: usize,
+    },
     GrantToken {
         token_id: String,
         amount: i64,
@@ -95,7 +97,7 @@ pub async fn play(
             *player_data.random_generator_state.lock().await = new_rng;
             Ok((rocket::http::Status::Created, Json(entry)))
         }
-        PlayerActions::PlayCard(card_id) => {
+        PlayerActions::PlayCard { card_id } => {
             let combat_optional: Option<Combat> = *player_data.current_combat.lock().await.clone();
             match combat_optional {
                 Some(combat) => {

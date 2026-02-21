@@ -54,7 +54,7 @@ fn interleaved_player_and_enemy_actions() {
 
     // Interleave plays and enemy plays sequentially to exercise locking
     for _ in 0..50 {
-        let action_json = format!(r#"{{ "PlayCard": {} }}"#, card_id);
+        let action_json = format!(r#"{{ "action_type": "PlayCard", "card_id": {} }}"#, card_id);
         let play_response = client
             .post("/action")
             .header(Header {

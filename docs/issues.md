@@ -95,11 +95,8 @@ The first combat implementation can be deliberately minimal (attack cards that r
 
 ## Suggested clarifications to vision.md and roadmap.md
 
-To reduce drift and implementation errors, consider adding these clarifications:
-- Emphasize the implicit-deck model and that APIs generally accept card_id (not deck_id) when possible.
-- Reiterate the "everything is a deck or a token" design mantra and prefer token-driven parameters over ad-hoc fields.
-- State explicitly that POST /action is the canonical mutator for gameplay state and that any temporary testing endpoints should live under /tests/* and be documented.
-- Recommend a small checklist for PRs that touch encounter/combat code to map changes back to lines in vision.md and roadmap.md (to avoid moving logic into places that break the model).
+Suggest changes to vision.md and roadmap.md to avoid making the same mistake again. These suggestions should be put in a file, the file may NOT be placed in docs/design.
+
 
 ---
 

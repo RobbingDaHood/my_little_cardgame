@@ -13,7 +13,7 @@ fn test_phase_enforcement_attack_in_defending_should_fail() {
     assert_eq!(init_response.status(), Status::Created);
 
     // Try to play an Attack card (id 0) while in Defending phase -> should be BadRequest
-    let action_json = r#"{ "PlayCard": 0 }"#;
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;
     let response = client
         .post("/action")
         .header(Header {
@@ -41,7 +41,7 @@ fn test_play_defence_moves_card_to_discard() {
     let discard_before = card_state_map_before["Discard"].as_u64().unwrap_or(0) as u32;
 
     // Play a defence card (id 1)
-    let action_json = r#"{ "PlayCard": 1 }"#;
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 1 }"#;
     let response = client
         .post("/action")
         .header(Header {
@@ -210,7 +210,7 @@ fn test_dodge_consumed_by_enemy_attack() {
     client.post("/tests/combat").dispatch();
 
     // Player plays defence card (id 1) -> adds dodge to player tokens
-    let action_json = r#"{ "PlayCard": 1 }"#;
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 1 }"#;
     let resp = client
         .post("/action")
         .header(Header {
@@ -304,7 +304,7 @@ fn test_player_kills_enemy_and_combat_ends() {
     client.post("/combat/advance").dispatch(); // Defending -> Attacking
 
     // Play the heavy attack card
-    let action_json = format!(r#"{{ "PlayCard": {} }}"#, card_id);
+    let action_json = format!(r#"{{ "action_type": "PlayCard", "card_id": {} }}"#, card_id);
     let resp = client
         .post("/action")
         .header(Header {
