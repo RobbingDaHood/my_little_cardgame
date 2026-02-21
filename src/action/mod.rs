@@ -352,10 +352,18 @@ pub async fn play(
                     }
                     drop(current_area);
 
+                    let parameters = match serde_json::to_string(&card_ids) {
+                        Ok(s) => s,
+                        Err(e) => {
+                            return Err(Left(NotFound(new_status(format!(
+                                "Failed to serialize card_ids: {e}"
+                            )))));
+                        }
+                    };
                     let gs = game_state.lock().await;
                     let payload = crate::library::types::ActionPayload::ApplyScouting {
                         area_id: "current".to_string(),
-                        parameters: serde_json::to_string(&card_ids).unwrap_or_default(),
+                        parameters,
                         reason: Some("Player applied scouting with card_ids".to_string()),
                     };
                     let entry = gs.append_action("EncounterApplyScouting", payload);
