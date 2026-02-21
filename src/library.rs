@@ -260,7 +260,7 @@ pub mod types {
         PlayCard { card_id: u64, effects: Vec<String> },
         /// Make a scouting choice post-encounter using card_ids
         ApplyScouting { card_ids: Vec<String> },
-        /// Finish/abandon the encounter
+        /// System-driven: finish/conclude the encounter (not a player action)
         FinishEncounter,
     }
 }

@@ -54,7 +54,6 @@ pub enum PlayerActions {
     EncounterApplyScouting {
         card_ids: Vec<String>,
     },
-    EncounterFinish,
 }
 
 #[openapi]
@@ -366,16 +365,6 @@ pub async fn play(
                     "No current area set".to_string(),
                 )))),
             }
-        }
-        PlayerActions::EncounterFinish => {
-            let gs = game_state.lock().await;
-            let payload = crate::library::types::ActionPayload::DrawEncounter {
-                area_id: "encounter".to_string(),
-                encounter_id: "finished".to_string(),
-                reason: Some("Player finished encounter".to_string()),
-            };
-            let entry = gs.append_action("EncounterFinish", payload);
-            Ok((rocket::http::Status::Created, Json(entry)))
         }
     }
 }
