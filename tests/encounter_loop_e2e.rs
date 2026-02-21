@@ -127,4 +127,138 @@ mod tests {
         let final_state = scout2.unwrap();
         assert_eq!(final_state.phase, EncounterPhase::Scouting);
     }
+
+    #[test]
+    fn test_encounter_loop_replay_from_seed() {
+        use my_little_cardgame::library::combat;
+        use my_little_cardgame::library::types::{
+            CardDef, CardEffect, CombatAction, CombatState, Combatant, EffectTarget,
+        };
+        use std::collections::HashMap;
+
+        let seed = 42u64;
+
+        // Define cards
+        let mut card_defs = HashMap::new();
+        card_defs.insert(
+            1,
+            CardDef {
+                id: 1,
+                card_type: "Attack".to_string(),
+                effects: vec![CardEffect {
+                    target: EffectTarget::OnOpponent,
+                    token_id: "health".to_string(),
+                    amount: -15,
+                }],
+            },
+        );
+
+        // Record an action log (encounter actions + combat actions)
+        let mut encounter_actions = Vec::new();
+        let mut combat_actions = Vec::new();
+
+        // Phase 1: Pick encounter
+        let mut enc_state = EncounterState {
+            phase: EncounterPhase::Ready,
+        };
+        let pick = EncounterAction::PickEncounter {
+            card_id: "enc_1".to_string(),
+        };
+        encounter_actions.push(pick.clone());
+        enc_state = encounter::apply_action(&enc_state, pick).unwrap();
+        assert_eq!(enc_state.phase, EncounterPhase::InCombat);
+
+        // Phase 2: Combat — play cards to defeat enemy
+        let initial_combat = CombatState {
+            round: 1,
+            current_turn: "player".to_string(),
+            combatants: vec![
+                Combatant {
+                    id: "player".to_string(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 100),
+                        ("max_health".to_string(), 100),
+                    ]),
+                },
+                Combatant {
+                    id: "enemy_0".to_string(),
+                    active_tokens: HashMap::from([
+                        ("health".to_string(), 30),
+                        ("max_health".to_string(), 30),
+                    ]),
+                },
+            ],
+            is_finished: false,
+            winner: None,
+        };
+
+        combat_actions.push(CombatAction {
+            combatant_id: "player".to_string(),
+            card_id: 1,
+        });
+        combat_actions.push(CombatAction {
+            combatant_id: "player".to_string(),
+            card_id: 1,
+        });
+
+        let combat_result = combat::simulate_combat(
+            initial_combat.clone(),
+            seed,
+            combat_actions.clone(),
+            &card_defs,
+        );
+        assert!(combat_result.is_finished);
+        assert_eq!(combat_result.winner, Some("player".to_string()));
+
+        // Phase 3: Scouting
+        enc_state = EncounterState {
+            phase: EncounterPhase::Scouting,
+        };
+        let scout = EncounterAction::ApplyScouting {
+            card_ids: vec!["replacement".to_string()],
+        };
+        encounter_actions.push(scout.clone());
+        enc_state = encounter::apply_action(&enc_state, scout).unwrap();
+        assert_eq!(enc_state.phase, EncounterPhase::Scouting);
+
+        let finish = EncounterAction::FinishEncounter;
+        encounter_actions.push(finish.clone());
+        enc_state = encounter::apply_action(&enc_state, finish).unwrap();
+        assert_eq!(enc_state.phase, EncounterPhase::NoEncounter);
+
+        // REPLAY: same seed + same actions produce same combat result
+        let replay_result =
+            combat::simulate_combat(initial_combat, seed, combat_actions, &card_defs);
+        assert_eq!(replay_result.is_finished, combat_result.is_finished);
+        assert_eq!(replay_result.winner, combat_result.winner);
+        for (c1, c2) in replay_result
+            .combatants
+            .iter()
+            .zip(combat_result.combatants.iter())
+        {
+            assert_eq!(
+                c1.active_tokens.get("health"),
+                c2.active_tokens.get("health")
+            );
+        }
+
+        // REPLAY: same encounter actions produce same state machine result
+        let mut replay_enc = EncounterState {
+            phase: EncounterPhase::Ready,
+        };
+        for action in &encounter_actions {
+            if let Some(next) = encounter::apply_action(&replay_enc, action.clone()) {
+                replay_enc = next;
+            }
+            // Manually transition to Scouting after combat (same as original)
+            if replay_enc.phase == EncounterPhase::InCombat
+                && matches!(action, EncounterAction::PickEncounter { .. })
+            {
+                replay_enc = EncounterState {
+                    phase: EncounterPhase::Scouting,
+                };
+            }
+        }
+        assert_eq!(replay_enc.phase, EncounterPhase::NoEncounter);
+    }
 }
