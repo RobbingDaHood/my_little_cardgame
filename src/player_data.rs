@@ -26,7 +26,8 @@ pub struct PlayerData {
     pub(crate) seed: Arc<Mutex<[u8; 16]>>,
     #[allow(dead_code)]
     pub(crate) random_generator_state: Arc<Mutex<Lcg64Xsh32>>,
-    pub(crate) area_decks: Arc<Mutex<HashMap<String, AreaDeck>>>,
+    /// Represents the player's current location/area
+    pub(crate) current_area_deck: Arc<Mutex<Option<AreaDeck>>>,
 }
 
 pub fn new() -> PlayerData {
@@ -57,7 +58,7 @@ pub fn new() -> PlayerData {
         }])),
         current_combat: Arc::new(Mutex::new(Box::new(None))),
         last_combat_result: Arc::new(Mutex::new(None)),
-        area_decks: Arc::new(Mutex::new(HashMap::new())),
+        current_area_deck: Arc::new(Mutex::new(None)),
     }
 }
 

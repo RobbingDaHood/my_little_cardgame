@@ -24,7 +24,7 @@ fn test_add_wrong_card_type_to_deck() {
 
     let deck_json = r#"{ "contains_card_types": ["Attack"] }"#;
     let deck_response = client
-        .post("/decks")
+        .post("/tests/decks")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -39,7 +39,7 @@ fn test_add_wrong_card_type_to_deck() {
     let card_json =
         r#"{ "card_type_id": 1, "card_type": "Defence", "effects": [], "costs": [], "count": 10 }"#;
     let card_response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -96,7 +96,7 @@ fn test_play_nonexistent_card_in_combat() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
     // Initialize combat
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
 
     // Try to play a card that doesn't exist
     let action_json = r#"{ "PlayCard": 99999 }"#;
@@ -118,12 +118,7 @@ fn test_get_combat_before_initialization() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
     let response = client.get("/combat").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-
-    let combat_json = response
-        .into_string()
-        .expect("Failed to read combat response");
-    assert_eq!(combat_json, "null");
+    assert_eq!(response.status(), Status::NotFound);
 }
 
 // test_initialize_combat_creates_attacking_state removed (duplicate of api_end_to_end)
@@ -135,7 +130,7 @@ fn test_add_duplicate_card_to_deck() {
     // Create a deck
     let deck_json = r#"{ "contains_card_types": ["Attack"] }"#;
     let deck_response = client
-        .post("/decks")
+        .post("/tests/decks")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -156,7 +151,7 @@ fn test_add_duplicate_card_to_deck() {
         "count": 10
     }"#;
     let card_response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -204,7 +199,7 @@ fn test_add_card_to_nonexistent_deck() {
     let deck_card_json = r#"{ "id": 0, "state": { "Deck": 10 } }"#;
 
     let response = client
-        .post("/decks/99999/cards")
+        .post("/tests/decks/99999/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -228,7 +223,7 @@ fn test_create_card_with_zero_count_rejected() {
     }"#;
 
     let response = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -246,7 +241,7 @@ fn test_create_deck_with_empty_card_types_rejected() {
     let invalid_deck_json = r#"{ "contains_card_types": [] }"#;
 
     let response = client
-        .post("/decks")
+        .post("/tests/decks")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),

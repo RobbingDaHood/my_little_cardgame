@@ -153,16 +153,16 @@ pub async fn play(
             }
         }
         PlayerActions::DrawEncounter {
-            area_id,
+            area_id: _,
             encounter_id,
         } => {
-            let mut area_decks = player_data.area_decks.lock().await;
-            match area_decks.get_mut(&area_id) {
+            let mut current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_mut() {
                 Some(area_deck) => match area_deck.draw_encounter(&encounter_id) {
                     Ok(_) => {
                         let gs = game_state.lock().await;
                         let payload = crate::library::types::ActionPayload::DrawEncounter {
-                            area_id,
+                            area_id: "current".to_string(),
                             encounter_id,
                             reason: Some("Player drew encounter".to_string()),
                         };
@@ -171,19 +171,18 @@ pub async fn play(
                     }
                     Err(e) => Err(Left(NotFound(new_status(e)))),
                 },
-                None => Err(Left(NotFound(new_status(format!(
-                    "Area {} not found",
-                    area_id
-                ))))),
+                None => Err(Left(NotFound(new_status(
+                    "No current area set".to_string(),
+                )))),
             }
         }
         PlayerActions::ReplaceEncounter {
-            area_id,
+            area_id: _,
             old_encounter_id,
             new_encounter_id,
         } => {
-            let mut area_decks = player_data.area_decks.lock().await;
-            match area_decks.get_mut(&area_id) {
+            let mut current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_mut() {
                 Some(area_deck) => match area_deck.get_encounter(&new_encounter_id) {
                     Some(new_enc) => {
                         let affixes = new_enc.affixes.clone();
@@ -192,7 +191,7 @@ pub async fn play(
                                 let gs = game_state.lock().await;
                                 let payload =
                                     crate::library::types::ActionPayload::ReplaceEncounter {
-                                        area_id,
+                                        area_id: "current".to_string(),
                                         old_encounter_id,
                                         new_encounter_id,
                                         affixes_applied: affixes,
@@ -211,32 +210,30 @@ pub async fn play(
                         new_encounter_id
                     ))))),
                 },
-                None => Err(Left(NotFound(new_status(format!(
-                    "Area {} not found",
-                    area_id
-                ))))),
+                None => Err(Left(NotFound(new_status(
+                    "No current area set".to_string(),
+                )))),
             }
         }
         PlayerActions::ApplyScouting {
-            area_id,
+            area_id: _,
             parameters,
         } => {
-            let area_decks = player_data.area_decks.lock().await;
-            match area_decks.get(&area_id) {
+            let current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_ref() {
                 Some(_) => {
                     let gs = game_state.lock().await;
                     let payload = crate::library::types::ActionPayload::ApplyScouting {
-                        area_id,
+                        area_id: "current".to_string(),
                         parameters,
                         reason: Some("Player applied scouting".to_string()),
                     };
                     let entry = gs.append_action("ApplyScouting", payload);
                     Ok((rocket::http::Status::Created, Json(entry)))
                 }
-                None => Err(Left(NotFound(new_status(format!(
-                    "Area {} not found",
-                    area_id
-                ))))),
+                None => Err(Left(NotFound(new_status(
+                    "No current area set".to_string(),
+                )))),
             }
         }
     }

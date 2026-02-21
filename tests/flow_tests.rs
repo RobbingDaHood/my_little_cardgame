@@ -9,7 +9,7 @@ use std::borrow::Cow;
 fn test_phase_enforcement_attack_in_defending_should_fail() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     // Initialize combat (starts in Defending)
-    let init_response = client.post("/combat").dispatch();
+    let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
     // Try to play an Attack card (id 0) while in Defending phase -> should be BadRequest
@@ -29,10 +29,10 @@ fn test_phase_enforcement_attack_in_defending_should_fail() {
 fn test_play_defence_moves_card_to_discard() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     // Initialize combat (Defending)
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
 
     // Check initial deck states for defence deck (id 1) via JSON
-    let resp_before = client.get("/decks/1").dispatch();
+    let resp_before = client.get("/tests/decks/1").dispatch();
     assert_eq!(resp_before.status(), Status::Ok);
     let deck_before_json: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
@@ -53,7 +53,7 @@ fn test_play_defence_moves_card_to_discard() {
     assert_eq!(response.status(), Status::Created);
 
     // Check deck states after play via JSON
-    let resp_after = client.get("/decks/1").dispatch();
+    let resp_after = client.get("/tests/decks/1").dispatch();
     assert_eq!(resp_after.status(), Status::Ok);
     let deck_after_json: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
@@ -69,7 +69,7 @@ fn test_play_defence_moves_card_to_discard() {
 fn test_enemy_play_adds_dodge_to_enemy_in_defending() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     // Initialize combat (Defending)
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
 
     // Enemy plays for current phase
     let resp = client.post("/combat/enemy_play").dispatch();
@@ -94,7 +94,7 @@ fn test_enemy_play_adds_dodge_to_enemy_in_defending() {
 fn test_seed_determinism_for_enemy_selection() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     // First run: init, set seed, enemy_play
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
     let seed_body = r#"{ "seed": 42 }"#;
     let resp = client
         .post("/player/seed")
@@ -116,7 +116,7 @@ fn test_seed_determinism_for_enemy_selection() {
         .unwrap_or(0);
 
     // Second run: reinitialize, set same seed, enemy_play
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
     let resp = client
         .post("/player/seed")
         .header(Header {
@@ -140,7 +140,7 @@ fn test_seed_determinism_for_enemy_selection() {
 #[test]
 fn test_advance_phase_rotates_state() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
     // initially Defending
     let resp = client.get("/combat").dispatch();
     let combat_json: serde_json::Value =
@@ -173,7 +173,7 @@ fn test_advance_phase_rotates_state() {
 #[test]
 fn test_enemy_unit_hand_to_discard_on_play() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
 
     // Inspect enemy defence deck before
     let resp_before = client.get("/combat").dispatch();
@@ -207,7 +207,7 @@ fn test_enemy_unit_hand_to_discard_on_play() {
 #[test]
 fn test_dodge_consumed_by_enemy_attack() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
 
     // Player plays defence card (id 1) -> adds dodge to player tokens
     let action_json = r#"{ "PlayCard": 1 }"#;
@@ -269,7 +269,7 @@ fn test_player_kills_enemy_and_combat_ends() {
         "count": 1
     }"#;
     let resp = client
-        .post("/cards")
+        .post("/tests/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -290,7 +290,7 @@ fn test_player_kills_enemy_and_combat_ends() {
     // Add the card to player's attack deck (deck 0) in Hand so it can be played immediately
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 1 }} }}"#, card_id);
     let resp = client
-        .post("/decks/0/cards")
+        .post("/tests/decks/0/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -300,7 +300,7 @@ fn test_player_kills_enemy_and_combat_ends() {
     assert_eq!(resp.status(), Status::Created);
 
     // Initialize combat and advance to Attacking
-    client.post("/combat").dispatch();
+    client.post("/tests/combat").dispatch();
     client.post("/combat/advance").dispatch(); // Defending -> Attacking
 
     // Play the heavy attack card
@@ -315,11 +315,9 @@ fn test_player_kills_enemy_and_combat_ends() {
         .dispatch();
     assert_eq!(resp.status(), Status::Created);
 
-    // Combat should be ended (GET /combat -> null)
+    // Combat should be ended (GET /combat -> 404)
     let resp = client.get("/combat").dispatch();
-    assert_eq!(resp.status(), Status::Ok);
-    let body = resp.into_string().expect("body");
-    assert_eq!(body, "null");
+    assert_eq!(resp.status(), Status::NotFound);
 
     // Combat result should be recorded
     let resp = client.get("/combat/result").dispatch();

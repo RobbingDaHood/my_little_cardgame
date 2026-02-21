@@ -19,7 +19,6 @@ pub mod types {
     #[serde(crate = "rocket::serde")]
     pub struct CardDef {
         pub id: u64,
-        pub name: String,
         pub card_type: String,
     }
 
@@ -571,9 +570,9 @@ impl Default for GameState {
 
 // tests moved to tests/library_unit.rs
 
-/// Expose a thin HTTP/OKAPI-friendly endpoint that returns canonical token ids
+/// Get canonical token registry
 #[openapi]
-#[get("/library/tokens")]
+#[get("/tokens")]
 pub async fn list_library_tokens() -> Json<Vec<String>> {
     let reg = TokenRegistry::with_canonical();
     Json(reg.tokens.keys().cloned().collect())
@@ -596,7 +595,6 @@ pub async fn list_library_cards(
             };
             types::CardDef {
                 id: c.id as u64,
-                name: format!("card_{}", c.id),
                 card_type: ct,
             }
         })

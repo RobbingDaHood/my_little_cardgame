@@ -141,8 +141,9 @@ impl Deck {
     }
 }
 
+/// **Testing only.** List all decks. This endpoint will be removed in future versions.
 #[openapi]
-#[get("/decks")]
+#[get("/tests/decks")]
 pub async fn list_all_decks(player_data: &State<PlayerData>) -> Json<Vec<Deck>> {
     let mut result = vec![];
     for deck in player_data.decks.lock().await.iter() {
@@ -151,8 +152,9 @@ pub async fn list_all_decks(player_data: &State<PlayerData>) -> Json<Vec<Deck>> 
     Json(result)
 }
 
+/// **Testing only.** Get a specific deck by ID. This endpoint will be removed in future versions.
 #[openapi]
-#[get("/decks/<id>")]
+#[get("/tests/decks/<id>")]
 pub async fn get_deck(
     id: usize,
     player_data: &State<PlayerData>,
@@ -169,8 +171,9 @@ pub async fn get_deck(
         ))))
 }
 
+/// **Testing only.** Get a specific card within a deck. This endpoint will be removed in future versions.
 #[openapi]
-#[get("/decks/<deck_id>/cards/<card_id>")]
+#[get("/tests/decks/<deck_id>/cards/<card_id>")]
 pub async fn get_card_in_deck(
     deck_id: usize,
     card_id: usize,
@@ -190,9 +193,9 @@ pub async fn get_card_in_deck(
         ))))
 }
 
-/// Add a card to the deck. A card can exist in multiple decks, but they cannot be multiple times in the same deck
+/// **Testing only.** Add a card to a deck. A card can exist in multiple decks, but cannot be multiple times in the same deck. This endpoint will be removed in future versions.
 #[openapi]
-#[post("/decks/<id>/cards", format = "json", data = "<new_card>")]
+#[post("/tests/decks/<id>/cards", format = "json", data = "<new_card>")]
 pub async fn add_card_to_deck(
     id: usize,
     new_card: Json<DeckCard>,
@@ -242,8 +245,9 @@ pub async fn add_card_to_deck(
     }
 }
 
+/// **Testing only.** Delete a card from a deck. This endpoint will be removed in future versions.
 #[openapi]
-#[delete("/decks/<deck_id>/cards/<card_id>")]
+#[delete("/tests/decks/<deck_id>/cards/<card_id>")]
 pub async fn delete_card_in_deck(
     deck_id: usize,
     card_id: usize,
@@ -269,8 +273,9 @@ pub async fn delete_card_in_deck(
     }
 }
 
+/// **Testing only.** Create a new deck. This endpoint will be removed in future versions. Decks should be created only through game initialization.
 #[openapi]
-#[post("/decks", format = "json", data = "<new_deck>")]
+#[post("/tests/decks", format = "json", data = "<new_deck>")]
 pub async fn create_deck(
     new_deck: Json<CreateDeck>,
     player_data: &State<PlayerData>,

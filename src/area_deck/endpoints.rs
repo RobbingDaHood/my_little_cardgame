@@ -21,34 +21,30 @@ pub struct EncountersResponse {
     pub encounters: Vec<crate::area_deck::Encounter>,
 }
 
-/// Get area deck by ID
+/// Get the current area deck (player's current location)
 #[openapi]
-#[get("/area/<area_id>")]
+#[get("/area")]
 pub async fn get_area(
     player_data: &State<PlayerData>,
-    area_id: &str,
 ) -> Result<Json<AreaDeckResponse>, NotFound<Json<Status>>> {
-    let area_decks = player_data.area_decks.lock().await;
-    match area_decks.get(area_id) {
-        Some(area_deck) => Ok(Json(AreaDeckResponse {
-            area_deck: area_deck.clone(),
-        })),
-        None => Err(NotFound(new_status(format!("Area {} not found", area_id)))),
+    let area_deck = player_data.current_area_deck.lock().await;
+    match area_deck.clone() {
+        Some(deck) => Ok(Json(AreaDeckResponse { area_deck: deck })),
+        None => Err(NotFound(new_status("No current area set".to_string()))),
     }
 }
 
-/// List all encounters in an area deck
+/// List all encounters in the current area deck
 #[openapi]
-#[get("/area/<area_id>/encounters")]
+#[get("/area/encounters")]
 pub async fn get_area_encounters(
     player_data: &State<PlayerData>,
-    area_id: &str,
 ) -> Result<Json<EncountersResponse>, NotFound<Json<Status>>> {
-    let area_decks = player_data.area_decks.lock().await;
-    match area_decks.get(area_id) {
-        Some(area_deck) => Ok(Json(EncountersResponse {
-            encounters: area_deck.encounters.clone(),
+    let area_deck = player_data.current_area_deck.lock().await;
+    match area_deck.clone() {
+        Some(deck) => Ok(Json(EncountersResponse {
+            encounters: deck.encounters,
         })),
-        None => Err(NotFound(new_status(format!("Area {} not found", area_id)))),
+        None => Err(NotFound(new_status("No current area set".to_string()))),
     }
 }
