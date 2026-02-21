@@ -231,7 +231,7 @@ pub async fn get_combat_result(
 #[post("/tests/combat/simulate", format = "json", data = "<request>")]
 pub async fn simulate_combat_endpoint(
     request: Json<SimulateCombatRequest>,
-) -> Json<crate::library::types::CombatLog> {
+) -> Json<crate::library::types::CombatState> {
     let result = crate::library::combat::simulate_combat(
         request.initial_state.clone(),
         request.seed,

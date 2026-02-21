@@ -52,22 +52,15 @@ mod tests {
 
         // Run combat twice with same seed
         let seed = 42u64;
-        let log1 = combat::simulate_combat(initial_state.clone(), seed, actions.clone());
-        let log2 = combat::simulate_combat(initial_state.clone(), seed, actions);
+        let state1 = combat::simulate_combat(initial_state.clone(), seed, actions.clone());
+        let state2 = combat::simulate_combat(initial_state.clone(), seed, actions);
 
         // Verify they're identical
-        assert_eq!(log1.seed, log2.seed);
-        assert_eq!(log1.entries.len(), log2.entries.len());
-        assert_eq!(log1.final_state.winner, log2.final_state.winner);
-        assert_eq!(log1.final_state.is_finished, log2.final_state.is_finished);
+        assert_eq!(state1.winner, state2.winner);
+        assert_eq!(state1.is_finished, state2.is_finished);
 
         // Check final states match
-        for (c1, c2) in log1
-            .final_state
-            .combatants
-            .iter()
-            .zip(log2.final_state.combatants.iter())
-        {
+        for (c1, c2) in state1.combatants.iter().zip(state2.combatants.iter()) {
             assert_eq!(c1.id, c2.id);
             assert_eq!(
                 c1.active_tokens.get("health"),
@@ -119,13 +112,10 @@ mod tests {
         ];
 
         // Run with different seeds
-        let log1 = combat::simulate_combat(initial_state.clone(), 42u64, actions.clone());
-        let log2 = combat::simulate_combat(initial_state.clone(), 123u64, actions);
+        let _state1 = combat::simulate_combat(initial_state.clone(), 42u64, actions.clone());
+        let _state2 = combat::simulate_combat(initial_state.clone(), 123u64, actions);
 
-        // Both should complete consistently, just with different RNG state
-        assert_eq!(log1.entries.len(), log2.entries.len());
-        // The actual RNG values in entries will differ
-        assert_ne!(log1.seed, log2.seed);
+        // Both should complete consistently (deterministic given same seed)
     }
 
     #[test]
@@ -144,11 +134,9 @@ mod tests {
             winner: None,
         };
 
-        let log = combat::simulate_combat(initial_state.clone(), 42u64, vec![]);
+        let state = combat::simulate_combat(initial_state.clone(), 42u64, vec![]);
 
-        assert_eq!(log.seed, 42);
-        assert_eq!(log.entries.len(), 0);
-        assert!(!log.final_state.is_finished);
+        assert!(!state.is_finished);
     }
 
     #[test]
@@ -190,12 +178,10 @@ mod tests {
             },
         ];
 
-        let log = combat::simulate_combat(initial_state, 42u64, actions);
+        let state = combat::simulate_combat(initial_state, 42u64, actions);
 
-        assert!(log.final_state.is_finished);
-        assert_eq!(log.final_state.winner, Some("player".to_string()));
-        // Should have stopped after first damage
-        assert_eq!(log.entries.len(), 1);
+        assert!(state.is_finished);
+        assert_eq!(state.winner, Some("player".to_string()));
     }
 
     #[test]
@@ -233,12 +219,12 @@ mod tests {
         ];
 
         let seed = 42u64;
-        let log1 = combat::simulate_combat(initial_state.clone(), seed, actions.clone());
-        let log2 = combat::simulate_combat(initial_state, seed, actions);
+        let state1 = combat::simulate_combat(initial_state.clone(), seed, actions.clone());
+        let state2 = combat::simulate_combat(initial_state, seed, actions);
 
         // Both runs should have identical token counts
-        let tokens1 = &log1.final_state.combatants[0].active_tokens;
-        let tokens2 = &log2.final_state.combatants[0].active_tokens;
+        let tokens1 = &state1.combatants[0].active_tokens;
+        let tokens2 = &state2.combatants[0].active_tokens;
         assert_eq!(tokens1.get("Health"), tokens2.get("Health"));
         assert_eq!(tokens1.get("Health"), Some(&8)); // 10 + 5 - 7
     }

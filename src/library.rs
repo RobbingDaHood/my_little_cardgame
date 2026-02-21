@@ -175,27 +175,6 @@ pub mod types {
         pub winner: Option<String>, // None if ongoing, Some(id) if finished
     }
 
-    /// Represents a single event that occurred during combat resolution.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-    #[serde(crate = "rocket::serde")]
-    pub struct CombatLogEntry {
-        pub step: u64, // sequence number within combat
-        pub action: CombatAction,
-        pub state_before: CombatState,
-        pub state_after: CombatState,
-        pub rng_values: Vec<u64>, // RNG values consumed by this step
-    }
-
-    /// Complete deterministic log of a combat encounter.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-    #[serde(crate = "rocket::serde")]
-    pub struct CombatLog {
-        pub seed: u64,
-        pub initial_state: CombatState,
-        pub entries: Vec<CombatLogEntry>,
-        pub final_state: CombatState,
-    }
-
     // ====== Encounter types for the encounter loop (Step 7) ======
 
     /// Represents the state of a single encounter session.
@@ -251,9 +230,9 @@ pub mod combat {
     //! Deterministic, pure-data combat resolution (Step 6)
     //!
     //! This module provides pure functions for resolving combat deterministically
-    //! using seeded RNG. All state changes are captured in a CombatLog for replay.
+    //! using seeded RNG.
 
-    use super::types::{CombatAction, CombatLog, CombatLogEntry, CombatState};
+    use super::types::{CombatAction, CombatState};
     use rand::RngCore;
     use rand_pcg::Lcg64Xsh32;
 
@@ -265,9 +244,8 @@ pub mod combat {
         current_state: &CombatState,
         action: CombatAction,
         rng: &mut Lcg64Xsh32,
-    ) -> (CombatState, CombatLogEntry, Vec<u64>) {
+    ) -> (CombatState, Vec<u64>) {
         let mut rng_values = Vec::new();
-        let state_before = current_state.clone();
 
         // Apply action to produce new state
         let mut state_after = current_state.clone();
@@ -335,15 +313,7 @@ pub mod combat {
             };
         }
 
-        let entry = CombatLogEntry {
-            step: 0, // Will be set by caller based on sequence
-            action,
-            state_before,
-            state_after: state_after.clone(),
-            rng_values: rng_values.clone(),
-        };
-
-        (state_after, entry, rng_values)
+        (state_after, rng_values)
     }
 
     /// Simulate a full combat encounter from a seed and initial state.
@@ -354,7 +324,7 @@ pub mod combat {
         initial_state: CombatState,
         seed: u64,
         actions: Vec<CombatAction>,
-    ) -> CombatLog {
+    ) -> CombatState {
         use rand::SeedableRng;
 
         let seed_bytes: [u8; 16] = {
@@ -366,16 +336,10 @@ pub mod combat {
         };
         let mut rng = Lcg64Xsh32::from_seed(seed_bytes);
 
-        let mut current_state = initial_state.clone();
-        let mut entries = Vec::new();
-        let mut all_rng_values = Vec::new();
+        let mut current_state = initial_state;
 
         for action in actions {
-            let (next_state, mut entry, rng_vals) =
-                resolve_combat_tick(&current_state, action, &mut rng);
-            entry.step = entries.len() as u64;
-            all_rng_values.extend(rng_vals);
-            entries.push(entry);
+            let (next_state, _rng_vals) = resolve_combat_tick(&current_state, action, &mut rng);
             current_state = next_state;
 
             // Stop if combat finished
@@ -384,12 +348,7 @@ pub mod combat {
             }
         }
 
-        CombatLog {
-            seed,
-            initial_state: initial_state.clone(),
-            entries,
-            final_state: current_state,
-        }
+        current_state
     }
 }
 
