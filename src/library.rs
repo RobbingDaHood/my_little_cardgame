@@ -222,7 +222,9 @@ pub mod combat {
     //! Deterministic, pure-data combat resolution (Step 6)
     //!
     //! This module provides pure functions for resolving combat deterministically
-    //! using seeded RNG.
+    //! using seeded RNG. Current combat scope is minimal: attack cards reduce
+    //! opponent HP via token manipulation. Features like dodge, stamina, and
+    //! advanced mechanics are deferred to later roadmap steps.
 
     use super::types::{CardDef, CombatAction, CombatState, EffectTarget};
     use rand::RngCore;
