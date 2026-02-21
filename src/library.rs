@@ -487,6 +487,83 @@ pub mod combat {
     }
 }
 
+pub mod encounter {
+    //! Encounter loop state machine (Step 7)
+    //!
+    //! Pure-data functions that manage encounter state transitions
+    //! based on player actions. Works with EncounterAction and EncounterState.
+
+    use super::types::{EncounterAction, EncounterPhase, EncounterState};
+
+    /// Process an EncounterAction and transition state accordingly.
+    ///
+    /// Returns the new EncounterState after applying the action.
+    /// Returns None if the action is invalid for the current phase.
+    pub fn apply_action(state: &EncounterState, action: EncounterAction) -> Option<EncounterState> {
+        match (&state.phase, action) {
+            // Ready phase: can pick encounter or finish
+            (EncounterPhase::Ready, EncounterAction::PickEncounter { area_id: _ }) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::InCombat;
+                Some(new_state)
+            }
+            (EncounterPhase::Ready, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::Finished;
+                Some(new_state)
+            }
+
+            // InCombat phase: play cards or end encounter
+            (EncounterPhase::InCombat, EncounterAction::PlayCard { .. }) => {
+                let mut new_state = state.clone();
+                // Card play transitions combat state forward
+                // If combat finishes, move to PostEncounter
+                // For now, stay in InCombat
+                if new_state.combat_state.is_finished {
+                    new_state.phase = EncounterPhase::PostEncounter;
+                }
+                Some(new_state)
+            }
+            (EncounterPhase::InCombat, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::Finished;
+                Some(new_state)
+            }
+
+            // PostEncounter phase: apply scouting or finish
+            (EncounterPhase::PostEncounter, EncounterAction::ApplyScouting { parameters, .. }) => {
+                let mut new_state = state.clone();
+                new_state.scouting_parameters = parameters;
+                // Scouting keeps encounter in PostEncounter phase until explicitly finished
+                Some(new_state)
+            }
+            (EncounterPhase::PostEncounter, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::Finished;
+                Some(new_state)
+            }
+
+            // Invalid: all other state/action combinations
+            _ => None,
+        }
+    }
+
+    /// Check if encounter is finished
+    pub fn is_finished(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::Finished
+    }
+
+    /// Check if combat is active
+    pub fn is_in_combat(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::InCombat
+    }
+
+    /// Check if post-encounter scouting is available
+    pub fn can_scout(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::PostEncounter
+    }
+}
+
 pub mod registry {
     use super::types::{TokenLifecycle, TokenType};
     use std::collections::HashMap;
