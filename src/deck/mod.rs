@@ -1,17 +1,14 @@
 use std::collections::HashMap;
 
-use either::{Either, Left, Right};
 use rand::Rng;
 use rand_pcg::Lcg64Xsh32;
-use rocket::response::status::{BadRequest, Created, NotFound};
+use rocket::response::status::NotFound;
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::State;
-use rocket_okapi::{openapi, JsonSchema};
+use rocket_okapi::JsonSchema;
 
 pub use crate::deck::card::Card;
-use crate::deck::card::{get_card, CardType};
-use crate::player_data::PlayerData;
+use crate::deck::card::CardType;
 use crate::status_messages::{new_status, Status};
 
 pub mod card;
@@ -139,170 +136,6 @@ impl Deck {
             },
         }
     }
-}
-
-/// **Testing only.** List all decks. This endpoint will be removed in future versions.
-#[openapi]
-#[get("/tests/decks")]
-pub async fn list_all_decks(player_data: &State<PlayerData>) -> Json<Vec<Deck>> {
-    let mut result = vec![];
-    for deck in player_data.decks.lock().await.iter() {
-        result.push(deck.clone());
-    }
-    Json(result)
-}
-
-/// **Testing only.** Get a specific deck by ID. This endpoint will be removed in future versions.
-#[openapi]
-#[get("/tests/decks/<id>")]
-pub async fn get_deck(
-    id: usize,
-    player_data: &State<PlayerData>,
-) -> Result<Json<Deck>, NotFound<Json<Status>>> {
-    player_data
-        .decks
-        .lock()
-        .await
-        .iter()
-        .find(|existing| existing.id == id)
-        .map(|existing| Json(existing.clone()))
-        .ok_or(NotFound(new_status(format!(
-            "Deck with id {id} does not exist!"
-        ))))
-}
-
-/// **Testing only.** Get a specific card within a deck. This endpoint will be removed in future versions.
-#[openapi]
-#[get("/tests/decks/<deck_id>/cards/<card_id>")]
-pub async fn get_card_in_deck(
-    deck_id: usize,
-    card_id: usize,
-    player_data: &State<PlayerData>,
-) -> Result<Json<DeckCard>, NotFound<Json<Status>>> {
-    player_data
-        .decks
-        .lock()
-        .await
-        .iter()
-        .filter(|existing| existing.id == deck_id)
-        .flat_map(|existing| existing.cards.iter())
-        .find(|existing| existing.id == card_id)
-        .map(|existing| Json(existing.clone()))
-        .ok_or(NotFound(new_status(format!(
-            "Either Deck with id {deck_id} or Card with id {card_id} does not exist!"
-        ))))
-}
-
-/// **Testing only.** Add a card to a deck. A card can exist in multiple decks, but cannot be multiple times in the same deck. This endpoint will be removed in future versions.
-#[openapi]
-#[post("/tests/decks/<id>/cards", format = "json", data = "<new_card>")]
-pub async fn add_card_to_deck(
-    id: usize,
-    new_card: Json<DeckCard>,
-    player_data: &State<PlayerData>,
-) -> Result<Created<&str>, Either<NotFound<Json<Status>>, BadRequest<Json<Status>>>> {
-    match get_card(new_card.id, player_data).await {
-        None => Err(Left(NotFound(new_status(format!(
-            "Card with id {} does not exist!",
-            new_card.id
-        ))))),
-        Some(existing_card) => {
-            match player_data
-                .decks
-                .lock()
-                .await
-                .iter_mut()
-                .find(|existing| existing.id == id)
-            {
-                None => Err(Left(NotFound(new_status(format!(
-                    "Deck with id {id} does not exist!"
-                ))))),
-                Some(existing_deck) => {
-                    if existing_deck
-                        .contains_card_types
-                        .contains(&existing_card.card_type)
-                    {
-                        let does_card_exist_in_deck = existing_deck
-                            .cards
-                            .iter()
-                            .any(|existing_card| existing_card.id == new_card.id);
-                        if does_card_exist_in_deck {
-                            Err(Right(BadRequest(new_status(format!(
-                                "Deck with id {} does already contain a card with id {}!",
-                                id, new_card.id
-                            )))))
-                        } else {
-                            existing_deck.add_new_card(new_card.0.clone());
-                            let location = uri!(get_card_in_deck(id, new_card.id));
-                            Ok(Created::new(location.to_string()))
-                        }
-                    } else {
-                        Err(Right(BadRequest(new_status(format!("Card with id {} is of type {:?} and that is not part of the types '{:?}' allowed in deck with id {}", new_card.id, existing_card.card_type, existing_deck.contains_card_types, existing_deck.id)))))
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// **Testing only.** Delete a card from a deck. This endpoint will be removed in future versions.
-#[openapi]
-#[delete("/tests/decks/<deck_id>/cards/<card_id>")]
-pub async fn delete_card_in_deck(
-    deck_id: usize,
-    card_id: usize,
-    player_data: &State<PlayerData>,
-) -> Result<(), NotFound<Json<Status>>> {
-    match player_data
-        .decks
-        .lock()
-        .await
-        .iter_mut()
-        .find(|existing| existing.id == deck_id)
-    {
-        None => Err(NotFound(new_status(format!(
-            "Deck with id {deck_id} does not exist!"
-        )))),
-        Some(deck) => deck
-            .change_card_state(card_id, CardState::Deleted, CardState::Deck)
-            .map_err(|_| {
-                NotFound(new_status(format!(
-                    "Card with id {card_id} does not exist in deck!"
-                )))
-            }),
-    }
-}
-
-/// **Testing only.** Create a new deck. This endpoint will be removed in future versions. Decks should be created only through game initialization.
-#[openapi]
-#[post("/tests/decks", format = "json", data = "<new_deck>")]
-pub async fn create_deck(
-    new_deck: Json<CreateDeck>,
-    player_data: &State<PlayerData>,
-) -> Result<Created<String>, BadRequest<Json<Status>>> {
-    // Validate deck has at least one allowed card type
-    if new_deck.0.contains_card_types.is_empty() {
-        return Err(BadRequest(new_status(
-            "Deck must allow at least one card type".to_string(),
-        )));
-    }
-
-    let unused_id = player_data
-        .decks
-        .lock()
-        .await
-        .iter()
-        .map(|existing| existing.id)
-        .max()
-        .map(|existing_id| existing_id + 1)
-        .unwrap_or(0);
-    player_data.decks.lock().await.push(Deck {
-        cards: vec![],
-        id: unused_id,
-        contains_card_types: new_deck.0.contains_card_types,
-    });
-    let location = uri!(get_deck(unused_id));
-    Ok(Created::new(location.to_string()))
 }
 
 #[cfg(test)]
