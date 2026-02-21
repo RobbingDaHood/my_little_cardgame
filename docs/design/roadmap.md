@@ -3,7 +3,7 @@ roadmap.md
 
 Overview
 --------
-This roadmap turns the high-level ideas in docks/vision.md into a sequence of concrete, incremental, and playable features that faithfully implement the vision principles. Every step emphasizes the vision constraints: "Everything is a deck or a token", a single initial RNG seed for full reproducibility, a canonical Library that owns card definitions, and explicit token lifecycle and actions logging. Each milestone produces a minimal playable loop (API or CLI) so the project can be iteratively tested, balanced, and extended.
+This roadmap turns the high-level ideas in docs/vision.md into a sequence of concrete, incremental, and playable features that faithfully implement the vision principles. Every step emphasizes the vision constraints: "Everything is a deck or a token", a single initial RNG seed for full reproducibility, a canonical Library that owns card definitions, and explicit token lifecycle and actions logging. Each milestone produces a minimal playable loop (API or CLI) so the project can be iteratively tested, balanced, and extended.
 
 Alignment requirements (inherited from vision.md)
 ------------------------------------------------
@@ -57,9 +57,9 @@ Roadmap steps
    - Notes: Keep combat pure-data where possible and surface minimal side-effecting entry points that only write to the action log.
 
 7) Add the simple encounter play loop (pick -> fight -> replace -> scouting)
-   - Goal: Support a single-playable encounter loop as descirbed in the vision. Pik encounter, do the encounter, post-encounter scouting step and repeat. 
+   - Goal: Support a single-playable encounter loop as described in the vision: pick an encounter, resolve it, perform the post-encounter scouting step, and repeat. 
    - Description: Implement /encounter/start, /encounter/step, /encounter/finish flows that use in-memory session state for now and write all events (including replacement and scouting decisions) to the ActionLog.
-        - Remember that the action endpoint is the only endpoint that is allowed to change state. So the player playes an action (examples: pick encounter, play a card etc.) then the game evaluates if that changes any state (example: Move the combat one phase forward, convlude the combat and go to post-encounter scouting step etc.). 
+        - Remember that the action endpoint is the only endpoint allowed to change state. When the player plays an action (examples: pick an encounter, play a card, etc.), the game evaluates whether that changes any state (for example: move the combat one phase forward, conclude the combat, and go to the post-encounter scouting step, etc.). 
    - Playable acceptance: API user can draw an encounter, resolve combat to conclusion, perform a scouting post-resolution step that biases replacement, and the area deck updates accordingly.
    - Notes: Ensure session can be replayed from seed + action log.
     - - Scouting parameters (preview count, affix bias, pool modifier) are internal mechanics that influence encounter-generation deterministically during the scouting post-encounter step. They are not user-facing API endpoints but are controlled by the player's scouting action choices and token expenditures (Foresight, etc.).
@@ -133,11 +133,11 @@ Roadmap steps
 
 Implementation guidelines and priorities
 --------------------------------------
-- Validate alignment with docks/vision.md for every milestone; require one explicit mapping note in PRs describing which lines in vision.md the work satisfies.
+- Validate alignment with docs/vision.md for every milestone; require one explicit mapping note in PRs describing which lines in vision.md the work satisfies.
 - Keep core logic pure and testable; make side effects pluggable and thin wrappers to the ActionLog.
 - Prioritize deterministic behavior and reproducibility from the start.
 - Prefer data-driven content formats (deck files, affix tables) so designers can author content without code changes.
-- Try to migrate tests out of using test endpoints and solely use public endpoints. Only use test endpoints temprorarily if it is not possible to do the test without it, yet. The expectation is that a later point in the roadmap will make any test endpoint reduntant. 
+- Try to migrate tests away from test endpoints and use only public endpoints. Only use test endpoints temporarily if it is not possible to run the test without them; the expectation is that a later point in the roadmap will make any test endpoint redundant. 
 
 How to use this roadmap
 -----------------------
