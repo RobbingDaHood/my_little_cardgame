@@ -181,11 +181,7 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct EncounterState {
-        pub encounter_id: String,
-        pub area_id: String,
-        pub combat_state: CombatState,
         pub phase: EncounterPhase,
-        pub scouting_parameters: ScoutingParameters,
     }
 
     /// Phases of an encounter (Step 7 state machine)
@@ -358,7 +354,8 @@ pub mod encounter {
     //! Pure-data functions that manage encounter state transitions
     //! based on player actions. Works with EncounterAction and EncounterState.
 
-    use super::types::{EncounterAction, EncounterPhase, EncounterState, ScoutingParameters};
+    use super::types::ScoutingParameters;
+    use super::types::{EncounterAction, EncounterPhase, EncounterState};
 
     /// Process an EncounterAction and transition state accordingly.
     ///
@@ -380,13 +377,7 @@ pub mod encounter {
 
             // InCombat phase: play cards or end encounter
             (EncounterPhase::InCombat, EncounterAction::PlayCard { .. }) => {
-                let mut new_state = state.clone();
-                // Card play transitions combat state forward
-                // If combat finishes, move to PostEncounter
-                // For now, stay in InCombat
-                if new_state.combat_state.is_finished {
-                    new_state.phase = EncounterPhase::PostEncounter;
-                }
+                let new_state = state.clone();
                 Some(new_state)
             }
             (EncounterPhase::InCombat, EncounterAction::FinishEncounter) => {

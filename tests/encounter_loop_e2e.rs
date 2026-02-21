@@ -4,44 +4,14 @@
 mod tests {
     use my_little_cardgame::library::encounter;
     use my_little_cardgame::library::types::{
-        CombatState, Combatant, EncounterAction, EncounterPhase, EncounterState, ScoutingParameters,
+        EncounterAction, EncounterPhase, EncounterState, ScoutingParameters,
     };
-    use std::collections::HashMap;
 
     #[test]
     fn test_encounter_full_loop_ready_to_combat_to_scouting() {
         // Initialize encounter in Ready phase
         let initial_state = EncounterState {
-            encounter_id: "encounter_1".to_string(),
-            area_id: "forest".to_string(),
-            combat_state: CombatState {
-                round: 0,
-                current_turn: "player".to_string(),
-                combatants: vec![
-                    Combatant {
-                        id: "player".to_string(),
-                        active_tokens: HashMap::from([
-                            ("health".to_string(), 100),
-                            ("max_health".to_string(), 100),
-                        ]),
-                    },
-                    Combatant {
-                        id: "enemy_0".to_string(),
-                        active_tokens: HashMap::from([
-                            ("health".to_string(), 30),
-                            ("max_health".to_string(), 30),
-                        ]),
-                    },
-                ],
-                is_finished: false,
-                winner: None,
-            },
             phase: EncounterPhase::Ready,
-            scouting_parameters: ScoutingParameters {
-                preview_count: 1,
-                affix_bias: "balanced".to_string(),
-                pool_modifier: 1.0,
-            },
         };
 
         // Step 1: Pick encounter (Ready -> InCombat)
@@ -65,18 +35,13 @@ mod tests {
             },
         );
         assert!(state_after_play.is_some());
-        let mut state = state_after_play.unwrap();
+        let state = state_after_play.unwrap();
         assert_eq!(state.phase, EncounterPhase::InCombat);
 
-        // Step 3: Simulate combat finishing (would normally happen from combat resolution)
-        state.combat_state.is_finished = true;
-        state.combat_state.winner = Some("player".to_string());
-
-        // Check: can_scout should now work when combat is finished
-        // In a real scenario, the state machine would auto-transition on combat end
-        if state.combat_state.is_finished {
-            state.phase = EncounterPhase::PostEncounter;
-        }
+        // Step 3: Simulate transition to PostEncounter (caller handles this externally)
+        let state = EncounterState {
+            phase: EncounterPhase::PostEncounter,
+        };
 
         // Step 4: Apply scouting (PostEncounter -> PostEncounter with updated params)
         let state_after_scout = encounter::apply_action(
@@ -101,21 +66,7 @@ mod tests {
     #[test]
     fn test_encounter_invalid_actions_return_none() {
         let state = EncounterState {
-            encounter_id: "enc".to_string(),
-            area_id: "area".to_string(),
-            combat_state: CombatState {
-                round: 0,
-                current_turn: "player".to_string(),
-                combatants: vec![],
-                is_finished: false,
-                winner: None,
-            },
             phase: EncounterPhase::Ready,
-            scouting_parameters: ScoutingParameters {
-                preview_count: 1,
-                affix_bias: "balanced".to_string(),
-                pool_modifier: 1.0,
-            },
         };
 
         // PlayCard is invalid in Ready phase
@@ -175,21 +126,7 @@ mod tests {
     #[test]
     fn test_encounter_abandoned_in_combat() {
         let state = EncounterState {
-            encounter_id: "enc".to_string(),
-            area_id: "area".to_string(),
-            combat_state: CombatState {
-                round: 1,
-                current_turn: "enemy".to_string(),
-                combatants: vec![],
-                is_finished: false,
-                winner: None,
-            },
             phase: EncounterPhase::InCombat,
-            scouting_parameters: ScoutingParameters {
-                preview_count: 1,
-                affix_bias: "balanced".to_string(),
-                pool_modifier: 1.0,
-            },
         };
 
         // Player can finish/abandon encounter while in combat
@@ -202,21 +139,7 @@ mod tests {
     #[test]
     fn test_encounter_multiple_scouting_choices_sequential() {
         let mut state = EncounterState {
-            encounter_id: "enc".to_string(),
-            area_id: "area".to_string(),
-            combat_state: CombatState {
-                round: 1,
-                current_turn: "player".to_string(),
-                combatants: vec![],
-                is_finished: true,
-                winner: Some("player".to_string()),
-            },
             phase: EncounterPhase::PostEncounter,
-            scouting_parameters: ScoutingParameters {
-                preview_count: 1,
-                affix_bias: "balanced".to_string(),
-                pool_modifier: 1.0,
-            },
         };
 
         // First scouting choice
