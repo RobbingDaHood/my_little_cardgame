@@ -724,7 +724,215 @@ pub mod action_log {
 
 use action_log::ActionLog;
 use registry::TokenRegistry;
-use types::{ActionEntry, ActionPayload};
+use types::{ActionEntry, ActionPayload, CardCounts, CardEffect, CardKind, LibraryCard};
+
+/// The Library: canonical collection of all player-owned cards.
+/// Index in the Vec = card ID. Per vision "card location model and counts".
+#[derive(Debug, Clone)]
+pub struct Library {
+    pub cards: Vec<LibraryCard>,
+}
+
+impl Default for Library {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Library {
+    pub fn new() -> Self {
+        Library { cards: Vec::new() }
+    }
+
+    /// Add a card to the library. Returns the card ID (index).
+    pub fn add_card(&mut self, kind: CardKind, counts: CardCounts) -> usize {
+        let id = self.cards.len();
+        self.cards.push(LibraryCard { kind, counts });
+        id
+    }
+
+    /// Get a card by ID (index).
+    pub fn get(&self, card_id: usize) -> Option<&LibraryCard> {
+        self.cards.get(card_id)
+    }
+
+    /// Draw a card: move one copy from deck → hand.
+    pub fn draw(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.deck == 0 {
+            return Err(format!("Card {card_id} has no copies in deck"));
+        }
+        card.counts.deck -= 1;
+        card.counts.hand += 1;
+        Ok(())
+    }
+
+    /// Play/discard a card: move one copy from hand → discard.
+    pub fn play(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.hand == 0 {
+            return Err(format!("Card {card_id} has no copies in hand"));
+        }
+        card.counts.hand -= 1;
+        card.counts.discard += 1;
+        Ok(())
+    }
+
+    /// Return a card from discard → library.
+    pub fn return_to_library(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.discard == 0 {
+            return Err(format!("Card {card_id} has no copies in discard"));
+        }
+        card.counts.discard -= 1;
+        card.counts.library += 1;
+        Ok(())
+    }
+
+    /// Move copies from library → deck (adding cards to your deck).
+    pub fn add_to_deck(&mut self, card_id: usize, count: u32) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.library < count {
+            return Err(format!(
+                "Card {card_id} has only {} copies in library, need {count}",
+                card.counts.library
+            ));
+        }
+        card.counts.library -= count;
+        card.counts.deck += count;
+        Ok(())
+    }
+
+    /// All cards currently on hand.
+    pub fn hand_cards(&self) -> Vec<(usize, &LibraryCard)> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.counts.hand > 0)
+            .collect()
+    }
+
+    /// All cards matching a predicate on CardKind.
+    pub fn cards_matching<F>(&self, predicate: F) -> Vec<(usize, &LibraryCard)>
+    where
+        F: Fn(&CardKind) -> bool,
+    {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| predicate(&c.kind))
+            .collect()
+    }
+}
+
+/// Build the initial Library with starter cards.
+fn initialize_library() -> Library {
+    let mut lib = Library::new();
+
+    // Attack card (id 0): deals 5 damage to opponent
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![CardEffect {
+                target: types::EffectTarget::OnOpponent,
+                token_id: "health".to_string(),
+                amount: -5,
+            }],
+        },
+        CardCounts {
+            library: 0,
+            deck: 40,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Defence card (id 1): grants 3 shield to self
+    lib.add_card(
+        CardKind::Defence {
+            effects: vec![CardEffect {
+                target: types::EffectTarget::OnSelf,
+                token_id: "shield".to_string(),
+                amount: 3,
+            }],
+        },
+        CardCounts {
+            library: 0,
+            deck: 40,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Resource card (id 2): grants 2 stamina to self
+    lib.add_card(
+        CardKind::Resource {
+            effects: vec![CardEffect {
+                target: types::EffectTarget::OnSelf,
+                token_id: "stamina".to_string(),
+                amount: 2,
+            }],
+        },
+        CardCounts {
+            library: 0,
+            deck: 40,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Combat encounter: Gnome (id 3)
+    lib.add_card(
+        CardKind::CombatEncounter {
+            combatant_def: types::CombatantDef {
+                initial_tokens: HashMap::from([
+                    ("health".to_string(), 20),
+                    ("max_health".to_string(), 20),
+                ]),
+                attack_deck: vec![types::EnemyCardDef {
+                    effects: vec![CardEffect {
+                        target: types::EffectTarget::OnOpponent,
+                        token_id: "health".to_string(),
+                        amount: -3,
+                    }],
+                }],
+                defence_deck: vec![types::EnemyCardDef {
+                    effects: vec![CardEffect {
+                        target: types::EffectTarget::OnSelf,
+                        token_id: "shield".to_string(),
+                        amount: 2,
+                    }],
+                }],
+                resource_deck: vec![types::EnemyCardDef {
+                    effects: vec![CardEffect {
+                        target: types::EffectTarget::OnSelf,
+                        token_id: "stamina".to_string(),
+                        amount: 1,
+                    }],
+                }],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    lib
+}
 
 /// Minimal in-memory game state driven by the library's mutator API.
 #[derive(Debug, Clone)]
@@ -732,6 +940,7 @@ pub struct GameState {
     pub registry: TokenRegistry,
     pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<String, i64>,
+    pub library: Library,
 }
 
 impl GameState {
@@ -762,6 +971,7 @@ impl GameState {
             registry,
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
+            library: initialize_library(),
         }
     }
 
@@ -851,6 +1061,7 @@ impl GameState {
                 registry,
                 action_log: std::sync::Arc::new(ActionLog::new()),
                 token_balances: balances,
+                library: initialize_library(),
             }
         };
         for e in log.entries() {
@@ -916,27 +1127,12 @@ pub async fn list_library_tokens() -> Json<Vec<String>> {
     Json(reg.tokens.keys().cloned().collect())
 }
 
-/// Minimal "library" view exposing canonical card entries derived from current player_data.
+/// Library cards endpoint: returns all cards from the canonical Library.
 #[openapi]
 #[get("/library/cards")]
 pub async fn list_library_cards(
-    player_data: &rocket::State<crate::player_data::PlayerData>,
-) -> Json<Vec<types::CardDef>> {
-    let cards = player_data.cards.lock().await.clone();
-    let items: Vec<types::CardDef> = cards
-        .into_iter()
-        .map(|c| {
-            let ct = match c.card_type {
-                crate::deck::card::CardType::Attack => "Attack".to_string(),
-                crate::deck::card::CardType::Defence => "Defence".to_string(),
-                crate::deck::card::CardType::Resource => "Resource".to_string(),
-            };
-            types::CardDef {
-                id: c.id as u64,
-                card_type: ct,
-                effects: vec![],
-            }
-        })
-        .collect();
-    Json(items)
+    game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
+) -> Json<Vec<types::LibraryCard>> {
+    let gs = game_state.lock().await;
+    Json(gs.library.cards.clone())
 }
