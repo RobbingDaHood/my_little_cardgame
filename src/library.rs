@@ -150,12 +150,7 @@ pub mod types {
         PlayCard {
             combatant_id: String,
             card_id: u64,
-            effects: Vec<String>, // effect descriptions
-        },
-        DealDamage {
-            source: String,
-            target: String,
-            amount: i64,
+            effects: Vec<String>,
         },
         GrantToken {
             combatant_id: String,
@@ -166,10 +161,6 @@ pub mod types {
             combatant_id: String,
             token_id: String,
             amount: i64,
-        },
-        DrawCard {
-            combatant_id: String,
-            card_id: u64,
         },
     }
 
@@ -282,29 +273,6 @@ pub mod combat {
         let mut state_after = current_state.clone();
 
         match &action {
-            CombatAction::DealDamage {
-                source,
-                target,
-                amount,
-            } => {
-                // Find target combatant and reduce health token
-                if let Some(target_combatant) =
-                    state_after.combatants.iter_mut().find(|c| &c.id == target)
-                {
-                    let current_health =
-                        *target_combatant.active_tokens.get("health").unwrap_or(&0);
-                    let new_health = (current_health - amount).max(0);
-                    target_combatant
-                        .active_tokens
-                        .insert("health".to_string(), new_health);
-
-                    // Check if target is defeated
-                    if new_health == 0 {
-                        state_after.is_finished = true;
-                        state_after.winner = Some(source.clone());
-                    }
-                }
-            }
             CombatAction::GrantToken {
                 combatant_id,
                 token_id,
@@ -332,21 +300,26 @@ pub mod combat {
                     if let Some(entry) = combatant.active_tokens.get_mut(token_id) {
                         *entry = (*entry - amount).max(0);
                     }
+                    // Check defeat when health reaches 0
+                    if token_id == "health" {
+                        let health = combatant.active_tokens.get("health").copied().unwrap_or(0);
+                        if health == 0 {
+                            // Find the other combatant as winner
+                            let winner = state_after
+                                .combatants
+                                .iter()
+                                .find(|c| &c.id != combatant_id)
+                                .map(|c| c.id.clone());
+                            state_after.is_finished = true;
+                            state_after.winner = winner;
+                        }
+                    }
                 }
             }
             CombatAction::PlayCard {
                 combatant_id: _,
                 card_id: _,
                 effects: _,
-            } => {
-                // Card play typically triggers effects; we'd apply them here
-                // For now, just record the draw
-                let rng_val = rng.next_u64();
-                rng_values.push(rng_val);
-            }
-            CombatAction::DrawCard {
-                combatant_id: _,
-                card_id: _,
             } => {
                 let rng_val = rng.next_u64();
                 rng_values.push(rng_val);

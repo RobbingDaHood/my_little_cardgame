@@ -33,19 +33,19 @@ mod tests {
         };
 
         let actions = vec![
-            CombatAction::DealDamage {
-                source: "player".to_string(),
-                target: "enemy_0".to_string(),
+            CombatAction::ConsumeToken {
+                combatant_id: "enemy_0".to_string(),
+                token_id: "health".to_string(),
                 amount: 20,
             },
-            CombatAction::DealDamage {
-                source: "enemy_0".to_string(),
-                target: "player".to_string(),
+            CombatAction::ConsumeToken {
+                combatant_id: "player".to_string(),
+                token_id: "health".to_string(),
                 amount: 10,
             },
-            CombatAction::DealDamage {
-                source: "player".to_string(),
-                target: "enemy_0".to_string(),
+            CombatAction::ConsumeToken {
+                combatant_id: "enemy_0".to_string(),
+                token_id: "health".to_string(),
                 amount: 30,
             },
         ];
@@ -106,9 +106,9 @@ mod tests {
         };
 
         let actions = vec![
-            CombatAction::DealDamage {
-                source: "player".to_string(),
-                target: "enemy_0".to_string(),
+            CombatAction::ConsumeToken {
+                combatant_id: "enemy_0".to_string(),
+                token_id: "health".to_string(),
                 amount: 20,
             },
             CombatAction::GrantToken {
@@ -177,15 +177,15 @@ mod tests {
         };
 
         let actions = vec![
-            CombatAction::DealDamage {
-                source: "player".to_string(),
-                target: "enemy_0".to_string(),
+            CombatAction::ConsumeToken {
+                combatant_id: "enemy_0".to_string(),
+                token_id: "health".to_string(),
                 amount: 30,
             },
             // This action should be ignored (combat already over)
-            CombatAction::DealDamage {
-                source: "enemy_0".to_string(),
-                target: "player".to_string(),
+            CombatAction::ConsumeToken {
+                combatant_id: "player".to_string(),
+                token_id: "health".to_string(),
                 amount: 10,
             },
         ];
