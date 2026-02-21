@@ -82,3 +82,11 @@ Suggest changes to vision.md and roadmap.md
 MCP servers
 
 Would you like to configure any MCP servers (e.g., Playwright for web/API testing) for this repository? If so, specify which servers to configure.
+
+Rate limits 
+
+If you ever get a message about being rate limited then stop the current plan and wait for me to continue the plan later. 
+
+Messages could contain phrases like "rate limit that restricts the number of Copilot model requests" but is not limited to that. 
+
+Do not continue retrying if that message shows up! 
