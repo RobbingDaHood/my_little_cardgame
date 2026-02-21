@@ -850,8 +850,8 @@ fn initialize_library() -> Library {
         },
         CardCounts {
             library: 0,
-            deck: 40,
-            hand: 0,
+            deck: 35,
+            hand: 5,
             discard: 0,
         },
     );
@@ -867,8 +867,8 @@ fn initialize_library() -> Library {
         },
         CardCounts {
             library: 0,
-            deck: 40,
-            hand: 0,
+            deck: 35,
+            hand: 5,
             discard: 0,
         },
     );
@@ -884,8 +884,8 @@ fn initialize_library() -> Library {
         },
         CardCounts {
             library: 0,
-            deck: 40,
-            hand: 0,
+            deck: 35,
+            hand: 5,
             discard: 0,
         },
     );

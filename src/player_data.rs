@@ -15,8 +15,11 @@ use crate::deck::{Card, CardState, DeckCard};
 pub struct PlayerData {
     pub(crate) decks: Arc<Mutex<Vec<Deck>>>,
     pub(crate) cards: Arc<Mutex<Vec<Card>>>,
+    #[allow(dead_code)]
     pub(crate) attack_deck_id: Arc<Mutex<usize>>,
+    #[allow(dead_code)]
     pub(crate) defence_deck_id: Arc<Mutex<usize>>,
+    #[allow(dead_code)]
     pub(crate) resource_deck_id: Arc<Mutex<usize>>,
     #[allow(dead_code)]
     pub(crate) tokens: Arc<Mutex<Vec<Token>>>,
@@ -79,7 +82,7 @@ fn initialize_player_cards() -> Arc<Mutex<Vec<Card>>> {
             effects: vec![Token {
                 token_type: TokenType::Health,
                 permanence: TokenPermanence::Instant,
-                count: 1,
+                count: 20,
             }],
             costs: vec![],
             count: 40,
