@@ -52,8 +52,7 @@ pub enum PlayerActions {
         effects: Vec<String>,
     },
     EncounterApplyScouting {
-        choice_id: String,
-        parameters: serde_json::Value,
+        card_ids: Vec<String>,
     },
     EncounterFinish,
 }
@@ -329,18 +328,44 @@ pub async fn play(
                 }
             }
         }
-        PlayerActions::EncounterApplyScouting {
-            choice_id: _,
-            parameters,
-        } => {
-            let gs = game_state.lock().await;
-            let payload = crate::library::types::ActionPayload::ApplyScouting {
-                area_id: "encounter".to_string(),
-                parameters: serde_json::to_string(&parameters).unwrap_or_default(),
-                reason: Some("Player applied scouting after encounter".to_string()),
-            };
-            let entry = gs.append_action("EncounterApplyScouting", payload);
-            Ok((rocket::http::Status::Created, Json(entry)))
+        PlayerActions::EncounterApplyScouting { card_ids } => {
+            // Validate each card_id exists in the area deck and is available
+            let current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_ref() {
+                Some(area_deck) => {
+                    for cid in &card_ids {
+                        match area_deck.get_encounter(cid) {
+                            Some(enc) => {
+                                if enc.state != crate::area_deck::EncounterState::Available {
+                                    return Err(Right(BadRequest(new_status(format!(
+                                        "Card {} is not available for scouting",
+                                        cid
+                                    )))));
+                                }
+                            }
+                            None => {
+                                return Err(Left(NotFound(new_status(format!(
+                                    "Card {} not found in area deck",
+                                    cid
+                                )))));
+                            }
+                        }
+                    }
+                    drop(current_area);
+
+                    let gs = game_state.lock().await;
+                    let payload = crate::library::types::ActionPayload::ApplyScouting {
+                        area_id: "current".to_string(),
+                        parameters: serde_json::to_string(&card_ids).unwrap_or_default(),
+                        reason: Some("Player applied scouting with card_ids".to_string()),
+                    };
+                    let entry = gs.append_action("EncounterApplyScouting", payload);
+                    Ok((rocket::http::Status::Created, Json(entry)))
+                }
+                None => Err(Left(NotFound(new_status(
+                    "No current area set".to_string(),
+                )))),
+            }
         }
         PlayerActions::EncounterFinish => {
             let gs = game_state.lock().await;

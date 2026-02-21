@@ -76,16 +76,10 @@ mod tests {
         }
 
         // Step 4: Apply scouting (PostEncounter -> PostEncounter with updated params)
-        let scout_params = ScoutingParameters {
-            preview_count: 2,
-            affix_bias: "more_damage".to_string(),
-            pool_modifier: 1.2,
-        };
         let state_after_scout = encounter::apply_action(
             &state,
             EncounterAction::ApplyScouting {
-                choice_id: "boost_affixes".to_string(),
-                parameters: scout_params,
+                card_ids: vec!["some_card".to_string()],
             },
         );
         assert!(state_after_scout.is_some());
@@ -135,12 +129,7 @@ mod tests {
         let result = encounter::apply_action(
             &state,
             EncounterAction::ApplyScouting {
-                choice_id: "test".to_string(),
-                parameters: ScoutingParameters {
-                    preview_count: 1,
-                    affix_bias: "balanced".to_string(),
-                    pool_modifier: 1.0,
-                },
+                card_ids: vec!["some_card".to_string()],
             },
         );
         assert!(result.is_none());
@@ -231,12 +220,7 @@ mod tests {
         let scout1 = encounter::apply_action(
             &state,
             EncounterAction::ApplyScouting {
-                choice_id: "first".to_string(),
-                parameters: ScoutingParameters {
-                    preview_count: 2,
-                    affix_bias: "fire".to_string(),
-                    pool_modifier: 1.1,
-                },
+                card_ids: vec!["first_card".to_string()],
             },
         );
         assert!(scout1.is_some());
@@ -247,12 +231,7 @@ mod tests {
         let scout2 = encounter::apply_action(
             &state,
             EncounterAction::ApplyScouting {
-                choice_id: "second".to_string(),
-                parameters: ScoutingParameters {
-                    preview_count: 3,
-                    affix_bias: "ice".to_string(),
-                    pool_modifier: 1.2,
-                },
+                card_ids: vec!["second_card".to_string()],
             },
         );
         assert!(scout2.is_some());

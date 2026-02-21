@@ -258,11 +258,8 @@ pub mod types {
         PickEncounter { card_id: String },
         /// Play a card during combat (moves turn forward)
         PlayCard { card_id: u64, effects: Vec<String> },
-        /// Make a scouting choice post-encounter
-        ApplyScouting {
-            choice_id: String,
-            parameters: ScoutingParameters,
-        },
+        /// Make a scouting choice post-encounter using card_ids
+        ApplyScouting { card_ids: Vec<String> },
         /// Finish/abandon the encounter
         FinishEncounter,
     }
@@ -531,9 +528,8 @@ pub mod encounter {
             }
 
             // PostEncounter phase: apply scouting or finish
-            (EncounterPhase::PostEncounter, EncounterAction::ApplyScouting { parameters, .. }) => {
-                let mut new_state = state.clone();
-                new_state.scouting_parameters = parameters;
+            (EncounterPhase::PostEncounter, EncounterAction::ApplyScouting { card_ids: _ }) => {
+                let new_state = state.clone();
                 // Scouting keeps encounter in PostEncounter phase until explicitly finished
                 Some(new_state)
             }
