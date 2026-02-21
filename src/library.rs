@@ -110,8 +110,14 @@ pub mod types {
     pub enum TokenLifecycle {
         Permanent,
         PersistentCounter,
-        FixedDuration(u64),
-        FixedTypeDuration(u64),
+        FixedDuration {
+            duration: u64,
+            phases: Vec<EncounterPhase>,
+        },
+        FixedTypeDuration {
+            duration: u64,
+            phases: Vec<EncounterPhase>,
+        },
         UntilNextAction,
         SingleUse,
         Conditional,
