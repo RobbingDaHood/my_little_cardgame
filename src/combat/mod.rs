@@ -1,4 +1,4 @@
-use rocket::response::status::Created;
+use rocket::response::status::{Created, NotFound};
 use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
@@ -7,6 +7,7 @@ use rocket_okapi::{openapi, JsonSchema};
 use crate::combat::units::{get_gnome, Unit};
 use crate::deck::card::CardType;
 use crate::player_data::PlayerData;
+use crate::status_messages::{new_status, Status};
 use rand::RngCore;
 
 pub mod resolve;
@@ -36,8 +37,16 @@ pub enum States {
 
 #[openapi]
 #[get("/combat")]
-pub async fn get_combat(player_data: &State<PlayerData>) -> Json<Option<Combat>> {
-    Json(*player_data.current_combat.lock().await.clone())
+pub async fn get_combat(
+    player_data: &State<PlayerData>,
+) -> Result<Json<Combat>, NotFound<Json<Status>>> {
+    let combat = player_data.current_combat.lock().await.clone();
+    match *combat {
+        Some(c) => Ok(Json(c)),
+        None => Err(NotFound(new_status(
+            "Combat has not been initialized".to_string(),
+        ))),
+    }
 }
 
 #[openapi]
@@ -198,6 +207,14 @@ pub async fn advance_phase(player_data: &State<PlayerData>) -> Created<&'static 
 
 #[openapi]
 #[get("/combat/result")]
-pub async fn get_combat_result(player_data: &State<PlayerData>) -> Json<Option<CombatResult>> {
-    Json(player_data.last_combat_result.lock().await.clone())
+pub async fn get_combat_result(
+    player_data: &State<PlayerData>,
+) -> Result<Json<CombatResult>, NotFound<Json<Status>>> {
+    let result = player_data.last_combat_result.lock().await.clone();
+    match result {
+        Some(r) => Ok(Json(r)),
+        None => Err(NotFound(new_status(
+            "No combat result available".to_string(),
+        ))),
+    }
 }

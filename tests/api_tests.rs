@@ -118,12 +118,7 @@ fn test_get_combat_before_initialization() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
     let response = client.get("/combat").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-
-    let combat_json = response
-        .into_string()
-        .expect("Failed to read combat response");
-    assert_eq!(combat_json, "null");
+    assert_eq!(response.status(), Status::NotFound);
 }
 
 // test_initialize_combat_creates_attacking_state removed (duplicate of api_end_to_end)

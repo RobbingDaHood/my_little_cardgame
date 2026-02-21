@@ -336,11 +336,16 @@ fn get_cards(client: &Client) -> Vec<Card> {
 
 fn get_combat(client: &Client) -> Option<Combat> {
     let response = client.get("/combat").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let string_body = response.into_string().expect("Test assertion failed");
-    let optional_combat: Option<Combat> =
-        serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
-    optional_combat
+    if response.status().code == 404 {
+        None
+    } else if response.status().code == 200 {
+        let string_body = response.into_string().expect("Test assertion failed");
+        let combat: Combat =
+            serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
+        Some(combat)
+    } else {
+        panic!("Unexpected status: {}", response.status());
+    }
 }
 
 fn initialize_combat(client: &Client) {

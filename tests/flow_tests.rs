@@ -315,11 +315,9 @@ fn test_player_kills_enemy_and_combat_ends() {
         .dispatch();
     assert_eq!(resp.status(), Status::Created);
 
-    // Combat should be ended (GET /combat -> null)
+    // Combat should be ended (GET /combat -> 404)
     let resp = client.get("/combat").dispatch();
-    assert_eq!(resp.status(), Status::Ok);
-    let body = resp.into_string().expect("body");
-    assert_eq!(body, "null");
+    assert_eq!(resp.status(), Status::NotFound);
 
     // Combat result should be recorded
     let resp = client.get("/combat/result").dispatch();
