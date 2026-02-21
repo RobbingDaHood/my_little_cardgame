@@ -132,7 +132,7 @@ mod tests {
     fn test_encounter_loop_replay_from_seed() {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
-            CardDef, CardEffect, CombatAction, CombatState, Combatant, EffectTarget,
+            CardDef, CardEffect, CombatAction, CombatSnapshot, Combatant, EffectTarget,
         };
         use std::collections::HashMap;
 
@@ -169,35 +169,29 @@ mod tests {
         assert_eq!(enc_state.phase, EncounterPhase::InCombat);
 
         // Phase 2: Combat — play cards to defeat enemy
-        let initial_combat = CombatState {
+        let initial_combat = CombatSnapshot {
             round: 1,
-            current_turn: "player".to_string(),
-            combatants: vec![
-                Combatant {
-                    id: "player".to_string(),
-                    active_tokens: HashMap::from([
-                        ("health".to_string(), 100),
-                        ("max_health".to_string(), 100),
-                    ]),
-                },
-                Combatant {
-                    id: "enemy_0".to_string(),
-                    active_tokens: HashMap::from([
-                        ("health".to_string(), 30),
-                        ("max_health".to_string(), 30),
-                    ]),
-                },
-            ],
+            player_turn: true,
+            player_tokens: HashMap::from([
+                ("health".to_string(), 100),
+                ("max_health".to_string(), 100),
+            ]),
+            enemy: Combatant {
+                active_tokens: HashMap::from([
+                    ("health".to_string(), 30),
+                    ("max_health".to_string(), 30),
+                ]),
+            },
             is_finished: false,
             winner: None,
         };
 
         combat_actions.push(CombatAction {
-            combatant_id: "player".to_string(),
+            is_player: true,
             card_id: 1,
         });
         combat_actions.push(CombatAction {
-            combatant_id: "player".to_string(),
+            is_player: true,
             card_id: 1,
         });
 
@@ -231,16 +225,14 @@ mod tests {
             combat::simulate_combat(initial_combat, seed, combat_actions, &card_defs);
         assert_eq!(replay_result.is_finished, combat_result.is_finished);
         assert_eq!(replay_result.winner, combat_result.winner);
-        for (c1, c2) in replay_result
-            .combatants
-            .iter()
-            .zip(combat_result.combatants.iter())
-        {
-            assert_eq!(
-                c1.active_tokens.get("health"),
-                c2.active_tokens.get("health")
-            );
-        }
+        assert_eq!(
+            replay_result.player_tokens.get("health"),
+            combat_result.player_tokens.get("health")
+        );
+        assert_eq!(
+            replay_result.enemy.active_tokens.get("health"),
+            combat_result.enemy.active_tokens.get("health")
+        );
 
         // REPLAY: same encounter actions produce same state machine result
         let mut replay_enc = EncounterState {

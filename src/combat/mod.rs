@@ -231,7 +231,7 @@ pub async fn get_combat_result(
 #[post("/tests/combat/simulate", format = "json", data = "<request>")]
 pub async fn simulate_combat_endpoint(
     request: Json<SimulateCombatRequest>,
-) -> Json<crate::library::types::CombatState> {
+) -> Json<crate::library::types::CombatSnapshot> {
     let result = crate::library::combat::simulate_combat(
         request.initial_state.clone(),
         request.seed,
@@ -244,7 +244,7 @@ pub async fn simulate_combat_endpoint(
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct SimulateCombatRequest {
-    pub initial_state: crate::library::types::CombatState,
+    pub initial_state: crate::library::types::CombatSnapshot,
     pub seed: u64,
     pub actions: Vec<crate::library::types::CombatAction>,
     pub card_defs: std::collections::HashMap<u64, crate::library::types::CardDef>,

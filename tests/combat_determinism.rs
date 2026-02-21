@@ -4,7 +4,7 @@
 mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
-        CardDef, CardEffect, CombatAction, CombatState, Combatant, EffectTarget,
+        CardDef, CardEffect, CombatAction, CombatSnapshot, Combatant, EffectTarget,
     };
     use std::collections::HashMap;
 
@@ -56,26 +56,20 @@ mod tests {
         defs
     }
 
-    fn two_combatant_state(player_hp: i64, enemy_hp: i64) -> CombatState {
-        CombatState {
+    fn two_combatant_snapshot(player_hp: i64, enemy_hp: i64) -> CombatSnapshot {
+        CombatSnapshot {
             round: 1,
-            current_turn: "player".to_string(),
-            combatants: vec![
-                Combatant {
-                    id: "player".to_string(),
-                    active_tokens: HashMap::from([
-                        ("health".to_string(), player_hp),
-                        ("max_health".to_string(), player_hp),
-                    ]),
-                },
-                Combatant {
-                    id: "enemy_0".to_string(),
-                    active_tokens: HashMap::from([
-                        ("health".to_string(), enemy_hp),
-                        ("max_health".to_string(), enemy_hp),
-                    ]),
-                },
-            ],
+            player_turn: true,
+            player_tokens: HashMap::from([
+                ("health".to_string(), player_hp),
+                ("max_health".to_string(), player_hp),
+            ]),
+            enemy: Combatant {
+                active_tokens: HashMap::from([
+                    ("health".to_string(), enemy_hp),
+                    ("max_health".to_string(), enemy_hp),
+                ]),
+            },
             is_finished: false,
             winner: None,
         }
@@ -83,20 +77,20 @@ mod tests {
 
     #[test]
     fn test_deterministic_combat_same_seed_same_log() {
-        let initial_state = two_combatant_state(100, 50);
+        let initial_state = two_combatant_snapshot(100, 50);
         let card_defs = test_card_defs();
 
         let actions = vec![
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 1,
             }, // 20 damage to enemy
             CombatAction {
-                combatant_id: "enemy_0".to_string(),
+                is_player: false,
                 card_id: 2,
             }, // 10 damage to player
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 3,
             }, // 30 damage to enemy (defeats)
         ];
@@ -108,32 +102,28 @@ mod tests {
 
         assert_eq!(state1.winner, state2.winner);
         assert_eq!(state1.is_finished, state2.is_finished);
-
-        for (c1, c2) in state1.combatants.iter().zip(state2.combatants.iter()) {
-            assert_eq!(c1.id, c2.id);
-            assert_eq!(
-                c1.active_tokens.get("health"),
-                c2.active_tokens.get("health")
-            );
-            assert_eq!(
-                c1.active_tokens.get("max_health"),
-                c2.active_tokens.get("max_health")
-            );
-        }
+        assert_eq!(
+            state1.player_tokens.get("health"),
+            state2.player_tokens.get("health")
+        );
+        assert_eq!(
+            state1.enemy.active_tokens.get("health"),
+            state2.enemy.active_tokens.get("health")
+        );
     }
 
     #[test]
     fn test_different_seeds_may_differ() {
-        let initial_state = two_combatant_state(100, 50);
+        let initial_state = two_combatant_snapshot(100, 50);
         let card_defs = test_card_defs();
 
         let actions = vec![
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 1,
             },
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 4,
             },
         ];
@@ -145,16 +135,16 @@ mod tests {
 
     #[test]
     fn test_empty_combat_produces_log() {
-        let initial_state = CombatState {
+        let initial_state = CombatSnapshot {
             round: 1,
-            current_turn: "player".to_string(),
-            combatants: vec![Combatant {
-                id: "player".to_string(),
-                active_tokens: HashMap::from([
-                    ("health".to_string(), 100),
-                    ("max_health".to_string(), 100),
-                ]),
-            }],
+            player_turn: true,
+            player_tokens: HashMap::from([
+                ("health".to_string(), 100),
+                ("max_health".to_string(), 100),
+            ]),
+            enemy: Combatant {
+                active_tokens: HashMap::new(),
+            },
             is_finished: false,
             winner: None,
         };
@@ -166,16 +156,16 @@ mod tests {
 
     #[test]
     fn test_combat_ends_when_enemy_defeated() {
-        let initial_state = two_combatant_state(100, 30);
+        let initial_state = two_combatant_snapshot(100, 30);
         let card_defs = test_card_defs();
 
         let actions = vec![
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 3,
             }, // 30 damage defeats enemy
             CombatAction {
-                combatant_id: "enemy_0".to_string(),
+                is_player: false,
                 card_id: 2,
             }, // should be ignored
         ];
@@ -188,16 +178,16 @@ mod tests {
 
     #[test]
     fn test_token_operations_deterministic() {
-        let initial_state = CombatState {
+        let initial_state = CombatSnapshot {
             round: 1,
-            current_turn: "player".to_string(),
-            combatants: vec![Combatant {
-                id: "player".to_string(),
-                active_tokens: HashMap::from([
-                    ("health".to_string(), 100),
-                    ("max_health".to_string(), 100),
-                ]),
-            }],
+            player_turn: true,
+            player_tokens: HashMap::from([
+                ("health".to_string(), 100),
+                ("max_health".to_string(), 100),
+            ]),
+            enemy: Combatant {
+                active_tokens: HashMap::new(),
+            },
             is_finished: false,
             winner: None,
         };
@@ -206,15 +196,15 @@ mod tests {
         // Cards 5, 6, 7 grant Health +10, +5, -7 on self -> net +8
         let actions = vec![
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 5,
             },
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 6,
             },
             CombatAction {
-                combatant_id: "player".to_string(),
+                is_player: true,
                 card_id: 7,
             },
         ];
@@ -224,9 +214,10 @@ mod tests {
             combat::simulate_combat(initial_state.clone(), seed, actions.clone(), &card_defs);
         let state2 = combat::simulate_combat(initial_state, seed, actions, &card_defs);
 
-        let tokens1 = &state1.combatants[0].active_tokens;
-        let tokens2 = &state2.combatants[0].active_tokens;
-        assert_eq!(tokens1.get("Health"), tokens2.get("Health"));
-        assert_eq!(tokens1.get("Health"), Some(&8)); // 10 + 5 - 7
+        assert_eq!(
+            state1.player_tokens.get("Health"),
+            state2.player_tokens.get("Health")
+        );
+        assert_eq!(state1.player_tokens.get("Health"), Some(&8)); // 10 + 5 - 7
     }
 }

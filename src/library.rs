@@ -218,27 +218,27 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct Combatant {
-        pub id: String, // unique identifier (e.g., "player", "enemy_0")
-        pub active_tokens: HashMap<String, i64>, // includes "health" and "max_health"
+        pub active_tokens: HashMap<String, i64>,
     }
 
     /// A combat action is a card play by a combatant.
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CombatAction {
-        pub combatant_id: String,
+        pub is_player: bool,
         pub card_id: u64,
     }
 
-    /// Represents the overall state of combat at any point.
+    /// Snapshot of combat state for deterministic simulation. Pure data.
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
-    pub struct CombatState {
+    pub struct CombatSnapshot {
         pub round: u64,
-        pub current_turn: String, // "player" or specific combatant id
-        pub combatants: Vec<Combatant>,
+        pub player_turn: bool,
+        pub player_tokens: HashMap<String, i64>,
+        pub enemy: Combatant,
         pub is_finished: bool,
-        pub winner: Option<String>, // None if ongoing, Some(id) if finished
+        pub winner: Option<String>,
     }
 
     // ====== Encounter types for the encounter loop (Step 7) ======
@@ -287,7 +287,7 @@ pub mod combat {
     //! opponent HP via token manipulation. Features like dodge, stamina, and
     //! advanced mechanics are deferred to later roadmap steps.
 
-    use super::types::{CardDef, CombatAction, CombatState, EffectTarget};
+    use super::types::{CardDef, CombatAction, CombatSnapshot, EffectTarget};
     use rand::RngCore;
     use rand_pcg::Lcg64Xsh32;
     use std::collections::HashMap;
@@ -298,11 +298,11 @@ pub mod combat {
     /// checks victory/defeat, and advances the turn.
     /// Returns an error if the card_id is unknown.
     pub fn resolve_combat_tick(
-        current_state: &CombatState,
+        current_state: &CombatSnapshot,
         action: &CombatAction,
         card_defs: &HashMap<u64, CardDef>,
         rng: &mut Lcg64Xsh32,
-    ) -> Result<(CombatState, Vec<u64>), String> {
+    ) -> Result<(CombatSnapshot, Vec<u64>), String> {
         let card = card_defs
             .get(&action.card_id)
             .ok_or_else(|| format!("Unknown card_id: {}", action.card_id))?;
@@ -313,49 +313,41 @@ pub mod combat {
         let rng_val = rng.next_u64();
         rng_values.push(rng_val);
 
-        let opponent_id = state_after
-            .combatants
-            .iter()
-            .find(|c| c.id != action.combatant_id)
-            .map(|c| c.id.clone());
-
         for effect in &card.effects {
-            let target_id = match effect.target {
-                EffectTarget::OnSelf => &action.combatant_id,
-                EffectTarget::OnOpponent => match &opponent_id {
-                    Some(id) => id,
-                    None => continue,
-                },
-            };
-            if let Some(combatant) = state_after
-                .combatants
-                .iter_mut()
-                .find(|c| c.id == *target_id)
-            {
-                let entry = combatant
-                    .active_tokens
-                    .entry(effect.token_id.clone())
-                    .or_insert(0);
-                *entry = (*entry + effect.amount).max(0);
-
-                if effect.token_id == "health" && *entry == 0 {
-                    let winner = state_after
-                        .combatants
-                        .iter()
-                        .find(|c| c.id != *target_id)
-                        .map(|c| c.id.clone());
-                    state_after.is_finished = true;
-                    state_after.winner = winner;
+            let (actor_tokens, target_tokens) = match (&effect.target, action.is_player) {
+                (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => {
+                    // Affect player tokens
+                    (&mut state_after.player_tokens, None)
                 }
+                (EffectTarget::OnOpponent, true) | (EffectTarget::OnSelf, false) => {
+                    // Affect enemy tokens
+                    (
+                        &mut state_after.enemy.active_tokens,
+                        None::<&mut HashMap<String, i64>>,
+                    )
+                }
+            };
+            let _ = target_tokens; // suppress unused warning
+            let entry = actor_tokens.entry(effect.token_id.clone()).or_insert(0);
+            *entry = (*entry + effect.amount).max(0);
+
+            if effect.token_id == "health" && *entry == 0 {
+                state_after.is_finished = true;
+                // Determine winner: if player health hit 0, enemy wins; otherwise player wins
+                let affected_is_player = matches!(
+                    (&effect.target, action.is_player),
+                    (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false)
+                );
+                state_after.winner = Some(if affected_is_player {
+                    "enemy".to_string()
+                } else {
+                    "player".to_string()
+                });
             }
         }
 
         if !state_after.is_finished {
-            state_after.current_turn = if state_after.current_turn == "player" {
-                "enemy_0".to_string()
-            } else {
-                "player".to_string()
-            };
+            state_after.player_turn = !state_after.player_turn;
         }
 
         Ok((state_after, rng_values))
@@ -363,13 +355,13 @@ pub mod combat {
 
     /// Simulate a full combat encounter from a seed and initial state.
     ///
-    /// Returns the final combat state. Pure-data; no side effects.
+    /// Returns the final combat snapshot. Pure-data; no side effects.
     pub fn simulate_combat(
-        initial_state: CombatState,
+        initial_state: CombatSnapshot,
         seed: u64,
         actions: Vec<CombatAction>,
         card_defs: &HashMap<u64, CardDef>,
-    ) -> CombatState {
+    ) -> CombatSnapshot {
         use rand::SeedableRng;
 
         let seed_bytes: [u8; 16] = {
