@@ -25,13 +25,8 @@ mod tests {
         assert!(encounter::is_in_combat(&state));
 
         // Step 2: Play card during combat (stays InCombat)
-        let state_after_play = encounter::apply_action(
-            &state,
-            EncounterAction::PlayCard {
-                card_id: 1,
-                effects: vec!["damage".to_string()],
-            },
-        );
+        let state_after_play =
+            encounter::apply_action(&state, EncounterAction::PlayCard { card_id: 1 });
         assert!(state_after_play.is_some());
         let state = state_after_play.unwrap();
         assert_eq!(state.phase, EncounterPhase::InCombat);
@@ -68,13 +63,7 @@ mod tests {
         };
 
         // PlayCard is invalid in Ready phase
-        let result = encounter::apply_action(
-            &state,
-            EncounterAction::PlayCard {
-                card_id: 1,
-                effects: vec![],
-            },
-        );
+        let result = encounter::apply_action(&state, EncounterAction::PlayCard { card_id: 1 });
         assert!(result.is_none());
 
         // ApplyScouting is invalid in Ready phase
