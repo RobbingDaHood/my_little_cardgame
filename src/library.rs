@@ -117,13 +117,6 @@ pub mod types {
             parameters: String,
             reason: Option<String>,
         },
-        CombatEvent {
-            round: u64,
-            action_type: String, // "DealDamage", "GrantToken", etc.
-            source: Option<String>,
-            target: Option<String>,
-            details: serde_json::Value, // flexible details for different event types
-        },
     }
 
     /// Stored action entry in the append-only action log.
@@ -420,66 +413,6 @@ pub mod combat {
             initial_state: initial_state.clone(),
             entries,
             final_state: current_state,
-        }
-    }
-
-    /// Convert a CombatAction to an ActionPayload for logging.
-    pub fn action_to_payload(round: u64, action: &CombatAction) -> super::types::ActionPayload {
-        match action {
-            CombatAction::DealDamage {
-                source,
-                target,
-                amount,
-            } => super::types::ActionPayload::CombatEvent {
-                round,
-                action_type: "DealDamage".to_string(),
-                source: Some(source.clone()),
-                target: Some(target.clone()),
-                details: serde_json::json!({ "amount": amount }),
-            },
-            CombatAction::GrantToken {
-                combatant_id,
-                token_id,
-                amount,
-            } => super::types::ActionPayload::CombatEvent {
-                round,
-                action_type: "GrantToken".to_string(),
-                source: Some(combatant_id.clone()),
-                target: None,
-                details: serde_json::json!({ "token_id": token_id, "amount": amount }),
-            },
-            CombatAction::ConsumeToken {
-                combatant_id,
-                token_id,
-                amount,
-            } => super::types::ActionPayload::CombatEvent {
-                round,
-                action_type: "ConsumeToken".to_string(),
-                source: Some(combatant_id.clone()),
-                target: None,
-                details: serde_json::json!({ "token_id": token_id, "amount": amount }),
-            },
-            CombatAction::PlayCard {
-                combatant_id,
-                card_id,
-                effects: _,
-            } => super::types::ActionPayload::CombatEvent {
-                round,
-                action_type: "PlayCard".to_string(),
-                source: Some(combatant_id.clone()),
-                target: None,
-                details: serde_json::json!({ "card_id": card_id }),
-            },
-            CombatAction::DrawCard {
-                combatant_id,
-                card_id,
-            } => super::types::ActionPayload::CombatEvent {
-                round,
-                action_type: "DrawCard".to_string(),
-                source: Some(combatant_id.clone()),
-                target: None,
-                details: serde_json::json!({ "card_id": card_id }),
-            },
         }
     }
 }
