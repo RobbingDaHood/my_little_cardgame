@@ -39,7 +39,7 @@ fn interleaved_player_and_enemy_actions() {
     // Add the card to the default defence deck with several Hand copies so repeated plays succeed
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 20 }} }}"#, card_id);
     let add_response = client
-        .post("/decks/1/cards")
+        .post("/tests/decks/1/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),

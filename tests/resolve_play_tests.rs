@@ -40,7 +40,7 @@ fn test_play_defence_card_adds_tokens() {
         .expect("Invalid card ID");
 
     // Use the default defence deck
-    let deck_location = "/decks/1".to_string();
+    let deck_location = "/tests/decks/1".to_string();
 
     // Add the card to the deck with one card in Hand so it can be played
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 1 }} }}"#, card_id);
@@ -118,7 +118,7 @@ fn test_play_defence_card_health_kills_enemy() {
         .expect("Invalid card ID");
 
     // Use the default defence deck
-    let deck_location = "/decks/1".to_string();
+    let deck_location = "/tests/decks/1".to_string();
 
     // Add the card to the deck with one card in Hand so it can be played
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 1 }} }}"#, card_id);

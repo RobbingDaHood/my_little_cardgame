@@ -24,7 +24,7 @@ fn test_add_wrong_card_type_to_deck() {
 
     let deck_json = r#"{ "contains_card_types": ["Attack"] }"#;
     let deck_response = client
-        .post("/decks")
+        .post("/tests/decks")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -135,7 +135,7 @@ fn test_add_duplicate_card_to_deck() {
     // Create a deck
     let deck_json = r#"{ "contains_card_types": ["Attack"] }"#;
     let deck_response = client
-        .post("/decks")
+        .post("/tests/decks")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -204,7 +204,7 @@ fn test_add_card_to_nonexistent_deck() {
     let deck_card_json = r#"{ "id": 0, "state": { "Deck": 10 } }"#;
 
     let response = client
-        .post("/decks/99999/cards")
+        .post("/tests/decks/99999/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
@@ -246,7 +246,7 @@ fn test_create_deck_with_empty_card_types_rejected() {
     let invalid_deck_json = r#"{ "contains_card_types": [] }"#;
 
     let response = client
-        .post("/decks")
+        .post("/tests/decks")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),

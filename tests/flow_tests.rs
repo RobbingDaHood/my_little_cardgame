@@ -32,7 +32,7 @@ fn test_play_defence_moves_card_to_discard() {
     client.post("/combat").dispatch();
 
     // Check initial deck states for defence deck (id 1) via JSON
-    let resp_before = client.get("/decks/1").dispatch();
+    let resp_before = client.get("/tests/decks/1").dispatch();
     assert_eq!(resp_before.status(), Status::Ok);
     let deck_before_json: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
@@ -53,7 +53,7 @@ fn test_play_defence_moves_card_to_discard() {
     assert_eq!(response.status(), Status::Created);
 
     // Check deck states after play via JSON
-    let resp_after = client.get("/decks/1").dispatch();
+    let resp_after = client.get("/tests/decks/1").dispatch();
     assert_eq!(resp_after.status(), Status::Ok);
     let deck_after_json: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
@@ -290,7 +290,7 @@ fn test_player_kills_enemy_and_combat_ends() {
     // Add the card to player's attack deck (deck 0) in Hand so it can be played immediately
     let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 1 }} }}"#, card_id);
     let resp = client
-        .post("/decks/0/cards")
+        .post("/tests/decks/0/cards")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
