@@ -222,3 +222,39 @@ pub async fn get_combat_result(
         ))),
     }
 }
+
+/// Simulate a deterministic combat encounter from a seed and initial state.
+///
+/// This endpoint demonstrates Step 6 acceptance: deterministic combat that
+/// reproduces identically when replayed with the same seed.
+///
+/// # Request Body
+///
+/// A JSON object containing:
+/// - `initial_state`: A CombatState representing the combat starting position
+/// - `seed`: A u64 random seed for deterministic resolution
+/// - `actions`: A list of CombatAction objects representing player/enemy plays
+///
+/// # Response
+///
+/// Returns the deterministic CombatLog capturing all state transitions.
+#[openapi]
+#[post("/combat/simulate", format = "json", data = "<request>")]
+pub async fn simulate_combat_endpoint(
+    request: Json<SimulateCombatRequest>,
+) -> Json<crate::library::types::CombatLog> {
+    let result = crate::library::combat::simulate_combat(
+        request.initial_state.clone(),
+        request.seed,
+        request.actions.clone(),
+    );
+    Json(result)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct SimulateCombatRequest {
+    pub initial_state: crate::library::types::CombatState,
+    pub seed: u64,
+    pub actions: Vec<crate::library::types::CombatAction>,
+}

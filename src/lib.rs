@@ -65,8 +65,10 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::combat::okapi_add_operation_for_get_combat_;
     use crate::combat::okapi_add_operation_for_get_combat_result_;
     use crate::combat::okapi_add_operation_for_initialize_combat_;
+    use crate::combat::okapi_add_operation_for_simulate_combat_endpoint_;
     use crate::combat::{
         advance_phase, enemy_play, get_combat, get_combat_result, initialize_combat,
+        simulate_combat_endpoint,
     };
     use crate::deck::card::okapi_add_operation_for_create_card_;
     use crate::deck::card::okapi_add_operation_for_get_card_json_;
@@ -114,6 +116,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 initialize_combat,
                 enemy_play,
                 advance_phase,
+                simulate_combat_endpoint,
                 play,
                 get_player_tokens,
                 set_seed,
