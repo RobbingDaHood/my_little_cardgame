@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{ActionEntry, ActionPayload};
+use my_little_cardgame::library::types::{ActionEntry, ActionPayload, TokenId};
 use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
 use serde_json::json;
@@ -32,7 +32,7 @@ fn grant_token_via_action() {
             amount,
             reason: _,
             resulting_amount: _,
-        } => token_id == "Insight" && *amount == 10,
+        } => *token_id == TokenId::Insight && *amount == 10,
         _ => false,
     });
     assert!(found);

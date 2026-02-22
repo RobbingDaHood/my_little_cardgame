@@ -7,7 +7,6 @@ use rocket_okapi::{openapi, JsonSchema};
 
 pub mod persistence;
 
-use crate::combat::{Combat, States};
 use crate::player_data::PlayerData;
 use crate::status_messages::{new_status, Status};
 
@@ -22,7 +21,7 @@ pub enum PlayerActions {
         card_id: usize,
     },
     GrantToken {
-        token_id: String,
+        token_id: crate::library::types::TokenId,
         amount: i64,
     },
     SetSeed {
@@ -52,6 +51,8 @@ pub enum PlayerActions {
     EncounterApplyScouting {
         card_ids: Vec<usize>,
     },
+    FinishScouting,
+    AbandonCombat,
 }
 
 #[openapi]
@@ -94,65 +95,57 @@ pub async fn play(
             Ok((rocket::http::Status::Created, Json(entry)))
         }
         PlayerActions::PlayCard { card_id } => {
-            let combat_optional: Option<Combat> = *player_data.current_combat.lock().await.clone();
-            match combat_optional {
-                Some(combat) => {
-                    let mut gs = game_state.lock().await;
-                    // Look up card in Library
-                    let lib_card = match gs.library.get(card_id) {
-                        Some(c) => c.clone(),
-                        None => {
-                            return Err(Left(NotFound(new_status(format!(
-                                "Card {:?} does not exist in Library!",
-                                card_id
-                            )))));
-                        }
-                    };
-                    // Validate card kind matches combat phase
-                    let allowed_kind = match combat.state {
-                        States::Defending => "Defence",
-                        States::Attacking => "Attack",
-                        States::Resourcing => "Resource",
-                    };
-                    let card_kind_name = match &lib_card.kind {
-                        crate::library::types::CardKind::Attack { .. } => "Attack",
-                        crate::library::types::CardKind::Defence { .. } => "Defence",
-                        crate::library::types::CardKind::Resource { .. } => "Resource",
-                        crate::library::types::CardKind::CombatEncounter { .. } => {
-                            "CombatEncounter"
-                        }
-                    };
-                    if card_kind_name != allowed_kind {
-                        return Err(Right(BadRequest(new_status(format!(
-                            "Card with id {} is not playable in current phase",
-                            card_id
-                        )))));
-                    }
-                    // Move card from hand to discard via Library
-                    match gs.library.play(card_id) {
-                        Ok(()) => {
-                            drop(gs);
-                            crate::combat::resolve::resolve_card_effects(
-                                card_id,
-                                true,
-                                player_data,
-                            )
-                            .await;
-                            let gs = game_state.lock().await;
-                            let payload = crate::library::types::ActionPayload::PlayCard {
-                                card_id,
-                                deck_id: None,
-                                reason: None,
-                            };
-                            let entry = gs.append_action("PlayCard", payload);
-                            Ok((rocket::http::Status::Created, Json(entry)))
-                        }
-                        Err(e) => Err(Right(BadRequest(new_status(e)))),
-                    }
-                }
-                None => Err(Right(BadRequest(new_status(
+            let mut gs = game_state.lock().await;
+            if gs.current_combat.is_none() {
+                return Err(Right(BadRequest(new_status(
                     "Cannot play a card if there are no active combat!".to_string(),
-                )))),
+                ))));
+            }
+            // Look up card in Library
+            let lib_card = match gs.library.get(card_id) {
+                Some(c) => c.clone(),
+                None => {
+                    return Err(Left(NotFound(new_status(format!(
+                        "Card {:?} does not exist in Library!",
+                        card_id
+                    )))));
+                }
+            };
+            // Validate card kind matches combat phase (guarded by is_none check above)
+            let combat = match gs.current_combat.as_ref() {
+                Some(c) => c,
+                None => {
+                    return Err(Right(BadRequest(new_status(
+                        "No active combat".to_string(),
+                    ))));
+                }
+            };
+            let allowed_kind = combat.phase.allowed_card_kind();
+            let card_kind_name = match &lib_card.kind {
+                crate::library::types::CardKind::Attack { .. } => "Attack",
+                crate::library::types::CardKind::Defence { .. } => "Defence",
+                crate::library::types::CardKind::Resource { .. } => "Resource",
+                crate::library::types::CardKind::CombatEncounter { .. } => "CombatEncounter",
+            };
+            if card_kind_name != allowed_kind {
+                return Err(Right(BadRequest(new_status(format!(
+                    "Card with id {} is not playable in current phase",
+                    card_id
+                )))));
+            }
+            // Move card from hand to discard via Library, then resolve effects
+            match gs.library.play(card_id) {
+                Ok(()) => {
+                    let _ = gs.resolve_player_card(card_id);
+                    let payload = crate::library::types::ActionPayload::PlayCard {
+                        card_id,
+                        deck_id: None,
+                        reason: None,
+                    };
+                    let entry = gs.append_action("PlayCard", payload);
+                    Ok((rocket::http::Status::Created, Json(entry)))
+                }
+                Err(e) => Err(Right(BadRequest(new_status(e)))),
             }
         }
         PlayerActions::DrawEncounter {
@@ -235,23 +228,40 @@ pub async fn play(
         }
         // Step 7: Encounter action handlers
         PlayerActions::EncounterPickEncounter { card_id } => {
-            let current_area = player_data.current_area_deck.lock().await;
-            match current_area.as_ref() {
+            let mut current_area = player_data.current_area_deck.lock().await;
+            match current_area.as_mut() {
                 Some(area_deck) => {
                     if !area_deck.contains(card_id) {
                         return Err(Left(NotFound(new_status(format!(
-                            "Encounter card {} not found in area deck",
+                            "Encounter card {} not found in area deck hand",
                             card_id
                         )))));
                     }
-                    let gs = game_state.lock().await;
-                    let payload = crate::library::types::ActionPayload::DrawEncounter {
-                        area_id: "current".to_string(),
-                        encounter_id: card_id.to_string(),
-                        reason: Some("Player picked encounter by card_id".to_string()),
-                    };
-                    let entry = gs.append_action("EncounterPickEncounter", payload);
-                    Ok((rocket::http::Status::Created, Json(entry)))
+                    area_deck.pick_encounter(card_id);
+                    let mut gs = game_state.lock().await;
+                    // Initialize player health if not set
+                    if gs
+                        .token_balances
+                        .get(&crate::library::types::TokenId::Health)
+                        .copied()
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        gs.token_balances
+                            .insert(crate::library::types::TokenId::Health, 20);
+                    }
+                    match gs.start_combat(card_id) {
+                        Ok(()) => {
+                            let payload = crate::library::types::ActionPayload::DrawEncounter {
+                                area_id: "current".to_string(),
+                                encounter_id: card_id.to_string(),
+                                reason: Some("Player picked encounter by card_id".to_string()),
+                            };
+                            let entry = gs.append_action("EncounterPickEncounter", payload);
+                            Ok((rocket::http::Status::Created, Json(entry)))
+                        }
+                        Err(e) => Err(Right(BadRequest(new_status(e)))),
+                    }
                 }
                 None => Err(Left(NotFound(new_status(
                     "No current area set".to_string(),
@@ -280,6 +290,7 @@ pub async fn play(
             }
             match gs.library.play(card_id as usize) {
                 Ok(()) => {
+                    let _ = gs.resolve_player_card(card_id as usize);
                     let payload = crate::library::types::ActionPayload::PlayCard {
                         card_id: card_id as usize,
                         deck_id: None,
@@ -326,6 +337,71 @@ pub async fn play(
                     "No current area set".to_string(),
                 )))),
             }
+        }
+        PlayerActions::FinishScouting => {
+            let mut gs = game_state.lock().await;
+            if gs.encounter_state.phase != crate::library::types::EncounterPhase::Scouting {
+                return Err(Right(BadRequest(new_status(
+                    "Not in Scouting phase".to_string(),
+                ))));
+            }
+            // Recycle the finished encounter back to area deck
+            if let Some(ref result) = gs.last_combat_result {
+                if let Some(ref combat) = gs.current_combat {
+                    if let Some(enc_id) = combat.encounter_card_id {
+                        let mut current_area = player_data.current_area_deck.lock().await;
+                        if let Some(area_deck) = current_area.as_mut() {
+                            area_deck.recycle_encounter(enc_id);
+                            let foresight = gs
+                                .token_balances
+                                .get(&crate::library::types::TokenId::Foresight)
+                                .copied()
+                                .unwrap_or(3) as usize;
+                            area_deck.draw_to_hand(foresight);
+                        }
+                    }
+                }
+                let _ = result; // suppress unused warning
+            } else {
+                // No combat result but in scouting — still refill hand
+                let mut current_area = player_data.current_area_deck.lock().await;
+                if let Some(area_deck) = current_area.as_mut() {
+                    let foresight = gs
+                        .token_balances
+                        .get(&crate::library::types::TokenId::Foresight)
+                        .copied()
+                        .unwrap_or(3) as usize;
+                    area_deck.draw_to_hand(foresight);
+                }
+            }
+            gs.encounter_state.phase = crate::library::types::EncounterPhase::Ready;
+            let payload = crate::library::types::ActionPayload::ApplyScouting {
+                area_id: "current".to_string(),
+                parameters: "finish".to_string(),
+                reason: Some("Player finished scouting phase".to_string()),
+            };
+            let entry = gs.append_action("FinishScouting", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::AbandonCombat => {
+            let mut gs = game_state.lock().await;
+            if gs.current_combat.is_none() {
+                return Err(Right(BadRequest(new_status(
+                    "No active combat to abandon".to_string(),
+                ))));
+            }
+            gs.current_combat = None;
+            gs.last_combat_result = Some(crate::library::types::CombatResult {
+                winner: "Enemy".to_string(),
+            });
+            gs.encounter_state.phase = crate::library::types::EncounterPhase::Ready;
+            let payload = crate::library::types::ActionPayload::PlayCard {
+                card_id: 0,
+                deck_id: None,
+                reason: Some("Player abandoned combat".to_string()),
+            };
+            let entry = gs.append_action("AbandonCombat", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
         }
     }
 }

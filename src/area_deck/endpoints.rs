@@ -35,7 +35,7 @@ pub async fn get_area_encounters(
 ) -> Result<Json<Vec<usize>>, NotFound<Json<Status>>> {
     let area_deck = player_data.current_area_deck.lock().await;
     match area_deck.as_ref() {
-        Some(deck) => Ok(Json(deck.encounter_card_ids.clone())),
+        Some(deck) => Ok(Json(deck.hand.clone())),
         None => Err(NotFound(new_status("No current area set".to_string()))),
     }
 }

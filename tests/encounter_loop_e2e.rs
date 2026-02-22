@@ -132,7 +132,8 @@ mod tests {
     fn test_encounter_loop_replay_from_seed() {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
-            CardDef, CardEffect, CombatAction, CombatSnapshot, Combatant, EffectTarget,
+            CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant,
+            EffectTarget, TokenId,
         };
         use std::collections::HashMap;
 
@@ -147,7 +148,7 @@ mod tests {
                 card_type: "Attack".to_string(),
                 effects: vec![CardEffect {
                     target: EffectTarget::OnOpponent,
-                    token_id: "health".to_string(),
+                    token_id: TokenId::Health,
                     amount: -15,
                 }],
             },
@@ -172,16 +173,12 @@ mod tests {
         let initial_combat = CombatSnapshot {
             round: 1,
             player_turn: true,
-            player_tokens: HashMap::from([
-                ("health".to_string(), 100),
-                ("max_health".to_string(), 100),
-            ]),
+            phase: CombatPhase::Defending,
+            player_tokens: HashMap::from([(TokenId::Health, 100), (TokenId::MaxHealth, 100)]),
             enemy: Combatant {
-                active_tokens: HashMap::from([
-                    ("health".to_string(), 30),
-                    ("max_health".to_string(), 30),
-                ]),
+                active_tokens: HashMap::from([(TokenId::Health, 30), (TokenId::MaxHealth, 30)]),
             },
+            encounter_card_id: None,
             is_finished: false,
             winner: None,
         };
@@ -226,12 +223,12 @@ mod tests {
         assert_eq!(replay_result.is_finished, combat_result.is_finished);
         assert_eq!(replay_result.winner, combat_result.winner);
         assert_eq!(
-            replay_result.player_tokens.get("health"),
-            combat_result.player_tokens.get("health")
+            replay_result.player_tokens.get(&TokenId::Health),
+            combat_result.player_tokens.get(&TokenId::Health)
         );
         assert_eq!(
-            replay_result.enemy.active_tokens.get("health"),
-            combat_result.enemy.active_tokens.get("health")
+            replay_result.enemy.active_tokens.get(&TokenId::Health),
+            combat_result.enemy.active_tokens.get(&TokenId::Health)
         );
 
         // REPLAY: same encounter actions produce same state machine result

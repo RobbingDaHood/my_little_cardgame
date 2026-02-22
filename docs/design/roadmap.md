@@ -16,6 +16,15 @@ Alignment requirements (inherited from vision.md)
 
 Roadmap steps
 --------------
+
+### Implementation updates (2026-02-22)
+- Steps 7.5 and 7.6 implemented: unified combat (library-centric), resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and a minimal pick→fight→scouting→pick loop.
+- Legacy deck types and dead code (resolve.rs, unused player_seed helpers) removed.
+- CI coverage target (≥85%) achieved: 85.86% after adding integration and unit tests.
+- Reminder: ensure ActionLog records player actions for full deterministic replay (seed + action log).
+
+Roadmap steps
+--------------
 1) Refactor library: unify decks, hands, tokens, and enforce vision constraints
    - Goal: Create a single library crate that is the authoritative implementation of decks, tokens, Library semantics, and the canonical token registry.
    - Description: Extract Deck, Hand, Zone, Token, CardDef, Library and ActionLog types; implement a token registry with lifecycle metadata and a compact actions log API to record lifecycle events.
@@ -85,12 +94,12 @@ Roadmap steps
    - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
    - Description: Implement node-based gathering encounters where discipline decks resolve the node (e.g., Mining uses Mining deck vs IronOre card) and produce raw/refined material tokens. Ensure Discipline Durability and Rations semantics are enforced; failures produce Exhaustion or Durability loss. Record material token grants in the ActionLog so crafting has a provable input history.
    - Playable acceptance: At least one gathering discipline is playable end-to-end, produces material tokens consumed by craft flows, and actions are routed via POST /action.
-   - Notes: Ensure node resolution follows the same remove-and-replace lifecycle and that scouting can affect yields.
+   - Notes: Ensure node encounter resolution follows the same remove-and-replace lifecycl: In this simple setup the just finished encounter is just added back to the deck again with no changes. 
 
 9) Add basic crafting as discipline encounters and respect Library semantics
    - Goal: Implement crafting as discipline-specific encounters (Fabrication, Provisioning, etc.) that use discipline decks, consume materials, and create Library card copies when finalized.
    - Description: Model craft encounters with discipline decks that supply action cards; deterministic craft resolution produces Library card copies with rolled affixes and logs all material/token spends. Enforce affix constraints (affix types are fixed once attached by the Modifier pipeline) and make Refinement/Stability tokens affect numeric roll bias/variance.
-   - Playable acceptance: A craft endpoint resolves a craft encounter, produces a Library card copy (visible via GET /library), records costs/spends in the ActionLog, and demonstrates cost-scaling with affix count/quality; crafted cards are never directly inserted into player decks.
+   - Playable acceptance: Can resolve a craft encounter, produces a Library card copy (visible via GET /library), and demonstrates cost-scaling with affix count/quality; crafted cards are never directly inserted into player decks.
    - Notes: Start with a single discipline (e.g., Fabrication) and one recipe to prove the flow; ensure crafting is the primary economy sink and costs scale with affix count/quality and Variant-Choice/Affix-Picks usage.
 
 10) Add Research/Learning and Modifier-Deck pipeline

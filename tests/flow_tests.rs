@@ -64,28 +64,28 @@ fn test_play_defence_moves_card_to_discard() {
 }
 
 #[test]
-fn test_enemy_play_adds_dodge_to_enemy_in_defending() {
+fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     // Initialize combat (Defending)
     client.post("/tests/combat").dispatch();
 
-    // Enemy plays for current phase
+    // Enemy plays for current phase (Defending → enemy plays defence card → shield)
     let resp = client.post("/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
-    // Fetch combat and ensure enemy has received a dodge token (Defence card)
+    // Fetch combat and check enemy tokens via CombatSnapshot JSON
     let resp_combat = client.get("/combat").dispatch();
     assert_eq!(resp_combat.status(), Status::Ok);
     let combat_json: serde_json::Value =
         serde_json::from_str(&resp_combat.into_string().expect("body")).expect("json");
-    let enemy_tokens = &combat_json["enemies"][0]["tokens"];
-    // Expect at least one token entry with token_type == "Dodge"
-    let has_dodge = enemy_tokens
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .any(|t| t["token_type"] == "Dodge");
-    assert!(has_dodge);
+    // Enemy tokens are in enemy.active_tokens as a map
+    let enemy_tokens = &combat_json["enemy"]["active_tokens"];
+    // Expect shield token > 0 (defence card grants shield)
+    let shield = enemy_tokens["Shield"].as_i64().unwrap_or(0);
+    assert!(
+        shield > 0,
+        "Enemy should have shield tokens after defence play"
+    );
 }
 
 #[test]
@@ -108,10 +108,8 @@ fn test_seed_determinism_for_enemy_selection() {
     let combat1: serde_json::Value =
         serde_json::from_str(&resp1.into_string().expect("body")).expect("json");
 
-    // Capture which unit card had Hand decreased by comparing first defence deck Hand count
-    let hand1 = combat1["enemies"][0]["defence_deck"][0]["state"]["Hand"]
-        .as_u64()
-        .unwrap_or(0);
+    // Capture enemy tokens after first play
+    let enemy_tokens_1 = combat1["enemy"]["active_tokens"].clone();
 
     // Second run: reinitialize, set same seed, enemy_play
     client.post("/tests/combat").dispatch();
@@ -128,11 +126,9 @@ fn test_seed_determinism_for_enemy_selection() {
     let resp2 = client.get("/combat").dispatch();
     let combat2: serde_json::Value =
         serde_json::from_str(&resp2.into_string().expect("body")).expect("json");
-    let hand2 = combat2["enemies"][0]["defence_deck"][0]["state"]["Hand"]
-        .as_u64()
-        .unwrap_or(0);
+    let enemy_tokens_2 = combat2["enemy"]["active_tokens"].clone();
 
-    assert_eq!(hand1, hand2);
+    assert_eq!(enemy_tokens_1, enemy_tokens_2);
 }
 
 #[test]
@@ -143,7 +139,7 @@ fn test_advance_phase_rotates_state() {
     let resp = client.get("/combat").dispatch();
     let combat_json: serde_json::Value =
         serde_json::from_str(&resp.into_string().expect("body")).expect("json");
-    assert_eq!(combat_json["state"], "Defending");
+    assert_eq!(combat_json["phase"], "Defending");
 
     // advance -> Attacking
     let resp = client.post("/combat/advance").dispatch();
@@ -151,118 +147,68 @@ fn test_advance_phase_rotates_state() {
     let resp2 = client.get("/combat").dispatch();
     let combat_json2: serde_json::Value =
         serde_json::from_str(&resp2.into_string().expect("body")).expect("json");
-    assert_eq!(combat_json2["state"], "Attacking");
+    assert_eq!(combat_json2["phase"], "Attacking");
 
     // advance -> Resourcing
     client.post("/combat/advance").dispatch();
     let resp3 = client.get("/combat").dispatch();
     let combat_json3: serde_json::Value =
         serde_json::from_str(&resp3.into_string().expect("body")).expect("json");
-    assert_eq!(combat_json3["state"], "Resourcing");
+    assert_eq!(combat_json3["phase"], "Resourcing");
 
     // advance -> Defending
     client.post("/combat/advance").dispatch();
     let resp4 = client.get("/combat").dispatch();
     let combat_json4: serde_json::Value =
         serde_json::from_str(&resp4.into_string().expect("body")).expect("json");
-    assert_eq!(combat_json4["state"], "Defending");
+    assert_eq!(combat_json4["phase"], "Defending");
 }
 
 #[test]
-fn test_enemy_unit_hand_to_discard_on_play() {
+fn test_enemy_play_applies_effects() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     client.post("/tests/combat").dispatch();
 
-    // Inspect enemy defence deck before
+    // Get enemy tokens before play
     let resp_before = client.get("/combat").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let hand_before = combat_before["enemies"][0]["defence_deck"][0]["state"]["Hand"]
-        .as_u64()
-        .unwrap_or(0) as u32;
-    let discard_before = combat_before["enemies"][0]["defence_deck"][0]["state"]["Discard"]
-        .as_u64()
-        .unwrap_or(0) as u32;
+    let shield_before = combat_before["enemy"]["active_tokens"]["Shield"]
+        .as_i64()
+        .unwrap_or(0);
 
-    // Enemy plays for current phase
+    // Enemy plays in Defending phase → defence card grants shield
     let resp = client.post("/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
     let resp_after = client.get("/combat").dispatch();
     let combat_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-    let hand_after = combat_after["enemies"][0]["defence_deck"][0]["state"]["Hand"]
-        .as_u64()
-        .unwrap_or(0) as u32;
-    let discard_after = combat_after["enemies"][0]["defence_deck"][0]["state"]["Discard"]
-        .as_u64()
-        .unwrap_or(0) as u32;
+    let shield_after = combat_after["enemy"]["active_tokens"]["Shield"]
+        .as_i64()
+        .unwrap_or(0);
 
-    assert_eq!(hand_after, hand_before.saturating_sub(1));
-    assert_eq!(discard_after, discard_before + 1);
+    // Enemy defence card grants 2 shield
+    assert_eq!(shield_after, shield_before + 2);
 }
 
 #[test]
-fn test_dodge_consumed_by_enemy_attack() {
+fn test_player_card_damages_enemy() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     client.post("/tests/combat").dispatch();
 
-    // Player plays defence card (id 1) -> adds dodge to player tokens
-    let action_json = r#"{ "action_type": "PlayCard", "card_id": 1 }"#;
-    let resp = client
-        .post("/action")
-        .header(Header {
-            name: Uncased::from("Content-Type"),
-            value: Cow::from("application/json"),
-        })
-        .body(action_json)
-        .dispatch();
-    assert_eq!(resp.status(), Status::Created);
-
-    // Verify player has dodge token
-    let token_resp = client.get("/player/tokens").dispatch();
-    assert_eq!(token_resp.status(), Status::Ok);
-    let tokens_before: serde_json::Value =
-        serde_json::from_str(&token_resp.into_string().expect("body")).expect("json");
-    let dodge_before = tokens_before
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .find(|t| t["token_type"] == "Dodge")
-        .and_then(|t| t["count"].as_u64())
+    // Get enemy health before attack
+    let resp_before = client.get("/combat").dispatch();
+    let combat_before: serde_json::Value =
+        serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
+    let health_before = combat_before["enemy"]["active_tokens"]["Health"]
+        .as_i64()
         .unwrap_or(0);
-    let _health_before = tokens_before
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .find(|t| t["token_type"] == "Health")
-        .and_then(|t| t["count"].as_u64())
-        .unwrap_or(0);
-    assert!(dodge_before > 0);
 
     // Advance to Attacking
     client.post("/combat/advance").dispatch();
 
-    // Enemy plays attack
-    let resp = client.post("/combat/enemy_play").dispatch();
-    assert_eq!(resp.status(), Status::Created);
-
-    // Verify tokens respond (attack may have been a no-op depending on enemy card)
-    let token_resp2 = client.get("/player/tokens").dispatch();
-    let tokens_after: serde_json::Value =
-        serde_json::from_str(&token_resp2.into_string().expect("body")).expect("json");
-    assert!(tokens_after.is_array());
-}
-
-#[test]
-fn test_player_kills_enemy_and_combat_ends() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    // Initialize combat and advance to Attacking
-    client.post("/tests/combat").dispatch();
-    client.post("/combat/advance").dispatch(); // Defending -> Attacking
-
-    // Play the attack card (Library id 0, deals 20 damage via player_data effects, gnome has 20 HP)
+    // Play attack card (id 0, deals 5 damage)
     let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;
     let resp = client
         .post("/action")
@@ -273,6 +219,39 @@ fn test_player_kills_enemy_and_combat_ends() {
         .body(action_json)
         .dispatch();
     assert_eq!(resp.status(), Status::Created);
+
+    // Enemy should have lost 5 health
+    let resp_after = client.get("/combat").dispatch();
+    let combat_after: serde_json::Value =
+        serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
+    let health_after = combat_after["enemy"]["active_tokens"]["Health"]
+        .as_i64()
+        .unwrap_or(0);
+
+    assert_eq!(health_after, health_before - 5);
+}
+
+#[test]
+fn test_player_kills_enemy_and_combat_ends() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // Initialize combat and advance to Attacking
+    client.post("/tests/combat").dispatch();
+    client.post("/combat/advance").dispatch(); // Defending -> Attacking
+
+    // Play the attack card 4 times (Library id 0, deals 5 damage each, gnome has 20 HP)
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;
+    for _ in 0..4 {
+        let resp = client
+            .post("/action")
+            .header(Header {
+                name: Uncased::from("Content-Type"),
+                value: Cow::from("application/json"),
+            })
+            .body(action_json)
+            .dispatch();
+        assert_eq!(resp.status(), Status::Created);
+    }
 
     // Combat should be ended (GET /combat -> 404)
     let resp = client.get("/combat").dispatch();

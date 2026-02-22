@@ -8,11 +8,12 @@ fn test_area_deck_library_card_refs() {
     let mut area = AreaDeck::new("area_1".to_string());
     area.add_encounter(0);
     area.add_encounter(3);
+    area.draw_to_hand(2);
 
     assert!(area.contains(0));
     assert!(area.contains(3));
     assert!(!area.contains(99));
-    assert_eq!(area.encounter_card_ids.len(), 2);
+    assert_eq!(area.encounter_card_ids().len(), 2);
 }
 
 #[test]

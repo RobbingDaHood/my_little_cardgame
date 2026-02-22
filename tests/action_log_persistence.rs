@@ -1,7 +1,10 @@
 use std::env;
 use std::fs;
 
-use my_little_cardgame::library::{action_log::ActionLog, types::ActionPayload};
+use my_little_cardgame::library::{
+    action_log::ActionLog,
+    types::{ActionPayload, TokenId},
+};
 
 #[test]
 fn write_and_load_actionlog_file() {
@@ -9,7 +12,7 @@ fn write_and_load_actionlog_file() {
     log.append(
         "GrantToken",
         ActionPayload::GrantToken {
-            token_id: "Insight".to_string(),
+            token_id: TokenId::Insight,
             amount: 3,
             reason: None,
             resulting_amount: 3,
@@ -18,7 +21,7 @@ fn write_and_load_actionlog_file() {
     log.append(
         "GrantToken",
         ActionPayload::GrantToken {
-            token_id: "Renown".to_string(),
+            token_id: TokenId::Renown,
             amount: 7,
             reason: None,
             resulting_amount: 7,

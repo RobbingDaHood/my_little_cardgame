@@ -26,7 +26,6 @@ pub mod action;
 pub mod actions_log;
 pub mod area_deck;
 pub mod combat;
-pub mod deck;
 pub mod library;
 pub mod player_data;
 pub mod player_seed;

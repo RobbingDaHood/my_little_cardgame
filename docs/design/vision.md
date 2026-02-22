@@ -34,6 +34,18 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 
 ## Current combat setup
 
+### Implementation updates (2026-02-22)
+- Token identifiers are a closed TokenId enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability. Each variant exposes lifecycle metadata via TokenId::lifecycle().
+- The ScopedToEncounter lifecycle was replaced by FixedTypeDuration { phases, duration }; references to ScopedToEncounter were removed.
+- Combat state now lives in GameState (current_combat: Option<CombatSnapshot>, encounter_state, last_combat_result) and src/combat/ endpoints delegate to GameState methods (start_combat, resolve_player_card, resolve_enemy_play, advance_combat_phase).
+- Dodge absorption: damage consumes Dodge tokens first before Health is reduced.
+- Resource cards are the primary draw engine: CardKind::Resource has draw_count and playing one triggers draws. Starting decks target ~50% resource cards for steady pacing.
+- Enemy turns currently play one random card from each deck (attack, defence, resource); more sophisticated enemy scripts are future work.
+- AreaDeck models deck/hand/discard zones; the hand represents visible/pickable encounters and its size is controlled by the Foresight token (default 3).
+- Players can abandon combat via the AbandonCombat action; FinishScouting is a player action transitioning Scouting → Ready.
+
+## Current combat setup
+
 Combat is modelled as a deterministic, turn-based exchange between decks:
 1. Encounter draw: An enemy card is drawn from the Enemy deck for the current area/encounter.
 2. Setup: Enemy card exposes stats (HP, Attack, Defence, special effects) and may pull tokens from other decks to represent minions or modifiers.
