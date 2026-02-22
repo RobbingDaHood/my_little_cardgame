@@ -64,10 +64,19 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde", tag = "kind")]
     pub enum CardKind {
-        Attack { effects: Vec<CardEffect> },
-        Defence { effects: Vec<CardEffect> },
-        Resource { effects: Vec<CardEffect> },
-        CombatEncounter { combatant_def: CombatantDef },
+        Attack {
+            effects: Vec<CardEffect>,
+        },
+        Defence {
+            effects: Vec<CardEffect>,
+        },
+        Resource {
+            effects: Vec<CardEffect>,
+            draw_count: u32,
+        },
+        CombatEncounter {
+            combatant_def: CombatantDef,
+        },
     }
 
     /// Definition of an enemy combatant for a combat encounter card.
@@ -577,22 +586,32 @@ pub mod registry {
                 phases: vec![super::types::EncounterPhase::Scouting],
             };
             r.register(TokenType {
-                id: "Health".into(),
+                id: "health".into(),
                 lifecycle: combat_lifecycle.clone(),
                 cap: Some(9999),
             });
             r.register(TokenType {
-                id: "Dodge".into(),
+                id: "max_health".into(),
                 lifecycle: combat_lifecycle.clone(),
                 cap: Some(9999),
             });
             r.register(TokenType {
-                id: "Stamina".into(),
+                id: "dodge".into(),
                 lifecycle: combat_lifecycle.clone(),
                 cap: Some(9999),
             });
             r.register(TokenType {
-                id: "Mana".into(),
+                id: "shield".into(),
+                lifecycle: combat_lifecycle.clone(),
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "stamina".into(),
+                lifecycle: combat_lifecycle.clone(),
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "mana".into(),
                 lifecycle: combat_lifecycle,
                 cap: Some(9999),
             });
@@ -933,7 +952,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Resource card (id 2): grants 2 stamina to self
+    // Resource card (id 2): grants 2 stamina to self, draws 1 card
     lib.add_card(
         CardKind::Resource {
             effects: vec![CardEffect {
@@ -941,6 +960,7 @@ fn initialize_library() -> Library {
                 token_id: "stamina".to_string(),
                 amount: 2,
             }],
+            draw_count: 1,
         },
         CardCounts {
             library: 0,
@@ -1211,10 +1231,12 @@ impl GameState {
             .get(card_id)
             .ok_or_else(|| format!("Card {} not found in Library", card_id))?
             .clone();
-        let effects = match &lib_card.kind {
-            CardKind::Attack { effects }
-            | CardKind::Defence { effects }
-            | CardKind::Resource { effects } => effects.clone(),
+        let (effects, draw_count) = match &lib_card.kind {
+            CardKind::Attack { effects } | CardKind::Defence { effects } => (effects.clone(), 0),
+            CardKind::Resource {
+                effects,
+                draw_count,
+            } => (effects.clone(), *draw_count),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
         apply_card_effects(&effects, true, combat);
@@ -1227,7 +1249,32 @@ impl GameState {
             self.current_combat = None;
             self.encounter_state.phase = types::EncounterPhase::Scouting;
         }
+        // Resource cards trigger draws from deck → hand
+        if draw_count > 0 {
+            self.draw_random_cards(draw_count);
+        }
         Ok(())
+    }
+
+    /// Draw random cards from deck to hand (for resource card draw mechanic).
+    fn draw_random_cards(&mut self, count: u32) {
+        let drawable: Vec<usize> = self
+            .library
+            .cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                c.counts.deck > 0 && !matches!(c.kind, CardKind::CombatEncounter { .. })
+            })
+            .map(|(i, _)| i)
+            .collect();
+        if drawable.is_empty() {
+            return;
+        }
+        for i in 0..count {
+            let idx = drawable[i as usize % drawable.len()];
+            let _ = self.library.draw(idx);
+        }
     }
 
     /// Resolve an enemy card play (random card from appropriate deck).
