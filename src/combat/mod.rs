@@ -8,8 +8,6 @@ use crate::library::types::{CombatResult, CombatSnapshot};
 use crate::player_data::PlayerData;
 use crate::status_messages::{new_status, Status};
 
-pub mod resolve;
-
 #[openapi]
 #[get("/combat")]
 pub async fn get_combat(
