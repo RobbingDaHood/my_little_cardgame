@@ -16,6 +16,15 @@ Alignment requirements (inherited from vision.md)
 
 Roadmap steps
 --------------
+
+### Implementation updates (2026-02-22)
+- Steps 7.5 and 7.6 implemented: unified combat (library-centric), resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and a minimal pick→fight→scouting→pick loop.
+- Legacy deck types and dead code (resolve.rs, unused player_seed helpers) removed.
+- CI coverage target (≥85%) achieved: 85.86% after adding integration and unit tests.
+- Reminder: ensure ActionLog records player actions for full deterministic replay (seed + action log).
+
+Roadmap steps
+--------------
 1) Refactor library: unify decks, hands, tokens, and enforce vision constraints
    - Goal: Create a single library crate that is the authoritative implementation of decks, tokens, Library semantics, and the canonical token registry.
    - Description: Extract Deck, Hand, Zone, Token, CardDef, Library and ActionLog types; implement a token registry with lifecycle metadata and a compact actions log API to record lifecycle events.
