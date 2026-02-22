@@ -72,6 +72,17 @@ Roadmap steps
    - Description: Migrate resolve_card_effects to read from the Library and player state consistently, replace CombatState with CombatSnapshot, and adopt CombatAction as a simple struct { is_player, card_index }. After unification, remove legacy Deck, DeckCard, CardState from src/deck/ and player_data.cards, and migrate or remove test endpoints that rely on legacy deck CRUD.
    - Playable acceptance: A single combat API backed by library::combat produces deterministic CombatSnapshots, reconciles card definitions and locations with the Library, and provides a clear migration path for removing legacy deck types.
 
+   - Minimal playable loop: After this step introduce a very simple game loop: pick an encounter, play cards until one side has lost all HP, run a quick scouting phase (no-op for now), then prepare to pick another encounter.
+
+7.6) Flesh out combat and draw mechanics
+   - Goal: Implement basic resource-card draw mechanics and encounter handsize rules to make pacing simple and deterministic.
+   - Description: Resource cards are the only way to draw additional cards into hands: playing a resource card triggers draws onto one or more hands and is the primary way players gain cards to their hand. Enemies follow the same principle: certain enemy cards act as resource/draw cards that cause draws for their hands.
+   - Encounter handsize & Foresight: The encounter handsize is controlled by the Foresight token (default starting value: 3). When an encounter is chosen it is moved to the discard pile and cards are drawn until the encounter's hand reaches the Foresight number of cards (this behavior applies to area/encounter hand management).
+   - Enemy play behavior: On each enemy turn the enemy plays a random card from its hand for each of its three decks; playing may trigger draws as described, so enemies will sometimes draw new cards.
+   - Deck composition: Ensure starting decks for both players and enemies contain approximately 50% draw/resource cards so games have steady card-flow and pacing.
+   - Playable acceptance: A minimal loop exists (pick -> fight -> scouting no-op -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
+
+
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
    - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
    - Description: Implement node-based gathering encounters where discipline decks resolve the node (e.g., Mining uses Mining deck vs IronOre card) and produce raw/refined material tokens. Ensure Discipline Durability and Rations semantics are enforced; failures produce Exhaustion or Durability loss. Record material token grants in the ActionLog so crafting has a provable input history.
