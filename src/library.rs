@@ -1280,12 +1280,12 @@ impl GameState {
     }
 
     /// Resolve an enemy card play (random card from appropriate deck).
+    /// Enemy plays one random card from each of its three decks (attack, defence, resource).
     pub fn resolve_enemy_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) -> Result<(), String> {
         let combat = self.current_combat.as_ref().ok_or("No active combat")?;
         let encounter_card_id = combat
             .encounter_card_id
             .ok_or("No encounter card in combat")?;
-        let phase = combat.phase.clone();
 
         let lib_card = self
             .library
@@ -1293,35 +1293,34 @@ impl GameState {
             .ok_or("Encounter card not found")?
             .clone();
         let combatant_def = match &lib_card.kind {
-            CardKind::CombatEncounter { combatant_def } => combatant_def,
+            CardKind::CombatEncounter { combatant_def } => combatant_def.clone(),
             _ => return Err("Not a CombatEncounter".to_string()),
         };
 
-        let deck = match phase {
-            types::CombatPhase::Defending => &combatant_def.defence_deck,
-            types::CombatPhase::Attacking => &combatant_def.attack_deck,
-            types::CombatPhase::Resourcing => &combatant_def.resource_deck,
-        };
-
-        if deck.is_empty() {
-            return Ok(());
-        }
-
         use rand::RngCore;
-        let pick = (rng.next_u64() as usize) % deck.len();
-        let enemy_card = &deck[pick];
-        let effects = enemy_card.effects.clone();
-
-        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
-        apply_card_effects(&effects, false, combat);
-        check_combat_end(combat);
-        if combat.is_finished {
-            let winner = combat.winner.clone().unwrap_or_default();
-            self.last_combat_result = Some(types::CombatResult {
-                winner: winner.clone(),
-            });
-            self.current_combat = None;
-            self.encounter_state.phase = types::EncounterPhase::Scouting;
+        let decks = [
+            &combatant_def.attack_deck,
+            &combatant_def.defence_deck,
+            &combatant_def.resource_deck,
+        ];
+        for deck in decks {
+            if deck.is_empty() {
+                continue;
+            }
+            let pick = (rng.next_u64() as usize) % deck.len();
+            let effects = deck[pick].effects.clone();
+            let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+            apply_card_effects(&effects, false, combat);
+            check_combat_end(combat);
+            if combat.is_finished {
+                let winner = combat.winner.clone().unwrap_or_default();
+                self.last_combat_result = Some(types::CombatResult {
+                    winner: winner.clone(),
+                });
+                self.current_combat = None;
+                self.encounter_state.phase = types::EncounterPhase::Scouting;
+                return Ok(());
+            }
         }
         Ok(())
     }
