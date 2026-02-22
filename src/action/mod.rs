@@ -21,7 +21,7 @@ pub enum PlayerActions {
         card_id: usize,
     },
     GrantToken {
-        token_id: String,
+        token_id: crate::library::types::TokenId,
         amount: i64,
     },
     SetSeed {
@@ -233,8 +233,15 @@ pub async fn play(
                     area_deck.pick_encounter(card_id);
                     let mut gs = game_state.lock().await;
                     // Initialize player health if not set
-                    if gs.token_balances.get("health").copied().unwrap_or(0) == 0 {
-                        gs.token_balances.insert("health".to_string(), 20);
+                    if gs
+                        .token_balances
+                        .get(&crate::library::types::TokenId::Health)
+                        .copied()
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        gs.token_balances
+                            .insert(crate::library::types::TokenId::Health, 20);
                     }
                     match gs.start_combat(card_id) {
                         Ok(()) => {
@@ -338,8 +345,11 @@ pub async fn play(
                         let mut current_area = player_data.current_area_deck.lock().await;
                         if let Some(area_deck) = current_area.as_mut() {
                             area_deck.recycle_encounter(enc_id);
-                            let foresight =
-                                gs.token_balances.get("Foresight").copied().unwrap_or(3) as usize;
+                            let foresight = gs
+                                .token_balances
+                                .get(&crate::library::types::TokenId::Foresight)
+                                .copied()
+                                .unwrap_or(3) as usize;
                             area_deck.draw_to_hand(foresight);
                         }
                     }
@@ -349,8 +359,11 @@ pub async fn play(
                 // No combat result but in scouting — still refill hand
                 let mut current_area = player_data.current_area_deck.lock().await;
                 if let Some(area_deck) = current_area.as_mut() {
-                    let foresight =
-                        gs.token_balances.get("Foresight").copied().unwrap_or(3) as usize;
+                    let foresight = gs
+                        .token_balances
+                        .get(&crate::library::types::TokenId::Foresight)
+                        .copied()
+                        .unwrap_or(3) as usize;
                     area_deck.draw_to_hand(foresight);
                 }
             }

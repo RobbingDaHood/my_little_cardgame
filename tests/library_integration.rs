@@ -1,3 +1,4 @@
+use my_little_cardgame::library::types::TokenId;
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 
@@ -8,8 +9,7 @@ fn library_tokens_endpoint_returns_list() {
     let response = client.get("/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().expect("response body");
-    // Parse JSON and assert canonical tokens are present
-    let tokens: Vec<String> = serde_json::from_str(&body).expect("valid json");
-    assert!(tokens.contains(&"Insight".to_string()));
-    assert!(tokens.contains(&"Renown".to_string()));
+    let tokens: Vec<TokenId> = serde_json::from_str(&body).expect("valid json");
+    assert!(tokens.contains(&TokenId::Insight));
+    assert!(tokens.contains(&TokenId::Renown));
 }

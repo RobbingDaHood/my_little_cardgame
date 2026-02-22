@@ -1,7 +1,10 @@
 use std::sync::Arc;
 use std::thread;
 
-use my_little_cardgame::library::{action_log::ActionLog, types::ActionPayload};
+use my_little_cardgame::library::{
+    action_log::ActionLog,
+    types::{ActionPayload, TokenId},
+};
 
 #[test]
 fn concurrent_appends_produce_unique_seqs() {
@@ -13,7 +16,7 @@ fn concurrent_appends_produce_unique_seqs() {
             log_cloned.append(
                 "GrantToken",
                 ActionPayload::GrantToken {
-                    token_id: "Insight".to_string(),
+                    token_id: TokenId::Insight,
                     amount: 1,
                     reason: None,
                     resulting_amount: 1,

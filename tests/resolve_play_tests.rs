@@ -31,7 +31,7 @@ fn test_play_defence_card_adds_tokens() {
     assert_eq!(combat_resp.status(), Status::Ok);
     let body = combat_resp.into_string().expect("read combat");
     let combat_json: serde_json::Value = serde_json::from_str(&body).expect("parse json");
-    let shield = combat_json["player_tokens"]["shield"].as_i64().unwrap_or(0);
+    let shield = combat_json["player_tokens"]["Shield"].as_i64().unwrap_or(0);
     assert!(
         shield > 0,
         "Player should have shield tokens after defence play"

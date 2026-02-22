@@ -35,8 +35,15 @@ pub async fn initialize_combat(
 ) -> Created<&str> {
     let mut gs = game_state.lock().await;
     // Initialize player health token if not set
-    if gs.token_balances.get("health").copied().unwrap_or(0) == 0 {
-        gs.token_balances.insert("health".to_string(), 20);
+    if gs
+        .token_balances
+        .get(&crate::library::types::TokenId::Health)
+        .copied()
+        .unwrap_or(0)
+        == 0
+    {
+        gs.token_balances
+            .insert(crate::library::types::TokenId::Health, 20);
     }
     let _ = gs.start_combat(3);
     Created::new("/tests/combat")

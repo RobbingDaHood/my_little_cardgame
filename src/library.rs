@@ -15,6 +15,48 @@ pub mod types {
     use rocket::serde::{Deserialize, Serialize};
     use rocket_okapi::JsonSchema;
     use std::collections::HashMap;
+
+    /// Canonical token identifier enum.
+    /// Each variant is a well-known token with associated lifecycle semantics.
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub enum TokenId {
+        // Combat tokens (expire when encounter reaches Scouting phase)
+        Health,
+        MaxHealth,
+        Shield,
+        Stamina,
+        Dodge,
+        Mana,
+        // Persistent/meta tokens
+        Insight,
+        Renown,
+        Refinement,
+        Stability,
+        Foresight,
+        Momentum,
+        Corruption,
+        Exhaustion,
+        Durability,
+    }
+
+    impl TokenId {
+        pub fn lifecycle(&self) -> TokenLifecycle {
+            match self {
+                TokenId::Health
+                | TokenId::MaxHealth
+                | TokenId::Shield
+                | TokenId::Stamina
+                | TokenId::Dodge
+                | TokenId::Mana => TokenLifecycle::FixedTypeDuration {
+                    duration: 1,
+                    phases: vec![EncounterPhase::Scouting],
+                },
+                _ => TokenLifecycle::PersistentCounter,
+            }
+        }
+    }
+
     /// Canonical card definition (minimal)
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
@@ -29,7 +71,7 @@ pub mod types {
     #[serde(crate = "rocket::serde")]
     pub struct CardEffect {
         pub target: EffectTarget,
-        pub token_id: String,
+        pub token_id: TokenId,
         pub amount: i64,
     }
 
@@ -84,7 +126,7 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CombatantDef {
-        pub initial_tokens: HashMap<String, i64>,
+        pub initial_tokens: HashMap<TokenId, i64>,
         pub attack_deck: Vec<EnemyCardDef>,
         pub defence_deck: Vec<EnemyCardDef>,
         pub resource_deck: Vec<EnemyCardDef>,
@@ -109,7 +151,7 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct TokenType {
-        pub id: String,
+        pub id: TokenId,
         pub lifecycle: TokenLifecycle,
         pub cap: Option<u64>,
     }
@@ -142,7 +184,7 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub enum ActionRequest {
-        GrantToken { token_id: String, amount: i64 },
+        GrantToken { token_id: TokenId, amount: i64 },
     }
 
     /// Action payloads for the append-only log
@@ -150,19 +192,19 @@ pub mod types {
     #[serde(crate = "rocket::serde", tag = "type")]
     pub enum ActionPayload {
         GrantToken {
-            token_id: String,
+            token_id: TokenId,
             amount: i64,
             reason: Option<String>,
             resulting_amount: i64,
         },
         ConsumeToken {
-            token_id: String,
+            token_id: TokenId,
             amount: i64,
             reason: Option<String>,
             resulting_amount: i64,
         },
         ExpireToken {
-            token_id: String,
+            token_id: TokenId,
             amount: i64,
             reason: Option<String>,
         },
@@ -226,7 +268,7 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct Combatant {
-        pub active_tokens: HashMap<String, i64>,
+        pub active_tokens: HashMap<TokenId, i64>,
     }
 
     /// A combat action is a card play by a combatant.
@@ -271,7 +313,7 @@ pub mod types {
         pub round: u64,
         pub player_turn: bool,
         pub phase: CombatPhase,
-        pub player_tokens: HashMap<String, i64>,
+        pub player_tokens: HashMap<TokenId, i64>,
         pub enemy: Combatant,
         pub encounter_card_id: Option<usize>,
         pub is_finished: bool,
@@ -367,7 +409,7 @@ pub mod combat {
                     // Affect enemy tokens
                     (
                         &mut state_after.enemy.active_tokens,
-                        None::<&mut HashMap<String, i64>>,
+                        None::<&mut HashMap<super::types::TokenId, i64>>,
                     )
                 }
             };
@@ -375,7 +417,7 @@ pub mod combat {
             let entry = actor_tokens.entry(effect.token_id.clone()).or_insert(0);
             *entry = (*entry + effect.amount).max(0);
 
-            if effect.token_id == "health" && *entry == 0 {
+            if effect.token_id == super::types::TokenId::Health && *entry == 0 {
                 state_after.is_finished = true;
                 // Determine winner: if player health hit 0, enemy wins; otherwise player wins
                 let affected_is_player = matches!(
@@ -513,12 +555,12 @@ pub mod encounter {
 }
 
 pub mod registry {
-    use super::types::{TokenLifecycle, TokenType};
+    use super::types::{TokenId, TokenType};
     use std::collections::HashMap;
 
     #[derive(Debug, Default, Clone)]
     pub struct TokenRegistry {
-        pub tokens: HashMap<String, TokenType>,
+        pub tokens: HashMap<TokenId, TokenType>,
     }
 
     impl TokenRegistry {
@@ -533,92 +575,44 @@ pub mod registry {
 
         /// Create a minimal canonical token registry seeded from vision.md
         pub fn with_canonical() -> Self {
-            use TokenLifecycle::*;
             let mut r = Self::new();
-            r.register(TokenType {
-                id: "Insight".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Renown".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Refinement".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Stability".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Foresight".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Momentum".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Corruption".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Exhaustion".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "Durability".into(),
-                lifecycle: PersistentCounter,
-                cap: Some(9999),
-            });
-            // Combat tokens — expire when the encounter reaches Scouting phase
-            let combat_lifecycle = FixedTypeDuration {
-                duration: 1,
-                phases: vec![super::types::EncounterPhase::Scouting],
-            };
-            r.register(TokenType {
-                id: "health".into(),
-                lifecycle: combat_lifecycle.clone(),
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "max_health".into(),
-                lifecycle: combat_lifecycle.clone(),
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "dodge".into(),
-                lifecycle: combat_lifecycle.clone(),
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "shield".into(),
-                lifecycle: combat_lifecycle.clone(),
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "stamina".into(),
-                lifecycle: combat_lifecycle.clone(),
-                cap: Some(9999),
-            });
-            r.register(TokenType {
-                id: "mana".into(),
-                lifecycle: combat_lifecycle,
-                cap: Some(9999),
-            });
+            // Persistent meta tokens
+            for id in [
+                TokenId::Insight,
+                TokenId::Renown,
+                TokenId::Refinement,
+                TokenId::Stability,
+                TokenId::Foresight,
+                TokenId::Momentum,
+                TokenId::Corruption,
+                TokenId::Exhaustion,
+                TokenId::Durability,
+            ] {
+                r.register(TokenType {
+                    lifecycle: id.lifecycle(),
+                    id,
+                    cap: Some(9999),
+                });
+            }
+            // Combat tokens
+            for id in [
+                TokenId::Health,
+                TokenId::MaxHealth,
+                TokenId::Dodge,
+                TokenId::Shield,
+                TokenId::Stamina,
+                TokenId::Mana,
+            ] {
+                r.register(TokenType {
+                    lifecycle: id.lifecycle(),
+                    id,
+                    cap: Some(9999),
+                });
+            }
             r
         }
 
-        pub fn contains(&self, id: &str) -> bool {
+        pub fn contains(&self, id: &TokenId) -> bool {
             self.tokens.contains_key(id)
         }
     }
@@ -923,7 +917,7 @@ fn initialize_library() -> Library {
         CardKind::Attack {
             effects: vec![CardEffect {
                 target: types::EffectTarget::OnOpponent,
-                token_id: "health".to_string(),
+                token_id: types::TokenId::Health,
                 amount: -5,
             }],
         },
@@ -940,7 +934,7 @@ fn initialize_library() -> Library {
         CardKind::Defence {
             effects: vec![CardEffect {
                 target: types::EffectTarget::OnSelf,
-                token_id: "shield".to_string(),
+                token_id: types::TokenId::Shield,
                 amount: 3,
             }],
         },
@@ -957,7 +951,7 @@ fn initialize_library() -> Library {
         CardKind::Resource {
             effects: vec![CardEffect {
                 target: types::EffectTarget::OnSelf,
-                token_id: "stamina".to_string(),
+                token_id: types::TokenId::Stamina,
                 amount: 2,
             }],
             draw_count: 1,
@@ -975,27 +969,27 @@ fn initialize_library() -> Library {
         CardKind::CombatEncounter {
             combatant_def: types::CombatantDef {
                 initial_tokens: HashMap::from([
-                    ("health".to_string(), 20),
-                    ("max_health".to_string(), 20),
+                    (types::TokenId::Health, 20),
+                    (types::TokenId::MaxHealth, 20),
                 ]),
                 attack_deck: vec![types::EnemyCardDef {
                     effects: vec![CardEffect {
                         target: types::EffectTarget::OnOpponent,
-                        token_id: "health".to_string(),
+                        token_id: types::TokenId::Health,
                         amount: -3,
                     }],
                 }],
                 defence_deck: vec![types::EnemyCardDef {
                     effects: vec![CardEffect {
                         target: types::EffectTarget::OnSelf,
-                        token_id: "shield".to_string(),
+                        token_id: types::TokenId::Shield,
                         amount: 2,
                     }],
                 }],
                 resource_deck: vec![types::EnemyCardDef {
                     effects: vec![CardEffect {
                         target: types::EffectTarget::OnSelf,
-                        token_id: "stamina".to_string(),
+                        token_id: types::TokenId::Stamina,
                         amount: 1,
                     }],
                 }],
@@ -1024,15 +1018,18 @@ fn apply_card_effects(effects: &[CardEffect], is_player: bool, combat: &mut type
             }
         };
 
-        if effect.token_id == "health" && effect.amount < 0 {
+        if effect.token_id == types::TokenId::Health && effect.amount < 0 {
             // Damage: consume dodge first, then reduce health
             let damage = -effect.amount;
-            let dodge = target_tokens.get("dodge").copied().unwrap_or(0);
+            let dodge = target_tokens
+                .get(&types::TokenId::Dodge)
+                .copied()
+                .unwrap_or(0);
             let absorbed = dodge.min(damage);
-            target_tokens.insert("dodge".to_string(), (dodge - absorbed).max(0));
+            target_tokens.insert(types::TokenId::Dodge, (dodge - absorbed).max(0));
             let remaining_damage = damage - absorbed;
             if remaining_damage > 0 {
-                let health = target_tokens.entry("health".to_string()).or_insert(0);
+                let health = target_tokens.entry(types::TokenId::Health).or_insert(0);
                 *health = (*health - remaining_damage).max(0);
             }
         } else {
@@ -1044,11 +1041,15 @@ fn apply_card_effects(effects: &[CardEffect], is_player: bool, combat: &mut type
 
 /// Check if combat has ended (either side at 0 health).
 fn check_combat_end(combat: &mut types::CombatSnapshot) {
-    let player_health = combat.player_tokens.get("health").copied().unwrap_or(0);
+    let player_health = combat
+        .player_tokens
+        .get(&types::TokenId::Health)
+        .copied()
+        .unwrap_or(0);
     let enemy_health = combat
         .enemy
         .active_tokens
-        .get("health")
+        .get(&types::TokenId::Health)
         .copied()
         .unwrap_or(0);
 
@@ -1069,7 +1070,7 @@ fn check_combat_end(combat: &mut types::CombatSnapshot) {
 pub struct GameState {
     pub registry: TokenRegistry,
     pub action_log: std::sync::Arc<ActionLog>,
-    pub token_balances: HashMap<String, i64>,
+    pub token_balances: HashMap<types::TokenId, i64>,
     pub library: Library,
     pub current_combat: Option<types::CombatSnapshot>,
     pub encounter_state: types::EncounterState,
@@ -1085,7 +1086,7 @@ impl GameState {
             balances.insert(id.clone(), 0i64);
         }
         // Default Foresight controls area deck hand size
-        balances.insert("Foresight".to_string(), 3);
+        balances.insert(types::TokenId::Foresight, 3);
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -1118,7 +1119,7 @@ impl GameState {
     /// Apply a simple GrantToken action: update balances and append to the action log.
     pub fn apply_grant(
         &mut self,
-        token_id: &str,
+        token_id: &types::TokenId,
         amount: i64,
         reason: Option<String>,
     ) -> Result<ActionEntry, String> {
@@ -1126,14 +1127,14 @@ impl GameState {
             .registry
             .tokens
             .get(token_id)
-            .ok_or_else(|| format!("Unknown token '{}'", token_id))?;
+            .ok_or_else(|| format!("Unknown token '{:?}'", token_id))?;
 
         // Check cap if present
         if let Some(cap) = token_type.cap {
             let current = self.token_balances.get(token_id).copied().unwrap_or(0);
             if current + amount > cap as i64 {
                 return Err(format!(
-                    "Token '{}' would exceed cap of {} (current: {})",
+                    "Token '{:?}' would exceed cap of {} (current: {})",
                     token_id, cap, current
                 ));
             }
@@ -1142,13 +1143,13 @@ impl GameState {
         let current = self.token_balances.get(token_id).copied().unwrap_or(0);
         let resulting_amount = current + amount;
         let payload = ActionPayload::GrantToken {
-            token_id: token_id.to_string(),
+            token_id: token_id.clone(),
             amount,
             reason,
             resulting_amount,
         };
         let entry = self.append_action("GrantToken", payload);
-        let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
+        let v = self.token_balances.entry(token_id.clone()).or_insert(0);
         *v += amount;
         Ok(entry)
     }
@@ -1156,31 +1157,31 @@ impl GameState {
     /// Apply a ConsumeToken action: deduct from balances and append to the action log.
     pub fn apply_consume(
         &mut self,
-        token_id: &str,
+        token_id: &types::TokenId,
         amount: i64,
         reason: Option<String>,
     ) -> Result<ActionEntry, String> {
         if !self.registry.contains(token_id) {
-            return Err(format!("Unknown token '{}'", token_id));
+            return Err(format!("Unknown token '{:?}'", token_id));
         }
 
         let current = self.token_balances.get(token_id).copied().unwrap_or(0);
         if current < amount {
             return Err(format!(
-                "Cannot consume {} of token '{}': insufficient balance (have {})",
+                "Cannot consume {} of token '{:?}': insufficient balance (have {})",
                 amount, token_id, current
             ));
         }
 
         let resulting_amount = current - amount;
         let payload = ActionPayload::ConsumeToken {
-            token_id: token_id.to_string(),
+            token_id: token_id.clone(),
             amount,
             reason,
             resulting_amount,
         };
         let entry = self.append_action("ConsumeToken", payload);
-        let v = self.token_balances.entry(token_id.to_string()).or_insert(0);
+        let v = self.token_balances.entry(token_id.clone()).or_insert(0);
         *v -= amount;
         Ok(entry)
     }
@@ -1340,7 +1341,7 @@ impl GameState {
                 balances.insert(id.clone(), 0i64);
             }
             // Default Foresight controls area deck hand size
-            balances.insert("Foresight".to_string(), 3);
+            balances.insert(types::TokenId::Foresight, 3);
             Self {
                 registry,
                 action_log: std::sync::Arc::new(ActionLog::new()),
@@ -1358,19 +1359,19 @@ impl GameState {
                 ActionPayload::GrantToken {
                     token_id, amount, ..
                 } => {
-                    let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
+                    let v = gs.token_balances.entry(token_id.clone()).or_insert(0);
                     *v += *amount;
                 }
                 ActionPayload::ConsumeToken {
                     token_id, amount, ..
                 } => {
-                    let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
+                    let v = gs.token_balances.entry(token_id.clone()).or_insert(0);
                     *v -= *amount;
                 }
                 ActionPayload::ExpireToken {
                     token_id, amount, ..
                 } => {
-                    let v = gs.token_balances.entry(token_id.to_string()).or_insert(0);
+                    let v = gs.token_balances.entry(token_id.clone()).or_insert(0);
                     *v = (*v - *amount).max(0);
                 }
                 ActionPayload::SetSeed { .. } => {
@@ -1411,7 +1412,7 @@ impl Default for GameState {
 /// Get canonical token registry
 #[openapi]
 #[get("/tokens")]
-pub async fn list_library_tokens() -> Json<Vec<String>> {
+pub async fn list_library_tokens() -> Json<Vec<types::TokenId>> {
     let reg = TokenRegistry::with_canonical();
     Json(reg.tokens.keys().cloned().collect())
 }

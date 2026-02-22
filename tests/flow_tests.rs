@@ -81,7 +81,7 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     // Enemy tokens are in enemy.active_tokens as a map
     let enemy_tokens = &combat_json["enemy"]["active_tokens"];
     // Expect shield token > 0 (defence card grants shield)
-    let shield = enemy_tokens["shield"].as_i64().unwrap_or(0);
+    let shield = enemy_tokens["Shield"].as_i64().unwrap_or(0);
     assert!(
         shield > 0,
         "Enemy should have shield tokens after defence play"
@@ -173,7 +173,7 @@ fn test_enemy_play_applies_effects() {
     let resp_before = client.get("/combat").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let shield_before = combat_before["enemy"]["active_tokens"]["shield"]
+    let shield_before = combat_before["enemy"]["active_tokens"]["Shield"]
         .as_i64()
         .unwrap_or(0);
 
@@ -184,7 +184,7 @@ fn test_enemy_play_applies_effects() {
     let resp_after = client.get("/combat").dispatch();
     let combat_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-    let shield_after = combat_after["enemy"]["active_tokens"]["shield"]
+    let shield_after = combat_after["enemy"]["active_tokens"]["Shield"]
         .as_i64()
         .unwrap_or(0);
 
@@ -201,7 +201,7 @@ fn test_player_card_damages_enemy() {
     let resp_before = client.get("/combat").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let health_before = combat_before["enemy"]["active_tokens"]["health"]
+    let health_before = combat_before["enemy"]["active_tokens"]["Health"]
         .as_i64()
         .unwrap_or(0);
 
@@ -224,7 +224,7 @@ fn test_player_card_damages_enemy() {
     let resp_after = client.get("/combat").dispatch();
     let combat_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-    let health_after = combat_after["enemy"]["active_tokens"]["health"]
+    let health_after = combat_after["enemy"]["active_tokens"]["Health"]
         .as_i64()
         .unwrap_or(0);
 
