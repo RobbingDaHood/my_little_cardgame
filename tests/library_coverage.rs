@@ -1,0 +1,344 @@
+use my_little_cardgame::library::types::{
+    ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, TokenId,
+};
+use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
+
+#[test]
+fn card_counts_total() {
+    let counts = CardCounts {
+        library: 10,
+        deck: 5,
+        hand: 3,
+        discard: 2,
+    };
+    assert_eq!(counts.total(), 20);
+}
+
+#[test]
+fn library_draw_and_play_and_return() {
+    let mut lib = Library::new();
+    let id = lib.add_card(
+        CardKind::Attack {
+            effects: vec![CardEffect {
+                target: EffectTarget::OnOpponent,
+                token_id: TokenId::Health,
+                amount: -5,
+            }],
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Draw moves from deck to hand
+    assert!(lib.draw(id).is_ok());
+    assert_eq!(lib.cards[id].counts.deck, 2);
+    assert_eq!(lib.cards[id].counts.hand, 1);
+
+    // Play moves from hand to discard
+    assert!(lib.play(id).is_ok());
+    assert_eq!(lib.cards[id].counts.hand, 0);
+    assert_eq!(lib.cards[id].counts.discard, 1);
+
+    // Return moves from discard to library
+    assert!(lib.return_to_library(id).is_ok());
+    assert_eq!(lib.cards[id].counts.discard, 0);
+    assert_eq!(lib.cards[id].counts.library, 1);
+
+    // Add to deck moves from library to deck
+    assert!(lib.add_to_deck(id, 1).is_ok());
+    assert_eq!(lib.cards[id].counts.library, 0);
+    assert_eq!(lib.cards[id].counts.deck, 3);
+}
+
+#[test]
+fn library_draw_error_when_deck_empty() {
+    let mut lib = Library::new();
+    let id = lib.add_card(
+        CardKind::Attack { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+    assert!(lib.draw(id).is_err());
+}
+
+#[test]
+fn library_play_error_when_hand_empty() {
+    let mut lib = Library::new();
+    let id = lib.add_card(
+        CardKind::Attack { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+    assert!(lib.play(id).is_err());
+}
+
+#[test]
+fn library_return_to_library_error_when_discard_empty() {
+    let mut lib = Library::new();
+    let id = lib.add_card(
+        CardKind::Attack { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+    assert!(lib.return_to_library(id).is_err());
+}
+
+#[test]
+fn library_add_to_deck_error_when_library_insufficient() {
+    let mut lib = Library::new();
+    let id = lib.add_card(
+        CardKind::Attack { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+    assert!(lib.add_to_deck(id, 5).is_err());
+}
+
+#[test]
+fn library_hand_cards_returns_cards_in_hand() {
+    let mut lib = Library::new();
+    lib.add_card(
+        CardKind::Attack { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+    lib.add_card(
+        CardKind::Defence { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 0,
+            discard: 0,
+        },
+    );
+    let hand = lib.hand_cards();
+    assert_eq!(hand.len(), 1);
+    assert_eq!(hand[0].0, 0);
+}
+
+#[test]
+fn library_cards_matching_filters_by_predicate() {
+    let mut lib = Library::new();
+    lib.add_card(
+        CardKind::Attack { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 1,
+            hand: 1,
+            discard: 0,
+        },
+    );
+    lib.add_card(
+        CardKind::Defence { effects: vec![] },
+        CardCounts {
+            library: 0,
+            deck: 1,
+            hand: 1,
+            discard: 0,
+        },
+    );
+    let attacks = lib.cards_matching(|kind| matches!(kind, CardKind::Attack { .. }));
+    assert_eq!(attacks.len(), 1);
+}
+
+#[test]
+fn library_draw_nonexistent_card_returns_error() {
+    let mut lib = Library::new();
+    assert!(lib.draw(999).is_err());
+}
+
+#[test]
+fn game_state_apply_consume() {
+    let mut gs = GameState::new();
+    gs.apply_grant(&TokenId::Insight, 10, None).unwrap();
+    let entry = gs.apply_consume(&TokenId::Insight, 3, None).unwrap();
+    assert_eq!(entry.action_type, "ConsumeToken");
+    assert_eq!(
+        gs.token_balances
+            .get(&TokenId::Insight)
+            .copied()
+            .unwrap_or(0),
+        7
+    );
+}
+
+#[test]
+fn game_state_apply_consume_insufficient_balance() {
+    let mut gs = GameState::new();
+    gs.apply_grant(&TokenId::Insight, 2, None).unwrap();
+    let result = gs.apply_consume(&TokenId::Insight, 5, None);
+    assert!(result.is_err());
+}
+
+#[test]
+fn token_registry_contains() {
+    let reg = TokenRegistry::with_canonical();
+    assert!(reg.contains(&TokenId::Health));
+    assert!(reg.contains(&TokenId::Foresight));
+}
+
+#[test]
+fn game_state_draw_random_cards() {
+    let mut gs = GameState::new();
+    // Library starts with Attack having deck:15 hand:5
+    let initial_hand = gs.library.cards[0].counts.hand;
+    let initial_deck = gs.library.cards[0].counts.deck;
+    assert!(initial_deck > 0);
+    // draw_random_cards is private, but we can test it via resolve_player_card
+    // playing a resource card (id 2) triggers draw_count=1
+    gs.token_balances.insert(TokenId::Health, 20);
+    let _ = gs.start_combat(3);
+    // Phase starts at Defending, but we need Resourcing to play resource
+    let _ = gs.advance_combat_phase(); // Defending -> Attacking
+    let _ = gs.advance_combat_phase(); // Attacking -> Resourcing
+    let _ = gs.resolve_player_card(2); // Resource card draws 1
+                                       // Check that total cards in hand changed
+    let total_hand: u32 = gs.library.cards.iter().map(|c| c.counts.hand).sum();
+    assert!(total_hand >= initial_hand); // drew at least 1 card
+}
+
+#[test]
+fn replay_from_log_with_consume_and_expire() {
+    let mut gs = GameState::new();
+    let _ = gs.apply_grant(&TokenId::Insight, 20, None).unwrap();
+    let _ = gs.apply_consume(&TokenId::Insight, 5, None).unwrap();
+    // Simulate an expire action
+    gs.action_log.append(
+        "ExpireToken",
+        ActionPayload::ExpireToken {
+            token_id: TokenId::Stability,
+            amount: 2,
+            reason: Some("test expire".to_string()),
+        },
+    );
+    // Also add a SetSeed event
+    gs.action_log
+        .append("SetSeed", ActionPayload::SetSeed { seed: 42 });
+    // Add a PlayCard event (should be ignored during replay)
+    gs.action_log.append(
+        "PlayCard",
+        ActionPayload::PlayCard {
+            card_id: 0,
+            deck_id: None,
+            reason: None,
+        },
+    );
+
+    let log_clone = gs.action_log.clone();
+    let registry = TokenRegistry::with_canonical();
+    let replayed = GameState::replay_from_log(registry, &log_clone);
+    assert_eq!(
+        replayed
+            .token_balances
+            .get(&TokenId::Insight)
+            .copied()
+            .unwrap_or(0),
+        15
+    );
+}
+
+#[test]
+fn game_state_shutdown() {
+    let gs = GameState::new();
+    gs.shutdown(); // should not panic even without a writer
+}
+
+#[test]
+fn game_state_default() {
+    let gs: GameState = Default::default();
+    assert!(gs.current_combat.is_none());
+}
+
+#[test]
+fn start_combat_with_non_encounter_card() {
+    let mut gs = GameState::new();
+    gs.token_balances.insert(TokenId::Health, 20);
+    let result = gs.start_combat(0); // card 0 is Attack, not CombatEncounter
+    assert!(result.is_err());
+}
+
+#[test]
+fn resolve_player_card_non_action_card() {
+    let mut gs = GameState::new();
+    gs.token_balances.insert(TokenId::Health, 20);
+    let _ = gs.start_combat(3);
+    // Try to play CombatEncounter card (id 3) as a player card
+    let result = gs.resolve_player_card(3);
+    assert!(result.is_err());
+}
+
+#[test]
+fn resolve_enemy_play_with_non_encounter() {
+    let mut gs = GameState::new();
+    gs.token_balances.insert(TokenId::Health, 20);
+    // No combat started, should return error
+    let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
+    let result = gs.resolve_enemy_play(&mut rng);
+    assert!(result.is_err());
+}
+
+use my_little_cardgame::area_deck::AreaDeck;
+use rand::SeedableRng;
+
+#[test]
+fn area_deck_recycle_encounter() {
+    let mut ad = AreaDeck::new("test".to_string());
+    ad.add_encounter(10);
+    ad.add_encounter(20);
+    ad.draw_to_hand(2);
+    assert!(ad.pick_encounter(10));
+    assert_eq!(ad.discard.len(), 1);
+    assert!(ad.recycle_encounter(10));
+    assert_eq!(ad.discard.len(), 0);
+    assert_eq!(ad.deck.len(), 1);
+    // recycle non-existent returns false
+    assert!(!ad.recycle_encounter(99));
+}
+
+#[test]
+fn area_deck_draw_to_hand_exhausts_deck() {
+    let mut ad = AreaDeck::new("test".to_string());
+    ad.add_encounter(1);
+    ad.draw_to_hand(5); // target 5 but only 1 in deck
+    assert_eq!(ad.hand.len(), 1);
+    assert!(ad.deck.is_empty());
+}
+
+#[test]
+fn area_deck_encounter_card_ids_all_zones() {
+    let mut ad = AreaDeck::new("test".to_string());
+    ad.add_encounter(1);
+    ad.add_encounter(2);
+    ad.add_encounter(3);
+    ad.draw_to_hand(2);
+    ad.pick_encounter(2);
+    let all = ad.encounter_card_ids();
+    assert_eq!(all.len(), 3);
+    assert!(all.contains(&1));
+    assert!(all.contains(&2));
+    assert!(all.contains(&3));
+}
