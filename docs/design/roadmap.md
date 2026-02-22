@@ -71,17 +71,15 @@ Roadmap steps
    - Goal: Unify the two combat implementations (src/combat/ old HTTP-driven Combat/Unit/States and library::combat deterministic CombatSnapshot/CombatAction) so a single authoritative combat system resolves card effects and token lifecycles.
    - Description: Migrate resolve_card_effects to read from the Library and player state consistently, replace CombatState with CombatSnapshot, and adopt CombatAction as a simple struct { is_player, card_index }. After unification, remove legacy Deck, DeckCard, CardState from src/deck/ and player_data.cards, and migrate or remove test endpoints that rely on legacy deck CRUD.
    - Playable acceptance: A single combat API backed by library::combat produces deterministic CombatSnapshots, reconciles card definitions and locations with the Library, and provides a clear migration path for removing legacy deck types.
-
-   - Minimal playable loop: After this step introduce a very simple game loop: pick an encounter, play cards until one side has lost all HP, run a quick scouting phase (no-op for now), then prepare to pick another encounter.
+   - Minimal playable loop: After this step introduce a very simple game loop: pick an encounter, play cards until one side has lost all HP, run a quick scouting phase (Just add the current finished encounter card back into the encounter "deck": Change the library counters -1 on discard +1 on deck (Later we will expand on this setup)), then prepare to pick another encounter.
 
 7.6) Flesh out combat and draw mechanics
    - Goal: Implement basic resource-card draw mechanics and encounter handsize rules to make pacing simple and deterministic.
    - Description: Resource cards are the only way to draw additional cards into hands: playing a resource card triggers draws onto one or more hands and is the primary way players gain cards to their hand. Enemies follow the same principle: certain enemy cards act as resource/draw cards that cause draws for their hands.
-   - Encounter handsize & Foresight: The encounter handsize is controlled by the Foresight token (default starting value: 3). When an encounter is chosen it is moved to the discard pile and cards are drawn until the encounter's hand reaches the Foresight number of cards (this behavior applies to area/encounter hand management).
+   - Encounter handsize & Foresight: The encounter handsize is controlled by the Foresight token (default starting value: 3). When an encounter is chosen it is moved to the discard pile and when the encounter is over cards are drawn until the "area deck" hand reaches the Foresight number of cards (this behavior applies to area/encounter hand management).
    - Enemy play behavior: On each enemy turn the enemy plays a random card from its hand for each of its three decks; playing may trigger draws as described, so enemies will sometimes draw new cards.
    - Deck composition: Ensure starting decks for both players and enemies contain approximately 50% draw/resource cards so games have steady card-flow and pacing.
-   - Playable acceptance: A minimal loop exists (pick -> fight -> scouting no-op -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
-
+   - Playable acceptance: A minimal loop exists (pick -> fight -> scouting -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
 
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
    - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
@@ -106,6 +104,7 @@ Roadmap steps
    - Description: Implement ScoutChoice objects and a deterministic application that updates replacement parameters for the specific area deck. Record scouting decisions and effects in the ActionLog.
    - Playable acceptance: After an encounter, API returns scouting choices; making a choice updates the replacement-generation seed/parameters and is reflected in the next replacement card deterministically.
    - Notes: Keep initial choices small and data-driven (e.g., +1 Foresight, increase affix-pool size).
+    - Up to this point then all encounters just added the same encounter back into the area deck: no changes. 
 
 12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
    - Goal: Model merchants as decks (MerchantOffers, Barter) and deterministic merchant interactions that mirror vision.md's barter mechanics.

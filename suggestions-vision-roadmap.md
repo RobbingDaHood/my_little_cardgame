@@ -4,8 +4,6 @@ Based on the work done fixing issues.md across two rounds of refactoring.
 
 ---
 
-## vision.md suggestions
-
 ### Round 1 (prior work)
 
 1. **CardDef should declare effects**: The vision mentions cards have types but doesn't specify that card definitions carry declarative effects (token operations with target and amount). Add a note that `CardDef` includes a list of `CardEffect` entries specifying target (self/opponent), token_id, and amount. This is now implemented.
@@ -26,19 +24,15 @@ Based on the work done fixing issues.md across two rounds of refactoring.
 
 8. **Enemy cards are inline, not Library references**: The vision should clarify that enemy card definitions (`EnemyCardDef`) are embedded within the `CombatantDef` of a `CombatEncounter` card, not stored as separate Library entries. Enemies are self-contained.
 
-9. **CombatSnapshot replaces CombatState**: The vision should use `CombatSnapshot` (pure-data struct for simulation) instead of `CombatState`. Fields are: `round`, `current_turn`, `player_tokens: HashMap<String, i64>`, `enemy: Combatant`, `is_finished`, `winner`. No `combatants: Vec` — combat is always player vs. one enemy.
+9. Combat is always player vs. one enemy.
 
-10. **TokenLifecycle needs ScopedToEncounter**: The vision's token lifecycle section should include `ScopedToEncounter` — tokens that revert to zero when the current encounter ends. This is used for combat tokens (Health, Dodge, Stamina, Mana).
+11. **FixedTypeDuration is phase-aware**: The vision should note that `FixedTypeDuration` lifecycles track which encounter phases they count down during, via a `phases: Vec<EncounterPhase>` field.
 
-11. **FixedDuration is phase-aware**: The vision should note that `FixedDuration` and `FixedTypeDuration` lifecycles track which encounter phases they count down during, via a `phases: Vec<EncounterPhase>` field.
+12. **Two combat systems coexist**: The roadmap should acknowledge that the codebase currently has two combat systems: `src/combat/` (old: HTTP-driven Combat/Unit/States) and `library::combat` (new: deterministic CombatSnapshot/CombatAction). Full unification is future work.
 
-12. **Two combat systems coexist**: The vision should acknowledge that the codebase currently has two combat systems: `src/combat/` (old: HTTP-driven Combat/Unit/States) and `library::combat` (new: deterministic CombatSnapshot/CombatAction). Full unification is future work.
-
-13. **Deck CRUD endpoints removed**: The vision should note that explicit deck management endpoints (`/tests/decks/*`, `/tests/cards/*`) have been removed. Card locations are now tracked exclusively by the Library. The remaining old deck types (Deck, DeckCard, CardState) exist only to support the old combat system.
+13. **Deck CRUD endpoints removed**: The roadmap should note that explicit deck management endpoints (`/tests/decks/*`, `/tests/cards/*`) have been removed. Card locations are now tracked exclusively by the Library. The remaining old deck types (Deck, DeckCard, CardState) exist only to support the old combat system.
 
 ---
-
-## roadmap.md suggestions
 
 ### Round 1 (prior work)
 
@@ -62,10 +56,10 @@ Based on the work done fixing issues.md across two rounds of refactoring.
 
 9. **Step 6 — Combatant.id removed**: Combat always involves the current encounter enemy; there's no need for combatant IDs.
 
-10. **Step 5 — AreaDeck simplified to Library references**: AreaDeck now stores `Vec<usize>` (Library card indices) instead of full Encounter structs. The `Encounter`, `EncounterState`, `Affix`, and `AffixPipeline` types were removed. Encounter definitions come from the Library's `CombatEncounter` cards.
+10. **Step 5 — AreaDeck simplified to Library references**: AreaDeck now stores `Vec<usize>` (Library card indices) instead of full Encounter structs. The `Encounter`, `EncounterState`, `Affix`, and `AffixPipeline` types were removed. Encounter definitions come from the Library's `CombatEncounter` cards. The AreaDeck could be removed in a future step, because it is reduntant. 
 
-11. **New step needed — Unify combat systems**: A future roadmap step should address unifying `src/combat/` (old) with `library::combat` (new). Currently `resolve_card_effects` reads from `player_data.cards` while the Library tracks its own card definitions separately.
+11. **New step needed — Unify combat systems**: A future roadmap step should address unifying `src/combat/` (old) with `library::combat` (new). Currently `resolve_card_effects` reads from `player_data.cards` while the Library tracks its own card definitions separately. Insert it as a 7.5 step, in between 7 and 8. 
 
-12. **New step needed — Remove old deck types**: Once the combat systems are unified, remove `Deck`, `DeckCard`, `CardState` from `src/deck/` and `player_data.cards`. The Library fully replaces these.
+12. **New step needed — Remove old deck types**: Once the combat systems are unified, remove `Deck`, `DeckCard`, `CardState` from `src/deck/` and `player_data.cards`. The Library fully replaces these. Add that to the step 7.5 above too. 
 
-13. **Test endpoint cleanup**: Deck CRUD endpoints (`/tests/decks/*`, `/tests/cards/*`) have been removed. The remaining test endpoint is `POST /tests/combat` for combat initialization and `POST /tests/library/cards` for test card injection. A future step should migrate combat initialization to the action handler.
+13. **Test endpoint cleanup**: Deck CRUD endpoints (`/tests/decks/*`, `/tests/cards/*`) have been removed. The remaining test endpoint is `POST /tests/combat` for combat initialization and `POST /tests/library/cards` for test card injection. A future step should migrate combat initialization to the action handler. Add this to the step 7.5 too. 
