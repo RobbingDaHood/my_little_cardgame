@@ -33,5 +33,7 @@ fn initialize_area_deck() -> AreaDeck {
     deck.add_encounter(3);
     deck.add_encounter(3);
     deck.add_encounter(3);
+    // Draw initial hand based on default Foresight (3)
+    deck.draw_to_hand(3);
     deck
 }

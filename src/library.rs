@@ -1084,6 +1084,8 @@ impl GameState {
         for id in registry.tokens.keys() {
             balances.insert(id.clone(), 0i64);
         }
+        // Default Foresight controls area deck hand size
+        balances.insert("Foresight".to_string(), 3);
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -1338,6 +1340,8 @@ impl GameState {
             for id in registry.tokens.keys() {
                 balances.insert(id.clone(), 0i64);
             }
+            // Default Foresight controls area deck hand size
+            balances.insert("Foresight".to_string(), 3);
             Self {
                 registry,
                 action_log: std::sync::Arc::new(ActionLog::new()),
