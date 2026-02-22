@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use rand::{RngCore, SeedableRng};
@@ -9,15 +8,10 @@ use crate::area_deck::AreaDeck;
 use crate::combat::Combat;
 use crate::deck::card::CardType;
 use crate::deck::token::{PermanentDefinition, Token, TokenPermanence, TokenType};
-use crate::deck::Deck;
-use crate::deck::{Card, CardState, DeckCard};
+use crate::deck::Card;
 
 pub struct PlayerData {
-    pub(crate) decks: Arc<Mutex<Vec<Deck>>>,
     pub(crate) cards: Arc<Mutex<Vec<Card>>>,
-    pub(crate) attack_deck_id: Arc<Mutex<usize>>,
-    pub(crate) defence_deck_id: Arc<Mutex<usize>>,
-    pub(crate) resource_deck_id: Arc<Mutex<usize>>,
     #[allow(dead_code)]
     pub(crate) tokens: Arc<Mutex<Vec<Token>>>,
     pub(crate) current_combat: Arc<Mutex<Box<Option<Combat>>>>,
@@ -31,26 +25,14 @@ pub struct PlayerData {
 }
 
 pub fn new() -> PlayerData {
-    let mut attack_deck = intialize_player_attack_deck();
-    let mut defence_deck = initialize_player_defence_deck();
-    let mut ressource_deck = initialize_player_resource_deck();
     let mut new_seed: [u8; 16] = [1; 16];
-
-    // Draw some cards
     Lcg64Xsh32::from_entropy().fill_bytes(&mut new_seed);
-    let mut random_generator = Lcg64Xsh32::from_seed(new_seed);
-    let _ = attack_deck.draw_cards(5, &mut random_generator);
-    let _ = defence_deck.draw_cards(5, &mut random_generator);
-    let _ = ressource_deck.draw_cards(5, &mut random_generator);
+    let random_generator = Lcg64Xsh32::from_seed(new_seed);
 
     PlayerData {
         seed: Arc::new(Mutex::new(new_seed)),
         random_generator_state: Arc::new(Mutex::new(random_generator)),
         cards: initialize_player_cards(),
-        decks: Arc::new(Mutex::new(vec![attack_deck, defence_deck, ressource_deck])),
-        attack_deck_id: Arc::new(Mutex::new(0)),
-        defence_deck_id: Arc::new(Mutex::new(1)),
-        resource_deck_id: Arc::new(Mutex::new(2)),
         tokens: Arc::new(Mutex::new(vec![Token {
             token_type: TokenType::Health,
             permanence: TokenPermanence::UsedOnUnit,
@@ -58,8 +40,17 @@ pub fn new() -> PlayerData {
         }])),
         current_combat: Arc::new(Mutex::new(Box::new(None))),
         last_combat_result: Arc::new(Mutex::new(None)),
-        current_area_deck: Arc::new(Mutex::new(None)),
+        current_area_deck: Arc::new(Mutex::new(Some(initialize_area_deck()))),
     }
+}
+
+fn initialize_area_deck() -> AreaDeck {
+    let mut deck = AreaDeck::new("starter_area".to_string());
+    // Reference the gnome CombatEncounter card at Library index 3
+    deck.add_encounter(3);
+    deck.add_encounter(3);
+    deck.add_encounter(3);
+    deck
 }
 
 fn initialize_player_cards() -> Arc<Mutex<Vec<Card>>> {
@@ -70,7 +61,7 @@ fn initialize_player_cards() -> Arc<Mutex<Vec<Card>>> {
             effects: vec![Token {
                 token_type: TokenType::Health,
                 permanence: TokenPermanence::Instant,
-                count: 1,
+                count: 20,
             }],
             costs: vec![],
             count: 40,
@@ -102,37 +93,4 @@ fn initialize_player_cards() -> Arc<Mutex<Vec<Card>>> {
             count: 40,
         },
     ]))
-}
-
-fn initialize_player_resource_deck() -> Deck {
-    Deck {
-        contains_card_types: vec![CardType::Resource],
-        cards: vec![DeckCard {
-            id: 2,
-            state: HashMap::from([(CardState::Deck, 40)]),
-        }],
-        id: 2,
-    }
-}
-
-fn initialize_player_defence_deck() -> Deck {
-    Deck {
-        contains_card_types: vec![CardType::Defence],
-        cards: vec![DeckCard {
-            id: 1,
-            state: HashMap::from([(CardState::Deck, 40)]),
-        }],
-        id: 1,
-    }
-}
-
-fn intialize_player_attack_deck() -> Deck {
-    Deck {
-        contains_card_types: vec![CardType::Attack],
-        cards: vec![DeckCard {
-            id: 0,
-            state: HashMap::from([(CardState::Deck, 40)]),
-        }],
-        id: 0,
-    }
 }

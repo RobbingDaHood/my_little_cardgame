@@ -16,12 +16,21 @@ Deck types (examples):
 - Encounter decks: Enemy, Trap, Puzzle
 - Treasure decks: Ore, Lumber, Herbs, Loot, MerchantOffers
 - Recipe deck: Recipes that can be drawn/selected to craft items
-- Area decks: Each explorable area is represented by a deck of encounters and treasures
+- Area deck: Represents the players current location. There is one deck with encounters. 
 - Library: a canonical collection of all cards accessible via the library endpoint; any card present in the library can be added to a deck provided the deck is of the appropriate type (deck-type constraints apply)
+
+  - CardDef and Library implementation notes: Card definitions declare declarative CardEffect entries (target: self|opponent, token_id, amount) that are resolved when the card is played. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; CardKind (enum) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, CombatEncounter{combatant_def}). Enemy card definitions used in CombatEncounter cards are embedded inline within CombatEncounter definitions rather than as separate Library references.
+
+
+The Player's decks (Attack, Defence, Resource etc.) are fixed and initialized at game start. Only the Library manages the canonical card definitions and the internal deck representation. The API does not expose deck-creation or deck-deletion endpoints; player deck composition is managed only through adding Library cards to decks via the deck-management flow.
 
 Tokens and state:
 - Tokens represent persistent or semi-persistent objects like equipped items, active status effects, or resource counters.
 - Moving a card between decks (Hand, Deck, Discard, Deleted) represents the lifecycle of that object or effect.
+
+### Canonical Data Omits Flavor
+
+The canonical Library stores only structural identifiers (card IDs, types, tokens, numeric parameters). All user-facing names, descriptions, and flavor text are delegated to client presentation layers. The API responses use only ID-based references; naming/presentation is the client's responsibility based on a separate design specification. This ensures the game state remains minimal, reproducible, and suitable for replay and analysis. It also leaves a lot to the imagination of the player. 
 
 ## Current combat setup
 
@@ -34,15 +43,21 @@ Combat is modelled as a deterministic, turn-based exchange between decks:
 
 Combat is fully reproducible by recording the game's single initial seed used to initialize the RNG and any deterministic choices.
 
+  - Encounter phases: use the EncounterPhase enum with values NoEncounter, Ready, InCombat, Scouting to name and track encounter phases consistently.
+
+  - HP as tokens: Hit points are modelled as tokens (e.g., health and max_health in active_tokens) rather than dedicated fields, following the 'everything is a token' principle.
+
+
 ## Areas as decks (future vision)
 
 - Visiting an area is modelled by opening an Area deck: each card is an encounter or a treasure.
 - Example: Mine area has an `Iron Ore` treasure deck and an `Ore Encounter` deck. When you visit a mining node, a card is drawn from the Iron Ore deck to determine the type/quality of ore and any modifiers.
+- At any given time, the player has one active area deck representing their current location. Moving to a new area replaces the current area deck. This simplifies the state model.
 
 Example - Iron Ore node:
-- Player visits a mine node: a card is drawn from `areas/mine/iron_ore.deck`.
+- Player visits a mine node: a card is drawn from the ore deck.
 - The drawn card might be `SmallIronVein`, `EncrustedIron`, or `ElementalCore` with varying difficulty and loot.
-- Some treasure spots explicitly allow alternate interactions such as "learning" or scouting-related actions: learning can grant recipes, lore, or crafting shortcuts; scouting is not a standalone encounter but a post-resolution step that biases future Area draws and participates in the area-update pipeline. After any encounter resolves (win, loss, or retreat) the resolved card is removed from the Area deck and immediately replaced by a new encounter of the same base type with affix modifiers; scouting controls how those replacement encounters are generated (see Scouting mechanics below).
+- Some treasure spots explicitly allow alternate interactions such as "learning" or scouting-related actions: learning can grant recipes, lore, or crafting shortcuts; scouting is not a standalone encounter but a post-resolution step that changes the area deck and hand. After any encounter resolves (win, loss, or retreat) the resolved card is removed from the Area deck and immediately replaced by a new encounter of the same base type with affix modifiers; scouting controls how those replacement encounters are generated (see Scouting mechanics below).
 - A special "combat" starts where the player's `Mining` deck is used to interact with the ore card: mining cards represent mining tools/techniques, resource cards provide stamina/endurance, and failure/success is resolved as if the ore were an enemy with HP and resistances.
 - Success yields one or more specific treasure cards (iron ingot tokens, rare gems), moved into the player's Loot/Inventory deck.
 
@@ -95,7 +110,11 @@ Canonical token list, generators, and uses
 
 - Momentum (combat token): generated by chaining offensive plays or foregoing defence. Spendable: yes. Use: trigger follow-up/combo effects in combat and some discipline synergies.
 
-- Foresight (scouting token): earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: preview or bias Area draws and control encounter-selection scope (how many encounter options are drawn/previewed); additionally Foresight can influence replacement-generation parameters (increase scouting-candidate-pool size X or scouting-pick-count Y) or temporarily grant Variant-Choice/Affix-Picks bonuses during encounter replacement flows.
+- Foresight (scouting token): earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: Decides the max hand size of the area "deck": After an encounter have been resolved then draw area cards until Foresight amount of cards were drawn. 
+
+- Scouting candidate pool: earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: During the scouting post-encounter step, then this decides how many "affixes" are drawn to "build" the next encounter. 
+
+- Scouting pick count: earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: During the scouting post-encounter step, then this decides how many "affixes" that maximum can be choosen to "build" the next encounter. 
 
 - Corruption / Purity (moral tokens): Corruption is generated by forbidden or tainted actions and is reduced or transformed via specific purge mechanics or Purity spends; Purity is earned by restraint and quests and is spendable to purge Corruption or unlock purity-locked content. Spendable: Purity yes; Corruption not a normal currency but can be altered by specified actions. Use: Corruption modifies world responses and content gating; Purity can be spent to purge Corruption.
 
@@ -125,7 +144,8 @@ Tokens explicitly declare their lifecycle semantics so designers, clients, and t
 - Permanent: tokens that persist until explicitly spent or consumed (examples: Key tokens, Library card counts).
 - Persistent counters: numeric tokens that persist across sessions but are subject to caps, decay, or refresh rules (examples: Renown, Insight).
 - Fixed-duration (X encounters): tokens that expire after N encounters of any type (useful for short buffs or timed boosts).
-- Fixed-type-duration (X encounters of a specific type): tokens that expire after N encounters of a specified type (for example, 3 Craft encounters).
+- Fixed-type-duration (X encounters of a specific type): tokens that expire after N encounters of a specified type (for example, 3 Craft encounters). Implementation note: FixedTypeDuration lifecycles are phase-aware and track which EncounterPhase values they count down during (phases: Vec<EncounterPhase>).
+
 - Until-next-action: tokens that persist until the next player action of a specified type occurs (for example, "until next Research completion").
 - Single-use / one-shot: consumed on first applicable use and then removed.
 - Conditional: persist until a condition is met (for example Durability hitting 0, Corruption crossing a threshold, or a specific external event).
@@ -146,7 +166,8 @@ Discipline → primary tokens/materials produced (summary)
 - Provisioning: consumes Herbs/Reagents to produce Reagent/Tincture tokens and consumable card definitions.
 - Provisioning: consumes Ingredients; produces Ration tokens, consumables, or buff cards.
 - Research / Learning: generates Insight, CurrentResearch, and occasionally Variant-Choice / Affix-Picks via milestone rewards; produces new recipes/variants.
-- Scouting / Recon (system): generates Foresight and other reconnaissance benefits, biases area draws, and can affect resource yields; scouting is a post-resolution/area-update subsystem applied as part of an encounter's lifecycle rather than a standalone encounter type.
+- Scouting / Recon (system): generates Foresight and other reconnaissance benefits, and can affect resource yields; scouting is a post-resolution/area-update subsystem applied as part of an encounter's lifecycle rather than a standalone encounter type. Scouting preview count = 1 + Foresight token count. Additional scouting parameters (pool modifier) may be derived from other tokens.
+
 - Milestones / Challenge systems: primary source for Variant-Choice, Affix-Picks, rare Refinement/Stability, and Key tokens.
 
 Design implications and notes
@@ -187,7 +208,7 @@ Reward scaling and token economy:
 
 ## Distinct encounter playstyles
 
-It is important that every broad encounter type (combat, gathering, crafting) and each subtype (herbalism, provisioning, learning, etc.) play differently so the player feels varied challenges rather than the same mechanic with renamed cards. Scouting is a cross-cutting reconnaissance system applied as the post-resolution step of an encounter lifecycle, and therefore its concerns (preview, bias, replacement-generation) are orthogonal to per-discipline playstyles. All differences are expressed using only cards and tokens, but the card types, token economies, success conditions, and meaningful choices should differ.
+It is important that every broad encounter type (combat, gathering, crafting) and each subtype (herbalism, provisioning, learning, etc.) play differently so the player feels varied challenges rather than the same mechanic with renamed cards. Scouting is a cross-cutting reconnaissance system applied as the post-resolution step of an encounter lifecycle, and therefore its concerns (area replacement-generation) are orthogonal to per-discipline playstyles. All differences are expressed using only cards and tokens, but the card types, token economies, success conditions, and meaningful choices should differ.
 
 Examples of how they can differ while staying pure cards-and-tokens:
 
@@ -223,7 +244,7 @@ Research cards, modifier deck, and variant creation
 
 - Reproducibility: all draws and random rolls in this creation process are deterministically derived from the game's single initial seed and recorded so the exact Variant outcomes can be reproduced if needed.
 
-- Scouting (system / reconnaissance): Scouting is not an independent encounter type; it is the post-resolution step of every encounter lifecycle. After an encounter resolves (win, loss, or retreat), scouting-related effects may be applied to update the Area deck and future draws: scouting cards, actions, or tokens bias how replacement encounters are generated and how future encounter choices are presented.
+- Scouting (system / reconnaissance): Scouting is not an independent encounter type; it is the post-resolution step of every encounter lifecycle. After an encounter resolves (win, loss, or retreat), scouting-related effects may be applied to update the Area deck and future draws: scouting cards, actions, or tokens influence how replacement encounters are generated and how future encounter choices are presented.
 
   Mechanics and flow:
   - Replacement pipeline: immediately after any encounter resolves it is removed from its Area deck and replaced by a new encounter of the same base type with affix modifiers; this replacement is part of the encounter lifecycle and occurs regardless of outcome.
@@ -368,7 +389,7 @@ Encounter lifecycle (includes post-resolution scouting/area-update step)
 - Start: decks are bound to the encounter (encounter deck, reward deck, modifier pulls), and any entry_cost is consumed/locked; random draws and rolls derive deterministically from the game's single initial seed.
 - Phases: encounters are resolved in named phases; a common minimal set: Setup → Player Phase(s) → Encounter Phase(s) → Resolution → Post-resolution area-update/scouting. Discipline-specific phases add nuance (for example, a "Preparation" phase for Provisioning or "Extraction" rounds for Mining).
 - Actions: players take structured actions by playing discipline-specific action cards from their hand/decks, spending tokens, or triggering reactions. Each action maps to deterministic outcomes recorded in the actions log.
-- Resolution: encounter finishes when win or loss conditions are met; rewards and post-encounter transitions (move to Discard, Deleted, Library additions) are applied and recorded. Immediately after resolution a post-resolution area-update/scouting step occurs as part of the encounter lifecycle: replacement encounters are generated (affix candidate draws and pick attachments), scouting-related biases and Foresight effects are applied, and any preview/selection options for the next encounter are computed and recorded.
+- Resolution: encounter finishes when win or loss conditions are met; rewards and post-encounter transitions (move to Discard, Deleted, Library additions) are applied and recorded. Immediately after resolution a post-resolution area-update/scouting step occurs as part of the encounter lifecycle: replacement encounters are generated (affix candidate draws and pick attachments), Foresight effects are applied, and any preview/selection options for the next encounter are computed and recorded.
 
 Win / Loss semantics
 
@@ -505,14 +526,9 @@ Concrete examples
 
 11) Scouting / Recon (system)
 
-- Scouting parameters: preview_scope, risk_multiplier, upgrade_options (these are parameters applied during post-resolution replacement and encounter-selection steps).
-- Visibility: scouting-related options (cost, scope hints) are shown as part of area interactions or treasure options; they are not separate encounter pre-starts.
 - Lifecycle placement: scouting is applied as the post-resolution area-update step of the encounter lifecycle (Setup → Player Phase(s) → Encounter Phase(s) → Resolution → Post-resolution scouting/update).
-- Scouting actions: Recon, Stealth, and Invest cards are played during the encounter or as immediate post-resolution spends to bias replacement creation or preview; spending Foresight/Rations extends scope or candidate/pick parameters.
 - Decks involved: Area deck and Modifier Deck (scouting reuses these decks; there is no separate persistent 'Scouting' deck).
-- Tokens: Foresight, Rations, Stealth-like tokens.
-- Difficulty progression: deeper scouting effects require higher investment and carry higher risk.
-- Outcomes: successful scouting yields previewed information, reduced future encounter difficulty, or upgrade unlocks; failure wastes investment and may increase difficulty or alert status.
+- Tokens: Foresight, Scouting candidate pool size, Scouting canditate pick size, Rations, Stealth-like tokens.
 
 12) Merchant / Trading interactions
 
@@ -537,6 +553,20 @@ Cross-discipline notes
 ## Open-ended sandbox
 
 - The game is intentionally designed as an open-ended sandbox rather than a single finite campaign: there will be no final, absolute win or loss state. Players pursue personal goals, collections, and milestones; milestones function as optional, player-paced objectives and progression markers rather than an end condition. Milestones provide pacing, challenge, and meaningful rewards, but players are free to continue exploring, crafting, and experimenting indefinitely.
+
+## Endpoint organization
+
+Public endpoints (without /tests prefix) represent the stable gameplay API. Endpoints under /tests/* are temporary testing utilities and may be removed as implementation progresses. 
+
+The only public endpoint that can mutate any data is the /action endpoint, every other public endpoint is a GET endpoint. 
+
+## Automatic test setup 
+
+Favor tests that spin up the server and verifies a test case by calling the public endpoints. It is okay that the test gets a bit long in an effort to get to a specific point: consider helper functions to wrap longer series of calls. Thisis fine becuase all changes are in memory so should go fast. It also ensures that all cases are reachable on the server and it makes it easy to review how the endpoints are used. 
+
+## Entity ids 
+
+If an id is a string then it has to be a UUID else favour using unsigned integers. 
 
 ## Closing
 

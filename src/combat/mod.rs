@@ -222,3 +222,30 @@ pub async fn get_combat_result(
         ))),
     }
 }
+
+/// Simulate a deterministic combat encounter from a seed and initial state.
+///
+/// **TESTING ENDPOINT ONLY** — This endpoint is temporary and should not be
+/// used in production. It bypasses the single mutator action endpoint.
+#[openapi]
+#[post("/tests/combat/simulate", format = "json", data = "<request>")]
+pub async fn simulate_combat_endpoint(
+    request: Json<SimulateCombatRequest>,
+) -> Json<crate::library::types::CombatSnapshot> {
+    let result = crate::library::combat::simulate_combat(
+        request.initial_state.clone(),
+        request.seed,
+        request.actions.clone(),
+        &request.card_defs,
+    );
+    Json(result)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct SimulateCombatRequest {
+    pub initial_state: crate::library::types::CombatSnapshot,
+    pub seed: u64,
+    pub actions: Vec<crate::library::types::CombatAction>,
+    pub card_defs: std::collections::HashMap<u64, crate::library::types::CardDef>,
+}

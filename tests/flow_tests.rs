@@ -13,7 +13,7 @@ fn test_phase_enforcement_attack_in_defending_should_fail() {
     assert_eq!(init_response.status(), Status::Created);
 
     // Try to play an Attack card (id 0) while in Defending phase -> should be BadRequest
-    let action_json = r#"{ "PlayCard": 0 }"#;
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;
     let response = client
         .post("/action")
         .header(Header {
@@ -31,17 +31,16 @@ fn test_play_defence_moves_card_to_discard() {
     // Initialize combat (Defending)
     client.post("/tests/combat").dispatch();
 
-    // Check initial deck states for defence deck (id 1) via JSON
-    let resp_before = client.get("/tests/decks/1").dispatch();
+    // Check initial Library card state for defence card (id 1)
+    let resp_before = client.get("/library/cards").dispatch();
     assert_eq!(resp_before.status(), Status::Ok);
-    let deck_before_json: serde_json::Value =
+    let cards_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let card_state_map_before = &deck_before_json["cards"][0]["state"];
-    let hand_before = card_state_map_before["Hand"].as_u64().unwrap_or(0) as u32;
-    let discard_before = card_state_map_before["Discard"].as_u64().unwrap_or(0) as u32;
+    let hand_before = cards_before[1]["counts"]["hand"].as_u64().unwrap_or(0) as u32;
+    let discard_before = cards_before[1]["counts"]["discard"].as_u64().unwrap_or(0) as u32;
 
     // Play a defence card (id 1)
-    let action_json = r#"{ "PlayCard": 1 }"#;
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 1 }"#;
     let response = client
         .post("/action")
         .header(Header {
@@ -52,14 +51,13 @@ fn test_play_defence_moves_card_to_discard() {
         .dispatch();
     assert_eq!(response.status(), Status::Created);
 
-    // Check deck states after play via JSON
-    let resp_after = client.get("/tests/decks/1").dispatch();
+    // Check Library card state after play
+    let resp_after = client.get("/library/cards").dispatch();
     assert_eq!(resp_after.status(), Status::Ok);
-    let deck_after_json: serde_json::Value =
+    let cards_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-    let card_state_map_after = &deck_after_json["cards"][0]["state"];
-    let hand_after = card_state_map_after["Hand"].as_u64().unwrap_or(0) as u32;
-    let discard_after = card_state_map_after["Discard"].as_u64().unwrap_or(0) as u32;
+    let hand_after = cards_after[1]["counts"]["hand"].as_u64().unwrap_or(0) as u32;
+    let discard_after = cards_after[1]["counts"]["discard"].as_u64().unwrap_or(0) as u32;
 
     assert_eq!(hand_after, hand_before.saturating_sub(1));
     assert_eq!(discard_after, discard_before + 1);
@@ -210,7 +208,7 @@ fn test_dodge_consumed_by_enemy_attack() {
     client.post("/tests/combat").dispatch();
 
     // Player plays defence card (id 1) -> adds dodge to player tokens
-    let action_json = r#"{ "PlayCard": 1 }"#;
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 1 }"#;
     let resp = client
         .post("/action")
         .header(Header {
@@ -260,51 +258,12 @@ fn test_dodge_consumed_by_enemy_attack() {
 fn test_player_kills_enemy_and_combat_ends() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
-    // Create a heavy attack card that deals 20 damage
-    let card_json = r#"{
-        "card_type_id": 1,
-        "card_type": "Attack",
-        "effects": [{ "token_type": "Health", "permanence": "Instant", "count": 20 }],
-        "costs": [],
-        "count": 1
-    }"#;
-    let resp = client
-        .post("/tests/cards")
-        .header(Header {
-            name: Uncased::from("Content-Type"),
-            value: Cow::from("application/json"),
-        })
-        .body(card_json)
-        .dispatch();
-    assert_eq!(resp.status(), Status::Created);
-    let location = resp
-        .headers()
-        .get_one("location")
-        .expect("location header")
-        .to_string();
-    let card_id: usize = location
-        .trim_start_matches("/cards/")
-        .parse()
-        .expect("Invalid card id");
-
-    // Add the card to player's attack deck (deck 0) in Hand so it can be played immediately
-    let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 1 }} }}"#, card_id);
-    let resp = client
-        .post("/tests/decks/0/cards")
-        .header(Header {
-            name: Uncased::from("Content-Type"),
-            value: Cow::from("application/json"),
-        })
-        .body(deck_card_json)
-        .dispatch();
-    assert_eq!(resp.status(), Status::Created);
-
     // Initialize combat and advance to Attacking
     client.post("/tests/combat").dispatch();
     client.post("/combat/advance").dispatch(); // Defending -> Attacking
 
-    // Play the heavy attack card
-    let action_json = format!(r#"{{ "PlayCard": {} }}"#, card_id);
+    // Play the attack card (Library id 0, deals 20 damage via player_data effects, gnome has 20 HP)
+    let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;
     let resp = client
         .post("/action")
         .header(Header {

@@ -3,7 +3,7 @@ roadmap.md
 
 Overview
 --------
-This roadmap turns the high-level ideas in docks/vision.md into a sequence of concrete, incremental, and playable features that faithfully implement the vision principles. Every step emphasizes the vision constraints: "Everything is a deck or a token", a single initial RNG seed for full reproducibility, a canonical Library that owns card definitions, and explicit token lifecycle and actions logging. Each milestone produces a minimal playable loop (API or CLI) so the project can be iteratively tested, balanced, and extended.
+This roadmap turns the high-level ideas in docs/vision.md into a sequence of concrete, incremental, and playable features that faithfully implement the vision principles. Every step emphasizes the vision constraints: "Everything is a deck or a token", a single initial RNG seed for full reproducibility, a canonical Library that owns card definitions, and explicit token lifecycle and actions logging. Each milestone produces a minimal playable loop (API or CLI) so the project can be iteratively tested, balanced, and extended.
 
 Alignment requirements (inherited from vision.md)
 ------------------------------------------------
@@ -12,6 +12,7 @@ Alignment requirements (inherited from vision.md)
 - Canonical Library semantics: The Library is the authoritative catalog of card definitions. Crafted card copies are created in the Library and never directly injected into player decks; players add Library cards into decks via deck-management flows subject to deck-type constraints.
 - Token lifecycle & actions log: Tokens must declare lifecycle semantics and every grant/consume/expire/transfer must be recorded in the actions log so runs are auditable and reproducible.
 - Single mutator endpoint: All state mutations must be performed via a single POST /action endpoint (the "action" endpoint) which accepts structured action payloads and appends atomically to the ActionLog; other endpoints are read-only.
+- All gameplay state mutations must be performed via POST /action. Testing and debugging endpoints under /tests/* are exceptions and should be documented as temporary testing utilities.
 
 Roadmap steps
 --------------
@@ -32,12 +33,16 @@ Roadmap steps
    - Description: Implement an append-only, chronologically ordered ActionLog that records action metadata, RNG draws, and lifecycle events; expose GET /actions/log and an internal append API for server components to write atomic entries. Ensure log entries contain sufficient metadata to reconstruct game state when combined with the initial seed.
    - Playable acceptance: API returns chronologically ordered action entries and a replay test reconstructs state from seed + action log.
    - Notes: Make the ActionLog the canonical audit trail; ensure deterministic operations write to the log atomically and include lifecycle metadata (reason, resulting state). Designers may choose whether expired tokens are archived (kept in history) or removed; the ActionLog must record which behaviour is selected for each token type.
+    - The append-only ActionLog is the authoritative audit trail for all state changes. Every card movement between zones (Hand, Deck, Discard, Deleted), every token grant/consume/expire, and every random draw are recorded with metadata (reason, amount, timestamp, resulting state) so the game state can be reconstructed from seed + action sequence for validation, testing, and replay.
 
 4) Implement canonical token list and lifecycle enforcement
    - Goal: Add the canonical token definitions (Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, etc.) and lifecycle classes from vision.md and ensure the ActionLog records lifecycle events.
    - Description: Implement token types, caps/decay rules, and lifecycle metadata. Ensure actions API records token events with reason, amount, and resulting state.
    - Playable acceptance: Tests assert lifecycle transitions (grant, consume, expire) for at least three token types and actions log entries are produced.
    - Notes: Keep the canonical token list authoritative and extensible via the library crate.
+    - Current token registry (scope of Step 4): Health, Dodge, Stamina (basic survival tokens used in current combat).
+    - Future token registry (Step 4 onwards): Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Purity, and discipline-specific tokens.
+    - Each token type must declare its lifecycle (Permanent, PersistentCounter, FixedDuration, etc.) in the canonical registry.
 
 5) Add Area Decks with encounter removal + replacement and scouting hooks
    - Goal: Introduce AreaDecks that contain encounter cards and support the vision's replace-on-resolve behavior: resolved encounter cards are removed and replaced by freshly generated encounters with affixes; scouting biases replacement generation.
@@ -46,16 +51,35 @@ Roadmap steps
    - Notes: Start with small affix sets and deterministic replacement rules.
 
 6) Refactor combat into the library core (deterministic, logged)
+
+   - Note: CombatAction is a simple card-play struct { is_player, card_index } and CombatSnapshot replaces CombatState in the library-centric design.
+
    - Goal: Move combat resolution, deterministic start-of-turn draws, turn order, actions, and enemy scripts into the shared library, using the seeded RNG and writing a deterministic actions log.
    - Description: Define CombatState, CombatAction, enemy scripts, and resolve_tick/resolve_turn methods that produce an explicit, replayable combat log. Ensure start-of-turn mechanics (draws, tempo, and turn order) are deterministic and driven by the session RNG. Integrate combat events into the ActionLog so every state change is auditable.
    - Playable acceptance: POST /combat/simulate accepts a CombatState and seed and returns a deterministic combat log that reproduces when replayed.
    - Notes: Keep combat pure-data where possible and surface minimal side-effecting entry points that only write to the action log.
 
 7) Add the simple encounter play loop (pick -> fight -> replace -> scouting)
-   - Goal: Wire AreaDecks and the combat engine to support a single-playable encounter loop exposing start/step/finish endpoints and including the replacement and scouting lifecycle.
+   - Goal: Support a single-playable encounter loop as described in the vision: pick an encounter, resolve it, perform the post-encounter scouting step, and repeat. 
    - Description: Implement /encounter/start, /encounter/step, /encounter/finish flows that use in-memory session state for now and write all events (including replacement and scouting decisions) to the ActionLog.
+        - Remember that the action endpoint is the only endpoint allowed to change state. When the player plays an action (examples: pick an encounter, play a card, etc.), the game evaluates whether that changes any state (for example: move the combat one phase forward, conclude the combat, and go to the post-encounter scouting step, etc.). 
    - Playable acceptance: API user can draw an encounter, resolve combat to conclusion, perform a scouting post-resolution step that biases replacement, and the area deck updates accordingly.
    - Notes: Ensure session can be replayed from seed + action log.
+    - - Scouting parameters (preview count, affix bias, pool modifier) are internal mechanics that influence encounter-generation deterministically during the scouting post-encounter step. They are not user-facing API endpoints but are controlled by the player's scouting action choices and token expenditures (Foresight, etc.).
+
+7.5) Unify combat systems and remove old deck types
+   - Goal: Unify the two combat implementations (src/combat/ old HTTP-driven Combat/Unit/States and library::combat deterministic CombatSnapshot/CombatAction) so a single authoritative combat system resolves card effects and token lifecycles.
+   - Description: Migrate resolve_card_effects to read from the Library and player state consistently, replace CombatState with CombatSnapshot, and adopt CombatAction as a simple struct { is_player, card_index }. After unification, remove legacy Deck, DeckCard, CardState from src/deck/ and player_data.cards, and migrate or remove test endpoints that rely on legacy deck CRUD.
+   - Playable acceptance: A single combat API backed by library::combat produces deterministic CombatSnapshots, reconciles card definitions and locations with the Library, and provides a clear migration path for removing legacy deck types.
+   - Minimal playable loop: After this step introduce a very simple game loop: pick an encounter, play cards until one side has lost all HP, run a quick scouting phase (Just add the current finished encounter card back into the encounter "deck": Change the library counters -1 on discard +1 on deck (Later we will expand on this setup)), then prepare to pick another encounter.
+
+7.6) Flesh out combat and draw mechanics
+   - Goal: Implement basic resource-card draw mechanics and encounter handsize rules to make pacing simple and deterministic.
+   - Description: Resource cards are the only way to draw additional cards into hands: playing a resource card triggers draws onto one or more hands and is the primary way players gain cards to their hand. Enemies follow the same principle: certain enemy cards act as resource/draw cards that cause draws for their hands.
+   - Encounter handsize & Foresight: The encounter handsize is controlled by the Foresight token (default starting value: 3). When an encounter is chosen it is moved to the discard pile and when the encounter is over cards are drawn until the "area deck" hand reaches the Foresight number of cards (this behavior applies to area/encounter hand management).
+   - Enemy play behavior: On each enemy turn the enemy plays a random card from its hand for each of its three decks; playing may trigger draws as described, so enemies will sometimes draw new cards.
+   - Deck composition: Ensure starting decks for both players and enemies contain approximately 50% draw/resource cards so games have steady card-flow and pacing.
+   - Playable acceptance: A minimal loop exists (pick -> fight -> scouting -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
 
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
    - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
@@ -80,6 +104,7 @@ Roadmap steps
    - Description: Implement ScoutChoice objects and a deterministic application that updates replacement parameters for the specific area deck. Record scouting decisions and effects in the ActionLog.
    - Playable acceptance: After an encounter, API returns scouting choices; making a choice updates the replacement-generation seed/parameters and is reflected in the next replacement card deterministically.
    - Notes: Keep initial choices small and data-driven (e.g., +1 Foresight, increase affix-pool size).
+    - Up to this point then all encounters just added the same encounter back into the area deck: no changes. 
 
 12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
    - Goal: Model merchants as decks (MerchantOffers, Barter) and deterministic merchant interactions that mirror vision.md's barter mechanics.
@@ -126,10 +151,11 @@ Roadmap steps
 
 Implementation guidelines and priorities
 --------------------------------------
-- Validate alignment with docks/vision.md for every milestone; require one explicit mapping note in PRs describing which lines in vision.md the work satisfies.
+- Validate alignment with docs/vision.md for every milestone; require one explicit mapping note in PRs describing which lines in vision.md the work satisfies.
 - Keep core logic pure and testable; make side effects pluggable and thin wrappers to the ActionLog.
 - Prioritize deterministic behavior and reproducibility from the start.
 - Prefer data-driven content formats (deck files, affix tables) so designers can author content without code changes.
+- Try to migrate tests away from test endpoints and use only public endpoints. Only use test endpoints temporarily if it is not possible to run the test without them; the expectation is that a later point in the roadmap will make any test endpoint redundant. 
 
 How to use this roadmap
 -----------------------

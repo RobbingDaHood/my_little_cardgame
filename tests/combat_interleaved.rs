@@ -9,52 +9,16 @@ use std::borrow::Cow;
 fn interleaved_player_and_enemy_actions() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
-    // Create a Defence card that grants a Dodge token so it can be played in Defending phase
-    let card_json = r#"{
-        "card_type_id": 1,
-        "card_type": "Defence",
-        "effects": [{"token_type":"Dodge","permanence":"UsedOnUnit","count":1}],
-        "costs": [],
-        "count": 1
-    }"#;
-
-    let response = client
-        .post("/tests/cards")
-        .header(Header {
-            name: Uncased::from("Content-Type"),
-            value: Cow::from("application/json"),
-        })
-        .body(card_json)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-    let card_location = response
-        .headers()
-        .get_one("location")
-        .expect("Missing location header");
-    let card_id: usize = card_location
-        .trim_start_matches("/cards/")
-        .parse()
-        .expect("Invalid card ID");
-
-    // Add the card to the default defence deck with several Hand copies so repeated plays succeed
-    let deck_card_json = format!(r#"{{ "id": {}, "state": {{ "Hand": 20 }} }}"#, card_id);
-    let add_response = client
-        .post("/tests/decks/1/cards")
-        .header(Header {
-            name: Uncased::from("Content-Type"),
-            value: Cow::from("application/json"),
-        })
-        .body(deck_card_json)
-        .dispatch();
-    assert_eq!(add_response.status(), Status::Created);
-
     // Initialize combat (starts in Defending)
     let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
+    // Use existing Defence card (Library ID 1, starts with 5 hand copies)
+    let card_id = 1;
+
     // Interleave plays and enemy plays sequentially to exercise locking
-    for _ in 0..50 {
-        let action_json = format!(r#"{{ "PlayCard": {} }}"#, card_id);
+    for _ in 0..5 {
+        let action_json = format!(r#"{{ "action_type": "PlayCard", "card_id": {} }}"#, card_id);
         let play_response = client
             .post("/action")
             .header(Header {

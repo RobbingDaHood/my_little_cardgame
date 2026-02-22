@@ -14,13 +14,6 @@ pub struct AreaDeckResponse {
     pub area_deck: AreaDeck,
 }
 
-/// Response wrapper for encounter list
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct EncountersResponse {
-    pub encounters: Vec<crate::area_deck::Encounter>,
-}
-
 /// Get the current area deck (player's current location)
 #[openapi]
 #[get("/area")]
@@ -34,17 +27,15 @@ pub async fn get_area(
     }
 }
 
-/// List all encounters in the current area deck
+/// List encounter card IDs in the current area deck
 #[openapi]
 #[get("/area/encounters")]
 pub async fn get_area_encounters(
     player_data: &State<PlayerData>,
-) -> Result<Json<EncountersResponse>, NotFound<Json<Status>>> {
+) -> Result<Json<Vec<usize>>, NotFound<Json<Status>>> {
     let area_deck = player_data.current_area_deck.lock().await;
-    match area_deck.clone() {
-        Some(deck) => Ok(Json(EncountersResponse {
-            encounters: deck.encounters,
-        })),
+    match area_deck.as_ref() {
+        Some(deck) => Ok(Json(deck.encounter_card_ids.clone())),
         None => Err(NotFound(new_status("No current area set".to_string()))),
     }
 }

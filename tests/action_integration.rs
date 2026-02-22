@@ -7,7 +7,7 @@ use serde_json::json;
 fn grant_token_via_action() {
     let client =
         Client::tracked(my_little_cardgame::rocket_initialize()).expect("valid rocket instance");
-    let body = json!({"GrantToken": {"token_id":"Insight","amount":10}}).to_string();
+    let body = json!({"action_type": "GrantToken", "token_id":"Insight","amount":10}).to_string();
     let response = client
         .post("/action")
         .header(ContentType::JSON)
@@ -42,7 +42,7 @@ fn grant_token_via_action() {
 fn set_seed_via_action_records_log() {
     let client =
         Client::tracked(my_little_cardgame::rocket_initialize()).expect("valid rocket instance");
-    let body = json!({"SetSeed": {"seed": 42u64}}).to_string();
+    let body = json!({"action_type": "SetSeed", "seed": 42u64}).to_string();
     let response = client
         .post("/action")
         .header(ContentType::JSON)

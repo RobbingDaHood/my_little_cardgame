@@ -14,12 +14,86 @@ use std::sync::atomic::Ordering;
 pub mod types {
     use rocket::serde::{Deserialize, Serialize};
     use rocket_okapi::JsonSchema;
+    use std::collections::HashMap;
     /// Canonical card definition (minimal)
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CardDef {
         pub id: u64,
         pub card_type: String,
+        pub effects: Vec<CardEffect>,
+    }
+
+    /// A single effect a card applies when played.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CardEffect {
+        pub target: EffectTarget,
+        pub token_id: String,
+        pub amount: i64,
+    }
+
+    /// Who a card effect targets.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[serde(crate = "rocket::serde")]
+    pub enum EffectTarget {
+        OnSelf,
+        OnOpponent,
+    }
+
+    // ====== Library types (card location model from vision.md) ======
+
+    /// Exclusive copy counts describing where player copies reside.
+    /// [library, deck, hand, discard] — each copy exists in exactly one location.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CardCounts {
+        pub library: u32,
+        pub deck: u32,
+        pub hand: u32,
+        pub discard: u32,
+    }
+
+    impl CardCounts {
+        pub fn total(&self) -> u32 {
+            self.library + self.deck + self.hand + self.discard
+        }
+    }
+
+    /// The kind of card and its type-specific payload.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "kind")]
+    pub enum CardKind {
+        Attack { effects: Vec<CardEffect> },
+        Defence { effects: Vec<CardEffect> },
+        Resource { effects: Vec<CardEffect> },
+        CombatEncounter { combatant_def: CombatantDef },
+    }
+
+    /// Definition of an enemy combatant for a combat encounter card.
+    /// Enemies are self-contained: their cards are inline, not Library references.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatantDef {
+        pub initial_tokens: HashMap<String, i64>,
+        pub attack_deck: Vec<EnemyCardDef>,
+        pub defence_deck: Vec<EnemyCardDef>,
+        pub resource_deck: Vec<EnemyCardDef>,
+    }
+
+    /// A simple inline card definition for enemy decks.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct EnemyCardDef {
+        pub effects: Vec<CardEffect>,
+    }
+
+    /// A single entry in the Library. Index in the Vec = card ID.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct LibraryCard {
+        pub kind: CardKind,
+        pub counts: CardCounts,
     }
 
     /// Token type metadata and lifecycle
@@ -36,11 +110,18 @@ pub mod types {
     pub enum TokenLifecycle {
         Permanent,
         PersistentCounter,
-        FixedDuration(u64),
-        FixedTypeDuration(u64),
+        FixedDuration {
+            duration: u64,
+        },
+        FixedTypeDuration {
+            duration: u64,
+            phases: Vec<EncounterPhase>,
+        },
         UntilNextAction,
         SingleUse,
         Conditional,
+        /// Token reverts to zero when the current encounter ends.
+        ScopedToEncounter,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -130,6 +211,262 @@ pub mod types {
         pub request_id: Option<String>,
         pub version: Option<u32>,
     }
+
+    // ====== Combat types for deterministic, logged combat resolution (Step 6) ======
+
+    /// Represents a combatant (player or enemy) in combat.
+    /// Pure-data representation of combat state.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct Combatant {
+        pub active_tokens: HashMap<String, i64>,
+    }
+
+    /// A combat action is a card play by a combatant.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatAction {
+        pub is_player: bool,
+        pub card_id: u64,
+    }
+
+    /// Snapshot of combat state for deterministic simulation. Pure data.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatSnapshot {
+        pub round: u64,
+        pub player_turn: bool,
+        pub player_tokens: HashMap<String, i64>,
+        pub enemy: Combatant,
+        pub is_finished: bool,
+        pub winner: Option<String>,
+    }
+
+    // ====== Encounter types for the encounter loop (Step 7) ======
+
+    /// Represents the state of a single encounter session.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct EncounterState {
+        pub phase: EncounterPhase,
+    }
+
+    /// Phases of an encounter (Step 7 state machine)
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[serde(crate = "rocket::serde")]
+    pub enum EncounterPhase {
+        /// Encounter has been drawn; player can start combat
+        Ready,
+        /// Combat is currently active
+        InCombat,
+        /// Combat has finished; scouting is available
+        Scouting,
+        /// No active encounter
+        NoEncounter,
+    }
+
+    /// User actions during an encounter (Step 7)
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "action_type")]
+    pub enum EncounterAction {
+        /// Pick an encounter from the area deck and initialize combat
+        PickEncounter { card_id: String },
+        /// Play a card during combat
+        PlayCard { card_id: u64 },
+        /// Make a scouting choice post-encounter using card_ids
+        ApplyScouting { card_ids: Vec<String> },
+        /// System-driven: finish/conclude the encounter (not a player action)
+        FinishEncounter,
+    }
+}
+
+pub mod combat {
+    //! Deterministic, pure-data combat resolution (Step 6)
+    //!
+    //! This module provides pure functions for resolving combat deterministically
+    //! using seeded RNG. Current combat scope is minimal: attack cards reduce
+    //! opponent HP via token manipulation. Features like dodge, stamina, and
+    //! advanced mechanics are deferred to later roadmap steps.
+
+    use super::types::{CardDef, CombatAction, CombatSnapshot, EffectTarget};
+    use rand::RngCore;
+    use rand_pcg::Lcg64Xsh32;
+    use std::collections::HashMap;
+
+    /// Resolve a single combat action (card play) deterministically.
+    ///
+    /// Looks up the card definition, applies its effects as token operations,
+    /// checks victory/defeat, and advances the turn.
+    /// Returns an error if the card_id is unknown.
+    pub fn resolve_combat_tick(
+        current_state: &CombatSnapshot,
+        action: &CombatAction,
+        card_defs: &HashMap<u64, CardDef>,
+        rng: &mut Lcg64Xsh32,
+    ) -> Result<(CombatSnapshot, Vec<u64>), String> {
+        let card = card_defs
+            .get(&action.card_id)
+            .ok_or_else(|| format!("Unknown card_id: {}", action.card_id))?;
+
+        let mut rng_values = Vec::new();
+        let mut state_after = current_state.clone();
+
+        let rng_val = rng.next_u64();
+        rng_values.push(rng_val);
+
+        for effect in &card.effects {
+            let (actor_tokens, target_tokens) = match (&effect.target, action.is_player) {
+                (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => {
+                    // Affect player tokens
+                    (&mut state_after.player_tokens, None)
+                }
+                (EffectTarget::OnOpponent, true) | (EffectTarget::OnSelf, false) => {
+                    // Affect enemy tokens
+                    (
+                        &mut state_after.enemy.active_tokens,
+                        None::<&mut HashMap<String, i64>>,
+                    )
+                }
+            };
+            let _ = target_tokens; // suppress unused warning
+            let entry = actor_tokens.entry(effect.token_id.clone()).or_insert(0);
+            *entry = (*entry + effect.amount).max(0);
+
+            if effect.token_id == "health" && *entry == 0 {
+                state_after.is_finished = true;
+                // Determine winner: if player health hit 0, enemy wins; otherwise player wins
+                let affected_is_player = matches!(
+                    (&effect.target, action.is_player),
+                    (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false)
+                );
+                state_after.winner = Some(if affected_is_player {
+                    "enemy".to_string()
+                } else {
+                    "player".to_string()
+                });
+            }
+        }
+
+        if !state_after.is_finished {
+            state_after.player_turn = !state_after.player_turn;
+        }
+
+        Ok((state_after, rng_values))
+    }
+
+    /// Simulate a full combat encounter from a seed and initial state.
+    ///
+    /// Returns the final combat snapshot. Pure-data; no side effects.
+    pub fn simulate_combat(
+        initial_state: CombatSnapshot,
+        seed: u64,
+        actions: Vec<CombatAction>,
+        card_defs: &HashMap<u64, CardDef>,
+    ) -> CombatSnapshot {
+        use rand::SeedableRng;
+
+        let seed_bytes: [u8; 16] = {
+            let s = seed.to_le_bytes();
+            let mut bytes = [0u8; 16];
+            bytes[0..8].copy_from_slice(&s);
+            bytes[8..16].copy_from_slice(&s);
+            bytes
+        };
+        let mut rng = Lcg64Xsh32::from_seed(seed_bytes);
+
+        let mut current_state = initial_state;
+
+        for action in &actions {
+            match resolve_combat_tick(&current_state, action, card_defs, &mut rng) {
+                Ok((next_state, _rng_vals)) => {
+                    current_state = next_state;
+                    if current_state.is_finished {
+                        break;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+
+        current_state
+    }
+}
+
+pub mod encounter {
+    //! Encounter loop state machine (Step 7)
+    //!
+    //! Pure-data functions that manage encounter state transitions
+    //! based on player actions. Works with EncounterAction and EncounterState.
+
+    use super::types::{EncounterAction, EncounterPhase, EncounterState};
+
+    /// Process an EncounterAction and transition state accordingly.
+    ///
+    /// Returns the new EncounterState after applying the action.
+    /// Returns None if the action is invalid for the current phase.
+    pub fn apply_action(state: &EncounterState, action: EncounterAction) -> Option<EncounterState> {
+        match (&state.phase, action) {
+            // Ready phase: can pick encounter or finish
+            (EncounterPhase::Ready, EncounterAction::PickEncounter { card_id: _ }) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::InCombat;
+                Some(new_state)
+            }
+            (EncounterPhase::Ready, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::NoEncounter;
+                Some(new_state)
+            }
+
+            // InCombat phase: play cards or end encounter
+            (EncounterPhase::InCombat, EncounterAction::PlayCard { .. }) => {
+                let new_state = state.clone();
+                Some(new_state)
+            }
+            (EncounterPhase::InCombat, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::NoEncounter;
+                Some(new_state)
+            }
+
+            // Scouting phase: apply scouting or finish
+            (EncounterPhase::Scouting, EncounterAction::ApplyScouting { card_ids: _ }) => {
+                let new_state = state.clone();
+                // Scouting keeps encounter in Scouting phase until explicitly finished
+                Some(new_state)
+            }
+            (EncounterPhase::Scouting, EncounterAction::FinishEncounter) => {
+                let mut new_state = state.clone();
+                new_state.phase = EncounterPhase::NoEncounter;
+                Some(new_state)
+            }
+
+            // Invalid: all other state/action combinations
+            _ => None,
+        }
+    }
+
+    /// Check if encounter is finished
+    pub fn is_finished(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::NoEncounter
+    }
+
+    /// Check if combat is active
+    pub fn is_in_combat(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::InCombat
+    }
+
+    /// Check if post-encounter scouting is available
+    pub fn can_scout(state: &EncounterState) -> bool {
+        state.phase == EncounterPhase::Scouting
+    }
+
+    /// Derive preview count from Foresight tokens.
+    ///
+    /// Base preview is 1; each Foresight token adds 1 additional preview.
+    pub fn derive_preview_count(foresight_tokens: u64) -> u64 {
+        1 + foresight_tokens
+    }
 }
 
 pub mod registry {
@@ -198,6 +535,27 @@ pub mod registry {
             r.register(TokenType {
                 id: "Durability".into(),
                 lifecycle: PersistentCounter,
+                cap: Some(9999),
+            });
+            // Combat tokens (used by the old combat system via deck::token::TokenType)
+            r.register(TokenType {
+                id: "Health".into(),
+                lifecycle: ScopedToEncounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Dodge".into(),
+                lifecycle: ScopedToEncounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Stamina".into(),
+                lifecycle: ScopedToEncounter,
+                cap: Some(9999),
+            });
+            r.register(TokenType {
+                id: "Mana".into(),
+                lifecycle: ScopedToEncounter,
                 cap: Some(9999),
             });
             r
@@ -386,7 +744,215 @@ pub mod action_log {
 
 use action_log::ActionLog;
 use registry::TokenRegistry;
-use types::{ActionEntry, ActionPayload};
+use types::{ActionEntry, ActionPayload, CardCounts, CardEffect, CardKind, LibraryCard};
+
+/// The Library: canonical collection of all player-owned cards.
+/// Index in the Vec = card ID. Per vision "card location model and counts".
+#[derive(Debug, Clone)]
+pub struct Library {
+    pub cards: Vec<LibraryCard>,
+}
+
+impl Default for Library {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Library {
+    pub fn new() -> Self {
+        Library { cards: Vec::new() }
+    }
+
+    /// Add a card to the library. Returns the card ID (index).
+    pub fn add_card(&mut self, kind: CardKind, counts: CardCounts) -> usize {
+        let id = self.cards.len();
+        self.cards.push(LibraryCard { kind, counts });
+        id
+    }
+
+    /// Get a card by ID (index).
+    pub fn get(&self, card_id: usize) -> Option<&LibraryCard> {
+        self.cards.get(card_id)
+    }
+
+    /// Draw a card: move one copy from deck → hand.
+    pub fn draw(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.deck == 0 {
+            return Err(format!("Card {card_id} has no copies in deck"));
+        }
+        card.counts.deck -= 1;
+        card.counts.hand += 1;
+        Ok(())
+    }
+
+    /// Play/discard a card: move one copy from hand → discard.
+    pub fn play(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.hand == 0 {
+            return Err(format!("Card {card_id} has no copies in hand"));
+        }
+        card.counts.hand -= 1;
+        card.counts.discard += 1;
+        Ok(())
+    }
+
+    /// Return a card from discard → library.
+    pub fn return_to_library(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.discard == 0 {
+            return Err(format!("Card {card_id} has no copies in discard"));
+        }
+        card.counts.discard -= 1;
+        card.counts.library += 1;
+        Ok(())
+    }
+
+    /// Move copies from library → deck (adding cards to your deck).
+    pub fn add_to_deck(&mut self, card_id: usize, count: u32) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.library < count {
+            return Err(format!(
+                "Card {card_id} has only {} copies in library, need {count}",
+                card.counts.library
+            ));
+        }
+        card.counts.library -= count;
+        card.counts.deck += count;
+        Ok(())
+    }
+
+    /// All cards currently on hand.
+    pub fn hand_cards(&self) -> Vec<(usize, &LibraryCard)> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.counts.hand > 0)
+            .collect()
+    }
+
+    /// All cards matching a predicate on CardKind.
+    pub fn cards_matching<F>(&self, predicate: F) -> Vec<(usize, &LibraryCard)>
+    where
+        F: Fn(&CardKind) -> bool,
+    {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| predicate(&c.kind))
+            .collect()
+    }
+}
+
+/// Build the initial Library with starter cards.
+fn initialize_library() -> Library {
+    let mut lib = Library::new();
+
+    // Attack card (id 0): deals 5 damage to opponent
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![CardEffect {
+                target: types::EffectTarget::OnOpponent,
+                token_id: "health".to_string(),
+                amount: -5,
+            }],
+        },
+        CardCounts {
+            library: 0,
+            deck: 35,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Defence card (id 1): grants 3 shield to self
+    lib.add_card(
+        CardKind::Defence {
+            effects: vec![CardEffect {
+                target: types::EffectTarget::OnSelf,
+                token_id: "shield".to_string(),
+                amount: 3,
+            }],
+        },
+        CardCounts {
+            library: 0,
+            deck: 35,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Resource card (id 2): grants 2 stamina to self
+    lib.add_card(
+        CardKind::Resource {
+            effects: vec![CardEffect {
+                target: types::EffectTarget::OnSelf,
+                token_id: "stamina".to_string(),
+                amount: 2,
+            }],
+        },
+        CardCounts {
+            library: 0,
+            deck: 35,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Combat encounter: Gnome (id 3)
+    lib.add_card(
+        CardKind::CombatEncounter {
+            combatant_def: types::CombatantDef {
+                initial_tokens: HashMap::from([
+                    ("health".to_string(), 20),
+                    ("max_health".to_string(), 20),
+                ]),
+                attack_deck: vec![types::EnemyCardDef {
+                    effects: vec![CardEffect {
+                        target: types::EffectTarget::OnOpponent,
+                        token_id: "health".to_string(),
+                        amount: -3,
+                    }],
+                }],
+                defence_deck: vec![types::EnemyCardDef {
+                    effects: vec![CardEffect {
+                        target: types::EffectTarget::OnSelf,
+                        token_id: "shield".to_string(),
+                        amount: 2,
+                    }],
+                }],
+                resource_deck: vec![types::EnemyCardDef {
+                    effects: vec![CardEffect {
+                        target: types::EffectTarget::OnSelf,
+                        token_id: "stamina".to_string(),
+                        amount: 1,
+                    }],
+                }],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    lib
+}
 
 /// Minimal in-memory game state driven by the library's mutator API.
 #[derive(Debug, Clone)]
@@ -394,6 +960,7 @@ pub struct GameState {
     pub registry: TokenRegistry,
     pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<String, i64>,
+    pub library: Library,
 }
 
 impl GameState {
@@ -424,6 +991,7 @@ impl GameState {
             registry,
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
+            library: initialize_library(),
         }
     }
 
@@ -513,6 +1081,7 @@ impl GameState {
                 registry,
                 action_log: std::sync::Arc::new(ActionLog::new()),
                 token_balances: balances,
+                library: initialize_library(),
             }
         };
         for e in log.entries() {
@@ -578,26 +1147,24 @@ pub async fn list_library_tokens() -> Json<Vec<String>> {
     Json(reg.tokens.keys().cloned().collect())
 }
 
-/// Minimal "library" view exposing canonical card entries derived from current player_data.
+/// Library cards endpoint: returns all cards from the canonical Library.
 #[openapi]
 #[get("/library/cards")]
 pub async fn list_library_cards(
-    player_data: &rocket::State<crate::player_data::PlayerData>,
-) -> Json<Vec<types::CardDef>> {
-    let cards = player_data.cards.lock().await.clone();
-    let items: Vec<types::CardDef> = cards
-        .into_iter()
-        .map(|c| {
-            let ct = match c.card_type {
-                crate::deck::card::CardType::Attack => "Attack".to_string(),
-                crate::deck::card::CardType::Defence => "Defence".to_string(),
-                crate::deck::card::CardType::Resource => "Resource".to_string(),
-            };
-            types::CardDef {
-                id: c.id as u64,
-                card_type: ct,
-            }
-        })
-        .collect();
-    Json(items)
+    game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
+) -> Json<Vec<types::LibraryCard>> {
+    let gs = game_state.lock().await;
+    Json(gs.library.cards.clone())
+}
+
+/// Test endpoint: add a card to the Library with specified kind and counts.
+#[openapi]
+#[post("/tests/library/cards", data = "<card>")]
+pub async fn add_test_library_card(
+    card: Json<types::LibraryCard>,
+    game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
+) -> rocket::response::status::Created<String> {
+    let mut gs = game_state.lock().await;
+    let id = gs.library.add_card(card.0.kind, card.0.counts);
+    rocket::response::status::Created::new(format!("/library/cards/{}", id))
 }
