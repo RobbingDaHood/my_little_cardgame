@@ -7,12 +7,7 @@ use rocket::serde::json::Json;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 
-pub use crate::deck::card::Card;
-use crate::deck::card::CardType;
 use crate::status_messages::{new_status, Status};
-
-pub mod card;
-pub mod token;
 
 /// `CardState` represents the cards state in a deck.
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash, Copy)]
@@ -33,7 +28,6 @@ pub enum CardState {
 pub struct Deck {
     pub cards: Vec<DeckCard>,
     pub id: usize,
-    pub contains_card_types: Vec<CardType>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
@@ -41,12 +35,6 @@ pub struct Deck {
 pub struct DeckCard {
     pub(crate) id: usize,
     pub(crate) state: HashMap<CardState, u32>,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct CreateDeck {
-    pub contains_card_types: Vec<CardType>,
 }
 
 impl Deck {
@@ -150,7 +138,6 @@ mod tests {
         let mut deck = Deck {
             cards: vec![],
             id: 42,
-            contains_card_types: vec![],
         };
         assert!(deck
             .change_card_state(99, CardState::Hand, CardState::Deck)
@@ -165,7 +152,6 @@ mod tests {
                 state: HashMap::from([(CardState::Deck, 1)]),
             }],
             id: 1,
-            contains_card_types: vec![],
         };
         assert!(deck
             .change_card_state(1, CardState::Hand, CardState::Discard)
@@ -180,7 +166,6 @@ mod tests {
                 state: HashMap::from([(CardState::Deck, 1)]),
             }],
             id: 3,
-            contains_card_types: vec![],
         };
         let mut rng = Lcg64Xsh32::from_seed([0u8; 16]);
         // old_state Discard does not exist, so change_card_state should return Err and propagate
@@ -203,7 +188,6 @@ mod tests {
                 },
             ],
             id: 4,
-            contains_card_types: vec![],
         };
         let mut rng = Lcg64Xsh32::from_seed([1u8; 16]);
         let _ = deck.draw_cards(1, &mut rng);
@@ -219,7 +203,6 @@ mod tests {
         let mut deck = Deck {
             cards: vec![],
             id: 99,
-            contains_card_types: vec![],
         };
         let mut rng = Lcg64Xsh32::from_seed([0u8; 16]);
         assert!(deck
@@ -235,7 +218,6 @@ mod tests {
                 state: HashMap::from([(CardState::Hand, 0u32), (CardState::Deck, 1u32)]),
             }],
             id: 7,
-            contains_card_types: vec![],
         };
         assert!(deck
             .change_card_state(5, CardState::Discard, CardState::Hand)
@@ -259,12 +241,10 @@ mod tests {
             Deck {
                 cards: vec![],
                 id: 0,
-                contains_card_types: vec![],
             },
             Deck {
                 cards: vec![],
                 id: 2,
-                contains_card_types: vec![],
             },
         ];
         let unused = decks
