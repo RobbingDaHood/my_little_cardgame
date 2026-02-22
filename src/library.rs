@@ -120,8 +120,6 @@ pub mod types {
         UntilNextAction,
         SingleUse,
         Conditional,
-        /// Token reverts to zero when the current encounter ends.
-        ScopedToEncounter,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -537,25 +535,29 @@ pub mod registry {
                 lifecycle: PersistentCounter,
                 cap: Some(9999),
             });
-            // Combat tokens (used by the old combat system via deck::token::TokenType)
+            // Combat tokens — expire when the encounter reaches Scouting phase
+            let combat_lifecycle = FixedTypeDuration {
+                duration: 1,
+                phases: vec![super::types::EncounterPhase::Scouting],
+            };
             r.register(TokenType {
                 id: "Health".into(),
-                lifecycle: ScopedToEncounter,
+                lifecycle: combat_lifecycle.clone(),
                 cap: Some(9999),
             });
             r.register(TokenType {
                 id: "Dodge".into(),
-                lifecycle: ScopedToEncounter,
+                lifecycle: combat_lifecycle.clone(),
                 cap: Some(9999),
             });
             r.register(TokenType {
                 id: "Stamina".into(),
-                lifecycle: ScopedToEncounter,
+                lifecycle: combat_lifecycle.clone(),
                 cap: Some(9999),
             });
             r.register(TokenType {
                 id: "Mana".into(),
-                lifecycle: ScopedToEncounter,
+                lifecycle: combat_lifecycle,
                 cap: Some(9999),
             });
             r
