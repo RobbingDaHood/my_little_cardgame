@@ -918,7 +918,7 @@ impl Library {
 fn initialize_library() -> Library {
     let mut lib = Library::new();
 
-    // Attack card (id 0): deals 5 damage to opponent
+    // Attack card (id 0): deals 5 damage to opponent (~25% of starting deck)
     lib.add_card(
         CardKind::Attack {
             effects: vec![CardEffect {
@@ -929,13 +929,13 @@ fn initialize_library() -> Library {
         },
         CardCounts {
             library: 0,
-            deck: 35,
+            deck: 15,
             hand: 5,
             discard: 0,
         },
     );
 
-    // Defence card (id 1): grants 3 shield to self
+    // Defence card (id 1): grants 3 shield to self (~25% of starting deck)
     lib.add_card(
         CardKind::Defence {
             effects: vec![CardEffect {
@@ -946,13 +946,13 @@ fn initialize_library() -> Library {
         },
         CardCounts {
             library: 0,
-            deck: 35,
+            deck: 15,
             hand: 5,
             discard: 0,
         },
     );
 
-    // Resource card (id 2): grants 2 stamina to self, draws 1 card
+    // Resource card (id 2): grants 2 stamina to self, draws 1 card (~50% of starting deck)
     lib.add_card(
         CardKind::Resource {
             effects: vec![CardEffect {

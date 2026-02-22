@@ -29,12 +29,14 @@ fn hello_world() {
     let library_cards = get_library_cards(&client);
     assert_eq!(4, library_cards.len());
 
-    // Verify card counts: each player card has deck:35, hand:5
-    for card in &library_cards[0..3] {
-        assert_eq!(card.counts.deck, 35);
+    // Verify card counts: attack/defence have deck:15 hand:5, resource has deck:35 hand:5
+    for card in &library_cards[0..2] {
+        assert_eq!(card.counts.deck, 15);
         assert_eq!(card.counts.hand, 5);
         assert_eq!(card.counts.discard, 0);
     }
+    assert_eq!(library_cards[2].counts.deck, 35);
+    assert_eq!(library_cards[2].counts.hand, 5);
 
     // Verify card kinds
     assert_eq!(library_cards[0].kind["kind"], "Attack");
