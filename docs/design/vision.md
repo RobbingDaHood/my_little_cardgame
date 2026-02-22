@@ -1,5 +1,7 @@
 # Vision: My Little Cardgame
 
+Note: updated per suggestions-vision-roadmap.md. This file was updated to reflect code-level refactors (CardDef effects, Library implementation notes, and combat/library changes).
+
 This document describes the high-level gameplay vision for the project, with a focus on core mechanics and the role of decks and tokens.
 
 ## High-level principles
@@ -18,6 +20,9 @@ Deck types (examples):
 - Recipe deck: Recipes that can be drawn/selected to craft items
 - Area deck: Represents the players current location. There is one deck with encounters. 
 - Library: a canonical collection of all cards accessible via the library endpoint; any card present in the library can be added to a deck provided the deck is of the appropriate type (deck-type constraints apply)
+
+  - CardDef and Library implementation notes: Card definitions declare declarative CardEffect entries (target: self|opponent, token_id, amount) that are resolved when the card is played. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; CardKind (enum) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, CombatEncounter{combatant_def}). Enemy card definitions used in CombatEncounter cards are embedded inline within CombatEncounter definitions rather than as separate Library references.
+
 
 The Player's decks (Attack, Defence, Resource etc.) are fixed and initialized at game start. Only the Library manages the canonical card definitions and the internal deck representation. The API does not expose deck-creation or deck-deletion endpoints; player deck composition is managed only through adding Library cards to decks via the deck-management flow.
 
@@ -39,6 +44,11 @@ Combat is modelled as a deterministic, turn-based exchange between decks:
 5. Resolution: Cards moved to Discard or Deleted. Repeat until enemy defeated or player retreats/defeated.
 
 Combat is fully reproducible by recording the game's single initial seed used to initialize the RNG and any deterministic choices.
+
+  - Encounter phases: use the EncounterPhase enum with values NoEncounter, Ready, InCombat, Scouting to name and track encounter phases consistently.
+
+  - HP as tokens: Hit points are modelled as tokens (e.g., health and max_health in active_tokens) rather than dedicated fields, following the 'everything is a token' principle.
+
 
 ## Areas as decks (future vision)
 
@@ -132,7 +142,8 @@ Tokens explicitly declare their lifecycle semantics so designers, clients, and t
 - Permanent: tokens that persist until explicitly spent or consumed (examples: Key tokens, Library card counts).
 - Persistent counters: numeric tokens that persist across sessions but are subject to caps, decay, or refresh rules (examples: Renown, Insight).
 - Fixed-duration (X encounters): tokens that expire after N encounters of any type (useful for short buffs or timed boosts).
-- Fixed-type-duration (X encounters of a specific type): tokens that expire after N encounters of a specified type (for example, 3 Craft encounters).
+- Fixed-type-duration (X encounters of a specific type): tokens that expire after N encounters of a specified type (for example, 3 Craft encounters). Implementation note: FixedTypeDuration lifecycles are phase-aware and track which EncounterPhase values they count down during (phases: Vec<EncounterPhase>).
+
 - Until-next-action: tokens that persist until the next player action of a specified type occurs (for example, "until next Research completion").
 - Single-use / one-shot: consumed on first applicable use and then removed.
 - Conditional: persist until a condition is met (for example Durability hitting 0, Corruption crossing a threshold, or a specific external event).
@@ -153,7 +164,8 @@ Discipline → primary tokens/materials produced (summary)
 - Provisioning: consumes Herbs/Reagents to produce Reagent/Tincture tokens and consumable card definitions.
 - Provisioning: consumes Ingredients; produces Ration tokens, consumables, or buff cards.
 - Research / Learning: generates Insight, CurrentResearch, and occasionally Variant-Choice / Affix-Picks via milestone rewards; produces new recipes/variants.
-- Scouting / Recon (system): generates Foresight and other reconnaissance benefits, biases area draws, and can affect resource yields; scouting is a post-resolution/area-update subsystem applied as part of an encounter's lifecycle rather than a standalone encounter type.
+- Scouting / Recon (system): generates Foresight and other reconnaissance benefits, biases area draws, and can affect resource yields; scouting is a post-resolution/area-update subsystem applied as part of an encounter's lifecycle rather than a standalone encounter type. Scouting preview count = 1 + Foresight token count. Additional scouting parameters (affix bias, pool modifier) may be derived from other tokens.
+
 - Milestones / Challenge systems: primary source for Variant-Choice, Affix-Picks, rare Refinement/Stability, and Key tokens.
 
 Design implications and notes

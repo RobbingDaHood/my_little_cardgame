@@ -51,6 +51,9 @@ Roadmap steps
    - Notes: Start with small affix sets and deterministic replacement rules.
 
 6) Refactor combat into the library core (deterministic, logged)
+
+   - Note: CombatAction is a simple card-play struct { is_player, card_index } and CombatSnapshot replaces CombatState in the library-centric design.
+
    - Goal: Move combat resolution, deterministic start-of-turn draws, turn order, actions, and enemy scripts into the shared library, using the seeded RNG and writing a deterministic actions log.
    - Description: Define CombatState, CombatAction, enemy scripts, and resolve_tick/resolve_turn methods that produce an explicit, replayable combat log. Ensure start-of-turn mechanics (draws, tempo, and turn order) are deterministic and driven by the session RNG. Integrate combat events into the ActionLog so every state change is auditable.
    - Playable acceptance: POST /combat/simulate accepts a CombatState and seed and returns a deterministic combat log that reproduces when replayed.
@@ -63,6 +66,11 @@ Roadmap steps
    - Playable acceptance: API user can draw an encounter, resolve combat to conclusion, perform a scouting post-resolution step that biases replacement, and the area deck updates accordingly.
    - Notes: Ensure session can be replayed from seed + action log.
     - - Scouting parameters (preview count, affix bias, pool modifier) are internal mechanics that influence encounter-generation deterministically during the scouting post-encounter step. They are not user-facing API endpoints but are controlled by the player's scouting action choices and token expenditures (Foresight, etc.).
+
+7.5) Unify combat systems and remove old deck types
+   - Goal: Unify the two combat implementations (src/combat/ old HTTP-driven Combat/Unit/States and library::combat deterministic CombatSnapshot/CombatAction) so a single authoritative combat system resolves card effects and token lifecycles.
+   - Description: Migrate resolve_card_effects to read from the Library and player state consistently, replace CombatState with CombatSnapshot, and adopt CombatAction as a simple struct { is_player, card_index }. After unification, remove legacy Deck, DeckCard, CardState from src/deck/ and player_data.cards, and migrate or remove test endpoints that rely on legacy deck CRUD.
+   - Playable acceptance: A single combat API backed by library::combat produces deterministic CombatSnapshots, reconciles card definitions and locations with the Library, and provides a clear migration path for removing legacy deck types.
 
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
    - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
