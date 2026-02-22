@@ -112,7 +112,6 @@ pub mod types {
         PersistentCounter,
         FixedDuration {
             duration: u64,
-            phases: Vec<EncounterPhase>,
         },
         FixedTypeDuration {
             duration: u64,
