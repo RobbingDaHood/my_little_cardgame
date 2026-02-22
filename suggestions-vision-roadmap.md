@@ -63,3 +63,61 @@ Based on the work done fixing issues.md across two rounds of refactoring.
 12. **New step needed — Remove old deck types**: Once the combat systems are unified, remove `Deck`, `DeckCard`, `CardState` from `src/deck/` and `player_data.cards`. The Library fully replaces these. Add that to the step 7.5 above too. 
 
 13. **Test endpoint cleanup**: Deck CRUD endpoints (`/tests/decks/*`, `/tests/cards/*`) have been removed. The remaining test endpoint is `POST /tests/combat` for combat initialization and `POST /tests/library/cards` for test card injection. A future step should migrate combat initialization to the action handler. Add this to the step 7.5 too. 
+
+---
+
+### Round 3 (Step 7.5 + 7.6 implementation, issues.md fixes)
+
+#### Changes to vision.md suggestions
+
+14. **TokenId is now a strongly-typed enum**: The vision mentions tokens by name (Health, Insight, Foresight, etc.) but should document that token identifiers are a closed `TokenId` enum (not strings). Each variant carries lifecycle metadata via `TokenId::lifecycle()`. The current 15 variants are: Health, MaxHealth, Shield, Stamina, Dodge, Mana (combat), Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability (persistent). New tokens require adding an enum variant.
+
+15. **ScopedToEncounter lifecycle deleted**: The vision and codebase previously had a `ScopedToEncounter` token lifecycle. This has been replaced with `FixedTypeDuration { phases, duration }` parameterized by encounter phases. Vision should remove any reference to `ScopedToEncounter` and document `FixedTypeDuration` as the mechanism for phase-aware token expiry.
+
+16. **Combat is unified into GameState**: The vision should clarify that combat state (CombatSnapshot, combat phase, last result) lives in `GameState`, not as a separate HTTP-driven system. The old `src/combat/` module now delegates to `GameState` methods (`start_combat`, `resolve_player_card`, `resolve_enemy_play`, `advance_combat_phase`). There is no longer a separate CombatState type.
+
+17. **Dodge absorption mechanic**: The vision mentions Defence cards but should document the dodge absorption mechanic: when a player or enemy takes damage, dodge tokens are consumed first before health is reduced. This is an important combat interaction not currently described in vision.md.
+
+18. **Resource cards are the draw engine**: The vision should explicitly state that `Resource` cards are the only way to draw additional cards. Each `CardKind::Resource` variant has a `draw_count: u32` field specifying how many random cards are drawn when the resource card is played. This is the core pacing mechanic.
+
+19. **Enemy plays one card from each deck type per turn**: The vision says "enemy resolves its actions according to its card script" but should clarify the current simple behavior: the enemy plays one random card from each of its three deck types (attack, defence, resource) per turn. Card scripts are a future enhancement.
+
+20. **Starting deck composition matters**: The vision should document that starting decks are composed of ~50% resource cards to ensure steady card flow. Current composition: Attack 20 (25%), Defence 20 (25%), Resource 40 (50%), totaling 80 cards.
+
+21. **AreaDeck has deck/hand/discard zones**: The vision describes area decks but should clarify that `AreaDeck` mirrors the player deck model with deck, hand, and discard zones. The hand represents visible/pickable encounters controlled by the Foresight token. Default Foresight is 3.
+
+22. **AbandonCombat action exists**: The vision should mention that players can abandon combat via the `AbandonCombat` action, which clears combat state, records a loss, and returns to the Ready encounter phase. This replaces the need for a future "flee card" at the basic level.
+
+#### Changes to roadmap.md suggestions
+
+14. **Steps 7.5 and 7.6 are now implemented**: The roadmap should mark steps 7.5 and 7.6 as complete. All playable acceptance criteria are met: unified combat system, resource-card driven draws, Foresight-controlled encounter hands, enemy random play, ~50% draw cards in starting decks, and the minimal pick→fight→scouting→pick loop works.
+
+15. **Legacy code fully removed**: The roadmap should note that all legacy deck types (`Deck`, `DeckCard`, `CardState`, `Card`, `Token`), the old `resolve.rs` combat module, and unused helper functions have been removed. The codebase is clean of dead code.
+
+16. **Coverage requirement met**: Step 7.5 mentioned CI failures due to <85% coverage. Coverage is now at 85.86% with comprehensive integration and unit tests. The roadmap should note this is resolved.
+
+17. **FinishScouting is player-driven**: The roadmap should clarify that `FinishScouting` is a player action (not system-driven) that transitions from Scouting → Ready phase. The system only enters Scouting automatically when combat ends with one side at 0 HP.
+
+#### Contradictions found and resolved
+
+1. **Two combat systems → unified**: The codebase had both `src/combat/` (old HTTP-driven) and `library::combat` (new deterministic). These are now unified — `src/combat/` endpoints delegate to `GameState` methods. The old `resolve_card_effects` function has been deleted.
+
+2. **String token IDs → enum**: `Combatant.active_tokens`, `CardEffect.token_id`, etc. all used `String` keys. These are now `TokenId` enum throughout. JSON serialization uses capitalized variant names ("Health", "Shield", etc.).
+
+3. **Deck module was dead code**: `src/deck/mod.rs`, `src/deck/card.rs`, `src/deck/token.rs` contained types (`Deck`, `DeckCard`, `CardState`, `Card`, `Token`, `CardType`) that were no longer referenced anywhere. All deleted.
+
+4. **`player_seed.rs` contained dead helpers**: `derive_subseed`, `snapshot_rng`, `restore_rng_from_snapshot` were never called. Removed.
+
+#### Areas needing future attention
+
+1. **i64 → u64 for token amounts**: issues.md suggested using `u64` instead of `i64` for token amounts. This was deferred because card effects use negative amounts for damage. If adopted, would need saturating subtraction semantics. Consider adding a newtype `TokenAmount(u64)` with damage-aware arithmetic.
+
+2. **CardDef.card_type is still a String**: The `CardDef` type in the combat determinism tests still uses `card_type: String`. This is low priority since `CardDef` is primarily a test type and `CardKind` (enum) is used in the Library.
+
+3. **Scouting is minimal**: Current scouting just returns the encounter card to the area deck. Steps 8+ should expand scouting to generate replacement encounters with affixes as described in the vision.
+
+4. **Enemy AI is random**: Enemies play a random card from each deck. Vision mentions "card scripts" for enemies — this is future work (step 16).
+
+5. **No gathering/crafting yet**: Steps 8-10 (gathering, crafting, research) are not yet implemented. These are the next major features.
+
+6. **Action log replay only handles GrantToken and SetSeed**: `replay_from_log` currently only replays `GrantToken` and `SetSeed` actions. Future steps should expand replay to handle combat, encounter, and card-play actions for full deterministic replay.
