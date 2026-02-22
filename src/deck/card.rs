@@ -1,9 +1,6 @@
 use crate::deck::token::Token;
 use rocket::serde::{Deserialize, Serialize};
-use rocket::State;
 use rocket_okapi::JsonSchema;
-
-use crate::player_data::PlayerData;
 
 /// Represents a card in the game.
 ///
@@ -31,14 +28,4 @@ pub enum CardType {
     Attack,
     Defence,
     Resource,
-}
-
-pub async fn get_card(id: usize, player_data: &State<PlayerData>) -> Option<Card> {
-    player_data
-        .cards
-        .lock()
-        .await
-        .iter()
-        .find(|existing| existing.id == id)
-        .cloned()
 }

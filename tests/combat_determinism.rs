@@ -4,7 +4,7 @@
 mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
-        CardDef, CardEffect, CombatAction, CombatSnapshot, Combatant, EffectTarget,
+        CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant, EffectTarget,
     };
     use std::collections::HashMap;
 
@@ -60,6 +60,7 @@ mod tests {
         CombatSnapshot {
             round: 1,
             player_turn: true,
+            phase: CombatPhase::Defending,
             player_tokens: HashMap::from([
                 ("health".to_string(), player_hp),
                 ("max_health".to_string(), player_hp),
@@ -70,6 +71,7 @@ mod tests {
                     ("max_health".to_string(), enemy_hp),
                 ]),
             },
+            encounter_card_id: None,
             is_finished: false,
             winner: None,
         }
@@ -138,6 +140,7 @@ mod tests {
         let initial_state = CombatSnapshot {
             round: 1,
             player_turn: true,
+            phase: CombatPhase::Defending,
             player_tokens: HashMap::from([
                 ("health".to_string(), 100),
                 ("max_health".to_string(), 100),
@@ -145,6 +148,7 @@ mod tests {
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
+            encounter_card_id: None,
             is_finished: false,
             winner: None,
         };
@@ -181,6 +185,7 @@ mod tests {
         let initial_state = CombatSnapshot {
             round: 1,
             player_turn: true,
+            phase: CombatPhase::Defending,
             player_tokens: HashMap::from([
                 ("health".to_string(), 100),
                 ("max_health".to_string(), 100),
@@ -188,6 +193,7 @@ mod tests {
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
+            encounter_card_id: None,
             is_finished: false,
             winner: None,
         };

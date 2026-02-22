@@ -214,7 +214,7 @@ pub mod types {
 
     /// Represents a combatant (player or enemy) in combat.
     /// Pure-data representation of combat state.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct Combatant {
         pub active_tokens: HashMap<String, i64>,
@@ -228,16 +228,52 @@ pub mod types {
         pub card_id: u64,
     }
 
+    /// Combat phases for turn-based combat.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[serde(crate = "rocket::serde")]
+    pub enum CombatPhase {
+        Defending,
+        Attacking,
+        Resourcing,
+    }
+
+    impl CombatPhase {
+        pub fn next(&self) -> Self {
+            match self {
+                CombatPhase::Defending => CombatPhase::Attacking,
+                CombatPhase::Attacking => CombatPhase::Resourcing,
+                CombatPhase::Resourcing => CombatPhase::Defending,
+            }
+        }
+
+        pub fn allowed_card_kind(&self) -> &'static str {
+            match self {
+                CombatPhase::Defending => "Defence",
+                CombatPhase::Attacking => "Attack",
+                CombatPhase::Resourcing => "Resource",
+            }
+        }
+    }
+
     /// Snapshot of combat state for deterministic simulation. Pure data.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CombatSnapshot {
         pub round: u64,
         pub player_turn: bool,
+        pub phase: CombatPhase,
         pub player_tokens: HashMap<String, i64>,
         pub enemy: Combatant,
+        pub encounter_card_id: Option<usize>,
         pub is_finished: bool,
         pub winner: Option<String>,
+    }
+
+    /// Result of a completed combat.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct CombatResult {
+        pub winner: String,
     }
 
     // ====== Encounter types for the encounter loop (Step 7) ======
@@ -956,6 +992,58 @@ fn initialize_library() -> Library {
     lib
 }
 
+/// Apply card effects to a combat snapshot, handling dodge absorption.
+fn apply_card_effects(effects: &[CardEffect], is_player: bool, combat: &mut types::CombatSnapshot) {
+    for effect in effects {
+        let target_tokens = match (&effect.target, is_player) {
+            (types::EffectTarget::OnSelf, true) | (types::EffectTarget::OnOpponent, false) => {
+                &mut combat.player_tokens
+            }
+            (types::EffectTarget::OnOpponent, true) | (types::EffectTarget::OnSelf, false) => {
+                &mut combat.enemy.active_tokens
+            }
+        };
+
+        if effect.token_id == "health" && effect.amount < 0 {
+            // Damage: consume dodge first, then reduce health
+            let damage = -effect.amount;
+            let dodge = target_tokens.get("dodge").copied().unwrap_or(0);
+            let absorbed = dodge.min(damage);
+            target_tokens.insert("dodge".to_string(), (dodge - absorbed).max(0));
+            let remaining_damage = damage - absorbed;
+            if remaining_damage > 0 {
+                let health = target_tokens.entry("health".to_string()).or_insert(0);
+                *health = (*health - remaining_damage).max(0);
+            }
+        } else {
+            let entry = target_tokens.entry(effect.token_id.clone()).or_insert(0);
+            *entry = (*entry + effect.amount).max(0);
+        }
+    }
+}
+
+/// Check if combat has ended (either side at 0 health).
+fn check_combat_end(combat: &mut types::CombatSnapshot) {
+    let player_health = combat.player_tokens.get("health").copied().unwrap_or(0);
+    let enemy_health = combat
+        .enemy
+        .active_tokens
+        .get("health")
+        .copied()
+        .unwrap_or(0);
+
+    if enemy_health <= 0 || player_health <= 0 {
+        combat.is_finished = true;
+        combat.winner = Some(if enemy_health <= 0 && player_health > 0 {
+            "Player".to_string()
+        } else if player_health <= 0 && enemy_health > 0 {
+            "Enemy".to_string()
+        } else {
+            "Draw".to_string()
+        });
+    }
+}
+
 /// Minimal in-memory game state driven by the library's mutator API.
 #[derive(Debug, Clone)]
 pub struct GameState {
@@ -963,6 +1051,9 @@ pub struct GameState {
     pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<String, i64>,
     pub library: Library,
+    pub current_combat: Option<types::CombatSnapshot>,
+    pub encounter_state: types::EncounterState,
+    pub last_combat_result: Option<types::CombatResult>,
 }
 
 impl GameState {
@@ -994,6 +1085,11 @@ impl GameState {
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
             library: initialize_library(),
+            current_combat: None,
+            encounter_state: types::EncounterState {
+                phase: types::EncounterPhase::Ready,
+            },
+            last_combat_result: None,
         }
     }
 
@@ -1072,6 +1168,122 @@ impl GameState {
         self.action_log.append(action_type, payload)
     }
 
+    /// Initialize combat from a Library CombatEncounter card.
+    pub fn start_combat(&mut self, encounter_card_id: usize) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(encounter_card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
+            .clone();
+        let combatant_def = match &lib_card.kind {
+            CardKind::CombatEncounter { combatant_def } => combatant_def.clone(),
+            _ => {
+                return Err(format!(
+                    "Card {} is not a CombatEncounter",
+                    encounter_card_id
+                ))
+            }
+        };
+        // Initialize player combat tokens from token_balances
+        let player_tokens = self.token_balances.clone();
+        let snapshot = types::CombatSnapshot {
+            round: 1,
+            player_turn: true,
+            phase: types::CombatPhase::Defending,
+            player_tokens,
+            enemy: types::Combatant {
+                active_tokens: combatant_def.initial_tokens.clone(),
+            },
+            encounter_card_id: Some(encounter_card_id),
+            is_finished: false,
+            winner: None,
+        };
+        self.current_combat = Some(snapshot);
+        self.encounter_state.phase = types::EncounterPhase::InCombat;
+        Ok(())
+    }
+
+    /// Resolve a player card play against the current combat snapshot.
+    pub fn resolve_player_card(&mut self, card_id: usize) -> Result<(), String> {
+        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+        let lib_card = self
+            .library
+            .get(card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", card_id))?
+            .clone();
+        let effects = match &lib_card.kind {
+            CardKind::Attack { effects }
+            | CardKind::Defence { effects }
+            | CardKind::Resource { effects } => effects.clone(),
+            _ => return Err("Cannot play a non-action card".to_string()),
+        };
+        apply_card_effects(&effects, true, combat);
+        check_combat_end(combat);
+        if combat.is_finished {
+            let winner = combat.winner.clone().unwrap_or_default();
+            self.last_combat_result = Some(types::CombatResult {
+                winner: winner.clone(),
+            });
+            self.current_combat = None;
+            self.encounter_state.phase = types::EncounterPhase::Scouting;
+        }
+        Ok(())
+    }
+
+    /// Resolve an enemy card play (random card from appropriate deck).
+    pub fn resolve_enemy_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) -> Result<(), String> {
+        let combat = self.current_combat.as_ref().ok_or("No active combat")?;
+        let encounter_card_id = combat
+            .encounter_card_id
+            .ok_or("No encounter card in combat")?;
+        let phase = combat.phase.clone();
+
+        let lib_card = self
+            .library
+            .get(encounter_card_id)
+            .ok_or("Encounter card not found")?
+            .clone();
+        let combatant_def = match &lib_card.kind {
+            CardKind::CombatEncounter { combatant_def } => combatant_def,
+            _ => return Err("Not a CombatEncounter".to_string()),
+        };
+
+        let deck = match phase {
+            types::CombatPhase::Defending => &combatant_def.defence_deck,
+            types::CombatPhase::Attacking => &combatant_def.attack_deck,
+            types::CombatPhase::Resourcing => &combatant_def.resource_deck,
+        };
+
+        if deck.is_empty() {
+            return Ok(());
+        }
+
+        use rand::RngCore;
+        let pick = (rng.next_u64() as usize) % deck.len();
+        let enemy_card = &deck[pick];
+        let effects = enemy_card.effects.clone();
+
+        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+        apply_card_effects(&effects, false, combat);
+        check_combat_end(combat);
+        if combat.is_finished {
+            let winner = combat.winner.clone().unwrap_or_default();
+            self.last_combat_result = Some(types::CombatResult {
+                winner: winner.clone(),
+            });
+            self.current_combat = None;
+            self.encounter_state.phase = types::EncounterPhase::Scouting;
+        }
+        Ok(())
+    }
+
+    /// Advance combat phase to next (Defending → Attacking → Resourcing → Defending).
+    pub fn advance_combat_phase(&mut self) -> Result<(), String> {
+        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+        combat.phase = combat.phase.next();
+        Ok(())
+    }
+
     /// Reconstruct state from a registry and an existing action log (seed not modelled here).
     pub fn replay_from_log(registry: TokenRegistry, log: &ActionLog) -> Self {
         let mut gs = {
@@ -1084,6 +1296,11 @@ impl GameState {
                 action_log: std::sync::Arc::new(ActionLog::new()),
                 token_balances: balances,
                 library: initialize_library(),
+                current_combat: None,
+                encounter_state: types::EncounterState {
+                    phase: types::EncounterPhase::Ready,
+                },
+                last_combat_result: None,
             }
         };
         for e in log.entries() {

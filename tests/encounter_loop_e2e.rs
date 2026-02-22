@@ -132,7 +132,7 @@ mod tests {
     fn test_encounter_loop_replay_from_seed() {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
-            CardDef, CardEffect, CombatAction, CombatSnapshot, Combatant, EffectTarget,
+            CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant, EffectTarget,
         };
         use std::collections::HashMap;
 
@@ -172,6 +172,7 @@ mod tests {
         let initial_combat = CombatSnapshot {
             round: 1,
             player_turn: true,
+            phase: CombatPhase::Defending,
             player_tokens: HashMap::from([
                 ("health".to_string(), 100),
                 ("max_health".to_string(), 100),
@@ -182,6 +183,7 @@ mod tests {
                     ("max_health".to_string(), 30),
                 ]),
             },
+            encounter_card_id: None,
             is_finished: false,
             winner: None,
         };

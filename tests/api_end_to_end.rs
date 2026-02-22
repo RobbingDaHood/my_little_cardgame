@@ -1,6 +1,4 @@
-use my_little_cardgame::combat::units::get_gnome;
-use my_little_cardgame::combat::Combat;
-use my_little_cardgame::combat::States::Defending;
+use my_little_cardgame::library::types::CombatSnapshot;
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
@@ -53,24 +51,31 @@ fn hello_world() {
     let actual = get_combat(&client);
     assert!(actual.is_some());
     let actual_combat = actual.expect("combat exists");
-    assert_eq!(actual_combat.state, Defending);
-    assert_eq!(actual_combat.allies.len(), 0);
-    assert_eq!(actual_combat.enemies.len(), 1);
-    let expected_enemy = get_gnome();
-    let actual_enemy = &actual_combat.enemies[0];
     assert_eq!(
-        actual_enemy.attack_deck.len(),
-        expected_enemy.attack_deck.len()
+        actual_combat.phase,
+        my_little_cardgame::library::types::CombatPhase::Defending
     );
+    assert_eq!(actual_combat.round, 1);
+    assert!(actual_combat.player_turn);
+    // Enemy should have initial tokens (health=20, max_health=20 from gnome combatant_def)
     assert_eq!(
-        actual_enemy.defence_deck.len(),
-        expected_enemy.defence_deck.len()
+        actual_combat
+            .enemy
+            .active_tokens
+            .get("health")
+            .copied()
+            .unwrap_or(0),
+        20
     );
+    // Player should have health token from token_balances (initialized to 20)
     assert_eq!(
-        actual_enemy.resource_deck.len(),
-        expected_enemy.resource_deck.len()
+        actual_combat
+            .player_tokens
+            .get("health")
+            .copied()
+            .unwrap_or(0),
+        20
     );
-    assert_eq!(actual_enemy.tokens.len(), expected_enemy.tokens.len());
 }
 
 fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {
@@ -80,13 +85,13 @@ fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {
     serde_json::from_str(string_body.as_str()).expect("Test assertion failed")
 }
 
-fn get_combat(client: &Client) -> Option<Combat> {
+fn get_combat(client: &Client) -> Option<CombatSnapshot> {
     let response = client.get("/combat").dispatch();
     if response.status().code == 404 {
         None
     } else if response.status().code == 200 {
         let string_body = response.into_string().expect("Test assertion failed");
-        let combat: Combat =
+        let combat: CombatSnapshot =
             serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         Some(combat)
     } else {
