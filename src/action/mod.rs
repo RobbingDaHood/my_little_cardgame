@@ -111,8 +111,15 @@ pub async fn play(
                     )))));
                 }
             };
-            // Validate card kind matches combat phase
-            let combat = gs.current_combat.as_ref().unwrap();
+            // Validate card kind matches combat phase (guarded by is_none check above)
+            let combat = match gs.current_combat.as_ref() {
+                Some(c) => c,
+                None => {
+                    return Err(Right(BadRequest(new_status(
+                        "No active combat".to_string(),
+                    ))));
+                }
+            };
             let allowed_kind = combat.phase.allowed_card_kind();
             let card_kind_name = match &lib_card.kind {
                 crate::library::types::CardKind::Attack { .. } => "Attack",
