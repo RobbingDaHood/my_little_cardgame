@@ -79,6 +79,24 @@ pub async fn play(
             if let Err(e) = gs.library.play(card_id) {
                 return Err(Right(BadRequest(new_status(e))));
             }
+            // Validate card is a combat encounter before starting combat
+            let lib_card = gs.library.get(card_id).ok_or_else(|| {
+                Left(NotFound(new_status(format!(
+                    "Card {} not found in Library",
+                    card_id
+                ))))
+            })?;
+            if !matches!(
+                &lib_card.kind,
+                crate::library::types::CardKind::Encounter {
+                    encounter_kind: crate::library::types::EncounterKind::Combat { .. }
+                }
+            ) {
+                return Err(Right(BadRequest(new_status(format!(
+                    "Encounter card {} is not a combat encounter",
+                    card_id
+                )))));
+            }
             // Initialize player health if not set
             if gs
                 .token_balances
