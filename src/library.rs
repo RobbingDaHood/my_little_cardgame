@@ -159,7 +159,6 @@ pub mod types {
     #[serde(crate = "rocket::serde")]
     pub struct TokenRegistryEntry {
         pub id: TokenType,
-        pub lifecycle: TokenLifecycle,
         pub cap: Option<u64>,
     }
 
@@ -636,7 +635,7 @@ pub mod encounter {
 }
 
 pub mod registry {
-    use super::types::{EncounterPhase, TokenLifecycle, TokenRegistryEntry, TokenType};
+    use super::types::{TokenRegistryEntry, TokenType};
     use std::collections::HashMap;
 
     #[derive(Debug, Default, Clone)]
@@ -657,7 +656,6 @@ pub mod registry {
         /// Create a minimal canonical token registry seeded from vision.md
         pub fn with_canonical() -> Self {
             let mut r = Self::new();
-            // Persistent meta tokens
             for id in [
                 TokenType::Insight,
                 TokenType::Renown,
@@ -668,36 +666,18 @@ pub mod registry {
                 TokenType::Corruption,
                 TokenType::Exhaustion,
                 TokenType::Durability,
-            ] {
-                r.register(TokenRegistryEntry {
-                    lifecycle: TokenLifecycle::PersistentCounter,
-                    id,
-                    cap: Some(9999),
-                });
-            }
-            // Combat tokens
-            for id in [
                 TokenType::Health,
                 TokenType::MaxHealth,
                 TokenType::Shield,
                 TokenType::Stamina,
                 TokenType::Mana,
+                TokenType::Dodge,
             ] {
                 r.register(TokenRegistryEntry {
-                    lifecycle: TokenLifecycle::PersistentCounter,
                     id,
                     cap: Some(9999),
                 });
             }
-            // Dodge has a unique lifecycle
-            r.register(TokenRegistryEntry {
-                lifecycle: TokenLifecycle::FixedTypeDuration {
-                    duration: 1,
-                    phases: vec![EncounterPhase::Defence],
-                },
-                id: TokenType::Dodge,
-                cap: Some(9999),
-            });
             r
         }
 
