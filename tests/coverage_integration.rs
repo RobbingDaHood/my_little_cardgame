@@ -380,45 +380,6 @@ fn get_combat(client: &Client) -> Option<CombatSnapshot> {
 }
 
 #[test]
-fn draw_encounter_action() {
-    let client = client();
-    // Get area encounters
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-    let encounter_id = encounters[0];
-
-    let body = format!(
-        r#"{{"action_type":"DrawEncounter","area_id":"current","encounter_id":{}}}"#,
-        encounter_id
-    );
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(&body)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-}
-
-#[test]
-fn replace_encounter_action() {
-    let client = client();
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-    let encounter_id = encounters[0];
-
-    let body = format!(
-        r#"{{"action_type":"ReplaceEncounter","area_id":"current","old_encounter_id":{},"new_encounter_id":99}}"#,
-        encounter_id
-    );
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(&body)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-}
-
-#[test]
 fn encounter_play_card_action() {
     let client = client();
 

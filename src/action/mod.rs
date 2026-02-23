@@ -27,15 +27,6 @@ pub enum PlayerActions {
     SetSeed {
         seed: u64,
     },
-    DrawEncounter {
-        area_id: String,
-        encounter_id: usize,
-    },
-    ReplaceEncounter {
-        area_id: String,
-        old_encounter_id: usize,
-        new_encounter_id: usize,
-    },
     // Encounter actions (Step 7)
     EncounterPickEncounter {
         card_id: usize,
@@ -140,63 +131,6 @@ pub async fn play(
                     Ok((rocket::http::Status::Created, Json(entry)))
                 }
                 Err(e) => Err(Right(BadRequest(new_status(e)))),
-            }
-        }
-        PlayerActions::DrawEncounter {
-            area_id: _,
-            encounter_id,
-        } => {
-            let current_area = player_data.current_area_deck.lock().await;
-            match current_area.as_ref() {
-                Some(area_deck) => {
-                    if !area_deck.contains(encounter_id) {
-                        return Err(Left(NotFound(new_status(format!(
-                            "Encounter card {} not in area deck",
-                            encounter_id
-                        )))));
-                    }
-                    let gs = game_state.lock().await;
-                    let payload = crate::library::types::ActionPayload::DrawEncounter {
-                        area_id: "current".to_string(),
-                        encounter_id: encounter_id.to_string(),
-                        reason: Some("Player drew encounter".to_string()),
-                    };
-                    let entry = gs.append_action("DrawEncounter", payload);
-                    Ok((rocket::http::Status::Created, Json(entry)))
-                }
-                None => Err(Left(NotFound(new_status(
-                    "No current area set".to_string(),
-                )))),
-            }
-        }
-        PlayerActions::ReplaceEncounter {
-            area_id: _,
-            old_encounter_id,
-            new_encounter_id,
-        } => {
-            let current_area = player_data.current_area_deck.lock().await;
-            match current_area.as_ref() {
-                Some(area_deck) => {
-                    if !area_deck.contains(old_encounter_id) {
-                        return Err(Left(NotFound(new_status(format!(
-                            "Old encounter card {} not in area deck",
-                            old_encounter_id
-                        )))));
-                    }
-                    let gs = game_state.lock().await;
-                    let payload = crate::library::types::ActionPayload::ReplaceEncounter {
-                        area_id: "current".to_string(),
-                        old_encounter_id: old_encounter_id.to_string(),
-                        new_encounter_id: new_encounter_id.to_string(),
-                        affixes_applied: vec![],
-                        reason: Some("Player replaced resolved encounter".to_string()),
-                    };
-                    let entry = gs.append_action("ReplaceEncounter", payload);
-                    Ok((rocket::http::Status::Created, Json(entry)))
-                }
-                None => Err(Left(NotFound(new_status(
-                    "No current area set".to_string(),
-                )))),
             }
         }
         // Step 7: Encounter action handlers
