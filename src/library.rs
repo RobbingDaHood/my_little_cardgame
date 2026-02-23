@@ -111,7 +111,14 @@ pub mod types {
         Attack { effects: Vec<CardEffect> },
         Defence { effects: Vec<CardEffect> },
         Resource { effects: Vec<CardEffect> },
-        CombatEncounter { combatant_def: CombatantDef },
+        Encounter { encounter_kind: EncounterKind },
+    }
+
+    /// Sub-type of encounter cards.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "encounter_type")]
+    pub enum EncounterKind {
+        Combat { combatant_def: CombatantDef },
     }
 
     /// Definition of an enemy combatant for a combat encounter card.
@@ -790,7 +797,9 @@ pub mod action_log {
 
 use action_log::ActionLog;
 use registry::TokenRegistry;
-use types::{ActionEntry, ActionPayload, CardCounts, CardEffect, CardKind, LibraryCard};
+use types::{
+    ActionEntry, ActionPayload, CardCounts, CardEffect, CardKind, EncounterKind, LibraryCard,
+};
 
 /// The Library: canonical collection of all player-owned cards.
 /// Index in the Vec = card ID. Per vision "card location model and counts".
@@ -921,18 +930,16 @@ impl Library {
         self.cards
             .iter()
             .enumerate()
-            .filter(|(_, c)| {
-                matches!(c.kind, CardKind::CombatEncounter { .. }) && c.counts.hand > 0
-            })
+            .filter(|(_, c)| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
             .flat_map(|(id, c)| std::iter::repeat_n(id, c.counts.hand as usize))
             .collect()
     }
 
     /// Check if an encounter card is in the hand.
     pub fn encounter_contains(&self, card_id: usize) -> bool {
-        self.cards.get(card_id).is_some_and(|c| {
-            matches!(c.kind, CardKind::CombatEncounter { .. }) && c.counts.hand > 0
-        })
+        self.cards
+            .get(card_id)
+            .is_some_and(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
     }
 
     /// Draw encounter cards from deck to hand until hand reaches target_count.
@@ -940,7 +947,7 @@ impl Library {
         let current_hand: usize = self
             .cards
             .iter()
-            .filter(|c| matches!(c.kind, CardKind::CombatEncounter { .. }) && c.counts.hand > 0)
+            .filter(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
             .map(|c| c.counts.hand as usize)
             .sum();
         let mut remaining = target_count.saturating_sub(current_hand);
@@ -948,7 +955,7 @@ impl Library {
             if remaining == 0 {
                 break;
             }
-            if matches!(card.kind, CardKind::CombatEncounter { .. }) && card.counts.deck > 0 {
+            if matches!(card.kind, CardKind::Encounter { .. }) && card.counts.deck > 0 {
                 let to_move = (card.counts.deck as usize).min(remaining) as u32;
                 card.counts.deck -= to_move;
                 card.counts.hand += to_move;
@@ -1022,33 +1029,35 @@ fn initialize_library() -> Library {
 
     // Combat encounter: Gnome (id 3)
     lib.add_card(
-        CardKind::CombatEncounter {
-            combatant_def: types::CombatantDef {
-                initial_tokens: HashMap::from([
-                    (types::TokenType::Health, 20),
-                    (types::TokenType::MaxHealth, 20),
-                ]),
-                attack_deck: vec![types::EnemyCardDef {
-                    effects: vec![CardEffect {
-                        target: types::EffectTarget::OnOpponent,
-                        token_id: types::TokenType::Health,
-                        amount: -3,
+        CardKind::Encounter {
+            encounter_kind: types::EncounterKind::Combat {
+                combatant_def: types::CombatantDef {
+                    initial_tokens: HashMap::from([
+                        (types::TokenType::Health, 20),
+                        (types::TokenType::MaxHealth, 20),
+                    ]),
+                    attack_deck: vec![types::EnemyCardDef {
+                        effects: vec![CardEffect {
+                            target: types::EffectTarget::OnOpponent,
+                            token_id: types::TokenType::Health,
+                            amount: -3,
+                        }],
                     }],
-                }],
-                defence_deck: vec![types::EnemyCardDef {
-                    effects: vec![CardEffect {
-                        target: types::EffectTarget::OnSelf,
-                        token_id: types::TokenType::Shield,
-                        amount: 2,
+                    defence_deck: vec![types::EnemyCardDef {
+                        effects: vec![CardEffect {
+                            target: types::EffectTarget::OnSelf,
+                            token_id: types::TokenType::Shield,
+                            amount: 2,
+                        }],
                     }],
-                }],
-                resource_deck: vec![types::EnemyCardDef {
-                    effects: vec![CardEffect {
-                        target: types::EffectTarget::OnSelf,
-                        token_id: types::TokenType::Stamina,
-                        amount: 1,
+                    resource_deck: vec![types::EnemyCardDef {
+                        effects: vec![CardEffect {
+                            target: types::EffectTarget::OnSelf,
+                            token_id: types::TokenType::Stamina,
+                            amount: 1,
+                        }],
                     }],
-                }],
+                },
             },
         },
         CardCounts {
@@ -1247,7 +1256,7 @@ impl GameState {
         self.action_log.append(action_type, payload)
     }
 
-    /// Initialize combat from a Library CombatEncounter card.
+    /// Initialize combat from a Library Encounter card.
     pub fn start_combat(&mut self, encounter_card_id: usize) -> Result<(), String> {
         let lib_card = self
             .library
@@ -1255,10 +1264,12 @@ impl GameState {
             .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
             .clone();
         let combatant_def = match &lib_card.kind {
-            CardKind::CombatEncounter { combatant_def } => combatant_def.clone(),
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Combat { combatant_def },
+            } => combatant_def.clone(),
             _ => {
                 return Err(format!(
-                    "Card {} is not a CombatEncounter",
+                    "Card {} is not a combat encounter",
                     encounter_card_id
                 ))
             }
@@ -1327,9 +1338,7 @@ impl GameState {
             .cards
             .iter()
             .enumerate()
-            .filter(|(_, c)| {
-                c.counts.deck > 0 && !matches!(c.kind, CardKind::CombatEncounter { .. })
-            })
+            .filter(|(_, c)| c.counts.deck > 0 && !matches!(c.kind, CardKind::Encounter { .. }))
             .map(|(i, _)| i)
             .collect();
         if drawable.is_empty() {
@@ -1355,12 +1364,14 @@ impl GameState {
             .ok_or("Encounter card not found")?
             .clone();
         let combatant_def = match &lib_card.kind {
-            CardKind::CombatEncounter { combatant_def } => combatant_def.clone(),
-            _ => return Err("Not a CombatEncounter".to_string()),
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Combat { combatant_def },
+            } => combatant_def.clone(),
+            _ => return Err("Not a combat encounter".to_string()),
         };
 
         use rand::RngCore;
-        let decks = [
+        let decks: [&Vec<types::EnemyCardDef>; 3] = [
             &combatant_def.attack_deck,
             &combatant_def.defence_deck,
             &combatant_def.resource_deck,

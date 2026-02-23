@@ -136,7 +136,7 @@ pub async fn play(
                     crate::library::types::CardKind::Attack { .. } => "Attack",
                     crate::library::types::CardKind::Defence { .. } => "Defence",
                     crate::library::types::CardKind::Resource { .. } => "Resource",
-                    crate::library::types::CardKind::CombatEncounter { .. } => "CombatEncounter",
+                    crate::library::types::CardKind::Encounter { .. } => "Encounter",
                 };
                 if card_kind_name != allowed_kind {
                     return Err(Right(BadRequest(new_status(format!(

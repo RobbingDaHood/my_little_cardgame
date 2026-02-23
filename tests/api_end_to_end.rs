@@ -42,7 +42,7 @@ fn hello_world() {
     assert_eq!(library_cards[0].kind["kind"], "Attack");
     assert_eq!(library_cards[1].kind["kind"], "Defence");
     assert_eq!(library_cards[2].kind["kind"], "Resource");
-    assert_eq!(library_cards[3].kind["kind"], "CombatEncounter");
+    assert_eq!(library_cards[3].kind["kind"], "Encounter");
 
     // Verify combat not initialized yet
     assert_eq!(get_combat(&client), None);

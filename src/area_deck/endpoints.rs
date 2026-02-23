@@ -24,13 +24,13 @@ pub async fn get_area(
     let hand = gs.library.encounter_hand();
     let deck_count: usize = gs
         .library
-        .cards_matching(|k| matches!(k, crate::library::types::CardKind::CombatEncounter { .. }))
+        .cards_matching(|k| matches!(k, crate::library::types::CardKind::Encounter { .. }))
         .iter()
         .map(|(_, c)| c.counts.deck as usize)
         .sum();
     let discard_count: usize = gs
         .library
-        .cards_matching(|k| matches!(k, crate::library::types::CardKind::CombatEncounter { .. }))
+        .cards_matching(|k| matches!(k, crate::library::types::CardKind::Encounter { .. }))
         .iter()
         .map(|(_, c)| c.counts.discard as usize)
         .sum();
