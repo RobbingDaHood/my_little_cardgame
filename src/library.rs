@@ -1628,8 +1628,11 @@ impl GameState {
         Ok(())
     }
 
-    /// Reconstruct state from a registry and an existing action log (seed not modelled here).
+    /// Reconstruct state from a registry and an existing action log.
+    /// The RNG is initialized from the first `SetSeed` entry in the log.
     pub fn replay_from_log(registry: TokenRegistry, log: &ActionLog) -> Self {
+        use rand::SeedableRng;
+
         let mut gs = {
             let mut balances = HashMap::new();
             for id in registry.tokens.keys() {
@@ -1649,8 +1652,56 @@ impl GameState {
                 last_combat_result: None,
             }
         };
+        let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
+
         for e in log.entries() {
             match &e.payload {
+                ActionPayload::SetSeed { seed } => {
+                    let mut seed_bytes = [0u8; 16];
+                    seed_bytes[0..8].copy_from_slice(&seed.to_le_bytes());
+                    seed_bytes[8..16].copy_from_slice(&seed.to_le_bytes());
+                    rng = rand_pcg::Lcg64Xsh32::from_seed(seed_bytes);
+                    let new_gs = GameState::new();
+                    gs.library = new_gs.library;
+                    gs.token_balances = new_gs.token_balances;
+                    gs.current_combat = None;
+                    gs.encounter_state = new_gs.encounter_state;
+                    gs.last_combat_result = None;
+                }
+                ActionPayload::DrawEncounter { encounter_id, .. } => {
+                    if let Ok(card_id) = encounter_id.parse::<usize>() {
+                        let health_key = types::Token::persistent(types::TokenType::Health);
+                        if gs.token_balances.get(&health_key).copied().unwrap_or(0) == 0 {
+                            gs.token_balances.insert(health_key, 20);
+                        }
+                        let _ = gs.library.play(card_id);
+                        let _ = gs.start_combat(card_id, &mut rng);
+                    }
+                }
+                ActionPayload::PlayCard { card_id, .. } => {
+                    let _ = gs.library.play(*card_id);
+                    let _ = gs.resolve_player_card(*card_id);
+                    if gs.current_combat.is_some() {
+                        let _ = gs.resolve_enemy_play(&mut rng);
+                        if gs.current_combat.is_some() {
+                            let _ = gs.advance_combat_phase();
+                        }
+                    }
+                }
+                ActionPayload::ApplyScouting { .. } => {
+                    if let Some(ref combat) = gs.current_combat {
+                        if let Some(enc_id) = combat.encounter_card_id {
+                            let _ = gs.library.return_to_deck(enc_id);
+                        }
+                    }
+                    let foresight = gs
+                        .token_balances
+                        .get(&types::Token::persistent(types::TokenType::Foresight))
+                        .copied()
+                        .unwrap_or(3) as usize;
+                    gs.library.encounter_draw_to_hand(foresight);
+                    gs.encounter_state.phase = types::EncounterPhase::Ready;
+                }
                 ActionPayload::GrantToken {
                     token_id, amount, ..
                 } => {
@@ -1678,11 +1729,8 @@ impl GameState {
                         .or_insert(0);
                     *v = (*v - *amount).max(0);
                 }
-                ActionPayload::SetSeed { .. } => {
-                    // SetSeed is recorded but not applied to token balances during replay here
-                }
                 _ => {
-                    // Other action payloads (RngDraw, RngSnapshot, PlayCard, etc.) are recorded for audit but don't affect token balances
+                    // RngDraw, RngSnapshot, etc. are audit entries
                 }
             }
             match gs.action_log.entries.lock() {

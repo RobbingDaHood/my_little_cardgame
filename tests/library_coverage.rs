@@ -223,7 +223,9 @@ fn game_state_draw_random_cards() {
 #[test]
 fn replay_from_log_handles_legacy_entries() {
     let gs = GameState::new();
-    // Manually add legacy-format entries to action log
+    // SetSeed first (as in real game flow) resets state, then legacy token ops apply
+    gs.action_log
+        .append("NewGame", ActionPayload::SetSeed { seed: 42 });
     gs.action_log.append(
         "GrantToken",
         ActionPayload::GrantToken {
@@ -250,8 +252,6 @@ fn replay_from_log_handles_legacy_entries() {
             reason: Some("test expire".to_string()),
         },
     );
-    gs.action_log
-        .append("NewGame", ActionPayload::SetSeed { seed: 42 });
 
     let log_clone = gs.action_log.clone();
     let registry = TokenRegistry::with_canonical();
