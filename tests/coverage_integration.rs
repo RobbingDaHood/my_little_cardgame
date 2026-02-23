@@ -46,12 +46,12 @@ fn actions_log_filtering() {
     client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Insight","amount":1}"#)
+        .body(r#"{"action_type":"SetSeed","seed":111}"#)
         .dispatch();
     client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Renown","amount":2}"#)
+        .body(r#"{"action_type":"SetSeed","seed":222}"#)
         .dispatch();
 
     // Fetch all actions
@@ -76,14 +76,14 @@ fn actions_log_filtering() {
     assert!(!log["entries"].as_array().unwrap().is_empty());
 
     // Filter by action_type
-    let response = client.get("/actions/log?action_type=GrantToken").dispatch();
+    let response = client.get("/actions/log?action_type=SetSeed").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
     let log: serde_json::Value = serde_json::from_str(&body).unwrap();
     let entries = log["entries"].as_array().unwrap();
     assert!(entries.len() >= 2);
     for entry in entries {
-        assert_eq!(entry["action_type"], "GrantToken");
+        assert_eq!(entry["action_type"], "SetSeed");
     }
 
     // Filter by action_type that doesn't exist
@@ -191,48 +191,6 @@ fn play_card_without_combat_returns_error() {
         .body(r#"{"action_type":"PlayCard","card_id":0}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
-}
-
-#[test]
-fn play_grant_token_action() {
-    let client = client();
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Insight","amount":5}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-
-    // Verify token was granted
-    let tokens_resp = client.get("/player/tokens").dispatch();
-    let body = tokens_resp.into_string().unwrap();
-    let tokens: std::collections::HashMap<TokenId, i64> = serde_json::from_str(&body).unwrap();
-    assert_eq!(tokens.get(&TokenId::Insight).copied().unwrap_or(0), 5);
-}
-
-#[test]
-fn play_consume_token_via_grant_negative() {
-    let client = client();
-    // Grant tokens
-    client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Renown","amount":10}"#)
-        .dispatch();
-
-    // Grant negative amount to simulate consume
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Renown","amount":-3}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-
-    // Verify
-    let tokens_resp = client.get("/player/tokens").dispatch();
-    let body = tokens_resp.into_string().unwrap();
-    let tokens: std::collections::HashMap<TokenId, i64> = serde_json::from_str(&body).unwrap();
-    assert_eq!(tokens.get(&TokenId::Renown).copied().unwrap_or(0), 7);
 }
 
 #[test]

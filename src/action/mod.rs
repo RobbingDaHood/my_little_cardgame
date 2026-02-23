@@ -17,27 +17,12 @@ use rand_pcg::Lcg64Xsh32;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
 #[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
-    PlayCard {
-        card_id: usize,
-    },
-    GrantToken {
-        token_id: crate::library::types::TokenId,
-        amount: i64,
-    },
-    SetSeed {
-        seed: u64,
-    },
+    PlayCard { card_id: usize },
+    SetSeed { seed: u64 },
     // Encounter actions (Step 7)
-    EncounterPickEncounter {
-        card_id: usize,
-    },
-    EncounterPlayCard {
-        card_id: u64,
-        effects: Vec<String>,
-    },
-    EncounterApplyScouting {
-        card_ids: Vec<usize>,
-    },
+    EncounterPickEncounter { card_id: usize },
+    EncounterPlayCard { card_id: u64, effects: Vec<String> },
+    EncounterApplyScouting { card_ids: Vec<usize> },
 }
 
 #[openapi]
@@ -56,13 +41,6 @@ pub async fn play(
     let action = player_action.0;
 
     match action {
-        PlayerActions::GrantToken { token_id, amount } => {
-            let mut gs = game_state.lock().await;
-            match gs.apply_grant(&token_id, amount, None) {
-                Ok(entry) => Ok((rocket::http::Status::Created, Json(entry))),
-                Err(e) => Err(Right(BadRequest(new_status(e)))),
-            }
-        }
         PlayerActions::SetSeed { seed } => {
             let gs = game_state.lock().await;
             // append to action log
