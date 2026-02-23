@@ -323,11 +323,11 @@ fn play_finish_scouting_after_combat_win() {
     // Check combat result
     let result_resp = client.get("/combat/result").dispatch();
     if result_resp.status() == Status::Ok {
-        // We're in scouting, finish it
+        // We're in scouting, finish it via EncounterApplyScouting
         let response = client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"FinishScouting"}"#)
+            .body(r#"{"action_type":"EncounterApplyScouting","card_ids":[3]}"#)
             .dispatch();
         assert_eq!(response.status(), Status::Created);
     }
@@ -461,6 +461,25 @@ fn encounter_play_card_action() {
 #[test]
 fn encounter_apply_scouting_action() {
     let client = client();
+    // Set up combat via test endpoint so we can reach Scouting phase
+    client.post("/tests/combat").dispatch();
+    // Play attack cards until combat ends (enters Scouting)
+    for _ in 0..20 {
+        let combat_resp = client.get("/combat").dispatch();
+        if combat_resp.status() != Status::Ok {
+            break;
+        }
+        client
+            .post("/action")
+            .header(ContentType::JSON)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
+            .dispatch();
+        client.post("/combat/advance").dispatch();
+        client.post("/combat/enemy_play").dispatch();
+        client.post("/combat/advance").dispatch();
+        client.post("/combat/advance").dispatch();
+    }
+
     let response = client.get("/area/encounters").dispatch();
     let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
 
@@ -477,12 +496,12 @@ fn encounter_apply_scouting_action() {
 }
 
 #[test]
-fn finish_scouting_when_not_in_scouting() {
+fn encounter_apply_scouting_when_not_in_scouting() {
     let client = client();
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"FinishScouting"}"#)
+        .body(r#"{"action_type":"EncounterApplyScouting","card_ids":[3]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }

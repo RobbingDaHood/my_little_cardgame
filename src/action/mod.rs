@@ -51,7 +51,6 @@ pub enum PlayerActions {
     EncounterApplyScouting {
         card_ids: Vec<usize>,
     },
-    FinishScouting,
 }
 
 #[openapi]
@@ -302,6 +301,12 @@ pub async fn play(
             }
         }
         PlayerActions::EncounterApplyScouting { card_ids } => {
+            let mut gs = game_state.lock().await;
+            if gs.encounter_state.phase != crate::library::types::EncounterPhase::Scouting {
+                return Err(Right(BadRequest(new_status(
+                    "Not in Scouting phase".to_string(),
+                ))));
+            }
             let current_area = player_data.current_area_deck.lock().await;
             match current_area.as_ref() {
                 Some(area_deck) => {
@@ -323,7 +328,26 @@ pub async fn play(
                             )))));
                         }
                     };
-                    let gs = game_state.lock().await;
+
+                    // Recycle encounter back to area deck and refill hand
+                    {
+                        let mut current_area = player_data.current_area_deck.lock().await;
+                        if let Some(area_deck) = current_area.as_mut() {
+                            if let Some(ref combat) = gs.current_combat {
+                                if let Some(enc_id) = combat.encounter_card_id {
+                                    area_deck.recycle_encounter(enc_id);
+                                }
+                            }
+                            let foresight = gs
+                                .token_balances
+                                .get(&crate::library::types::TokenId::Foresight)
+                                .copied()
+                                .unwrap_or(3) as usize;
+                            area_deck.draw_to_hand(foresight);
+                        }
+                    }
+
+                    gs.encounter_state.phase = crate::library::types::EncounterPhase::Ready;
                     let payload = crate::library::types::ActionPayload::ApplyScouting {
                         area_id: "current".to_string(),
                         parameters,
@@ -336,51 +360,6 @@ pub async fn play(
                     "No current area set".to_string(),
                 )))),
             }
-        }
-        PlayerActions::FinishScouting => {
-            let mut gs = game_state.lock().await;
-            if gs.encounter_state.phase != crate::library::types::EncounterPhase::Scouting {
-                return Err(Right(BadRequest(new_status(
-                    "Not in Scouting phase".to_string(),
-                ))));
-            }
-            // Recycle the finished encounter back to area deck
-            if let Some(ref result) = gs.last_combat_result {
-                if let Some(ref combat) = gs.current_combat {
-                    if let Some(enc_id) = combat.encounter_card_id {
-                        let mut current_area = player_data.current_area_deck.lock().await;
-                        if let Some(area_deck) = current_area.as_mut() {
-                            area_deck.recycle_encounter(enc_id);
-                            let foresight = gs
-                                .token_balances
-                                .get(&crate::library::types::TokenId::Foresight)
-                                .copied()
-                                .unwrap_or(3) as usize;
-                            area_deck.draw_to_hand(foresight);
-                        }
-                    }
-                }
-                let _ = result; // suppress unused warning
-            } else {
-                // No combat result but in scouting — still refill hand
-                let mut current_area = player_data.current_area_deck.lock().await;
-                if let Some(area_deck) = current_area.as_mut() {
-                    let foresight = gs
-                        .token_balances
-                        .get(&crate::library::types::TokenId::Foresight)
-                        .copied()
-                        .unwrap_or(3) as usize;
-                    area_deck.draw_to_hand(foresight);
-                }
-            }
-            gs.encounter_state.phase = crate::library::types::EncounterPhase::Ready;
-            let payload = crate::library::types::ActionPayload::ApplyScouting {
-                area_id: "current".to_string(),
-                parameters: "finish".to_string(),
-                reason: Some("Player finished scouting phase".to_string()),
-            };
-            let entry = gs.append_action("FinishScouting", payload);
-            Ok((rocket::http::Status::Created, Json(entry)))
         }
     }
 }
