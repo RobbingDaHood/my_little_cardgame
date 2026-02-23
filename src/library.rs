@@ -38,6 +38,8 @@ pub mod types {
         Corruption,
         Exhaustion,
         Durability,
+        // Effect-only tokens (not stored in balances)
+        DrawCards,
     }
 
     impl TokenType {
@@ -106,19 +108,10 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde", tag = "kind")]
     pub enum CardKind {
-        Attack {
-            effects: Vec<CardEffect>,
-        },
-        Defence {
-            effects: Vec<CardEffect>,
-        },
-        Resource {
-            effects: Vec<CardEffect>,
-            draw_count: u32,
-        },
-        CombatEncounter {
-            combatant_def: CombatantDef,
-        },
+        Attack { effects: Vec<CardEffect> },
+        Defence { effects: Vec<CardEffect> },
+        Resource { effects: Vec<CardEffect> },
+        CombatEncounter { combatant_def: CombatantDef },
     }
 
     /// Definition of an enemy combatant for a combat encounter card.
@@ -1006,12 +999,18 @@ fn initialize_library() -> Library {
     // Resource card (id 2): grants 2 stamina to self, draws 1 card (~50% of starting deck)
     lib.add_card(
         CardKind::Resource {
-            effects: vec![CardEffect {
-                target: types::EffectTarget::OnSelf,
-                token_id: types::TokenType::Stamina,
-                amount: 2,
-            }],
-            draw_count: 1,
+            effects: vec![
+                CardEffect {
+                    target: types::EffectTarget::OnSelf,
+                    token_id: types::TokenType::Stamina,
+                    amount: 2,
+                },
+                CardEffect {
+                    target: types::EffectTarget::OnSelf,
+                    token_id: types::TokenType::DrawCards,
+                    amount: 1,
+                },
+            ],
         },
         CardCounts {
             library: 0,
@@ -1291,22 +1290,30 @@ impl GameState {
             .get(card_id)
             .ok_or_else(|| format!("Card {} not found in Library", card_id))?
             .clone();
-        let (effects, draw_count) = match &lib_card.kind {
-            CardKind::Attack { effects } | CardKind::Defence { effects } => (effects.clone(), 0),
-            CardKind::Resource {
-                effects,
-                draw_count,
-            } => (effects.clone(), *draw_count),
+        let effects = match &lib_card.kind {
+            CardKind::Attack { effects }
+            | CardKind::Defence { effects }
+            | CardKind::Resource { effects } => effects.clone(),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
-        apply_card_effects(&effects, true, combat);
+        // Separate draw effects from combat effects
+        let draw_count: u32 = effects
+            .iter()
+            .filter(|e| e.token_id == types::TokenType::DrawCards)
+            .map(|e| e.amount.max(0) as u32)
+            .sum();
+        let combat_effects: Vec<_> = effects
+            .iter()
+            .filter(|e| e.token_id != types::TokenType::DrawCards)
+            .cloned()
+            .collect();
+        apply_card_effects(&combat_effects, true, combat);
         check_combat_end(combat);
         if combat.is_finished {
             self.last_combat_result = Some(combat.outcome.clone());
             self.current_combat = None;
             self.encounter_state.phase = types::EncounterPhase::Scouting;
         }
-        // Resource cards trigger draws from deck → hand
         if draw_count > 0 {
             self.draw_random_cards(draw_count);
         }
