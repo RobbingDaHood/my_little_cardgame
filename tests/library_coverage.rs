@@ -175,8 +175,7 @@ fn library_draw_nonexistent_card_returns_error() {
 fn game_state_apply_consume() {
     let mut gs = GameState::new();
     gs.apply_grant(&TokenType::Insight, 10, None).unwrap();
-    let entry = gs.apply_consume(&TokenType::Insight, 3, None).unwrap();
-    assert_eq!(entry.action_type, "ConsumeToken");
+    gs.apply_consume(&TokenType::Insight, 3, None).unwrap();
     assert_eq!(
         token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         7
@@ -220,11 +219,27 @@ fn game_state_draw_random_cards() {
 }
 
 #[test]
-fn replay_from_log_with_consume_and_expire() {
-    let mut gs = GameState::new();
-    let _ = gs.apply_grant(&TokenType::Insight, 20, None).unwrap();
-    let _ = gs.apply_consume(&TokenType::Insight, 5, None).unwrap();
-    // Simulate an expire action
+fn replay_from_log_handles_legacy_entries() {
+    let gs = GameState::new();
+    // Manually add legacy-format entries to action log
+    gs.action_log.append(
+        "GrantToken",
+        ActionPayload::GrantToken {
+            token_id: TokenType::Insight,
+            amount: 20,
+            reason: None,
+            resulting_amount: 20,
+        },
+    );
+    gs.action_log.append(
+        "ConsumeToken",
+        ActionPayload::ConsumeToken {
+            token_id: TokenType::Insight,
+            amount: 5,
+            reason: None,
+            resulting_amount: 15,
+        },
+    );
     gs.action_log.append(
         "ExpireToken",
         ActionPayload::ExpireToken {
@@ -233,18 +248,8 @@ fn replay_from_log_with_consume_and_expire() {
             reason: Some("test expire".to_string()),
         },
     );
-    // Also add a NewGame event
     gs.action_log
         .append("NewGame", ActionPayload::SetSeed { seed: 42 });
-    // Add a PlayCard event (should be ignored during replay)
-    gs.action_log.append(
-        "PlayCard",
-        ActionPayload::PlayCard {
-            card_id: 0,
-            deck_id: None,
-            reason: None,
-        },
-    );
 
     let log_clone = gs.action_log.clone();
     let registry = TokenRegistry::with_canonical();

@@ -1274,12 +1274,13 @@ impl GameState {
     }
 
     /// Apply a simple GrantToken action: update balances and append to the action log.
+    /// Apply a grant operation: add to token balances with cap checking.
     pub fn apply_grant(
         &mut self,
         token_id: &types::TokenType,
         amount: i64,
-        reason: Option<String>,
-    ) -> Result<ActionEntry, String> {
+        _reason: Option<String>,
+    ) -> Result<(), String> {
         let token_type = self
             .registry
             .tokens
@@ -1297,30 +1298,21 @@ impl GameState {
             }
         }
 
-        let current = types::token_balance_by_type(&self.token_balances, token_id);
-        let resulting_amount = current + amount;
-        let payload = ActionPayload::GrantToken {
-            token_id: token_id.clone(),
-            amount,
-            reason,
-            resulting_amount,
-        };
-        let entry = self.append_action("GrantToken", payload);
         let v = self
             .token_balances
             .entry(token_id.with_default_lifecycle())
             .or_insert(0);
         *v += amount;
-        Ok(entry)
+        Ok(())
     }
 
-    /// Apply a ConsumeToken action: deduct from balances and append to the action log.
+    /// Apply a consume operation: deduct from token balances.
     pub fn apply_consume(
         &mut self,
         token_id: &types::TokenType,
         amount: i64,
-        reason: Option<String>,
-    ) -> Result<ActionEntry, String> {
+        _reason: Option<String>,
+    ) -> Result<(), String> {
         if !self.registry.contains(token_id) {
             return Err(format!("Unknown token '{:?}'", token_id));
         }
@@ -1333,20 +1325,12 @@ impl GameState {
             ));
         }
 
-        let resulting_amount = current - amount;
-        let payload = ActionPayload::ConsumeToken {
-            token_id: token_id.clone(),
-            amount,
-            reason,
-            resulting_amount,
-        };
-        let entry = self.append_action("ConsumeToken", payload);
         let v = self
             .token_balances
             .entry(token_id.with_default_lifecycle())
             .or_insert(0);
         *v -= amount;
-        Ok(entry)
+        Ok(())
     }
 
     /// Append an action to the action log with optional metadata; returns the appended entry.

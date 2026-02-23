@@ -8,28 +8,18 @@ use std::sync::Arc;
 use std::thread;
 
 #[test]
-fn grant_and_replay() {
+fn grant_modifies_balance() {
     let mut gs = GameState::new();
     assert_eq!(
         token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         0
     );
-    let entry = gs
-        .apply_grant(&TokenType::Insight, 10, None)
+    gs.apply_grant(&TokenType::Insight, 10, None)
         .expect("apply_grant failed");
-    assert_eq!(entry.seq, 1);
     assert_eq!(
         token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         10
     );
-
-    // replay
-    let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
-    assert_eq!(
-        token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
-        10
-    );
-    assert_eq!(replayed.action_log.entries().len(), 1);
 }
 
 #[test]
