@@ -91,18 +91,17 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
 #[test]
 fn test_seed_determinism_for_enemy_selection() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    // First run: init, set seed, enemy_play
+    // First run: init, set seed via NewGame, enemy_play
     client.post("/tests/combat").dispatch();
-    let seed_body = r#"{ "seed": 42 }"#;
-    let resp = client
-        .post("/player/seed")
+    client
+        .post("/action")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
         })
-        .body(seed_body)
+        .body(r#"{"action_type":"NewGame","seed":42}"#)
         .dispatch();
-    assert_eq!(resp.status(), Status::Ok);
+    client.post("/tests/combat").dispatch();
     client.post("/tests/combat/enemy_play").dispatch();
     let resp1 = client.get("/combat").dispatch();
     let combat1: serde_json::Value =
@@ -111,17 +110,16 @@ fn test_seed_determinism_for_enemy_selection() {
     // Capture enemy tokens after first play
     let enemy_tokens_1 = combat1["enemy"]["active_tokens"].clone();
 
-    // Second run: reinitialize, set same seed, enemy_play
-    client.post("/tests/combat").dispatch();
-    let resp = client
-        .post("/player/seed")
+    // Second run: reinitialize, set same seed via NewGame, enemy_play
+    client
+        .post("/action")
         .header(Header {
             name: Uncased::from("Content-Type"),
             value: Cow::from("application/json"),
         })
-        .body(seed_body)
+        .body(r#"{"action_type":"NewGame","seed":42}"#)
         .dispatch();
-    assert_eq!(resp.status(), Status::Ok);
+    client.post("/tests/combat").dispatch();
     client.post("/tests/combat/enemy_play").dispatch();
     let resp2 = client.get("/combat").dispatch();
     let combat2: serde_json::Value =

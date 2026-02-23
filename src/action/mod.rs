@@ -17,7 +17,7 @@ use rand_pcg::Lcg64Xsh32;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
 #[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
-    SetSeed { seed: u64 },
+    NewGame { seed: Option<u64> },
     // Encounter actions (Step 7)
     EncounterPickEncounter { card_id: usize },
     EncounterPlayCard { card_id: u64, effects: Vec<String> },
@@ -40,20 +40,42 @@ pub async fn play(
     let action = player_action.0;
 
     match action {
-        PlayerActions::SetSeed { seed } => {
-            let gs = game_state.lock().await;
-            // append to action log
-            let payload = crate::library::types::ActionPayload::SetSeed { seed };
-            let log_arc = std::sync::Arc::clone(&gs.action_log);
-            let entry = log_arc.append_async("SetSeed", payload).await;
-            // apply to PlayerData RNG/seed
-            let s = seed;
+        PlayerActions::NewGame { seed } => {
+            use rand::RngCore;
+            let s = seed.unwrap_or_else(|| {
+                let mut rng = Lcg64Xsh32::from_entropy();
+                rng.next_u64()
+            });
             let mut seed_bytes: [u8; 16] = [0u8; 16];
             seed_bytes[0..8].copy_from_slice(&s.to_le_bytes());
             seed_bytes[8..16].copy_from_slice(&s.to_le_bytes());
             *player_data.seed.lock().await = seed_bytes;
             let new_rng = Lcg64Xsh32::from_seed(seed_bytes);
             *player_data.random_generator_state.lock().await = new_rng;
+
+            // Reset game state
+            let mut gs = game_state.lock().await;
+            let new_gs = crate::library::GameState::new();
+            gs.library = new_gs.library;
+            gs.token_balances = new_gs.token_balances;
+            gs.current_combat = None;
+            gs.encounter_state = new_gs.encounter_state;
+            gs.last_combat_result = None;
+
+            // Reset area deck
+            {
+                let mut current_area = player_data.current_area_deck.lock().await;
+                *current_area = Some(crate::area_deck::AreaDeck::new("starter_area".to_string()));
+                if let Some(ref mut area) = *current_area {
+                    area.add_encounter(3);
+                    area.add_encounter(3);
+                    area.add_encounter(3);
+                    area.draw_to_hand(3);
+                }
+            }
+
+            let payload = crate::library::types::ActionPayload::SetSeed { seed: s };
+            let entry = gs.append_action("NewGame", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
         // Step 7: Encounter action handlers

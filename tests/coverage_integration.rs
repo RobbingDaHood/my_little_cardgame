@@ -20,22 +20,20 @@ fn get_player_tokens_returns_initial_balances() {
 }
 
 #[test]
-fn set_seed_records_action() {
+fn new_game_records_action() {
     let client = client();
     let response = client
-        .post("/player/seed")
+        .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"seed": 42}"#)
+        .body(r#"{"action_type":"NewGame","seed":42}"#)
         .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    assert!(body.contains("42"));
+    assert_eq!(response.status(), Status::Created);
 
-    // Verify action log contains SetSeed entry
-    let log_resp = client.get("/actions/log?action_type=SetSeed").dispatch();
+    // Verify action log contains NewGame entry
+    let log_resp = client.get("/actions/log?action_type=NewGame").dispatch();
     assert_eq!(log_resp.status(), Status::Ok);
     let log_body = log_resp.into_string().unwrap();
-    assert!(log_body.contains("SetSeed"));
+    assert!(log_body.contains("NewGame"));
 }
 
 #[test]
@@ -46,12 +44,12 @@ fn actions_log_filtering() {
     client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"SetSeed","seed":111}"#)
+        .body(r#"{"action_type":"NewGame","seed":111}"#)
         .dispatch();
     client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"SetSeed","seed":222}"#)
+        .body(r#"{"action_type":"NewGame","seed":222}"#)
         .dispatch();
 
     // Fetch all actions
@@ -76,14 +74,14 @@ fn actions_log_filtering() {
     assert!(!log["entries"].as_array().unwrap().is_empty());
 
     // Filter by action_type
-    let response = client.get("/actions/log?action_type=SetSeed").dispatch();
+    let response = client.get("/actions/log?action_type=NewGame").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
     let log: serde_json::Value = serde_json::from_str(&body).unwrap();
     let entries = log["entries"].as_array().unwrap();
     assert!(entries.len() >= 2);
     for entry in entries {
-        assert_eq!(entry["action_type"], "SetSeed");
+        assert_eq!(entry["action_type"], "NewGame");
     }
 
     // Filter by action_type that doesn't exist
@@ -415,12 +413,12 @@ fn encounter_apply_scouting_when_not_in_scouting() {
 }
 
 #[test]
-fn set_seed_via_action() {
+fn new_game_via_action() {
     let client = client();
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"SetSeed","seed":12345}"#)
+        .body(r#"{"action_type":"NewGame","seed":12345}"#)
         .dispatch();
     assert_eq!(response.status(), Status::Created);
 }

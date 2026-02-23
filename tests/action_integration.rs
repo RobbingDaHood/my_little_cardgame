@@ -4,10 +4,10 @@ use rocket::local::blocking::Client;
 use serde_json::json;
 
 #[test]
-fn set_seed_via_action_records_log() {
+fn new_game_via_action_records_log() {
     let client =
         Client::tracked(my_little_cardgame::rocket_initialize()).expect("valid rocket instance");
-    let body = json!({"action_type": "SetSeed", "seed": 42u64}).to_string();
+    let body = json!({"action_type": "NewGame", "seed": 42u64}).to_string();
     let response = client
         .post("/action")
         .header(ContentType::JSON)

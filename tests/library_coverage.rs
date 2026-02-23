@@ -235,9 +235,9 @@ fn replay_from_log_with_consume_and_expire() {
             reason: Some("test expire".to_string()),
         },
     );
-    // Also add a SetSeed event
+    // Also add a NewGame event
     gs.action_log
-        .append("SetSeed", ActionPayload::SetSeed { seed: 42 });
+        .append("NewGame", ActionPayload::SetSeed { seed: 42 });
     // Add a PlayCard event (should be ignored during replay)
     gs.action_log.append(
         "PlayCard",
