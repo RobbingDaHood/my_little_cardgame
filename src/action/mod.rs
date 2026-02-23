@@ -20,7 +20,7 @@ pub enum PlayerActions {
     NewGame { seed: Option<u64> },
     // Encounter actions (Step 7)
     EncounterPickEncounter { card_id: usize },
-    EncounterPlayCard { card_id: u64, effects: Vec<String> },
+    EncounterPlayCard { card_id: u64 },
     EncounterApplyScouting { card_ids: Vec<usize> },
 }
 
@@ -123,10 +123,7 @@ pub async fn play(
                 Err(e) => Err(Right(BadRequest(new_status(e)))),
             }
         }
-        PlayerActions::EncounterPlayCard {
-            card_id,
-            effects: _,
-        } => {
+        PlayerActions::EncounterPlayCard { card_id } => {
             let mut gs = game_state.lock().await;
             if gs.current_combat.is_none() {
                 return Err(Right(BadRequest(new_status(

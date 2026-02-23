@@ -19,7 +19,7 @@ fn interleaved_player_and_enemy_actions() {
     // Interleave plays and enemy plays sequentially to exercise locking
     for _ in 0..5 {
         let action_json = format!(
-            r#"{{ "action_type": "EncounterPlayCard", "card_id": , "effects": []{} }}"#,
+            r#"{{ "action_type": "EncounterPlayCard", "card_id": {} }}"#,
             card_id
         );
         let play_response = client

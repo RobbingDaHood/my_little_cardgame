@@ -15,7 +15,7 @@ fn test_play_defence_card_adds_tokens() {
     assert_eq!(init_response.status(), Status::Created);
 
     // Play the existing Defence card (Library ID 1) which adds shield via CardEffect
-    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 1, "effects": [] }"#;
+    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 1 }"#;
     let play_response = client
         .post("/action")
         .header(Header {
@@ -62,7 +62,7 @@ fn test_play_attack_card_kills_enemy() {
     for (phase_idx, _) in (0..30).enumerate() {
         let card_id = phase_cards[phase_idx % 3];
         let action_json = format!(
-            r#"{{ "action_type": "EncounterPlayCard", "card_id": {}, "effects": [] }}"#,
+            r#"{{ "action_type": "EncounterPlayCard", "card_id": {} }}"#,
             card_id
         );
         let play_response = client
