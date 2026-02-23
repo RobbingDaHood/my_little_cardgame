@@ -5,7 +5,7 @@ mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
         token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
-        CombatSnapshot, Combatant, EffectTarget, Token, TokenType,
+        CombatState, Combatant, EffectTarget, Token, TokenType,
     };
     use std::collections::HashMap;
 
@@ -60,15 +60,12 @@ mod tests {
         defs
     }
 
-    fn two_combatant_snapshot(
-        player_hp: i64,
-        enemy_hp: i64,
-    ) -> (CombatSnapshot, HashMap<Token, i64>) {
+    fn two_combatant_snapshot(player_hp: i64, enemy_hp: i64) -> (CombatState, HashMap<Token, i64>) {
         let player_tokens = HashMap::from([
             (Token::persistent(TokenType::Health), player_hp),
             (Token::persistent(TokenType::MaxHealth), player_hp),
         ]);
-        let snapshot = CombatSnapshot {
+        let snapshot = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
@@ -160,7 +157,7 @@ mod tests {
             (Token::persistent(TokenType::Health), 100),
             (Token::persistent(TokenType::MaxHealth), 100),
         ]);
-        let initial_state = CombatSnapshot {
+        let initial_state = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
@@ -206,7 +203,7 @@ mod tests {
             (Token::persistent(TokenType::Health), 100),
             (Token::persistent(TokenType::MaxHealth), 100),
         ]);
-        let initial_state = CombatSnapshot {
+        let initial_state = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,

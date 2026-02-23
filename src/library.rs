@@ -429,7 +429,7 @@ pub mod types {
     /// Snapshot of combat state for deterministic simulation. Pure data.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
-    pub struct CombatSnapshot {
+    pub struct CombatState {
         pub round: u64,
         pub player_turn: bool,
         pub phase: CombatPhase,
@@ -496,14 +496,14 @@ pub mod combat {
     //! opponent HP via token manipulation. Features like dodge, stamina, and
     //! advanced mechanics are deferred to later roadmap steps.
 
-    use super::types::{CardDef, CombatAction, CombatSnapshot, EffectTarget};
+    use super::types::{CardDef, CombatAction, CombatState, EffectTarget};
     use rand::RngCore;
     use rand_pcg::Lcg64Xsh32;
     use std::collections::HashMap;
 
     /// Result of resolving a combat tick: (updated snapshot, updated player tokens, rng values used).
     pub type CombatTickResult =
-        Result<(CombatSnapshot, HashMap<super::types::Token, i64>, Vec<u64>), String>;
+        Result<(CombatState, HashMap<super::types::Token, i64>, Vec<u64>), String>;
 
     /// Resolve a single combat action (card play) deterministically.
     ///
@@ -511,7 +511,7 @@ pub mod combat {
     /// checks victory/defeat, and advances the turn.
     /// Returns an error if the card_id is unknown.
     pub fn resolve_combat_tick(
-        current_state: &CombatSnapshot,
+        current_state: &CombatState,
         player_tokens: &HashMap<super::types::Token, i64>,
         action: &CombatAction,
         card_defs: &HashMap<u64, CardDef>,
@@ -567,12 +567,12 @@ pub mod combat {
     ///
     /// Returns the final combat snapshot and player tokens. Pure-data; no side effects.
     pub fn simulate_combat(
-        initial_state: CombatSnapshot,
+        initial_state: CombatState,
         initial_player_tokens: HashMap<super::types::Token, i64>,
         seed: u64,
         actions: Vec<CombatAction>,
         card_defs: &HashMap<u64, CardDef>,
-    ) -> (CombatSnapshot, HashMap<super::types::Token, i64>) {
+    ) -> (CombatState, HashMap<super::types::Token, i64>) {
         use rand::SeedableRng;
 
         let seed_bytes: [u8; 16] = {
@@ -1197,7 +1197,7 @@ fn apply_card_effects(
     effects: &[CardEffect],
     is_player: bool,
     player_tokens: &mut HashMap<types::Token, i64>,
-    combat: &mut types::CombatSnapshot,
+    combat: &mut types::CombatState,
 ) {
     for effect in effects {
         let target_tokens = match (&effect.target, is_player) {
@@ -1238,10 +1238,7 @@ fn apply_card_effects(
 }
 
 /// Check if combat has ended (either side at 0 health).
-fn check_combat_end(
-    player_tokens: &HashMap<types::Token, i64>,
-    combat: &mut types::CombatSnapshot,
-) {
+fn check_combat_end(player_tokens: &HashMap<types::Token, i64>, combat: &mut types::CombatState) {
     let player_health = player_tokens
         .get(&types::Token::persistent(types::TokenType::Health))
         .copied()
@@ -1272,7 +1269,7 @@ pub struct GameState {
     pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<types::Token, i64>,
     pub library: Library,
-    pub current_combat: Option<types::CombatSnapshot>,
+    pub current_combat: Option<types::CombatState>,
     pub encounter_state: types::EncounterState,
     pub last_combat_result: Option<types::CombatOutcome>,
 }
@@ -1399,7 +1396,7 @@ impl GameState {
                 ))
             }
         };
-        let snapshot = types::CombatSnapshot {
+        let snapshot = types::CombatState {
             round: 1,
             player_turn: true,
             phase: types::CombatPhase::Defending,

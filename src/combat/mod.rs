@@ -4,7 +4,7 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
 use rocket_okapi::{openapi, JsonSchema};
 
-use crate::library::types::{CombatOutcome, CombatSnapshot};
+use crate::library::types::{CombatOutcome, CombatState};
 use crate::player_data::PlayerData;
 use crate::status_messages::{new_status, Status};
 
@@ -12,7 +12,7 @@ use crate::status_messages::{new_status, Status};
 #[get("/combat")]
 pub async fn get_combat(
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
-) -> Result<Json<CombatSnapshot>, NotFound<Json<Status>>> {
+) -> Result<Json<CombatState>, NotFound<Json<Status>>> {
     let gs = game_state.lock().await;
     match &gs.current_combat {
         Some(c) => Ok(Json(c.clone())),
@@ -119,7 +119,7 @@ pub async fn simulate_combat_endpoint(
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct SimulateCombatRequest {
-    pub initial_state: CombatSnapshot,
+    pub initial_state: CombatState,
     #[serde(with = "crate::library::types::token_map_serde")]
     #[schemars(with = "crate::library::types::token_map_serde::SchemaHelper")]
     pub player_tokens: std::collections::HashMap<crate::library::types::Token, i64>,
@@ -131,7 +131,7 @@ pub struct SimulateCombatRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct SimulateCombatResponse {
-    pub snapshot: CombatSnapshot,
+    pub snapshot: CombatState,
     #[serde(with = "crate::library::types::token_map_serde")]
     #[schemars(with = "crate::library::types::token_map_serde::SchemaHelper")]
     pub player_tokens: std::collections::HashMap<crate::library::types::Token, i64>,

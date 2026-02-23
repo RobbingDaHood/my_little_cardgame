@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{CombatSnapshot, TokenType};
+use my_little_cardgame::library::types::{CombatState, TokenType};
 use my_little_cardgame::player_tokens::TokenBalance;
 use my_little_cardgame::rocket_initialize;
 use rocket::http::{ContentType, Status};
@@ -329,7 +329,7 @@ fn simulate_combat_endpoint() {
     assert_eq!(response.status(), Status::Ok);
 }
 
-fn get_combat(client: &Client) -> Option<CombatSnapshot> {
+fn get_combat(client: &Client) -> Option<CombatState> {
     let response = client.get("/combat").dispatch();
     if response.status().code == 404 {
         None

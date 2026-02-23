@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{token_balance_by_type, CombatSnapshot, TokenType};
+use my_little_cardgame::library::types::{token_balance_by_type, CombatState, TokenType};
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
@@ -81,13 +81,13 @@ fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {
     serde_json::from_str(string_body.as_str()).expect("Test assertion failed")
 }
 
-fn get_combat(client: &Client) -> Option<CombatSnapshot> {
+fn get_combat(client: &Client) -> Option<CombatState> {
     let response = client.get("/combat").dispatch();
     if response.status().code == 404 {
         None
     } else if response.status().code == 200 {
         let string_body = response.into_string().expect("Test assertion failed");
-        let combat: CombatSnapshot =
+        let combat: CombatState =
             serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         Some(combat)
     } else {

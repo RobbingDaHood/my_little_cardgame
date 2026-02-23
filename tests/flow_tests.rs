@@ -81,7 +81,7 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     let resp = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
-    // Fetch combat and check enemy tokens via CombatSnapshot JSON
+    // Fetch combat and check enemy tokens via CombatState JSON
     let resp_combat = client.get("/combat").dispatch();
     assert_eq!(resp_combat.status(), Status::Ok);
     let combat_json: serde_json::Value =

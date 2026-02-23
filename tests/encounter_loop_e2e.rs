@@ -133,7 +133,7 @@ mod tests {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
             token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
-            CombatSnapshot, Combatant, EffectTarget, Token, TokenType,
+            CombatState, Combatant, EffectTarget, Token, TokenType,
         };
         use std::collections::HashMap;
 
@@ -176,7 +176,7 @@ mod tests {
             (Token::persistent(TokenType::Health), 100),
             (Token::persistent(TokenType::MaxHealth), 100),
         ]);
-        let initial_combat = CombatSnapshot {
+        let initial_combat = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
