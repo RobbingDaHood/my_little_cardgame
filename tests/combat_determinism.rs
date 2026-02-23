@@ -78,6 +78,9 @@ mod tests {
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
         (snapshot, player_tokens)
     }
@@ -167,6 +170,9 @@ mod tests {
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
         let card_defs = test_card_defs();
 
@@ -213,6 +219,9 @@ mod tests {
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
         let card_defs = test_card_defs();
 

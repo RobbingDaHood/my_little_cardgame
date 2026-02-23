@@ -114,7 +114,8 @@ pub async fn play(
                     20,
                 );
             }
-            match gs.start_combat(card_id) {
+            let mut rng = player_data.random_generator_state.lock().await;
+            match gs.start_combat(card_id, &mut rng) {
                 Ok(()) => {
                     let payload = crate::library::types::ActionPayload::DrawEncounter {
                         area_id: "current".to_string(),

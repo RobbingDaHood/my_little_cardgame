@@ -73,7 +73,7 @@ pub mod types {
     }
 
     /// A single effect a card applies when played.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CardEffect {
         pub target: EffectTarget,
@@ -139,11 +139,21 @@ pub mod types {
         pub resource_deck: Vec<EnemyCardDef>,
     }
 
+    /// Copy counts for enemy cards: deck, hand, discard.
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct EnemyCardCounts {
+        pub deck: u32,
+        pub hand: u32,
+        pub discard: u32,
+    }
+
     /// A simple inline card definition for enemy decks.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct EnemyCardDef {
         pub effects: Vec<CardEffect>,
+        pub counts: EnemyCardCounts,
     }
 
     /// A single entry in the Library. Index in the Vec = card ID.
@@ -437,6 +447,9 @@ pub mod types {
         pub encounter_card_id: Option<usize>,
         pub is_finished: bool,
         pub outcome: CombatOutcome,
+        pub enemy_attack_deck: Vec<EnemyCardDef>,
+        pub enemy_defence_deck: Vec<EnemyCardDef>,
+        pub enemy_resource_deck: Vec<EnemyCardDef>,
     }
 
     /// Outcome of a combat encounter.
@@ -1161,6 +1174,11 @@ fn initialize_library() -> Library {
                             amount: -3,
                             lifecycle: types::TokenLifecycle::PersistentCounter,
                         }],
+                        counts: types::EnemyCardCounts {
+                            deck: 0,
+                            hand: 10,
+                            discard: 0,
+                        },
                     }],
                     defence_deck: vec![types::EnemyCardDef {
                         effects: vec![CardEffect {
@@ -1169,14 +1187,32 @@ fn initialize_library() -> Library {
                             amount: 2,
                             lifecycle: types::TokenLifecycle::PersistentCounter,
                         }],
+                        counts: types::EnemyCardCounts {
+                            deck: 0,
+                            hand: 10,
+                            discard: 0,
+                        },
                     }],
                     resource_deck: vec![types::EnemyCardDef {
-                        effects: vec![CardEffect {
-                            target: types::EffectTarget::OnSelf,
-                            token_id: types::TokenType::Stamina,
-                            amount: 1,
-                            lifecycle: types::TokenLifecycle::PersistentCounter,
-                        }],
+                        effects: vec![
+                            CardEffect {
+                                target: types::EffectTarget::OnSelf,
+                                token_id: types::TokenType::Stamina,
+                                amount: 1,
+                                lifecycle: types::TokenLifecycle::PersistentCounter,
+                            },
+                            CardEffect {
+                                target: types::EffectTarget::OnSelf,
+                                token_id: types::TokenType::DrawCards,
+                                amount: 1,
+                                lifecycle: types::TokenLifecycle::PersistentCounter,
+                            },
+                        ],
+                        counts: types::EnemyCardCounts {
+                            deck: 0,
+                            hand: 10,
+                            discard: 0,
+                        },
                     }],
                 },
             },
@@ -1379,7 +1415,11 @@ impl GameState {
     }
 
     /// Initialize combat from a Library Encounter card.
-    pub fn start_combat(&mut self, encounter_card_id: usize) -> Result<(), String> {
+    pub fn start_combat(
+        &mut self,
+        encounter_card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
         let lib_card = self
             .library
             .get(encounter_card_id)
@@ -1396,6 +1436,12 @@ impl GameState {
                 ))
             }
         };
+        let mut enemy_attack_deck = combatant_def.attack_deck.clone();
+        let mut enemy_defence_deck = combatant_def.defence_deck.clone();
+        let mut enemy_resource_deck = combatant_def.resource_deck.clone();
+        Self::enemy_shuffle_hand(rng, &mut enemy_attack_deck);
+        Self::enemy_shuffle_hand(rng, &mut enemy_defence_deck);
+        Self::enemy_shuffle_hand(rng, &mut enemy_resource_deck);
         let snapshot = types::CombatState {
             round: 1,
             player_turn: true,
@@ -1406,6 +1452,9 @@ impl GameState {
             encounter_card_id: Some(encounter_card_id),
             is_finished: false,
             outcome: types::CombatOutcome::Undecided,
+            enemy_attack_deck,
+            enemy_defence_deck,
+            enemy_resource_deck,
         };
         self.current_combat = Some(snapshot);
         self.encounter_state.phase = types::EncounterPhase::InCombat;
@@ -1469,40 +1518,58 @@ impl GameState {
         }
     }
 
-    /// Resolve an enemy card play (random card from appropriate deck).
-    /// Enemy plays one random card from each of its three decks (attack, defence, resource).
+    /// Resolve an enemy card play from hand in the current combat phase.
+    /// Played cards move to discard. Resource cards with DrawCards trigger enemy draws.
     pub fn resolve_enemy_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) -> Result<(), String> {
         let combat = self.current_combat.as_ref().ok_or("No active combat")?;
-        let encounter_card_id = combat
-            .encounter_card_id
-            .ok_or("No encounter card in combat")?;
         let phase = combat.phase.clone();
 
-        let lib_card = self
-            .library
-            .get(encounter_card_id)
-            .ok_or("Encounter card not found")?
-            .clone();
-        let combatant_def = match &lib_card.kind {
-            CardKind::Encounter {
-                encounter_kind: EncounterKind::Combat { combatant_def },
-            } => combatant_def.clone(),
-            _ => return Err("Not a combat encounter".to_string()),
+        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+        let deck = match phase {
+            types::CombatPhase::Attacking => &mut combat.enemy_attack_deck,
+            types::CombatPhase::Defending => &mut combat.enemy_defence_deck,
+            types::CombatPhase::Resourcing => &mut combat.enemy_resource_deck,
         };
 
-        // Pick the deck matching the current combat phase
-        let deck = match phase {
-            types::CombatPhase::Attacking => &combatant_def.attack_deck,
-            types::CombatPhase::Defending => &combatant_def.defence_deck,
-            types::CombatPhase::Resourcing => &combatant_def.resource_deck,
-        };
-        if !deck.is_empty() {
+        // Collect indices of cards with hand > 0
+        let hand_indices: Vec<usize> = deck
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c.counts.hand > 0)
+            .map(|(i, _)| i)
+            .collect();
+
+        if !hand_indices.is_empty() {
             use rand::RngCore;
-            let pick = (rng.next_u64() as usize) % deck.len();
-            let effects = deck[pick].effects.clone();
-            let combat = self.current_combat.as_mut().ok_or("No active combat")?;
-            apply_card_effects(&effects, false, &mut self.token_balances, combat);
+            let pick_idx = (rng.next_u64() as usize) % hand_indices.len();
+            let card_idx = hand_indices[pick_idx];
+            deck[card_idx].counts.hand -= 1;
+            deck[card_idx].counts.discard += 1;
+            let effects = deck[card_idx].effects.clone();
+
+            // Separate draw effects from combat effects
+            let draw_count: u32 = effects
+                .iter()
+                .filter(|e| e.token_id == types::TokenType::DrawCards)
+                .map(|e| e.amount.max(0) as u32)
+                .sum();
+            let combat_effects: Vec<_> = effects
+                .iter()
+                .filter(|e| e.token_id != types::TokenType::DrawCards)
+                .cloned()
+                .collect();
+
+            apply_card_effects(&combat_effects, false, &mut self.token_balances, combat);
             check_combat_end(&self.token_balances, combat);
+
+            // Handle enemy draws from resource cards
+            if draw_count > 0 && !combat.is_finished {
+                let resource_deck = &mut combat.enemy_resource_deck;
+                for _ in 0..draw_count {
+                    Self::enemy_draw_random(rng, resource_deck);
+                }
+            }
+
             if combat.is_finished {
                 self.last_combat_result = Some(combat.outcome.clone());
                 self.current_combat = None;
@@ -1510,6 +1577,48 @@ impl GameState {
             }
         }
         Ok(())
+    }
+
+    /// Shuffle enemy hand: move all cards to deck, then draw random cards back to hand.
+    fn enemy_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::EnemyCardDef]) {
+        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
+        // Move all hand cards to deck
+        for card in deck.iter_mut() {
+            card.counts.deck += card.counts.hand;
+            card.counts.hand = 0;
+        }
+        // Draw random cards until hand is full again
+        for _ in 0..target_hand {
+            Self::enemy_draw_random(rng, deck);
+        }
+    }
+
+    /// Draw one random card from enemy deck to hand, recycling discard if needed.
+    fn enemy_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::EnemyCardDef]) {
+        use rand::RngCore;
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        if total_deck == 0 {
+            // Recycle discard to deck
+            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
+            if total_discard == 0 {
+                return;
+            }
+            for card in deck.iter_mut() {
+                card.counts.deck += card.counts.discard;
+                card.counts.discard = 0;
+            }
+        }
+        // Pick a random card from deck (weighted by deck count)
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        let mut pick = (rng.next_u64() as u32) % total_deck;
+        for card in deck.iter_mut() {
+            if pick < card.counts.deck {
+                card.counts.deck -= 1;
+                card.counts.hand += 1;
+                return;
+            }
+            pick -= card.counts.deck;
+        }
     }
 
     /// Advance combat phase to next (Defending → Attacking → Resourcing → Defending).

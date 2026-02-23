@@ -310,7 +310,10 @@ fn simulate_combat_endpoint() {
             },
             "encounter_card_id": 0,
             "is_finished": false,
-            "outcome": "Undecided"
+            "outcome": "Undecided",
+            "enemy_attack_deck": [],
+            "enemy_defence_deck": [],
+            "enemy_resource_deck": []
         },
         "player_tokens": [
             {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 20},

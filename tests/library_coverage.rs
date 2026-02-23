@@ -210,8 +210,8 @@ fn game_state_draw_random_cards() {
     // playing a resource card (id 2) triggers draw_count=1
     gs.token_balances
         .insert(Token::persistent(TokenType::Health), 20);
-    let _ = gs.start_combat(3);
-    // Phase starts at Defending, but we need Resourcing to play resource
+    let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
+    let _ = gs.start_combat(3, &mut rng);
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
     let _ = gs.advance_combat_phase(); // Attacking -> Resourcing
     let _ = gs.resolve_player_card(2); // Resource card draws 1
@@ -279,7 +279,7 @@ fn start_combat_with_non_encounter_card() {
     let mut gs = GameState::new();
     gs.token_balances
         .insert(Token::persistent(TokenType::Health), 20);
-    let result = gs.start_combat(0); // card 0 is Attack, not CombatEncounter
+    let result = gs.start_combat(0, &mut rand_pcg::Lcg64Xsh32::from_seed([0u8; 16])); // card 0 is Attack, not CombatEncounter
     assert!(result.is_err());
 }
 
@@ -288,7 +288,8 @@ fn resolve_player_card_non_action_card() {
     let mut gs = GameState::new();
     gs.token_balances
         .insert(Token::persistent(TokenType::Health), 20);
-    let _ = gs.start_combat(3);
+    let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
+    let _ = gs.start_combat(3, &mut rng);
     // Try to play CombatEncounter card (id 3) as a player card
     let result = gs.resolve_player_card(3);
     assert!(result.is_err());

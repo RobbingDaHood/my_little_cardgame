@@ -189,6 +189,9 @@ mod tests {
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
 
         combat_actions.push(CombatAction {

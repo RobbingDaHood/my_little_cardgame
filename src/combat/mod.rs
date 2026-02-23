@@ -29,8 +29,9 @@ pub async fn get_combat(
 #[openapi]
 #[post("/tests/combat")]
 pub async fn initialize_combat(
+    player_data: &State<PlayerData>,
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
-) -> Created<&str> {
+) -> Created<&'static str> {
     let mut gs = game_state.lock().await;
     // Initialize player health token if not set
     if gs
@@ -47,7 +48,8 @@ pub async fn initialize_combat(
             20,
         );
     }
-    let _ = gs.start_combat(3);
+    let mut rng = player_data.random_generator_state.lock().await;
+    let _ = gs.start_combat(3, &mut rng);
     Created::new("/tests/combat")
 }
 
