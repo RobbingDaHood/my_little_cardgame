@@ -17,7 +17,6 @@ use rand_pcg::Lcg64Xsh32;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
 #[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
-    PlayCard { card_id: usize },
     SetSeed { seed: u64 },
     // Encounter actions (Step 7)
     EncounterPickEncounter { card_id: usize },
@@ -56,60 +55,6 @@ pub async fn play(
             let new_rng = Lcg64Xsh32::from_seed(seed_bytes);
             *player_data.random_generator_state.lock().await = new_rng;
             Ok((rocket::http::Status::Created, Json(entry)))
-        }
-        PlayerActions::PlayCard { card_id } => {
-            let mut gs = game_state.lock().await;
-            if gs.current_combat.is_none() {
-                return Err(Right(BadRequest(new_status(
-                    "Cannot play a card if there are no active combat!".to_string(),
-                ))));
-            }
-            // Look up card in Library
-            let lib_card = match gs.library.get(card_id) {
-                Some(c) => c.clone(),
-                None => {
-                    return Err(Left(NotFound(new_status(format!(
-                        "Card {:?} does not exist in Library!",
-                        card_id
-                    )))));
-                }
-            };
-            // Validate card kind matches combat phase (guarded by is_none check above)
-            let combat = match gs.current_combat.as_ref() {
-                Some(c) => c,
-                None => {
-                    return Err(Right(BadRequest(new_status(
-                        "No active combat".to_string(),
-                    ))));
-                }
-            };
-            let allowed_kind = combat.phase.allowed_card_kind();
-            let card_kind_name = match &lib_card.kind {
-                crate::library::types::CardKind::Attack { .. } => "Attack",
-                crate::library::types::CardKind::Defence { .. } => "Defence",
-                crate::library::types::CardKind::Resource { .. } => "Resource",
-                crate::library::types::CardKind::CombatEncounter { .. } => "CombatEncounter",
-            };
-            if card_kind_name != allowed_kind {
-                return Err(Right(BadRequest(new_status(format!(
-                    "Card with id {} is not playable in current phase",
-                    card_id
-                )))));
-            }
-            // Move card from hand to discard via Library, then resolve effects
-            match gs.library.play(card_id) {
-                Ok(()) => {
-                    let _ = gs.resolve_player_card(card_id);
-                    let payload = crate::library::types::ActionPayload::PlayCard {
-                        card_id,
-                        deck_id: None,
-                        reason: None,
-                    };
-                    let entry = gs.append_action("PlayCard", payload);
-                    Ok((rocket::http::Status::Created, Json(entry)))
-                }
-                Err(e) => Err(Right(BadRequest(new_status(e)))),
-            }
         }
         // Step 7: Encounter action handlers
         PlayerActions::EncounterPickEncounter { card_id } => {
@@ -158,6 +103,11 @@ pub async fn play(
             effects: _,
         } => {
             let mut gs = game_state.lock().await;
+            if gs.current_combat.is_none() {
+                return Err(Right(BadRequest(new_status(
+                    "No active combat".to_string(),
+                ))));
+            }
             let lib_card = match gs.library.get(card_id as usize) {
                 Some(c) => c.clone(),
                 None => {
@@ -172,6 +122,23 @@ pub async fn play(
                     "Card {} is not on hand",
                     card_id
                 )))));
+            }
+            // Validate card kind matches current combat phase
+            {
+                let combat = gs.current_combat.as_ref().expect("checked above");
+                let allowed_kind = combat.phase.allowed_card_kind();
+                let card_kind_name = match &lib_card.kind {
+                    crate::library::types::CardKind::Attack { .. } => "Attack",
+                    crate::library::types::CardKind::Defence { .. } => "Defence",
+                    crate::library::types::CardKind::Resource { .. } => "Resource",
+                    crate::library::types::CardKind::CombatEncounter { .. } => "CombatEncounter",
+                };
+                if card_kind_name != allowed_kind {
+                    return Err(Right(BadRequest(new_status(format!(
+                        "Card {} is not playable in current phase (expected {})",
+                        card_id, allowed_kind
+                    )))));
+                }
             }
             match gs.library.play(card_id as usize) {
                 Ok(()) => {

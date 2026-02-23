@@ -188,7 +188,7 @@ fn play_card_without_combat_returns_error() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"PlayCard","card_id":0}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }
@@ -247,7 +247,7 @@ fn play_finish_scouting_after_combat_win() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"PlayCard","card_id":1}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":1,"effects":[]}"#)
             .dispatch();
         // Advance to Attacking
         client.post("/tests/combat/advance").dispatch();
@@ -255,7 +255,7 @@ fn play_finish_scouting_after_combat_win() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"PlayCard","card_id":0}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
             .dispatch();
         // Advance to Resourcing
         client.post("/tests/combat/advance").dispatch();
@@ -263,7 +263,7 @@ fn play_finish_scouting_after_combat_win() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"PlayCard","card_id":2}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":2,"effects":[]}"#)
             .dispatch();
         // Advance to Defending (next round)
         client.post("/tests/combat/advance").dispatch();
@@ -446,7 +446,7 @@ fn play_card_in_combat_with_wrong_phase() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"PlayCard","card_id":0}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }
@@ -471,7 +471,7 @@ fn play_card_nonexistent() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"PlayCard","card_id":9999}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":9999,"effects":[]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::NotFound);
 }
