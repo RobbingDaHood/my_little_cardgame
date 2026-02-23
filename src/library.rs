@@ -906,6 +906,61 @@ impl Library {
             .filter(|(_, c)| predicate(&c.kind))
             .collect()
     }
+
+    /// Return a card from discard → deck (recycle).
+    pub fn return_to_deck(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.discard == 0 {
+            return Err(format!("Card {card_id} has no copies in discard"));
+        }
+        card.counts.discard -= 1;
+        card.counts.deck += 1;
+        Ok(())
+    }
+
+    /// Encounter cards currently in the hand (visible/pickable).
+    pub fn encounter_hand(&self) -> Vec<usize> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                matches!(c.kind, CardKind::CombatEncounter { .. }) && c.counts.hand > 0
+            })
+            .flat_map(|(id, c)| std::iter::repeat_n(id, c.counts.hand as usize))
+            .collect()
+    }
+
+    /// Check if an encounter card is in the hand.
+    pub fn encounter_contains(&self, card_id: usize) -> bool {
+        self.cards.get(card_id).is_some_and(|c| {
+            matches!(c.kind, CardKind::CombatEncounter { .. }) && c.counts.hand > 0
+        })
+    }
+
+    /// Draw encounter cards from deck to hand until hand reaches target_count.
+    pub fn encounter_draw_to_hand(&mut self, target_count: usize) {
+        let current_hand: usize = self
+            .cards
+            .iter()
+            .filter(|c| matches!(c.kind, CardKind::CombatEncounter { .. }) && c.counts.hand > 0)
+            .map(|c| c.counts.hand as usize)
+            .sum();
+        let mut remaining = target_count.saturating_sub(current_hand);
+        for card in &mut self.cards {
+            if remaining == 0 {
+                break;
+            }
+            if matches!(card.kind, CardKind::CombatEncounter { .. }) && card.counts.deck > 0 {
+                let to_move = (card.counts.deck as usize).min(remaining) as u32;
+                card.counts.deck -= to_move;
+                card.counts.hand += to_move;
+                remaining -= to_move as usize;
+            }
+        }
+    }
 }
 
 /// Build the initial Library with starter cards.
@@ -998,7 +1053,7 @@ fn initialize_library() -> Library {
         CardCounts {
             library: 1,
             deck: 0,
-            hand: 0,
+            hand: 3,
             discard: 0,
         },
     );
