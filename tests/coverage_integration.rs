@@ -477,17 +477,6 @@ fn encounter_apply_scouting_action() {
 }
 
 #[test]
-fn abandon_combat_when_no_combat() {
-    let client = client();
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"AbandonCombat"}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::BadRequest);
-}
-
-#[test]
 fn finish_scouting_when_not_in_scouting() {
     let client = client();
     let response = client

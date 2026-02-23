@@ -52,7 +52,6 @@ pub enum PlayerActions {
         card_ids: Vec<usize>,
     },
     FinishScouting,
-    AbandonCombat,
 }
 
 #[openapi]
@@ -381,26 +380,6 @@ pub async fn play(
                 reason: Some("Player finished scouting phase".to_string()),
             };
             let entry = gs.append_action("FinishScouting", payload);
-            Ok((rocket::http::Status::Created, Json(entry)))
-        }
-        PlayerActions::AbandonCombat => {
-            let mut gs = game_state.lock().await;
-            if gs.current_combat.is_none() {
-                return Err(Right(BadRequest(new_status(
-                    "No active combat to abandon".to_string(),
-                ))));
-            }
-            gs.current_combat = None;
-            gs.last_combat_result = Some(crate::library::types::CombatResult {
-                winner: "Enemy".to_string(),
-            });
-            gs.encounter_state.phase = crate::library::types::EncounterPhase::Ready;
-            let payload = crate::library::types::ActionPayload::PlayCard {
-                card_id: 0,
-                deck_id: None,
-                reason: Some("Player abandoned combat".to_string()),
-            };
-            let entry = gs.append_action("AbandonCombat", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
     }
