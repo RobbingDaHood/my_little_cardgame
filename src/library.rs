@@ -170,11 +170,13 @@ pub mod types {
         pub lifecycle: TokenLifecycle,
     }
 
-    /// Serde helper to serialize/deserialize `HashMap<Token, i64>` as a JSON array of entries.
+    /// Serde helper to serialize/deserialize `HashMap<Token, i64>` as a compact JSON map.
+    /// Keys are formatted as `"TokenType:Lifecycle"` (e.g., `"Health:PersistentCounter"`).
     pub mod token_map_serde {
-        use super::{HashMap, Token};
+        use super::{HashMap, Token, TokenLifecycle, TokenType};
         use rocket::serde::{self, Deserialize, Serialize};
         use schemars::JsonSchema;
+        use std::collections::BTreeMap;
 
         #[derive(Serialize, Deserialize, JsonSchema)]
         #[serde(crate = "rocket::serde")]
@@ -184,28 +186,73 @@ pub mod types {
         }
 
         /// Schema-only type so `#[schemars(with = "SchemaHelper")]` works.
-        pub type SchemaHelper = Vec<Entry>;
+        pub type SchemaHelper = BTreeMap<String, i64>;
+
+        fn token_to_key(token: &Token) -> String {
+            let type_str = format!("{:?}", token.token_type);
+            match &token.lifecycle {
+                TokenLifecycle::PersistentCounter => type_str,
+                other => format!("{}:{:?}", type_str, other),
+            }
+        }
+
+        fn key_to_token(key: &str) -> Result<Token, String> {
+            let (type_str, lifecycle_str) = if let Some((t, l)) = key.split_once(':') {
+                (t, Some(l))
+            } else {
+                (key, None)
+            };
+
+            let token_type: TokenType =
+                serde_json::from_str(&format!("\"{}\"", type_str)).map_err(|e| e.to_string())?;
+
+            let lifecycle = match lifecycle_str {
+                None | Some("PersistentCounter") => TokenLifecycle::PersistentCounter,
+                Some(s) => serde_json::from_str(s).unwrap_or(TokenLifecycle::PersistentCounter),
+            };
+
+            Ok(Token {
+                token_type,
+                lifecycle,
+            })
+        }
 
         pub fn serialize<S>(map: &HashMap<Token, i64>, serializer: S) -> Result<S::Ok, S::Error>
         where
             S: serde::Serializer,
         {
-            let entries: Vec<Entry> = map
-                .iter()
-                .map(|(k, v)| Entry {
-                    token: k.clone(),
-                    value: *v,
-                })
-                .collect();
-            entries.serialize(serializer)
+            let compact: BTreeMap<String, i64> =
+                map.iter().map(|(k, v)| (token_to_key(k), *v)).collect();
+            compact.serialize(serializer)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<Token, i64>, D::Error>
         where
             D: serde::Deserializer<'de>,
         {
-            let entries: Vec<Entry> = Vec::deserialize(deserializer)?;
-            Ok(entries.into_iter().map(|e| (e.token, e.value)).collect())
+            // Support both compact map format and legacy array format
+            let value: serde_json::Value = serde_json::Value::deserialize(deserializer)?;
+            match value {
+                serde_json::Value::Object(map) => {
+                    let mut result = HashMap::new();
+                    for (k, v) in map {
+                        let token = key_to_token(&k).map_err(serde::de::Error::custom)?;
+                        let val = v.as_i64().ok_or_else(|| {
+                            serde::de::Error::custom(format!("expected integer value for {}", k))
+                        })?;
+                        result.insert(token, val);
+                    }
+                    Ok(result)
+                }
+                serde_json::Value::Array(_) => {
+                    let entries: Vec<Entry> =
+                        serde_json::from_value(value).map_err(serde::de::Error::custom)?;
+                    Ok(entries.into_iter().map(|e| (e.token, e.value)).collect())
+                }
+                _ => Err(serde::de::Error::custom(
+                    "expected object or array for token map",
+                )),
+            }
         }
     }
 

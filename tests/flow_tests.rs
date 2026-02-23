@@ -5,19 +5,11 @@ use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 use std::borrow::Cow;
 
-/// Extract a token value from the serialized token array format.
+/// Extract a token value from the serialized token map format.
 fn token_value(tokens: &serde_json::Value, token_type: &str) -> i64 {
     tokens
-        .as_array()
-        .and_then(|arr| {
-            arr.iter().find_map(|entry| {
-                if entry["token"]["token_type"].as_str() == Some(token_type) {
-                    entry["value"].as_i64()
-                } else {
-                    None
-                }
-            })
-        })
+        .as_object()
+        .and_then(|obj| obj.get(token_type).and_then(|v| v.as_i64()))
         .unwrap_or(0)
 }
 
