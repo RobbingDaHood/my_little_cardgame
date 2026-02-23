@@ -24,13 +24,9 @@
     1. So they are all persisted between combats. 
     1. Card effects should also explicit state the duration of the token they provide. 
 
+1. When exposing data on endpoints then expand all refferences: Do not just show the id of the refference, but show the full entity. Same goes if that entity refers other entities. 
 
-
-
-
-
-
-
+1. PlayerActions::EncounterPlayCard should not have an effects field: it should solely use the effects on the card. :w
 
 # When done with all of this then update the subbestions-vision-roadmap.md 
 

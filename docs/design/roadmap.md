@@ -102,6 +102,16 @@ Roadmap steps
    - Deck composition: Ensure starting decks for both players and enemies contain approximately 50% draw/resource cards so games have steady card-flow and pacing.
    - Playable acceptance: A minimal loop exists (pick -> fight -> scouting -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
 
+7.7) Prepare CardEffects decks 
+    - There is a player CardEffect "deck" and a EnemyCardEffect deck. 
+    - By deck we mean a library representation of a deck. 
+    - The enemy card effect deck is also in the library: even though all other enemy decks are on the encounter. 
+    - No card in the player deck (besides the encounter) can have a CardEffect that is not present in the players CardEffect deck.
+        - Same goes for the enemy cards Card effects, they all need to be represented in the enemy CardEffect "deck". 
+    - These two decks will be used in the future: The enemy deck will be used during scouting phase in the future and the player CardEffect deck will be used during ressearch. 
+    - So data wise every CardEffect on a card is a refference back to its "CardEffect"-card in the card effect "deck". 
+        - When exposing the data on the endpoint the CardEffect on cards will just show the value and not the refference.
+
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
    - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
    - Description: Implement node-based gathering encounters where discipline decks resolve the node (e.g., Mining uses Mining deck vs IronOre card) and produce raw/refined material tokens. Ensure Discipline Durability and Rations semantics are enforced; failures produce Exhaustion or Durability loss. Record material token grants in the ActionLog so crafting has a provable input history.
