@@ -4,8 +4,8 @@
 mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
-        CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant, EffectTarget,
-        TokenType,
+        CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase, CombatSnapshot, Combatant,
+        EffectTarget, TokenType,
     };
     use std::collections::HashMap;
 
@@ -74,7 +74,7 @@ mod tests {
             },
             encounter_card_id: None,
             is_finished: false,
-            winner: None,
+            outcome: CombatOutcome::Undecided,
         }
     }
 
@@ -103,7 +103,7 @@ mod tests {
             combat::simulate_combat(initial_state.clone(), seed, actions.clone(), &card_defs);
         let state2 = combat::simulate_combat(initial_state.clone(), seed, actions, &card_defs);
 
-        assert_eq!(state1.winner, state2.winner);
+        assert_eq!(state1.outcome, state2.outcome);
         assert_eq!(state1.is_finished, state2.is_finished);
         assert_eq!(
             state1.player_tokens.get(&TokenType::Health),
@@ -148,7 +148,7 @@ mod tests {
             },
             encounter_card_id: None,
             is_finished: false,
-            winner: None,
+            outcome: CombatOutcome::Undecided,
         };
         let card_defs = test_card_defs();
 
@@ -175,7 +175,7 @@ mod tests {
         let state = combat::simulate_combat(initial_state, 42u64, actions, &card_defs);
 
         assert!(state.is_finished);
-        assert_eq!(state.winner, Some("player".to_string()));
+        assert_eq!(state.outcome, CombatOutcome::PlayerWon);
     }
 
     #[test]
@@ -190,7 +190,7 @@ mod tests {
             },
             encounter_card_id: None,
             is_finished: false,
-            winner: None,
+            outcome: CombatOutcome::Undecided,
         };
         let card_defs = test_card_defs();
 

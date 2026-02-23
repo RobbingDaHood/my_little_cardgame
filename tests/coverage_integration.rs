@@ -308,7 +308,7 @@ fn simulate_combat_endpoint() {
             },
             "encounter_card_id": 0,
             "is_finished": false,
-            "winner": null
+            "outcome": "Undecided"
         },
         "seed": 42,
         "actions": [],

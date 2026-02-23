@@ -4,7 +4,7 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
 use rocket_okapi::{openapi, JsonSchema};
 
-use crate::library::types::{CombatResult, CombatSnapshot};
+use crate::library::types::{CombatOutcome, CombatSnapshot};
 use crate::player_data::PlayerData;
 use crate::status_messages::{new_status, Status};
 
@@ -80,7 +80,7 @@ pub async fn advance_phase(
 #[get("/combat/result")]
 pub async fn get_combat_result(
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
-) -> Result<Json<CombatResult>, NotFound<Json<Status>>> {
+) -> Result<Json<CombatOutcome>, NotFound<Json<Status>>> {
     let gs = game_state.lock().await;
     match &gs.last_combat_result {
         Some(r) => Ok(Json(r.clone())),

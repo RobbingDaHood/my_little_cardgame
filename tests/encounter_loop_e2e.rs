@@ -132,8 +132,8 @@ mod tests {
     fn test_encounter_loop_replay_from_seed() {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
-            CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant,
-            EffectTarget, TokenType,
+            CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase, CombatSnapshot,
+            Combatant, EffectTarget, TokenType,
         };
         use std::collections::HashMap;
 
@@ -180,7 +180,7 @@ mod tests {
             },
             encounter_card_id: None,
             is_finished: false,
-            winner: None,
+            outcome: CombatOutcome::Undecided,
         };
 
         combat_actions.push(CombatAction {
@@ -199,7 +199,7 @@ mod tests {
             &card_defs,
         );
         assert!(combat_result.is_finished);
-        assert_eq!(combat_result.winner, Some("player".to_string()));
+        assert_eq!(combat_result.outcome, CombatOutcome::PlayerWon);
 
         // Phase 3: Scouting
         enc_state = EncounterState {
@@ -221,7 +221,7 @@ mod tests {
         let replay_result =
             combat::simulate_combat(initial_combat, seed, combat_actions, &card_defs);
         assert_eq!(replay_result.is_finished, combat_result.is_finished);
-        assert_eq!(replay_result.winner, combat_result.winner);
+        assert_eq!(replay_result.outcome, combat_result.outcome);
         assert_eq!(
             replay_result.player_tokens.get(&TokenType::Health),
             combat_result.player_tokens.get(&TokenType::Health)

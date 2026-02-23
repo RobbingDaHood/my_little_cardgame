@@ -317,14 +317,16 @@ pub mod types {
         pub enemy: Combatant,
         pub encounter_card_id: Option<usize>,
         pub is_finished: bool,
-        pub winner: Option<String>,
+        pub outcome: CombatOutcome,
     }
 
-    /// Result of a completed combat.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    /// Outcome of a combat encounter.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
     #[serde(crate = "rocket::serde")]
-    pub struct CombatResult {
-        pub winner: String,
+    pub enum CombatOutcome {
+        Undecided,
+        PlayerWon,
+        EnemyWon,
     }
 
     // ====== Encounter types for the encounter loop (Step 7) ======
@@ -424,11 +426,11 @@ pub mod combat {
                     (&effect.target, action.is_player),
                     (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false)
                 );
-                state_after.winner = Some(if affected_is_player {
-                    "enemy".to_string()
+                state_after.outcome = if affected_is_player {
+                    super::types::CombatOutcome::EnemyWon
                 } else {
-                    "player".to_string()
-                });
+                    super::types::CombatOutcome::PlayerWon
+                };
             }
         }
 
@@ -1110,13 +1112,13 @@ fn check_combat_end(combat: &mut types::CombatSnapshot) {
 
     if enemy_health <= 0 || player_health <= 0 {
         combat.is_finished = true;
-        combat.winner = Some(if enemy_health <= 0 && player_health > 0 {
-            "Player".to_string()
+        combat.outcome = if enemy_health <= 0 && player_health > 0 {
+            types::CombatOutcome::PlayerWon
         } else if player_health <= 0 && enemy_health > 0 {
-            "Enemy".to_string()
+            types::CombatOutcome::EnemyWon
         } else {
-            "Draw".to_string()
-        });
+            types::CombatOutcome::PlayerWon // Draw defaults to player
+        };
     }
 }
 
@@ -1129,7 +1131,7 @@ pub struct GameState {
     pub library: Library,
     pub current_combat: Option<types::CombatSnapshot>,
     pub encounter_state: types::EncounterState,
-    pub last_combat_result: Option<types::CombatResult>,
+    pub last_combat_result: Option<types::CombatOutcome>,
 }
 
 impl GameState {
@@ -1274,7 +1276,7 @@ impl GameState {
             },
             encounter_card_id: Some(encounter_card_id),
             is_finished: false,
-            winner: None,
+            outcome: types::CombatOutcome::Undecided,
         };
         self.current_combat = Some(snapshot);
         self.encounter_state.phase = types::EncounterPhase::InCombat;
@@ -1300,10 +1302,7 @@ impl GameState {
         apply_card_effects(&effects, true, combat);
         check_combat_end(combat);
         if combat.is_finished {
-            let winner = combat.winner.clone().unwrap_or_default();
-            self.last_combat_result = Some(types::CombatResult {
-                winner: winner.clone(),
-            });
+            self.last_combat_result = Some(combat.outcome.clone());
             self.current_combat = None;
             self.encounter_state.phase = types::EncounterPhase::Scouting;
         }
@@ -1369,10 +1368,7 @@ impl GameState {
             apply_card_effects(&effects, false, combat);
             check_combat_end(combat);
             if combat.is_finished {
-                let winner = combat.winner.clone().unwrap_or_default();
-                self.last_combat_result = Some(types::CombatResult {
-                    winner: winner.clone(),
-                });
+                self.last_combat_result = Some(combat.outcome.clone());
                 self.current_combat = None;
                 self.encounter_state.phase = types::EncounterPhase::Scouting;
                 return Ok(());
