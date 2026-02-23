@@ -1357,6 +1357,7 @@ impl GameState {
         let encounter_card_id = combat
             .encounter_card_id
             .ok_or("No encounter card in combat")?;
+        let phase = combat.phase.clone();
 
         let lib_card = self
             .library
@@ -1370,16 +1371,14 @@ impl GameState {
             _ => return Err("Not a combat encounter".to_string()),
         };
 
-        use rand::RngCore;
-        let decks: [&Vec<types::EnemyCardDef>; 3] = [
-            &combatant_def.attack_deck,
-            &combatant_def.defence_deck,
-            &combatant_def.resource_deck,
-        ];
-        for deck in decks {
-            if deck.is_empty() {
-                continue;
-            }
+        // Pick the deck matching the current combat phase
+        let deck = match phase {
+            types::CombatPhase::Attacking => &combatant_def.attack_deck,
+            types::CombatPhase::Defending => &combatant_def.defence_deck,
+            types::CombatPhase::Resourcing => &combatant_def.resource_deck,
+        };
+        if !deck.is_empty() {
+            use rand::RngCore;
             let pick = (rng.next_u64() as usize) % deck.len();
             let effects = deck[pick].effects.clone();
             let combat = self.current_combat.as_mut().ok_or("No active combat")?;
@@ -1389,7 +1388,6 @@ impl GameState {
                 self.last_combat_result = Some(combat.outcome.clone());
                 self.current_combat = None;
                 self.encounter_state.phase = types::EncounterPhase::Scouting;
-                return Ok(());
             }
         }
         Ok(())
