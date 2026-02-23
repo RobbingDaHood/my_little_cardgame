@@ -1,5 +1,5 @@
 use my_little_cardgame::action::persistence::FileWriter;
-use my_little_cardgame::library::types::{ActionEntry, ActionPayload, TokenId};
+use my_little_cardgame::library::types::{ActionEntry, ActionPayload, TokenType};
 use std::io::Read;
 
 #[test]
@@ -22,7 +22,7 @@ fn file_writer_writes_and_flushes() {
             seq: i,
             action_type: "GrantToken".to_string(),
             payload: ActionPayload::GrantToken {
-                token_id: TokenId::Insight,
+                token_id: TokenType::Insight,
                 amount: (i as i64) + 1,
                 reason: None,
                 resulting_amount: 0,
@@ -79,7 +79,7 @@ fn file_writer_close_is_idempotent() {
         seq: 0,
         action_type: "GrantToken".to_string(),
         payload: ActionPayload::GrantToken {
-            token_id: TokenId::Health,
+            token_id: TokenType::Health,
             amount: 1,
             reason: None,
             resulting_amount: 0,

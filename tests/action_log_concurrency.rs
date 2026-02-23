@@ -3,7 +3,7 @@ use std::thread;
 
 use my_little_cardgame::library::{
     action_log::ActionLog,
-    types::{ActionPayload, TokenId},
+    types::{ActionPayload, TokenType},
 };
 
 #[test]
@@ -16,7 +16,7 @@ fn concurrent_appends_produce_unique_seqs() {
             log_cloned.append(
                 "GrantToken",
                 ActionPayload::GrantToken {
-                    token_id: TokenId::Insight,
+                    token_id: TokenType::Insight,
                     amount: 1,
                     reason: None,
                     resulting_amount: 1,

@@ -5,7 +5,7 @@ mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
         CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant, EffectTarget,
-        TokenId,
+        TokenType,
     };
     use std::collections::HashMap;
 
@@ -15,7 +15,7 @@ mod tests {
             card_type: "Attack".to_string(),
             effects: vec![CardEffect {
                 target: EffectTarget::OnOpponent,
-                token_id: TokenId::Health,
+                token_id: TokenType::Health,
                 amount: -damage,
             }],
         }
@@ -27,13 +27,13 @@ mod tests {
             card_type: "Resource".to_string(),
             effects: vec![CardEffect {
                 target: EffectTarget::OnSelf,
-                token_id: TokenId::Health,
+                token_id: TokenType::Health,
                 amount,
             }],
         }
     }
 
-    fn buff_card(id: u64, token: TokenId, amount: i64) -> CardDef {
+    fn buff_card(id: u64, token: TokenType, amount: i64) -> CardDef {
         CardDef {
             id,
             card_type: "Resource".to_string(),
@@ -51,9 +51,9 @@ mod tests {
         defs.insert(2, attack_card(2, 10));
         defs.insert(3, attack_card(3, 30));
         defs.insert(4, heal_card(4, 5));
-        defs.insert(5, buff_card(5, TokenId::Health, 10));
-        defs.insert(6, buff_card(6, TokenId::Health, 5));
-        defs.insert(7, buff_card(7, TokenId::Health, -7));
+        defs.insert(5, buff_card(5, TokenType::Health, 10));
+        defs.insert(6, buff_card(6, TokenType::Health, 5));
+        defs.insert(7, buff_card(7, TokenType::Health, -7));
         defs
     }
 
@@ -63,13 +63,13 @@ mod tests {
             player_turn: true,
             phase: CombatPhase::Defending,
             player_tokens: HashMap::from([
-                (TokenId::Health, player_hp),
-                (TokenId::MaxHealth, player_hp),
+                (TokenType::Health, player_hp),
+                (TokenType::MaxHealth, player_hp),
             ]),
             enemy: Combatant {
                 active_tokens: HashMap::from([
-                    (TokenId::Health, enemy_hp),
-                    (TokenId::MaxHealth, enemy_hp),
+                    (TokenType::Health, enemy_hp),
+                    (TokenType::MaxHealth, enemy_hp),
                 ]),
             },
             encounter_card_id: None,
@@ -106,12 +106,12 @@ mod tests {
         assert_eq!(state1.winner, state2.winner);
         assert_eq!(state1.is_finished, state2.is_finished);
         assert_eq!(
-            state1.player_tokens.get(&TokenId::Health),
-            state2.player_tokens.get(&TokenId::Health)
+            state1.player_tokens.get(&TokenType::Health),
+            state2.player_tokens.get(&TokenType::Health)
         );
         assert_eq!(
-            state1.enemy.active_tokens.get(&TokenId::Health),
-            state2.enemy.active_tokens.get(&TokenId::Health)
+            state1.enemy.active_tokens.get(&TokenType::Health),
+            state2.enemy.active_tokens.get(&TokenType::Health)
         );
     }
 
@@ -142,7 +142,7 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([(TokenId::Health, 100), (TokenId::MaxHealth, 100)]),
+            player_tokens: HashMap::from([(TokenType::Health, 100), (TokenType::MaxHealth, 100)]),
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
@@ -184,7 +184,7 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([(TokenId::Health, 100), (TokenId::MaxHealth, 100)]),
+            player_tokens: HashMap::from([(TokenType::Health, 100), (TokenType::MaxHealth, 100)]),
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
@@ -215,9 +215,9 @@ mod tests {
         let state2 = combat::simulate_combat(initial_state, seed, actions, &card_defs);
 
         assert_eq!(
-            state1.player_tokens.get(&TokenId::Health),
-            state2.player_tokens.get(&TokenId::Health)
+            state1.player_tokens.get(&TokenType::Health),
+            state2.player_tokens.get(&TokenType::Health)
         );
-        assert_eq!(state1.player_tokens.get(&TokenId::Health), Some(&108));
+        assert_eq!(state1.player_tokens.get(&TokenType::Health), Some(&108));
     }
 }

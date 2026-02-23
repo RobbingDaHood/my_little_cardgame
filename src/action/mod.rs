@@ -82,13 +82,13 @@ pub async fn play(
             // Initialize player health if not set
             if gs
                 .token_balances
-                .get(&crate::library::types::TokenId::Health)
+                .get(&crate::library::types::TokenType::Health)
                 .copied()
                 .unwrap_or(0)
                 == 0
             {
                 gs.token_balances
-                    .insert(crate::library::types::TokenId::Health, 20);
+                    .insert(crate::library::types::TokenType::Health, 20);
             }
             match gs.start_combat(card_id) {
                 Ok(()) => {
@@ -202,7 +202,7 @@ pub async fn play(
             }
             let foresight = gs
                 .token_balances
-                .get(&crate::library::types::TokenId::Foresight)
+                .get(&crate::library::types::TokenType::Foresight)
                 .copied()
                 .unwrap_or(3) as usize;
             gs.library.encounter_draw_to_hand(foresight);

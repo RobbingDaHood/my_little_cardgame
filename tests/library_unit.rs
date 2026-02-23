@@ -1,7 +1,7 @@
 // Tests moved from src/library.rs
 use my_little_cardgame::library::{
     action_log,
-    types::{ActionPayload, TokenId},
+    types::{ActionPayload, TokenType},
     GameState,
 };
 use std::sync::Arc;
@@ -12,18 +12,18 @@ fn grant_and_replay() {
     let mut gs = GameState::new();
     assert_eq!(
         gs.token_balances
-            .get(&TokenId::Insight)
+            .get(&TokenType::Insight)
             .copied()
             .unwrap_or(0),
         0
     );
     let entry = gs
-        .apply_grant(&TokenId::Insight, 10, None)
+        .apply_grant(&TokenType::Insight, 10, None)
         .expect("apply_grant failed");
     assert_eq!(entry.seq, 1);
     assert_eq!(
         gs.token_balances
-            .get(&TokenId::Insight)
+            .get(&TokenType::Insight)
             .copied()
             .unwrap_or(0),
         10
@@ -34,7 +34,7 @@ fn grant_and_replay() {
     assert_eq!(
         replayed
             .token_balances
-            .get(&TokenId::Insight)
+            .get(&TokenType::Insight)
             .copied()
             .unwrap_or(0),
         10
@@ -53,7 +53,7 @@ fn action_log_concurrent_append() {
         handles.push(thread::spawn(move || {
             for j in 0..per_thread {
                 let payload = ActionPayload::GrantToken {
-                    token_id: TokenId::Insight,
+                    token_id: TokenType::Insight,
                     amount: j as i64,
                     reason: None,
                     resulting_amount: j as i64,

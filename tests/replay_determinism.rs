@@ -1,12 +1,12 @@
 // Randomized test to ensure GameState::replay_from_log reproduces token balances
-use my_little_cardgame::library::{registry::TokenRegistry, types::TokenId, GameState};
+use my_little_cardgame::library::{registry::TokenRegistry, types::TokenType, GameState};
 use rand::{RngCore, SeedableRng};
 use rand_pcg::Lcg64Xsh32;
 
 #[test]
 fn replay_from_log_reproduces_balances_randomized() {
     let mut rng = Lcg64Xsh32::from_seed([42u8; 16]);
-    let token_ids: Vec<TokenId> = TokenRegistry::with_canonical()
+    let token_ids: Vec<TokenType> = TokenRegistry::with_canonical()
         .tokens
         .keys()
         .cloned()

@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{CombatSnapshot, TokenId};
+use my_little_cardgame::library::types::{CombatSnapshot, TokenType};
 use my_little_cardgame::rocket_initialize;
 use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
@@ -14,9 +14,9 @@ fn get_player_tokens_returns_initial_balances() {
     let response = client.get("/player/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
-    let tokens: std::collections::HashMap<TokenId, i64> = serde_json::from_str(&body).unwrap();
-    assert!(tokens.contains_key(&TokenId::Health));
-    assert!(tokens.contains_key(&TokenId::Foresight));
+    let tokens: std::collections::HashMap<TokenType, i64> = serde_json::from_str(&body).unwrap();
+    assert!(tokens.contains_key(&TokenType::Health));
+    assert!(tokens.contains_key(&TokenType::Foresight));
 }
 
 #[test]
@@ -175,9 +175,9 @@ fn library_tokens_endpoint() {
     let response = client.get("/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
-    let tokens: Vec<TokenId> = serde_json::from_str(&body).unwrap();
+    let tokens: Vec<TokenType> = serde_json::from_str(&body).unwrap();
     assert!(!tokens.is_empty());
-    assert!(tokens.contains(&TokenId::Health));
+    assert!(tokens.contains(&TokenType::Health));
 }
 
 #[test]

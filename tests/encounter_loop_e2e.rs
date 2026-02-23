@@ -133,7 +133,7 @@ mod tests {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
             CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant,
-            EffectTarget, TokenId,
+            EffectTarget, TokenType,
         };
         use std::collections::HashMap;
 
@@ -148,7 +148,7 @@ mod tests {
                 card_type: "Attack".to_string(),
                 effects: vec![CardEffect {
                     target: EffectTarget::OnOpponent,
-                    token_id: TokenId::Health,
+                    token_id: TokenType::Health,
                     amount: -15,
                 }],
             },
@@ -174,9 +174,9 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([(TokenId::Health, 100), (TokenId::MaxHealth, 100)]),
+            player_tokens: HashMap::from([(TokenType::Health, 100), (TokenType::MaxHealth, 100)]),
             enemy: Combatant {
-                active_tokens: HashMap::from([(TokenId::Health, 30), (TokenId::MaxHealth, 30)]),
+                active_tokens: HashMap::from([(TokenType::Health, 30), (TokenType::MaxHealth, 30)]),
             },
             encounter_card_id: None,
             is_finished: false,
@@ -223,12 +223,12 @@ mod tests {
         assert_eq!(replay_result.is_finished, combat_result.is_finished);
         assert_eq!(replay_result.winner, combat_result.winner);
         assert_eq!(
-            replay_result.player_tokens.get(&TokenId::Health),
-            combat_result.player_tokens.get(&TokenId::Health)
+            replay_result.player_tokens.get(&TokenType::Health),
+            combat_result.player_tokens.get(&TokenType::Health)
         );
         assert_eq!(
-            replay_result.enemy.active_tokens.get(&TokenId::Health),
-            combat_result.enemy.active_tokens.get(&TokenId::Health)
+            replay_result.enemy.active_tokens.get(&TokenType::Health),
+            combat_result.enemy.active_tokens.get(&TokenType::Health)
         );
 
         // REPLAY: same encounter actions produce same state machine result

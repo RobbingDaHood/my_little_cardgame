@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{CombatSnapshot, TokenId};
+use my_little_cardgame::library::types::{CombatSnapshot, TokenType};
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
@@ -64,7 +64,7 @@ fn hello_world() {
         actual_combat
             .enemy
             .active_tokens
-            .get(&TokenId::Health)
+            .get(&TokenType::Health)
             .copied()
             .unwrap_or(0),
         20
@@ -73,7 +73,7 @@ fn hello_world() {
     assert_eq!(
         actual_combat
             .player_tokens
-            .get(&TokenId::Health)
+            .get(&TokenType::Health)
             .copied()
             .unwrap_or(0),
         20
