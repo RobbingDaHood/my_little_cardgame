@@ -391,9 +391,6 @@ pub mod types {
         pub round: u64,
         pub player_turn: bool,
         pub phase: CombatPhase,
-        #[serde(with = "token_map_serde")]
-        #[schemars(with = "token_map_serde::SchemaHelper")]
-        pub player_tokens: HashMap<Token, i64>,
         pub enemy: Combatant,
         pub encounter_card_id: Option<usize>,
         pub is_finished: bool,
@@ -460,6 +457,10 @@ pub mod combat {
     use rand_pcg::Lcg64Xsh32;
     use std::collections::HashMap;
 
+    /// Result of resolving a combat tick: (updated snapshot, updated player tokens, rng values used).
+    pub type CombatTickResult =
+        Result<(CombatSnapshot, HashMap<super::types::Token, i64>, Vec<u64>), String>;
+
     /// Resolve a single combat action (card play) deterministically.
     ///
     /// Looks up the card definition, applies its effects as token operations,
@@ -467,42 +468,35 @@ pub mod combat {
     /// Returns an error if the card_id is unknown.
     pub fn resolve_combat_tick(
         current_state: &CombatSnapshot,
+        player_tokens: &HashMap<super::types::Token, i64>,
         action: &CombatAction,
         card_defs: &HashMap<u64, CardDef>,
         rng: &mut Lcg64Xsh32,
-    ) -> Result<(CombatSnapshot, Vec<u64>), String> {
+    ) -> CombatTickResult {
         let card = card_defs
             .get(&action.card_id)
             .ok_or_else(|| format!("Unknown card_id: {}", action.card_id))?;
 
         let mut rng_values = Vec::new();
         let mut state_after = current_state.clone();
+        let mut pt_after = player_tokens.clone();
 
         let rng_val = rng.next_u64();
         rng_values.push(rng_val);
 
         for effect in &card.effects {
-            let (actor_tokens, target_tokens) = match (&effect.target, action.is_player) {
-                (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => {
-                    // Affect player tokens
-                    (&mut state_after.player_tokens, None)
-                }
+            let actor_tokens = match (&effect.target, action.is_player) {
+                (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => &mut pt_after,
                 (EffectTarget::OnOpponent, true) | (EffectTarget::OnSelf, false) => {
-                    // Affect enemy tokens
-                    (
-                        &mut state_after.enemy.active_tokens,
-                        None::<&mut HashMap<super::types::Token, i64>>,
-                    )
+                    &mut state_after.enemy.active_tokens
                 }
             };
-            let _ = target_tokens; // suppress unused warning
             let token_key = effect.token_id.with_default_lifecycle();
             let entry = actor_tokens.entry(token_key).or_insert(0);
             *entry = (*entry + effect.amount).max(0);
 
             if effect.token_id == super::types::TokenType::Health && *entry == 0 {
                 state_after.is_finished = true;
-                // Determine winner: if player health hit 0, enemy wins; otherwise player wins
                 let affected_is_player = matches!(
                     (&effect.target, action.is_player),
                     (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false)
@@ -519,18 +513,19 @@ pub mod combat {
             state_after.player_turn = !state_after.player_turn;
         }
 
-        Ok((state_after, rng_values))
+        Ok((state_after, pt_after, rng_values))
     }
 
     /// Simulate a full combat encounter from a seed and initial state.
     ///
-    /// Returns the final combat snapshot. Pure-data; no side effects.
+    /// Returns the final combat snapshot and player tokens. Pure-data; no side effects.
     pub fn simulate_combat(
         initial_state: CombatSnapshot,
+        initial_player_tokens: HashMap<super::types::Token, i64>,
         seed: u64,
         actions: Vec<CombatAction>,
         card_defs: &HashMap<u64, CardDef>,
-    ) -> CombatSnapshot {
+    ) -> (CombatSnapshot, HashMap<super::types::Token, i64>) {
         use rand::SeedableRng;
 
         let seed_bytes: [u8; 16] = {
@@ -543,11 +538,13 @@ pub mod combat {
         let mut rng = Lcg64Xsh32::from_seed(seed_bytes);
 
         let mut current_state = initial_state;
+        let mut player_tokens = initial_player_tokens;
 
         for action in &actions {
-            match resolve_combat_tick(&current_state, action, card_defs, &mut rng) {
-                Ok((next_state, _rng_vals)) => {
+            match resolve_combat_tick(&current_state, &player_tokens, action, card_defs, &mut rng) {
+                Ok((next_state, next_pt, _rng_vals)) => {
                     current_state = next_state;
+                    player_tokens = next_pt;
                     if current_state.is_finished {
                         break;
                     }
@@ -556,7 +553,7 @@ pub mod combat {
             }
         }
 
-        current_state
+        (current_state, player_tokens)
     }
 }
 
@@ -1152,12 +1149,17 @@ fn initialize_library() -> Library {
     lib
 }
 
-/// Apply card effects to a combat snapshot, handling dodge absorption.
-fn apply_card_effects(effects: &[CardEffect], is_player: bool, combat: &mut types::CombatSnapshot) {
+/// Apply card effects to combat, modifying player tokens and combat snapshot.
+fn apply_card_effects(
+    effects: &[CardEffect],
+    is_player: bool,
+    player_tokens: &mut HashMap<types::Token, i64>,
+    combat: &mut types::CombatSnapshot,
+) {
     for effect in effects {
         let target_tokens = match (&effect.target, is_player) {
             (types::EffectTarget::OnSelf, true) | (types::EffectTarget::OnOpponent, false) => {
-                &mut combat.player_tokens
+                &mut *player_tokens
             }
             (types::EffectTarget::OnOpponent, true) | (types::EffectTarget::OnSelf, false) => {
                 &mut combat.enemy.active_tokens
@@ -1193,9 +1195,11 @@ fn apply_card_effects(effects: &[CardEffect], is_player: bool, combat: &mut type
 }
 
 /// Check if combat has ended (either side at 0 health).
-fn check_combat_end(combat: &mut types::CombatSnapshot) {
-    let player_health = combat
-        .player_tokens
+fn check_combat_end(
+    player_tokens: &HashMap<types::Token, i64>,
+    combat: &mut types::CombatSnapshot,
+) {
+    let player_health = player_tokens
         .get(&types::TokenType::Health.with_default_lifecycle())
         .copied()
         .unwrap_or(0);
@@ -1368,13 +1372,10 @@ impl GameState {
                 ))
             }
         };
-        // Initialize player combat tokens from token_balances
-        let player_tokens = self.token_balances.clone();
         let snapshot = types::CombatSnapshot {
             round: 1,
             player_turn: true,
             phase: types::CombatPhase::Defending,
-            player_tokens,
             enemy: types::Combatant {
                 active_tokens: combatant_def.initial_tokens.clone(),
             },
@@ -1412,8 +1413,8 @@ impl GameState {
             .filter(|e| e.token_id != types::TokenType::DrawCards)
             .cloned()
             .collect();
-        apply_card_effects(&combat_effects, true, combat);
-        check_combat_end(combat);
+        apply_card_effects(&combat_effects, true, &mut self.token_balances, combat);
+        check_combat_end(&self.token_balances, combat);
         if combat.is_finished {
             self.last_combat_result = Some(combat.outcome.clone());
             self.current_combat = None;
@@ -1476,8 +1477,8 @@ impl GameState {
             let pick = (rng.next_u64() as usize) % deck.len();
             let effects = deck[pick].effects.clone();
             let combat = self.current_combat.as_mut().ok_or("No active combat")?;
-            apply_card_effects(&effects, false, combat);
-            check_combat_end(combat);
+            apply_card_effects(&effects, false, &mut self.token_balances, combat);
+            check_combat_end(&self.token_balances, combat);
             if combat.is_finished {
                 self.last_combat_result = Some(combat.outcome.clone());
                 self.current_combat = None;

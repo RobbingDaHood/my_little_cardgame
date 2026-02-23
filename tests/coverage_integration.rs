@@ -303,10 +303,6 @@ fn simulate_combat_endpoint() {
             "round": 1,
             "player_turn": true,
             "phase": "Attacking",
-            "player_tokens": [
-                {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 20},
-                {"token": {"token_type": "Shield", "lifecycle": "PersistentCounter"}, "value": 0}
-            ],
             "enemy": {
                 "active_tokens": [
                     {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 10}
@@ -316,6 +312,10 @@ fn simulate_combat_endpoint() {
             "is_finished": false,
             "outcome": "Undecided"
         },
+        "player_tokens": [
+            {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 20},
+            {"token": {"token_type": "Shield", "lifecycle": "PersistentCounter"}, "value": 0}
+        ],
         "seed": 42,
         "actions": [],
         "card_defs": {}

@@ -100,21 +100,37 @@ pub async fn get_combat_result(
 #[post("/tests/combat/simulate", format = "json", data = "<request>")]
 pub async fn simulate_combat_endpoint(
     request: Json<SimulateCombatRequest>,
-) -> Json<CombatSnapshot> {
-    let result = crate::library::combat::simulate_combat(
+) -> Json<SimulateCombatResponse> {
+    let (snapshot, player_tokens) = crate::library::combat::simulate_combat(
         request.initial_state.clone(),
+        request.player_tokens.clone(),
         request.seed,
         request.actions.clone(),
         &request.card_defs,
     );
-    Json(result)
+    Json(SimulateCombatResponse {
+        snapshot,
+        player_tokens,
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct SimulateCombatRequest {
     pub initial_state: CombatSnapshot,
+    #[serde(with = "crate::library::types::token_map_serde")]
+    #[schemars(with = "crate::library::types::token_map_serde::SchemaHelper")]
+    pub player_tokens: std::collections::HashMap<crate::library::types::Token, i64>,
     pub seed: u64,
     pub actions: Vec<crate::library::types::CombatAction>,
     pub card_defs: std::collections::HashMap<u64, crate::library::types::CardDef>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct SimulateCombatResponse {
+    pub snapshot: CombatSnapshot,
+    #[serde(with = "crate::library::types::token_map_serde")]
+    #[schemars(with = "crate::library::types::token_map_serde::SchemaHelper")]
+    pub player_tokens: std::collections::HashMap<crate::library::types::Token, i64>,
 }

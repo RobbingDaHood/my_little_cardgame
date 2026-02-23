@@ -141,7 +141,19 @@ fn test_seed_determinism_for_enemy_selection() {
         serde_json::from_str(&resp2.into_string().expect("body")).expect("json");
     let enemy_tokens_2 = combat2["enemy"]["active_tokens"].clone();
 
-    assert_eq!(enemy_tokens_1, enemy_tokens_2);
+    // Compare individual token values (order may differ due to HashMap iteration)
+    assert_eq!(
+        token_value(&enemy_tokens_1, "Health"),
+        token_value(&enemy_tokens_2, "Health")
+    );
+    assert_eq!(
+        token_value(&enemy_tokens_1, "Shield"),
+        token_value(&enemy_tokens_2, "Shield")
+    );
+    assert_eq!(
+        token_value(&enemy_tokens_1, "MaxHealth"),
+        token_value(&enemy_tokens_2, "MaxHealth")
+    );
 }
 
 #[test]

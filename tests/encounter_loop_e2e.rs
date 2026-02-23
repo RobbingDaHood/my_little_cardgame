@@ -170,14 +170,14 @@ mod tests {
         assert_eq!(enc_state.phase, EncounterPhase::InCombat);
 
         // Phase 2: Combat — play cards to defeat enemy
+        let initial_pt = HashMap::from([
+            (TokenType::Health.with_default_lifecycle(), 100),
+            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+        ]);
         let initial_combat = CombatSnapshot {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([
-                (TokenType::Health.with_default_lifecycle(), 100),
-                (TokenType::MaxHealth.with_default_lifecycle(), 100),
-            ]),
             enemy: Combatant {
                 active_tokens: HashMap::from([
                     (TokenType::Health.with_default_lifecycle(), 30),
@@ -198,8 +198,9 @@ mod tests {
             card_id: 1,
         });
 
-        let combat_result = combat::simulate_combat(
+        let (combat_result, combat_pt) = combat::simulate_combat(
             initial_combat.clone(),
+            initial_pt.clone(),
             seed,
             combat_actions.clone(),
             &card_defs,
@@ -224,13 +225,13 @@ mod tests {
         assert_eq!(enc_state.phase, EncounterPhase::NoEncounter);
 
         // REPLAY: same seed + same actions produce same combat result
-        let replay_result =
-            combat::simulate_combat(initial_combat, seed, combat_actions, &card_defs);
+        let (replay_result, replay_pt) =
+            combat::simulate_combat(initial_combat, initial_pt, seed, combat_actions, &card_defs);
         assert_eq!(replay_result.is_finished, combat_result.is_finished);
         assert_eq!(replay_result.outcome, combat_result.outcome);
         assert_eq!(
-            token_balance_by_type(&replay_result.player_tokens, &TokenType::Health),
-            token_balance_by_type(&combat_result.player_tokens, &TokenType::Health),
+            token_balance_by_type(&replay_pt, &TokenType::Health),
+            token_balance_by_type(&combat_pt, &TokenType::Health),
         );
         assert_eq!(
             token_balance_by_type(&replay_result.enemy.active_tokens, &TokenType::Health),

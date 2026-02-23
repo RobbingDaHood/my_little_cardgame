@@ -26,12 +26,23 @@ fn test_play_defence_card_adds_tokens() {
         .dispatch();
     assert_eq!(play_response.status(), Status::Created);
 
-    // Verify combat snapshot has player shield tokens
-    let combat_resp = client.get("/combat").dispatch();
-    assert_eq!(combat_resp.status(), Status::Ok);
-    let body = combat_resp.into_string().expect("read combat");
-    let combat_json: serde_json::Value = serde_json::from_str(&body).expect("parse json");
-    let shield = combat_json["player_tokens"]["Shield"].as_i64().unwrap_or(0);
+    // Verify player has shield tokens via /player/tokens
+    let tokens_resp = client.get("/player/tokens").dispatch();
+    assert_eq!(tokens_resp.status(), Status::Ok);
+    let tokens_body = tokens_resp.into_string().expect("read tokens");
+    let tokens_json: serde_json::Value = serde_json::from_str(&tokens_body).expect("parse json");
+    let shield = tokens_json
+        .as_array()
+        .and_then(|arr| {
+            arr.iter().find_map(|entry| {
+                if entry["token"]["token_type"].as_str() == Some("Shield") {
+                    entry["value"].as_i64()
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or(0);
     assert!(
         shield > 0,
         "Player should have shield tokens after defence play"
