@@ -1713,12 +1713,12 @@ impl Default for GameState {
 
 // tests moved to tests/library_unit.rs
 
-/// Get canonical token registry
+/// Get canonical token registry with full token details
 #[openapi]
 #[get("/tokens")]
-pub async fn list_library_tokens() -> Json<Vec<types::TokenType>> {
+pub async fn list_library_tokens() -> Json<Vec<types::TokenRegistryEntry>> {
     let reg = TokenRegistry::with_canonical();
-    Json(reg.tokens.keys().cloned().collect())
+    Json(reg.tokens.into_values().collect())
 }
 
 /// Library cards endpoint: returns all cards from the canonical Library.

@@ -180,9 +180,9 @@ fn library_tokens_endpoint() {
     let response = client.get("/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
-    let tokens: Vec<TokenType> = serde_json::from_str(&body).unwrap();
+    let tokens: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
     assert!(!tokens.is_empty());
-    assert!(tokens.contains(&TokenType::Health));
+    assert!(tokens.iter().any(|t| t["id"] == "Health"));
 }
 
 #[test]
