@@ -20,7 +20,7 @@ pub mod types {
     /// Each variant is a well-known token with associated lifecycle semantics.
     #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
-    pub enum TokenId {
+    pub enum TokenType {
         // Combat tokens (expire when encounter reaches Scouting phase)
         Health,
         MaxHealth,
@@ -38,21 +38,32 @@ pub mod types {
         Corruption,
         Exhaustion,
         Durability,
+        // Effect-only tokens (not stored in balances)
+        DrawCards,
     }
 
-    impl TokenId {
-        pub fn lifecycle(&self) -> TokenLifecycle {
+    impl TokenType {
+        /// Default lifecycle for this token type (used when no specific lifecycle is given).
+        pub fn default_lifecycle(&self) -> TokenLifecycle {
             match self {
-                TokenId::Health
-                | TokenId::MaxHealth
-                | TokenId::Shield
-                | TokenId::Stamina
-                | TokenId::Dodge
-                | TokenId::Mana => TokenLifecycle::FixedTypeDuration {
+                TokenType::Health
+                | TokenType::MaxHealth
+                | TokenType::Shield
+                | TokenType::Stamina
+                | TokenType::Dodge
+                | TokenType::Mana => TokenLifecycle::FixedTypeDuration {
                     duration: 1,
                     phases: vec![EncounterPhase::Scouting],
                 },
                 _ => TokenLifecycle::PersistentCounter,
+            }
+        }
+
+        /// Create a Token with this type's default lifecycle.
+        pub fn with_default_lifecycle(&self) -> Token {
+            Token {
+                token_type: self.clone(),
+                lifecycle: self.default_lifecycle(),
             }
         }
     }
@@ -71,7 +82,7 @@ pub mod types {
     #[serde(crate = "rocket::serde")]
     pub struct CardEffect {
         pub target: EffectTarget,
-        pub token_id: TokenId,
+        pub token_id: TokenType,
         pub amount: i64,
     }
 
@@ -106,19 +117,17 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde", tag = "kind")]
     pub enum CardKind {
-        Attack {
-            effects: Vec<CardEffect>,
-        },
-        Defence {
-            effects: Vec<CardEffect>,
-        },
-        Resource {
-            effects: Vec<CardEffect>,
-            draw_count: u32,
-        },
-        CombatEncounter {
-            combatant_def: CombatantDef,
-        },
+        Attack { effects: Vec<CardEffect> },
+        Defence { effects: Vec<CardEffect> },
+        Resource { effects: Vec<CardEffect> },
+        Encounter { encounter_kind: EncounterKind },
+    }
+
+    /// Sub-type of encounter cards.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "encounter_type")]
+    pub enum EncounterKind {
+        Combat { combatant_def: CombatantDef },
     }
 
     /// Definition of an enemy combatant for a combat encounter card.
@@ -126,7 +135,9 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CombatantDef {
-        pub initial_tokens: HashMap<TokenId, i64>,
+        #[serde(with = "token_map_serde")]
+        #[schemars(with = "token_map_serde::SchemaHelper")]
+        pub initial_tokens: HashMap<Token, i64>,
         pub attack_deck: Vec<EnemyCardDef>,
         pub defence_deck: Vec<EnemyCardDef>,
         pub resource_deck: Vec<EnemyCardDef>,
@@ -150,13 +161,78 @@ pub mod types {
     /// Token type metadata and lifecycle
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
-    pub struct TokenType {
-        pub id: TokenId,
+    pub struct TokenRegistryEntry {
+        pub id: TokenType,
         pub lifecycle: TokenLifecycle,
         pub cap: Option<u64>,
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    /// A token instance: token type + lifecycle. Used as key in token balance maps.
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde")]
+    pub struct Token {
+        pub token_type: TokenType,
+        pub lifecycle: TokenLifecycle,
+    }
+
+    /// Serde helper to serialize/deserialize `HashMap<Token, i64>` as a JSON array of entries.
+    pub mod token_map_serde {
+        use super::{HashMap, Token};
+        use rocket::serde::{self, Deserialize, Serialize};
+        use schemars::JsonSchema;
+
+        #[derive(Serialize, Deserialize, JsonSchema)]
+        #[serde(crate = "rocket::serde")]
+        pub struct Entry {
+            pub token: Token,
+            pub value: i64,
+        }
+
+        /// Schema-only type so `#[schemars(with = "SchemaHelper")]` works.
+        pub type SchemaHelper = Vec<Entry>;
+
+        pub fn serialize<S>(map: &HashMap<Token, i64>, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let entries: Vec<Entry> = map
+                .iter()
+                .map(|(k, v)| Entry {
+                    token: k.clone(),
+                    value: *v,
+                })
+                .collect();
+            entries.serialize(serializer)
+        }
+
+        pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<Token, i64>, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            let entries: Vec<Entry> = Vec::deserialize(deserializer)?;
+            Ok(entries.into_iter().map(|e| (e.token, e.value)).collect())
+        }
+    }
+
+    /// Get the total value of all tokens of a given type in a token map.
+    pub fn token_balance_by_type(map: &HashMap<Token, i64>, tt: &TokenType) -> i64 {
+        map.iter()
+            .filter(|(k, _)| k.token_type == *tt)
+            .map(|(_, v)| *v)
+            .sum()
+    }
+
+    /// Get a mutable reference to the first token entry matching a type,
+    /// or insert a new entry with the type's default lifecycle.
+    pub fn token_entry_by_type<'a>(
+        map: &'a mut HashMap<Token, i64>,
+        tt: &TokenType,
+    ) -> &'a mut i64 {
+        let key = tt.with_default_lifecycle();
+        map.entry(key).or_insert(0)
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub enum TokenLifecycle {
         Permanent,
@@ -184,7 +260,7 @@ pub mod types {
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub enum ActionRequest {
-        GrantToken { token_id: TokenId, amount: i64 },
+        GrantToken { token_id: TokenType, amount: i64 },
     }
 
     /// Action payloads for the append-only log
@@ -192,19 +268,19 @@ pub mod types {
     #[serde(crate = "rocket::serde", tag = "type")]
     pub enum ActionPayload {
         GrantToken {
-            token_id: TokenId,
+            token_id: TokenType,
             amount: i64,
             reason: Option<String>,
             resulting_amount: i64,
         },
         ConsumeToken {
-            token_id: TokenId,
+            token_id: TokenType,
             amount: i64,
             reason: Option<String>,
             resulting_amount: i64,
         },
         ExpireToken {
-            token_id: TokenId,
+            token_id: TokenType,
             amount: i64,
             reason: Option<String>,
         },
@@ -268,7 +344,9 @@ pub mod types {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct Combatant {
-        pub active_tokens: HashMap<TokenId, i64>,
+        #[serde(with = "token_map_serde")]
+        #[schemars(with = "token_map_serde::SchemaHelper")]
+        pub active_tokens: HashMap<Token, i64>,
     }
 
     /// A combat action is a card play by a combatant.
@@ -313,18 +391,19 @@ pub mod types {
         pub round: u64,
         pub player_turn: bool,
         pub phase: CombatPhase,
-        pub player_tokens: HashMap<TokenId, i64>,
         pub enemy: Combatant,
         pub encounter_card_id: Option<usize>,
         pub is_finished: bool,
-        pub winner: Option<String>,
+        pub outcome: CombatOutcome,
     }
 
-    /// Result of a completed combat.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+    /// Outcome of a combat encounter.
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
     #[serde(crate = "rocket::serde")]
-    pub struct CombatResult {
-        pub winner: String,
+    pub enum CombatOutcome {
+        Undecided,
+        PlayerWon,
+        EnemyWon,
     }
 
     // ====== Encounter types for the encounter loop (Step 7) ======
@@ -337,7 +416,7 @@ pub mod types {
     }
 
     /// Phases of an encounter (Step 7 state machine)
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
     #[serde(crate = "rocket::serde")]
     pub enum EncounterPhase {
         /// Encounter has been drawn; player can start combat
@@ -378,6 +457,10 @@ pub mod combat {
     use rand_pcg::Lcg64Xsh32;
     use std::collections::HashMap;
 
+    /// Result of resolving a combat tick: (updated snapshot, updated player tokens, rng values used).
+    pub type CombatTickResult =
+        Result<(CombatSnapshot, HashMap<super::types::Token, i64>, Vec<u64>), String>;
+
     /// Resolve a single combat action (card play) deterministically.
     ///
     /// Looks up the card definition, applies its effects as token operations,
@@ -385,50 +468,44 @@ pub mod combat {
     /// Returns an error if the card_id is unknown.
     pub fn resolve_combat_tick(
         current_state: &CombatSnapshot,
+        player_tokens: &HashMap<super::types::Token, i64>,
         action: &CombatAction,
         card_defs: &HashMap<u64, CardDef>,
         rng: &mut Lcg64Xsh32,
-    ) -> Result<(CombatSnapshot, Vec<u64>), String> {
+    ) -> CombatTickResult {
         let card = card_defs
             .get(&action.card_id)
             .ok_or_else(|| format!("Unknown card_id: {}", action.card_id))?;
 
         let mut rng_values = Vec::new();
         let mut state_after = current_state.clone();
+        let mut pt_after = player_tokens.clone();
 
         let rng_val = rng.next_u64();
         rng_values.push(rng_val);
 
         for effect in &card.effects {
-            let (actor_tokens, target_tokens) = match (&effect.target, action.is_player) {
-                (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => {
-                    // Affect player tokens
-                    (&mut state_after.player_tokens, None)
-                }
+            let actor_tokens = match (&effect.target, action.is_player) {
+                (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => &mut pt_after,
                 (EffectTarget::OnOpponent, true) | (EffectTarget::OnSelf, false) => {
-                    // Affect enemy tokens
-                    (
-                        &mut state_after.enemy.active_tokens,
-                        None::<&mut HashMap<super::types::TokenId, i64>>,
-                    )
+                    &mut state_after.enemy.active_tokens
                 }
             };
-            let _ = target_tokens; // suppress unused warning
-            let entry = actor_tokens.entry(effect.token_id.clone()).or_insert(0);
+            let token_key = effect.token_id.with_default_lifecycle();
+            let entry = actor_tokens.entry(token_key).or_insert(0);
             *entry = (*entry + effect.amount).max(0);
 
-            if effect.token_id == super::types::TokenId::Health && *entry == 0 {
+            if effect.token_id == super::types::TokenType::Health && *entry == 0 {
                 state_after.is_finished = true;
-                // Determine winner: if player health hit 0, enemy wins; otherwise player wins
                 let affected_is_player = matches!(
                     (&effect.target, action.is_player),
                     (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false)
                 );
-                state_after.winner = Some(if affected_is_player {
-                    "enemy".to_string()
+                state_after.outcome = if affected_is_player {
+                    super::types::CombatOutcome::EnemyWon
                 } else {
-                    "player".to_string()
-                });
+                    super::types::CombatOutcome::PlayerWon
+                };
             }
         }
 
@@ -436,18 +513,19 @@ pub mod combat {
             state_after.player_turn = !state_after.player_turn;
         }
 
-        Ok((state_after, rng_values))
+        Ok((state_after, pt_after, rng_values))
     }
 
     /// Simulate a full combat encounter from a seed and initial state.
     ///
-    /// Returns the final combat snapshot. Pure-data; no side effects.
+    /// Returns the final combat snapshot and player tokens. Pure-data; no side effects.
     pub fn simulate_combat(
         initial_state: CombatSnapshot,
+        initial_player_tokens: HashMap<super::types::Token, i64>,
         seed: u64,
         actions: Vec<CombatAction>,
         card_defs: &HashMap<u64, CardDef>,
-    ) -> CombatSnapshot {
+    ) -> (CombatSnapshot, HashMap<super::types::Token, i64>) {
         use rand::SeedableRng;
 
         let seed_bytes: [u8; 16] = {
@@ -460,11 +538,13 @@ pub mod combat {
         let mut rng = Lcg64Xsh32::from_seed(seed_bytes);
 
         let mut current_state = initial_state;
+        let mut player_tokens = initial_player_tokens;
 
         for action in &actions {
-            match resolve_combat_tick(&current_state, action, card_defs, &mut rng) {
-                Ok((next_state, _rng_vals)) => {
+            match resolve_combat_tick(&current_state, &player_tokens, action, card_defs, &mut rng) {
+                Ok((next_state, next_pt, _rng_vals)) => {
                     current_state = next_state;
+                    player_tokens = next_pt;
                     if current_state.is_finished {
                         break;
                     }
@@ -473,7 +553,7 @@ pub mod combat {
             }
         }
 
-        current_state
+        (current_state, player_tokens)
     }
 }
 
@@ -555,12 +635,12 @@ pub mod encounter {
 }
 
 pub mod registry {
-    use super::types::{TokenId, TokenType};
+    use super::types::{TokenRegistryEntry, TokenType};
     use std::collections::HashMap;
 
     #[derive(Debug, Default, Clone)]
     pub struct TokenRegistry {
-        pub tokens: HashMap<TokenId, TokenType>,
+        pub tokens: HashMap<TokenType, TokenRegistryEntry>,
     }
 
     impl TokenRegistry {
@@ -569,7 +649,7 @@ pub mod registry {
                 tokens: HashMap::new(),
             }
         }
-        pub fn register(&mut self, token: TokenType) {
+        pub fn register(&mut self, token: TokenRegistryEntry) {
             self.tokens.insert(token.id.clone(), token);
         }
 
@@ -578,33 +658,33 @@ pub mod registry {
             let mut r = Self::new();
             // Persistent meta tokens
             for id in [
-                TokenId::Insight,
-                TokenId::Renown,
-                TokenId::Refinement,
-                TokenId::Stability,
-                TokenId::Foresight,
-                TokenId::Momentum,
-                TokenId::Corruption,
-                TokenId::Exhaustion,
-                TokenId::Durability,
+                TokenType::Insight,
+                TokenType::Renown,
+                TokenType::Refinement,
+                TokenType::Stability,
+                TokenType::Foresight,
+                TokenType::Momentum,
+                TokenType::Corruption,
+                TokenType::Exhaustion,
+                TokenType::Durability,
             ] {
-                r.register(TokenType {
-                    lifecycle: id.lifecycle(),
+                r.register(TokenRegistryEntry {
+                    lifecycle: id.default_lifecycle(),
                     id,
                     cap: Some(9999),
                 });
             }
             // Combat tokens
             for id in [
-                TokenId::Health,
-                TokenId::MaxHealth,
-                TokenId::Dodge,
-                TokenId::Shield,
-                TokenId::Stamina,
-                TokenId::Mana,
+                TokenType::Health,
+                TokenType::MaxHealth,
+                TokenType::Dodge,
+                TokenType::Shield,
+                TokenType::Stamina,
+                TokenType::Mana,
             ] {
-                r.register(TokenType {
-                    lifecycle: id.lifecycle(),
+                r.register(TokenRegistryEntry {
+                    lifecycle: id.default_lifecycle(),
                     id,
                     cap: Some(9999),
                 });
@@ -612,7 +692,7 @@ pub mod registry {
             r
         }
 
-        pub fn contains(&self, id: &TokenId) -> bool {
+        pub fn contains(&self, id: &TokenType) -> bool {
             self.tokens.contains_key(id)
         }
     }
@@ -795,7 +875,9 @@ pub mod action_log {
 
 use action_log::ActionLog;
 use registry::TokenRegistry;
-use types::{ActionEntry, ActionPayload, CardCounts, CardEffect, CardKind, LibraryCard};
+use types::{
+    ActionEntry, ActionPayload, CardCounts, CardEffect, CardKind, EncounterKind, LibraryCard,
+};
 
 /// The Library: canonical collection of all player-owned cards.
 /// Index in the Vec = card ID. Per vision "card location model and counts".
@@ -906,6 +988,59 @@ impl Library {
             .filter(|(_, c)| predicate(&c.kind))
             .collect()
     }
+
+    /// Return a card from discard → deck (recycle).
+    pub fn return_to_deck(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.discard == 0 {
+            return Err(format!("Card {card_id} has no copies in discard"));
+        }
+        card.counts.discard -= 1;
+        card.counts.deck += 1;
+        Ok(())
+    }
+
+    /// Encounter cards currently in the hand (visible/pickable).
+    pub fn encounter_hand(&self) -> Vec<usize> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
+            .flat_map(|(id, c)| std::iter::repeat_n(id, c.counts.hand as usize))
+            .collect()
+    }
+
+    /// Check if an encounter card is in the hand.
+    pub fn encounter_contains(&self, card_id: usize) -> bool {
+        self.cards
+            .get(card_id)
+            .is_some_and(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
+    }
+
+    /// Draw encounter cards from deck to hand until hand reaches target_count.
+    pub fn encounter_draw_to_hand(&mut self, target_count: usize) {
+        let current_hand: usize = self
+            .cards
+            .iter()
+            .filter(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
+            .map(|c| c.counts.hand as usize)
+            .sum();
+        let mut remaining = target_count.saturating_sub(current_hand);
+        for card in &mut self.cards {
+            if remaining == 0 {
+                break;
+            }
+            if matches!(card.kind, CardKind::Encounter { .. }) && card.counts.deck > 0 {
+                let to_move = (card.counts.deck as usize).min(remaining) as u32;
+                card.counts.deck -= to_move;
+                card.counts.hand += to_move;
+                remaining -= to_move as usize;
+            }
+        }
+    }
 }
 
 /// Build the initial Library with starter cards.
@@ -917,7 +1052,7 @@ fn initialize_library() -> Library {
         CardKind::Attack {
             effects: vec![CardEffect {
                 target: types::EffectTarget::OnOpponent,
-                token_id: types::TokenId::Health,
+                token_id: types::TokenType::Health,
                 amount: -5,
             }],
         },
@@ -934,7 +1069,7 @@ fn initialize_library() -> Library {
         CardKind::Defence {
             effects: vec![CardEffect {
                 target: types::EffectTarget::OnSelf,
-                token_id: types::TokenId::Shield,
+                token_id: types::TokenType::Shield,
                 amount: 3,
             }],
         },
@@ -949,12 +1084,18 @@ fn initialize_library() -> Library {
     // Resource card (id 2): grants 2 stamina to self, draws 1 card (~50% of starting deck)
     lib.add_card(
         CardKind::Resource {
-            effects: vec![CardEffect {
-                target: types::EffectTarget::OnSelf,
-                token_id: types::TokenId::Stamina,
-                amount: 2,
-            }],
-            draw_count: 1,
+            effects: vec![
+                CardEffect {
+                    target: types::EffectTarget::OnSelf,
+                    token_id: types::TokenType::Stamina,
+                    amount: 2,
+                },
+                CardEffect {
+                    target: types::EffectTarget::OnSelf,
+                    token_id: types::TokenType::DrawCards,
+                    amount: 1,
+                },
+            ],
         },
         CardCounts {
             library: 0,
@@ -966,39 +1107,41 @@ fn initialize_library() -> Library {
 
     // Combat encounter: Gnome (id 3)
     lib.add_card(
-        CardKind::CombatEncounter {
-            combatant_def: types::CombatantDef {
-                initial_tokens: HashMap::from([
-                    (types::TokenId::Health, 20),
-                    (types::TokenId::MaxHealth, 20),
-                ]),
-                attack_deck: vec![types::EnemyCardDef {
-                    effects: vec![CardEffect {
-                        target: types::EffectTarget::OnOpponent,
-                        token_id: types::TokenId::Health,
-                        amount: -3,
+        CardKind::Encounter {
+            encounter_kind: types::EncounterKind::Combat {
+                combatant_def: types::CombatantDef {
+                    initial_tokens: HashMap::from([
+                        (types::TokenType::Health.with_default_lifecycle(), 20),
+                        (types::TokenType::MaxHealth.with_default_lifecycle(), 20),
+                    ]),
+                    attack_deck: vec![types::EnemyCardDef {
+                        effects: vec![CardEffect {
+                            target: types::EffectTarget::OnOpponent,
+                            token_id: types::TokenType::Health,
+                            amount: -3,
+                        }],
                     }],
-                }],
-                defence_deck: vec![types::EnemyCardDef {
-                    effects: vec![CardEffect {
-                        target: types::EffectTarget::OnSelf,
-                        token_id: types::TokenId::Shield,
-                        amount: 2,
+                    defence_deck: vec![types::EnemyCardDef {
+                        effects: vec![CardEffect {
+                            target: types::EffectTarget::OnSelf,
+                            token_id: types::TokenType::Shield,
+                            amount: 2,
+                        }],
                     }],
-                }],
-                resource_deck: vec![types::EnemyCardDef {
-                    effects: vec![CardEffect {
-                        target: types::EffectTarget::OnSelf,
-                        token_id: types::TokenId::Stamina,
-                        amount: 1,
+                    resource_deck: vec![types::EnemyCardDef {
+                        effects: vec![CardEffect {
+                            target: types::EffectTarget::OnSelf,
+                            token_id: types::TokenType::Stamina,
+                            amount: 1,
+                        }],
                     }],
-                }],
+                },
             },
         },
         CardCounts {
             library: 1,
             deck: 0,
-            hand: 0,
+            hand: 3,
             discard: 0,
         },
     );
@@ -1006,62 +1149,76 @@ fn initialize_library() -> Library {
     lib
 }
 
-/// Apply card effects to a combat snapshot, handling dodge absorption.
-fn apply_card_effects(effects: &[CardEffect], is_player: bool, combat: &mut types::CombatSnapshot) {
+/// Apply card effects to combat, modifying player tokens and combat snapshot.
+fn apply_card_effects(
+    effects: &[CardEffect],
+    is_player: bool,
+    player_tokens: &mut HashMap<types::Token, i64>,
+    combat: &mut types::CombatSnapshot,
+) {
     for effect in effects {
         let target_tokens = match (&effect.target, is_player) {
             (types::EffectTarget::OnSelf, true) | (types::EffectTarget::OnOpponent, false) => {
-                &mut combat.player_tokens
+                &mut *player_tokens
             }
             (types::EffectTarget::OnOpponent, true) | (types::EffectTarget::OnSelf, false) => {
                 &mut combat.enemy.active_tokens
             }
         };
 
-        if effect.token_id == types::TokenId::Health && effect.amount < 0 {
+        if effect.token_id == types::TokenType::Health && effect.amount < 0 {
             // Damage: consume dodge first, then reduce health
             let damage = -effect.amount;
             let dodge = target_tokens
-                .get(&types::TokenId::Dodge)
+                .get(&types::TokenType::Dodge.with_default_lifecycle())
                 .copied()
                 .unwrap_or(0);
             let absorbed = dodge.min(damage);
-            target_tokens.insert(types::TokenId::Dodge, (dodge - absorbed).max(0));
+            target_tokens.insert(
+                types::TokenType::Dodge.with_default_lifecycle(),
+                (dodge - absorbed).max(0),
+            );
             let remaining_damage = damage - absorbed;
             if remaining_damage > 0 {
-                let health = target_tokens.entry(types::TokenId::Health).or_insert(0);
+                let health = target_tokens
+                    .entry(types::TokenType::Health.with_default_lifecycle())
+                    .or_insert(0);
                 *health = (*health - remaining_damage).max(0);
             }
         } else {
-            let entry = target_tokens.entry(effect.token_id.clone()).or_insert(0);
+            let entry = target_tokens
+                .entry(effect.token_id.with_default_lifecycle())
+                .or_insert(0);
             *entry = (*entry + effect.amount).max(0);
         }
     }
 }
 
 /// Check if combat has ended (either side at 0 health).
-fn check_combat_end(combat: &mut types::CombatSnapshot) {
-    let player_health = combat
-        .player_tokens
-        .get(&types::TokenId::Health)
+fn check_combat_end(
+    player_tokens: &HashMap<types::Token, i64>,
+    combat: &mut types::CombatSnapshot,
+) {
+    let player_health = player_tokens
+        .get(&types::TokenType::Health.with_default_lifecycle())
         .copied()
         .unwrap_or(0);
     let enemy_health = combat
         .enemy
         .active_tokens
-        .get(&types::TokenId::Health)
+        .get(&types::TokenType::Health.with_default_lifecycle())
         .copied()
         .unwrap_or(0);
 
     if enemy_health <= 0 || player_health <= 0 {
         combat.is_finished = true;
-        combat.winner = Some(if enemy_health <= 0 && player_health > 0 {
-            "Player".to_string()
+        combat.outcome = if enemy_health <= 0 && player_health > 0 {
+            types::CombatOutcome::PlayerWon
         } else if player_health <= 0 && enemy_health > 0 {
-            "Enemy".to_string()
+            types::CombatOutcome::EnemyWon
         } else {
-            "Draw".to_string()
-        });
+            types::CombatOutcome::PlayerWon // Draw defaults to player
+        };
     }
 }
 
@@ -1070,11 +1227,11 @@ fn check_combat_end(combat: &mut types::CombatSnapshot) {
 pub struct GameState {
     pub registry: TokenRegistry,
     pub action_log: std::sync::Arc<ActionLog>,
-    pub token_balances: HashMap<types::TokenId, i64>,
+    pub token_balances: HashMap<types::Token, i64>,
     pub library: Library,
     pub current_combat: Option<types::CombatSnapshot>,
     pub encounter_state: types::EncounterState,
-    pub last_combat_result: Option<types::CombatResult>,
+    pub last_combat_result: Option<types::CombatOutcome>,
 }
 
 impl GameState {
@@ -1083,10 +1240,10 @@ impl GameState {
         let registry = TokenRegistry::with_canonical();
         let mut balances = HashMap::new();
         for id in registry.tokens.keys() {
-            balances.insert(id.clone(), 0i64);
+            balances.insert(id.with_default_lifecycle(), 0i64);
         }
         // Default Foresight controls area deck hand size
-        balances.insert(types::TokenId::Foresight, 3);
+        balances.insert(types::TokenType::Foresight.with_default_lifecycle(), 3);
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -1117,12 +1274,13 @@ impl GameState {
     }
 
     /// Apply a simple GrantToken action: update balances and append to the action log.
+    /// Apply a grant operation: add to token balances with cap checking.
     pub fn apply_grant(
         &mut self,
-        token_id: &types::TokenId,
+        token_id: &types::TokenType,
         amount: i64,
-        reason: Option<String>,
-    ) -> Result<ActionEntry, String> {
+        _reason: Option<String>,
+    ) -> Result<(), String> {
         let token_type = self
             .registry
             .tokens
@@ -1131,7 +1289,7 @@ impl GameState {
 
         // Check cap if present
         if let Some(cap) = token_type.cap {
-            let current = self.token_balances.get(token_id).copied().unwrap_or(0);
+            let current = types::token_balance_by_type(&self.token_balances, token_id);
             if current + amount > cap as i64 {
                 return Err(format!(
                     "Token '{:?}' would exceed cap of {} (current: {})",
@@ -1140,32 +1298,26 @@ impl GameState {
             }
         }
 
-        let current = self.token_balances.get(token_id).copied().unwrap_or(0);
-        let resulting_amount = current + amount;
-        let payload = ActionPayload::GrantToken {
-            token_id: token_id.clone(),
-            amount,
-            reason,
-            resulting_amount,
-        };
-        let entry = self.append_action("GrantToken", payload);
-        let v = self.token_balances.entry(token_id.clone()).or_insert(0);
+        let v = self
+            .token_balances
+            .entry(token_id.with_default_lifecycle())
+            .or_insert(0);
         *v += amount;
-        Ok(entry)
+        Ok(())
     }
 
-    /// Apply a ConsumeToken action: deduct from balances and append to the action log.
+    /// Apply a consume operation: deduct from token balances.
     pub fn apply_consume(
         &mut self,
-        token_id: &types::TokenId,
+        token_id: &types::TokenType,
         amount: i64,
-        reason: Option<String>,
-    ) -> Result<ActionEntry, String> {
+        _reason: Option<String>,
+    ) -> Result<(), String> {
         if !self.registry.contains(token_id) {
             return Err(format!("Unknown token '{:?}'", token_id));
         }
 
-        let current = self.token_balances.get(token_id).copied().unwrap_or(0);
+        let current = types::token_balance_by_type(&self.token_balances, token_id);
         if current < amount {
             return Err(format!(
                 "Cannot consume {} of token '{:?}': insufficient balance (have {})",
@@ -1173,17 +1325,12 @@ impl GameState {
             ));
         }
 
-        let resulting_amount = current - amount;
-        let payload = ActionPayload::ConsumeToken {
-            token_id: token_id.clone(),
-            amount,
-            reason,
-            resulting_amount,
-        };
-        let entry = self.append_action("ConsumeToken", payload);
-        let v = self.token_balances.entry(token_id.clone()).or_insert(0);
+        let v = self
+            .token_balances
+            .entry(token_id.with_default_lifecycle())
+            .or_insert(0);
         *v -= amount;
-        Ok(entry)
+        Ok(())
     }
 
     /// Append an action to the action log with optional metadata; returns the appended entry.
@@ -1191,7 +1338,7 @@ impl GameState {
         self.action_log.append(action_type, payload)
     }
 
-    /// Initialize combat from a Library CombatEncounter card.
+    /// Initialize combat from a Library Encounter card.
     pub fn start_combat(&mut self, encounter_card_id: usize) -> Result<(), String> {
         let lib_card = self
             .library
@@ -1199,27 +1346,26 @@ impl GameState {
             .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
             .clone();
         let combatant_def = match &lib_card.kind {
-            CardKind::CombatEncounter { combatant_def } => combatant_def.clone(),
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Combat { combatant_def },
+            } => combatant_def.clone(),
             _ => {
                 return Err(format!(
-                    "Card {} is not a CombatEncounter",
+                    "Card {} is not a combat encounter",
                     encounter_card_id
                 ))
             }
         };
-        // Initialize player combat tokens from token_balances
-        let player_tokens = self.token_balances.clone();
         let snapshot = types::CombatSnapshot {
             round: 1,
             player_turn: true,
             phase: types::CombatPhase::Defending,
-            player_tokens,
             enemy: types::Combatant {
                 active_tokens: combatant_def.initial_tokens.clone(),
             },
             encounter_card_id: Some(encounter_card_id),
             is_finished: false,
-            winner: None,
+            outcome: types::CombatOutcome::Undecided,
         };
         self.current_combat = Some(snapshot);
         self.encounter_state.phase = types::EncounterPhase::InCombat;
@@ -1234,25 +1380,30 @@ impl GameState {
             .get(card_id)
             .ok_or_else(|| format!("Card {} not found in Library", card_id))?
             .clone();
-        let (effects, draw_count) = match &lib_card.kind {
-            CardKind::Attack { effects } | CardKind::Defence { effects } => (effects.clone(), 0),
-            CardKind::Resource {
-                effects,
-                draw_count,
-            } => (effects.clone(), *draw_count),
+        let effects = match &lib_card.kind {
+            CardKind::Attack { effects }
+            | CardKind::Defence { effects }
+            | CardKind::Resource { effects } => effects.clone(),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
-        apply_card_effects(&effects, true, combat);
-        check_combat_end(combat);
+        // Separate draw effects from combat effects
+        let draw_count: u32 = effects
+            .iter()
+            .filter(|e| e.token_id == types::TokenType::DrawCards)
+            .map(|e| e.amount.max(0) as u32)
+            .sum();
+        let combat_effects: Vec<_> = effects
+            .iter()
+            .filter(|e| e.token_id != types::TokenType::DrawCards)
+            .cloned()
+            .collect();
+        apply_card_effects(&combat_effects, true, &mut self.token_balances, combat);
+        check_combat_end(&self.token_balances, combat);
         if combat.is_finished {
-            let winner = combat.winner.clone().unwrap_or_default();
-            self.last_combat_result = Some(types::CombatResult {
-                winner: winner.clone(),
-            });
+            self.last_combat_result = Some(combat.outcome.clone());
             self.current_combat = None;
             self.encounter_state.phase = types::EncounterPhase::Scouting;
         }
-        // Resource cards trigger draws from deck → hand
         if draw_count > 0 {
             self.draw_random_cards(draw_count);
         }
@@ -1266,9 +1417,7 @@ impl GameState {
             .cards
             .iter()
             .enumerate()
-            .filter(|(_, c)| {
-                c.counts.deck > 0 && !matches!(c.kind, CardKind::CombatEncounter { .. })
-            })
+            .filter(|(_, c)| c.counts.deck > 0 && !matches!(c.kind, CardKind::Encounter { .. }))
             .map(|(i, _)| i)
             .collect();
         if drawable.is_empty() {
@@ -1287,6 +1436,7 @@ impl GameState {
         let encounter_card_id = combat
             .encounter_card_id
             .ok_or("No encounter card in combat")?;
+        let phase = combat.phase.clone();
 
         let lib_card = self
             .library
@@ -1294,33 +1444,29 @@ impl GameState {
             .ok_or("Encounter card not found")?
             .clone();
         let combatant_def = match &lib_card.kind {
-            CardKind::CombatEncounter { combatant_def } => combatant_def.clone(),
-            _ => return Err("Not a CombatEncounter".to_string()),
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Combat { combatant_def },
+            } => combatant_def.clone(),
+            _ => return Err("Not a combat encounter".to_string()),
         };
 
-        use rand::RngCore;
-        let decks = [
-            &combatant_def.attack_deck,
-            &combatant_def.defence_deck,
-            &combatant_def.resource_deck,
-        ];
-        for deck in decks {
-            if deck.is_empty() {
-                continue;
-            }
+        // Pick the deck matching the current combat phase
+        let deck = match phase {
+            types::CombatPhase::Attacking => &combatant_def.attack_deck,
+            types::CombatPhase::Defending => &combatant_def.defence_deck,
+            types::CombatPhase::Resourcing => &combatant_def.resource_deck,
+        };
+        if !deck.is_empty() {
+            use rand::RngCore;
             let pick = (rng.next_u64() as usize) % deck.len();
             let effects = deck[pick].effects.clone();
             let combat = self.current_combat.as_mut().ok_or("No active combat")?;
-            apply_card_effects(&effects, false, combat);
-            check_combat_end(combat);
+            apply_card_effects(&effects, false, &mut self.token_balances, combat);
+            check_combat_end(&self.token_balances, combat);
             if combat.is_finished {
-                let winner = combat.winner.clone().unwrap_or_default();
-                self.last_combat_result = Some(types::CombatResult {
-                    winner: winner.clone(),
-                });
+                self.last_combat_result = Some(combat.outcome.clone());
                 self.current_combat = None;
                 self.encounter_state.phase = types::EncounterPhase::Scouting;
-                return Ok(());
             }
         }
         Ok(())
@@ -1338,10 +1484,10 @@ impl GameState {
         let mut gs = {
             let mut balances = HashMap::new();
             for id in registry.tokens.keys() {
-                balances.insert(id.clone(), 0i64);
+                balances.insert(id.with_default_lifecycle(), 0i64);
             }
             // Default Foresight controls area deck hand size
-            balances.insert(types::TokenId::Foresight, 3);
+            balances.insert(types::TokenType::Foresight.with_default_lifecycle(), 3);
             Self {
                 registry,
                 action_log: std::sync::Arc::new(ActionLog::new()),
@@ -1359,19 +1505,28 @@ impl GameState {
                 ActionPayload::GrantToken {
                     token_id, amount, ..
                 } => {
-                    let v = gs.token_balances.entry(token_id.clone()).or_insert(0);
+                    let v = gs
+                        .token_balances
+                        .entry(token_id.with_default_lifecycle())
+                        .or_insert(0);
                     *v += *amount;
                 }
                 ActionPayload::ConsumeToken {
                     token_id, amount, ..
                 } => {
-                    let v = gs.token_balances.entry(token_id.clone()).or_insert(0);
+                    let v = gs
+                        .token_balances
+                        .entry(token_id.with_default_lifecycle())
+                        .or_insert(0);
                     *v -= *amount;
                 }
                 ActionPayload::ExpireToken {
                     token_id, amount, ..
                 } => {
-                    let v = gs.token_balances.entry(token_id.clone()).or_insert(0);
+                    let v = gs
+                        .token_balances
+                        .entry(token_id.with_default_lifecycle())
+                        .or_insert(0);
                     *v = (*v - *amount).max(0);
                 }
                 ActionPayload::SetSeed { .. } => {
@@ -1412,7 +1567,7 @@ impl Default for GameState {
 /// Get canonical token registry
 #[openapi]
 #[get("/tokens")]
-pub async fn list_library_tokens() -> Json<Vec<types::TokenId>> {
+pub async fn list_library_tokens() -> Json<Vec<types::TokenType>> {
     let reg = TokenRegistry::with_canonical();
     Json(reg.tokens.keys().cloned().collect())
 }

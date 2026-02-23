@@ -1,48 +1,13 @@
-use my_little_cardgame::library::types::{ActionEntry, ActionPayload, TokenId};
+use my_little_cardgame::library::types::{ActionEntry, ActionPayload};
 use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
 use serde_json::json;
 
 #[test]
-fn grant_token_via_action() {
+fn new_game_via_action_records_log() {
     let client =
         Client::tracked(my_little_cardgame::rocket_initialize()).expect("valid rocket instance");
-    let body = json!({"action_type": "GrantToken", "token_id":"Insight","amount":10}).to_string();
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(body)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-    let response = client.get("/actions/log").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().expect("response body");
-    #[allow(dead_code)]
-    #[derive(serde::Deserialize)]
-    struct ActionLogResponse {
-        entries: Vec<ActionEntry>,
-        next_seq: Option<u64>,
-        limit: usize,
-    }
-    let resp: ActionLogResponse = serde_json::from_str(&body).expect("valid json");
-    let entries = resp.entries;
-    let found = entries.iter().any(|e| match &e.payload {
-        ActionPayload::GrantToken {
-            token_id,
-            amount,
-            reason: _,
-            resulting_amount: _,
-        } => *token_id == TokenId::Insight && *amount == 10,
-        _ => false,
-    });
-    assert!(found);
-}
-
-#[test]
-fn set_seed_via_action_records_log() {
-    let client =
-        Client::tracked(my_little_cardgame::rocket_initialize()).expect("valid rocket instance");
-    let body = json!({"action_type": "SetSeed", "seed": 42u64}).to_string();
+    let body = json!({"action_type": "NewGame", "seed": 42u64}).to_string();
     let response = client
         .post("/action")
         .header(ContentType::JSON)

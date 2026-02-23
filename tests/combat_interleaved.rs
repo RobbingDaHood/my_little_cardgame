@@ -18,7 +18,10 @@ fn interleaved_player_and_enemy_actions() {
 
     // Interleave plays and enemy plays sequentially to exercise locking
     for _ in 0..5 {
-        let action_json = format!(r#"{{ "action_type": "PlayCard", "card_id": {} }}"#, card_id);
+        let action_json = format!(
+            r#"{{ "action_type": "EncounterPlayCard", "card_id": , "effects": []{} }}"#,
+            card_id
+        );
         let play_response = client
             .post("/action")
             .header(Header {
@@ -40,7 +43,7 @@ fn interleaved_player_and_enemy_actions() {
             );
         }
 
-        let enemy_response = client.post("/combat/enemy_play").dispatch();
+        let enemy_response = client.post("/tests/combat/enemy_play").dispatch();
         assert_eq!(enemy_response.status(), Status::Created);
     }
 }

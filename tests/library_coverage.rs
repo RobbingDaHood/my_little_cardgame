@@ -1,5 +1,5 @@
 use my_little_cardgame::library::types::{
-    ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, TokenId,
+    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, TokenType,
 };
 use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
 
@@ -21,7 +21,7 @@ fn library_draw_and_play_and_return() {
         CardKind::Attack {
             effects: vec![CardEffect {
                 target: EffectTarget::OnOpponent,
-                token_id: TokenId::Health,
+                token_id: TokenType::Health,
                 amount: -5,
             }],
         },
@@ -174,14 +174,10 @@ fn library_draw_nonexistent_card_returns_error() {
 #[test]
 fn game_state_apply_consume() {
     let mut gs = GameState::new();
-    gs.apply_grant(&TokenId::Insight, 10, None).unwrap();
-    let entry = gs.apply_consume(&TokenId::Insight, 3, None).unwrap();
-    assert_eq!(entry.action_type, "ConsumeToken");
+    gs.apply_grant(&TokenType::Insight, 10, None).unwrap();
+    gs.apply_consume(&TokenType::Insight, 3, None).unwrap();
     assert_eq!(
-        gs.token_balances
-            .get(&TokenId::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         7
     );
 }
@@ -189,16 +185,16 @@ fn game_state_apply_consume() {
 #[test]
 fn game_state_apply_consume_insufficient_balance() {
     let mut gs = GameState::new();
-    gs.apply_grant(&TokenId::Insight, 2, None).unwrap();
-    let result = gs.apply_consume(&TokenId::Insight, 5, None);
+    gs.apply_grant(&TokenType::Insight, 2, None).unwrap();
+    let result = gs.apply_consume(&TokenType::Insight, 5, None);
     assert!(result.is_err());
 }
 
 #[test]
 fn token_registry_contains() {
     let reg = TokenRegistry::with_canonical();
-    assert!(reg.contains(&TokenId::Health));
-    assert!(reg.contains(&TokenId::Foresight));
+    assert!(reg.contains(&TokenType::Health));
+    assert!(reg.contains(&TokenType::Foresight));
 }
 
 #[test]
@@ -210,7 +206,8 @@ fn game_state_draw_random_cards() {
     assert!(initial_deck > 0);
     // draw_random_cards is private, but we can test it via resolve_player_card
     // playing a resource card (id 2) triggers draw_count=1
-    gs.token_balances.insert(TokenId::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     let _ = gs.start_combat(3);
     // Phase starts at Defending, but we need Resourcing to play resource
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
@@ -222,41 +219,43 @@ fn game_state_draw_random_cards() {
 }
 
 #[test]
-fn replay_from_log_with_consume_and_expire() {
-    let mut gs = GameState::new();
-    let _ = gs.apply_grant(&TokenId::Insight, 20, None).unwrap();
-    let _ = gs.apply_consume(&TokenId::Insight, 5, None).unwrap();
-    // Simulate an expire action
+fn replay_from_log_handles_legacy_entries() {
+    let gs = GameState::new();
+    // Manually add legacy-format entries to action log
+    gs.action_log.append(
+        "GrantToken",
+        ActionPayload::GrantToken {
+            token_id: TokenType::Insight,
+            amount: 20,
+            reason: None,
+            resulting_amount: 20,
+        },
+    );
+    gs.action_log.append(
+        "ConsumeToken",
+        ActionPayload::ConsumeToken {
+            token_id: TokenType::Insight,
+            amount: 5,
+            reason: None,
+            resulting_amount: 15,
+        },
+    );
     gs.action_log.append(
         "ExpireToken",
         ActionPayload::ExpireToken {
-            token_id: TokenId::Stability,
+            token_id: TokenType::Stability,
             amount: 2,
             reason: Some("test expire".to_string()),
         },
     );
-    // Also add a SetSeed event
     gs.action_log
-        .append("SetSeed", ActionPayload::SetSeed { seed: 42 });
-    // Add a PlayCard event (should be ignored during replay)
-    gs.action_log.append(
-        "PlayCard",
-        ActionPayload::PlayCard {
-            card_id: 0,
-            deck_id: None,
-            reason: None,
-        },
-    );
+        .append("NewGame", ActionPayload::SetSeed { seed: 42 });
 
     let log_clone = gs.action_log.clone();
     let registry = TokenRegistry::with_canonical();
     let replayed = GameState::replay_from_log(registry, &log_clone);
     assert_eq!(
-        replayed
-            .token_balances
-            .get(&TokenId::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
         15
     );
 }
@@ -276,7 +275,8 @@ fn game_state_default() {
 #[test]
 fn start_combat_with_non_encounter_card() {
     let mut gs = GameState::new();
-    gs.token_balances.insert(TokenId::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     let result = gs.start_combat(0); // card 0 is Attack, not CombatEncounter
     assert!(result.is_err());
 }
@@ -284,7 +284,8 @@ fn start_combat_with_non_encounter_card() {
 #[test]
 fn resolve_player_card_non_action_card() {
     let mut gs = GameState::new();
-    gs.token_balances.insert(TokenId::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     let _ = gs.start_combat(3);
     // Try to play CombatEncounter card (id 3) as a player card
     let result = gs.resolve_player_card(3);
@@ -294,7 +295,8 @@ fn resolve_player_card_non_action_card() {
 #[test]
 fn resolve_enemy_play_with_non_encounter() {
     let mut gs = GameState::new();
-    gs.token_balances.insert(TokenId::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     // No combat started, should return error
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let result = gs.resolve_enemy_play(&mut rng);

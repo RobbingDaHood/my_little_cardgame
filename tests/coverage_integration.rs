@@ -1,4 +1,5 @@
-use my_little_cardgame::library::types::{CombatSnapshot, TokenId};
+use my_little_cardgame::library::types::{CombatSnapshot, TokenType};
+use my_little_cardgame::player_tokens::TokenBalance;
 use my_little_cardgame::rocket_initialize;
 use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
@@ -14,28 +15,30 @@ fn get_player_tokens_returns_initial_balances() {
     let response = client.get("/player/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
-    let tokens: std::collections::HashMap<TokenId, i64> = serde_json::from_str(&body).unwrap();
-    assert!(tokens.contains_key(&TokenId::Health));
-    assert!(tokens.contains_key(&TokenId::Foresight));
+    let tokens: Vec<TokenBalance> = serde_json::from_str(&body).unwrap();
+    assert!(tokens
+        .iter()
+        .any(|t| t.token.token_type == TokenType::Health));
+    assert!(tokens
+        .iter()
+        .any(|t| t.token.token_type == TokenType::Foresight));
 }
 
 #[test]
-fn set_seed_records_action() {
+fn new_game_records_action() {
     let client = client();
     let response = client
-        .post("/player/seed")
+        .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"seed": 42}"#)
+        .body(r#"{"action_type":"NewGame","seed":42}"#)
         .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    assert!(body.contains("42"));
+    assert_eq!(response.status(), Status::Created);
 
-    // Verify action log contains SetSeed entry
-    let log_resp = client.get("/actions/log?action_type=SetSeed").dispatch();
+    // Verify action log contains NewGame entry
+    let log_resp = client.get("/actions/log?action_type=NewGame").dispatch();
     assert_eq!(log_resp.status(), Status::Ok);
     let log_body = log_resp.into_string().unwrap();
-    assert!(log_body.contains("SetSeed"));
+    assert!(log_body.contains("NewGame"));
 }
 
 #[test]
@@ -46,12 +49,12 @@ fn actions_log_filtering() {
     client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Insight","amount":1}"#)
+        .body(r#"{"action_type":"NewGame","seed":111}"#)
         .dispatch();
     client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Renown","amount":2}"#)
+        .body(r#"{"action_type":"NewGame","seed":222}"#)
         .dispatch();
 
     // Fetch all actions
@@ -76,14 +79,14 @@ fn actions_log_filtering() {
     assert!(!log["entries"].as_array().unwrap().is_empty());
 
     // Filter by action_type
-    let response = client.get("/actions/log?action_type=GrantToken").dispatch();
+    let response = client.get("/actions/log?action_type=NewGame").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
     let log: serde_json::Value = serde_json::from_str(&body).unwrap();
     let entries = log["entries"].as_array().unwrap();
     assert!(entries.len() >= 2);
     for entry in entries {
-        assert_eq!(entry["action_type"], "GrantToken");
+        assert_eq!(entry["action_type"], "NewGame");
     }
 
     // Filter by action_type that doesn't exist
@@ -139,11 +142,11 @@ fn combat_lifecycle_with_enemy_play_and_advance() {
     assert!(combat.player_turn);
 
     // Advance phase
-    let response = client.post("/combat/advance").dispatch();
+    let response = client.post("/tests/combat/advance").dispatch();
     assert_eq!(response.status(), Status::Created);
 
     // Enemy play
-    let response = client.post("/combat/enemy_play").dispatch();
+    let response = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(response.status(), Status::Created);
 }
 
@@ -151,7 +154,7 @@ fn combat_lifecycle_with_enemy_play_and_advance() {
 fn enemy_play_when_no_combat_returns_created() {
     let client = client();
     // No combat initialized - should still return Created (no-op)
-    let response = client.post("/combat/enemy_play").dispatch();
+    let response = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(response.status(), Status::Created);
 }
 
@@ -177,9 +180,9 @@ fn library_tokens_endpoint() {
     let response = client.get("/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
-    let tokens: Vec<TokenId> = serde_json::from_str(&body).unwrap();
+    let tokens: Vec<TokenType> = serde_json::from_str(&body).unwrap();
     assert!(!tokens.is_empty());
-    assert!(tokens.contains(&TokenId::Health));
+    assert!(tokens.contains(&TokenType::Health));
 }
 
 #[test]
@@ -188,51 +191,9 @@ fn play_card_without_combat_returns_error() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"PlayCard","card_id":0}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
-}
-
-#[test]
-fn play_grant_token_action() {
-    let client = client();
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Insight","amount":5}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-
-    // Verify token was granted
-    let tokens_resp = client.get("/player/tokens").dispatch();
-    let body = tokens_resp.into_string().unwrap();
-    let tokens: std::collections::HashMap<TokenId, i64> = serde_json::from_str(&body).unwrap();
-    assert_eq!(tokens.get(&TokenId::Insight).copied().unwrap_or(0), 5);
-}
-
-#[test]
-fn play_consume_token_via_grant_negative() {
-    let client = client();
-    // Grant tokens
-    client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Renown","amount":10}"#)
-        .dispatch();
-
-    // Grant negative amount to simulate consume
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"GrantToken","token_id":"Renown","amount":-3}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-
-    // Verify
-    let tokens_resp = client.get("/player/tokens").dispatch();
-    let body = tokens_resp.into_string().unwrap();
-    let tokens: std::collections::HashMap<TokenId, i64> = serde_json::from_str(&body).unwrap();
-    assert_eq!(tokens.get(&TokenId::Renown).copied().unwrap_or(0), 7);
 }
 
 #[test]
@@ -289,28 +250,28 @@ fn play_finish_scouting_after_combat_win() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"PlayCard","card_id":1}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":1,"effects":[]}"#)
             .dispatch();
         // Advance to Attacking
-        client.post("/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
         // Attacking phase: play attack card (id 0) — deals 5 damage
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"PlayCard","card_id":0}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
             .dispatch();
         // Advance to Resourcing
-        client.post("/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
         // Resourcing phase: play resource card (id 2)
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"PlayCard","card_id":2}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":2,"effects":[]}"#)
             .dispatch();
         // Advance to Defending (next round)
-        client.post("/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
         // Enemy play
-        client.post("/combat/enemy_play").dispatch();
+        client.post("/tests/combat/enemy_play").dispatch();
     }
 
     // Check if combat ended and we're in Scouting
@@ -323,11 +284,11 @@ fn play_finish_scouting_after_combat_win() {
     // Check combat result
     let result_resp = client.get("/combat/result").dispatch();
     if result_resp.status() == Status::Ok {
-        // We're in scouting, finish it
+        // We're in scouting, finish it via EncounterApplyScouting
         let response = client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"FinishScouting"}"#)
+            .body(r#"{"action_type":"EncounterApplyScouting","card_ids":[3]}"#)
             .dispatch();
         assert_eq!(response.status(), Status::Created);
     }
@@ -342,18 +303,19 @@ fn simulate_combat_endpoint() {
             "round": 1,
             "player_turn": true,
             "phase": "Attacking",
-            "player_tokens": {"Health": 20, "Shield": 0},
             "enemy": {
-                "name": "Test Enemy",
-                "active_tokens": {"Health": 10},
-                "attack_deck": [],
-                "defence_deck": [],
-                "resource_deck": []
+                "active_tokens": [
+                    {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 10}
+                ]
             },
             "encounter_card_id": 0,
             "is_finished": false,
-            "winner": null
+            "outcome": "Undecided"
         },
+        "player_tokens": [
+            {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 20},
+            {"token": {"token_type": "Shield", "lifecycle": "PersistentCounter"}, "value": 0}
+        ],
         "seed": 42,
         "actions": [],
         "card_defs": {}
@@ -377,56 +339,6 @@ fn get_combat(client: &Client) -> Option<CombatSnapshot> {
     } else {
         panic!("Unexpected status: {}", response.status());
     }
-}
-
-#[test]
-fn draw_encounter_action() {
-    let client = client();
-    // Get area encounters
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-    let encounter_id = encounters[0];
-
-    let body = format!(
-        r#"{{"action_type":"DrawEncounter","area_id":"current","encounter_id":{}}}"#,
-        encounter_id
-    );
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(&body)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-}
-
-#[test]
-fn replace_encounter_action() {
-    let client = client();
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
-    let encounter_id = encounters[0];
-
-    let body = format!(
-        r#"{{"action_type":"ReplaceEncounter","area_id":"current","old_encounter_id":{},"new_encounter_id":99}}"#,
-        encounter_id
-    );
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(&body)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-}
-
-#[test]
-fn apply_scouting_action() {
-    let client = client();
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"ApplyScouting","area_id":"current","parameters":"test"}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
 }
 
 #[test]
@@ -461,6 +373,25 @@ fn encounter_play_card_action() {
 #[test]
 fn encounter_apply_scouting_action() {
     let client = client();
+    // Set up combat via test endpoint so we can reach Scouting phase
+    client.post("/tests/combat").dispatch();
+    // Play attack cards until combat ends (enters Scouting)
+    for _ in 0..20 {
+        let combat_resp = client.get("/combat").dispatch();
+        if combat_resp.status() != Status::Ok {
+            break;
+        }
+        client
+            .post("/action")
+            .header(ContentType::JSON)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
+            .dispatch();
+        client.post("/tests/combat/advance").dispatch();
+        client.post("/tests/combat/enemy_play").dispatch();
+        client.post("/tests/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
+    }
+
     let response = client.get("/area/encounters").dispatch();
     let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
 
@@ -477,34 +408,23 @@ fn encounter_apply_scouting_action() {
 }
 
 #[test]
-fn abandon_combat_when_no_combat() {
+fn encounter_apply_scouting_when_not_in_scouting() {
     let client = client();
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"AbandonCombat"}"#)
+        .body(r#"{"action_type":"EncounterApplyScouting","card_ids":[3]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }
 
 #[test]
-fn finish_scouting_when_not_in_scouting() {
+fn new_game_via_action() {
     let client = client();
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"FinishScouting"}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::BadRequest);
-}
-
-#[test]
-fn set_seed_via_action() {
-    let client = client();
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"SetSeed","seed":12345}"#)
+        .body(r#"{"action_type":"NewGame","seed":12345}"#)
         .dispatch();
     assert_eq!(response.status(), Status::Created);
 }
@@ -530,7 +450,7 @@ fn play_card_in_combat_with_wrong_phase() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"PlayCard","card_id":0}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }
@@ -555,7 +475,7 @@ fn play_card_nonexistent() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"PlayCard","card_id":9999}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":9999,"effects":[]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::NotFound);
 }

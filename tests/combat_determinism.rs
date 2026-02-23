@@ -4,8 +4,8 @@
 mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
-        CardDef, CardEffect, CombatAction, CombatPhase, CombatSnapshot, Combatant, EffectTarget,
-        TokenId,
+        token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
+        CombatSnapshot, Combatant, EffectTarget, Token, TokenType,
     };
     use std::collections::HashMap;
 
@@ -15,7 +15,7 @@ mod tests {
             card_type: "Attack".to_string(),
             effects: vec![CardEffect {
                 target: EffectTarget::OnOpponent,
-                token_id: TokenId::Health,
+                token_id: TokenType::Health,
                 amount: -damage,
             }],
         }
@@ -27,13 +27,13 @@ mod tests {
             card_type: "Resource".to_string(),
             effects: vec![CardEffect {
                 target: EffectTarget::OnSelf,
-                token_id: TokenId::Health,
+                token_id: TokenType::Health,
                 amount,
             }],
         }
     }
 
-    fn buff_card(id: u64, token: TokenId, amount: i64) -> CardDef {
+    fn buff_card(id: u64, token: TokenType, amount: i64) -> CardDef {
         CardDef {
             id,
             card_type: "Resource".to_string(),
@@ -51,36 +51,40 @@ mod tests {
         defs.insert(2, attack_card(2, 10));
         defs.insert(3, attack_card(3, 30));
         defs.insert(4, heal_card(4, 5));
-        defs.insert(5, buff_card(5, TokenId::Health, 10));
-        defs.insert(6, buff_card(6, TokenId::Health, 5));
-        defs.insert(7, buff_card(7, TokenId::Health, -7));
+        defs.insert(5, buff_card(5, TokenType::Health, 10));
+        defs.insert(6, buff_card(6, TokenType::Health, 5));
+        defs.insert(7, buff_card(7, TokenType::Health, -7));
         defs
     }
 
-    fn two_combatant_snapshot(player_hp: i64, enemy_hp: i64) -> CombatSnapshot {
-        CombatSnapshot {
+    fn two_combatant_snapshot(
+        player_hp: i64,
+        enemy_hp: i64,
+    ) -> (CombatSnapshot, HashMap<Token, i64>) {
+        let player_tokens = HashMap::from([
+            (TokenType::Health.with_default_lifecycle(), player_hp),
+            (TokenType::MaxHealth.with_default_lifecycle(), player_hp),
+        ]);
+        let snapshot = CombatSnapshot {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([
-                (TokenId::Health, player_hp),
-                (TokenId::MaxHealth, player_hp),
-            ]),
             enemy: Combatant {
                 active_tokens: HashMap::from([
-                    (TokenId::Health, enemy_hp),
-                    (TokenId::MaxHealth, enemy_hp),
+                    (TokenType::Health.with_default_lifecycle(), enemy_hp),
+                    (TokenType::MaxHealth.with_default_lifecycle(), enemy_hp),
                 ]),
             },
             encounter_card_id: None,
             is_finished: false,
-            winner: None,
-        }
+            outcome: CombatOutcome::Undecided,
+        };
+        (snapshot, player_tokens)
     }
 
     #[test]
     fn test_deterministic_combat_same_seed_same_log() {
-        let initial_state = two_combatant_snapshot(100, 50);
+        let (initial_state, initial_pt) = two_combatant_snapshot(100, 50);
         let card_defs = test_card_defs();
 
         let actions = vec![
@@ -99,25 +103,31 @@ mod tests {
         ];
 
         let seed = 42u64;
-        let state1 =
-            combat::simulate_combat(initial_state.clone(), seed, actions.clone(), &card_defs);
-        let state2 = combat::simulate_combat(initial_state.clone(), seed, actions, &card_defs);
+        let (s1, pt1) = combat::simulate_combat(
+            initial_state.clone(),
+            initial_pt.clone(),
+            seed,
+            actions.clone(),
+            &card_defs,
+        );
+        let (s2, pt2) =
+            combat::simulate_combat(initial_state, initial_pt, seed, actions, &card_defs);
 
-        assert_eq!(state1.winner, state2.winner);
-        assert_eq!(state1.is_finished, state2.is_finished);
+        assert_eq!(s1.outcome, s2.outcome);
+        assert_eq!(s1.is_finished, s2.is_finished);
         assert_eq!(
-            state1.player_tokens.get(&TokenId::Health),
-            state2.player_tokens.get(&TokenId::Health)
+            token_balance_by_type(&pt1, &TokenType::Health),
+            token_balance_by_type(&pt2, &TokenType::Health)
         );
         assert_eq!(
-            state1.enemy.active_tokens.get(&TokenId::Health),
-            state2.enemy.active_tokens.get(&TokenId::Health)
+            token_balance_by_type(&s1.enemy.active_tokens, &TokenType::Health),
+            token_balance_by_type(&s2.enemy.active_tokens, &TokenType::Health)
         );
     }
 
     #[test]
     fn test_different_seeds_may_differ() {
-        let initial_state = two_combatant_snapshot(100, 50);
+        let (initial_state, initial_pt) = two_combatant_snapshot(100, 50);
         let card_defs = test_card_defs();
 
         let actions = vec![
@@ -131,34 +141,42 @@ mod tests {
             },
         ];
 
-        let _state1 =
-            combat::simulate_combat(initial_state.clone(), 42u64, actions.clone(), &card_defs);
-        let _state2 = combat::simulate_combat(initial_state.clone(), 123u64, actions, &card_defs);
+        let _r1 = combat::simulate_combat(
+            initial_state.clone(),
+            initial_pt.clone(),
+            42u64,
+            actions.clone(),
+            &card_defs,
+        );
+        let _r2 = combat::simulate_combat(initial_state, initial_pt, 123u64, actions, &card_defs);
     }
 
     #[test]
     fn test_empty_combat_produces_log() {
+        let pt = HashMap::from([
+            (TokenType::Health.with_default_lifecycle(), 100),
+            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+        ]);
         let initial_state = CombatSnapshot {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([(TokenId::Health, 100), (TokenId::MaxHealth, 100)]),
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
             encounter_card_id: None,
             is_finished: false,
-            winner: None,
+            outcome: CombatOutcome::Undecided,
         };
         let card_defs = test_card_defs();
 
-        let state = combat::simulate_combat(initial_state, 42u64, vec![], &card_defs);
+        let (state, _pt) = combat::simulate_combat(initial_state, pt, 42u64, vec![], &card_defs);
         assert!(!state.is_finished);
     }
 
     #[test]
     fn test_combat_ends_when_enemy_defeated() {
-        let initial_state = two_combatant_snapshot(100, 30);
+        let (initial_state, initial_pt) = two_combatant_snapshot(100, 30);
         let card_defs = test_card_defs();
 
         let actions = vec![
@@ -172,25 +190,29 @@ mod tests {
             },
         ];
 
-        let state = combat::simulate_combat(initial_state, 42u64, actions, &card_defs);
+        let (state, _pt) =
+            combat::simulate_combat(initial_state, initial_pt, 42u64, actions, &card_defs);
 
         assert!(state.is_finished);
-        assert_eq!(state.winner, Some("player".to_string()));
+        assert_eq!(state.outcome, CombatOutcome::PlayerWon);
     }
 
     #[test]
     fn test_token_operations_deterministic() {
+        let pt = HashMap::from([
+            (TokenType::Health.with_default_lifecycle(), 100),
+            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+        ]);
         let initial_state = CombatSnapshot {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([(TokenId::Health, 100), (TokenId::MaxHealth, 100)]),
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
             encounter_card_id: None,
             is_finished: false,
-            winner: None,
+            outcome: CombatOutcome::Undecided,
         };
         let card_defs = test_card_defs();
 
@@ -210,14 +232,19 @@ mod tests {
         ];
 
         let seed = 42u64;
-        let state1 =
-            combat::simulate_combat(initial_state.clone(), seed, actions.clone(), &card_defs);
-        let state2 = combat::simulate_combat(initial_state, seed, actions, &card_defs);
+        let (_s1, pt1) = combat::simulate_combat(
+            initial_state.clone(),
+            pt.clone(),
+            seed,
+            actions.clone(),
+            &card_defs,
+        );
+        let (_s2, pt2) = combat::simulate_combat(initial_state, pt, seed, actions, &card_defs);
 
         assert_eq!(
-            state1.player_tokens.get(&TokenId::Health),
-            state2.player_tokens.get(&TokenId::Health)
+            token_balance_by_type(&pt1, &TokenType::Health),
+            token_balance_by_type(&pt2, &TokenType::Health)
         );
-        assert_eq!(state1.player_tokens.get(&TokenId::Health), Some(&108));
+        assert_eq!(token_balance_by_type(&pt1, &TokenType::Health), 108);
     }
 }

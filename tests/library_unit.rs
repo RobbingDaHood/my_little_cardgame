@@ -1,45 +1,25 @@
 // Tests moved from src/library.rs
 use my_little_cardgame::library::{
     action_log,
-    types::{ActionPayload, TokenId},
+    types::{token_balance_by_type, ActionPayload, TokenType},
     GameState,
 };
 use std::sync::Arc;
 use std::thread;
 
 #[test]
-fn grant_and_replay() {
+fn grant_modifies_balance() {
     let mut gs = GameState::new();
     assert_eq!(
-        gs.token_balances
-            .get(&TokenId::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         0
     );
-    let entry = gs
-        .apply_grant(&TokenId::Insight, 10, None)
+    gs.apply_grant(&TokenType::Insight, 10, None)
         .expect("apply_grant failed");
-    assert_eq!(entry.seq, 1);
     assert_eq!(
-        gs.token_balances
-            .get(&TokenId::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         10
     );
-
-    // replay
-    let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
-    assert_eq!(
-        replayed
-            .token_balances
-            .get(&TokenId::Insight)
-            .copied()
-            .unwrap_or(0),
-        10
-    );
-    assert_eq!(replayed.action_log.entries().len(), 1);
 }
 
 #[test]
@@ -53,7 +33,7 @@ fn action_log_concurrent_append() {
         handles.push(thread::spawn(move || {
             for j in 0..per_thread {
                 let payload = ActionPayload::GrantToken {
-                    token_id: TokenId::Insight,
+                    token_id: TokenType::Insight,
                     amount: j as i64,
                     reason: None,
                     resulting_amount: j as i64,

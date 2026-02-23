@@ -1,33 +1,36 @@
-# Use more enums 
+1. **Replay system is incomplete**: `replay_from_log` currently only handles legacy token operations (GrantToken, ConsumeToken, ExpireToken). It should be extended to replay player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting) to achieve the vision's goal of full game state reproduction from seed + action log.
 
-1. Combatant.active_tokens is a hashmap from String to i64: It should use a Enum for the tokens (instead of the string).
-    1. Bomnus: it should also be u64 instead of i64.
-1. CardEffect.token_id: Should also be a Enum of token types, with their own payload. 
-1. CombatantDef.initial_tokens: The same as above. 
-1. CardDef.card_type should be an enum. 
+2. **Token registry entries (TokenRegistryEntry) could use cleanup**: The `TokenRegistryEntry` struct still has `lifecycle` and `cap` fields, but lifecycle is now dynamic on Token instances. Consider whether the registry entry's lifecycle is a "default lifecycle" or if it should be removed.
 
-The token enum should at least contain TokenLifecycle beside its name. 
+4. **JSON serialization of Token maps is verbose**: The array-of-entries format (`[{token: {token_type, lifecycle}, value: N}, ...]`) works but is verbose. Consider whether a more compact serialization (e.g., `"Health:PersistentCounter": 20`) would be better for API consumers.
 
-See vision.md about some of the tokens that should be created and the roadmap.md on an indication when they should be created. 
+5. **CombatSnapshot could be further simplified**: With player tokens now external, CombatSnapshot only tracks enemy state and combat metadata. Consider whether it should be renamed to reflect this (e.g., `CombatState` or `EnemyCombatState`).
 
-# ScopedToEncounter is just FixedTypedDuration
+6. When the enemy picks a random card then it should not be picked from the deck, but from the hand. Each of the cards in the enemy deck should have similar counters as the counters in the Lirrary with some changes. 
+    1. There ar only deck, hand and discard counts. 
+    1. At the start of every combat the "hand" is randomized in each of the decks: meaning that first take the total count of cards on hand in the deck currently, then "put all the cards in the deck" by changing the counts accordingly. 
+    1. Then pick random cards fromt he deck until the hand is full again. 
+    1. This random draw only happens at the start of a combat. 
+    1. From this point on the enemy only draws cards if they play a ressource card with the draw card effect. 
+    1. All card that are played goes to the discard pile. 
 
-Something like: FixedTypeDuration(EncounterPhase::Scouting, 1) so the first time we get to Scouting the token duration is up. 
+1. If any "deck" is empty then move the discard pile to the deck: by changing the counts. 
 
-So no need to make a new token lifecykle. 
+1. Whn the ressource card effect triggers then take a random card from "the deck" and put it in "the hand": by changing the counts. 
 
-So delete: FixedTypeDuration
+1. Just get tid of this "with_default_lifecycle" and hardcode the initial durations: 
+    1. Most tokens are hardcoded to PersistentCounter 
+    1. Dodge is the only exception, that is just until the next Defence phase in the combat: so something like: TokenLifecycle::FixedTypeDuration { duration: 1, phases: vec![EncounterPhase::Defence], }
+    1. So they are all persisted between combats. 
+    1. Card effects should also explicit state the duration of the token they provide. 
 
 
-# Fix github build errors
 
-The full log can be read at docs/full_github_actionlog.txt 
 
-Analyse that and fix the issue. 
 
-# The player cannot abbandon the combat. 
 
-Maybe we will in the future make a "flee" card, but there is no way for the player to abbandon a fight. You fight until either the enemy or you are dead. 
+
+
 
 # When done with all of this then update the subbestions-vision-roadmap.md 
 

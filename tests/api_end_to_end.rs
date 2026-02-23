@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{CombatSnapshot, TokenId};
+use my_little_cardgame::library::types::{token_balance_by_type, CombatSnapshot, TokenType};
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
@@ -42,7 +42,7 @@ fn hello_world() {
     assert_eq!(library_cards[0].kind["kind"], "Attack");
     assert_eq!(library_cards[1].kind["kind"], "Defence");
     assert_eq!(library_cards[2].kind["kind"], "Resource");
-    assert_eq!(library_cards[3].kind["kind"], "CombatEncounter");
+    assert_eq!(library_cards[3].kind["kind"], "Encounter");
 
     // Verify combat not initialized yet
     assert_eq!(get_combat(&client), None);
@@ -61,23 +61,17 @@ fn hello_world() {
     assert!(actual_combat.player_turn);
     // Enemy should have initial tokens (health=20, max_health=20 from gnome combatant_def)
     assert_eq!(
-        actual_combat
-            .enemy
-            .active_tokens
-            .get(&TokenId::Health)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&actual_combat.enemy.active_tokens, &TokenType::Health),
         20
     );
     // Player should have health token from token_balances (initialized to 20)
-    assert_eq!(
-        actual_combat
-            .player_tokens
-            .get(&TokenId::Health)
-            .copied()
-            .unwrap_or(0),
-        20
-    );
+    let token_resp = client.get("/player/tokens").dispatch();
+    assert_eq!(token_resp.status(), Status::Ok);
+    let tokens: Vec<my_little_cardgame::player_tokens::TokenBalance> =
+        serde_json::from_str(&token_resp.into_string().unwrap()).unwrap();
+    assert!(tokens
+        .iter()
+        .any(|t| t.token.token_type == TokenType::Health && t.value == 20));
 }
 
 fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {

@@ -19,7 +19,7 @@ Deck types (examples):
 - Area deck: Represents the players current location. There is one deck with encounters. 
 - Library: a canonical collection of all cards accessible via the library endpoint; any card present in the library can be added to a deck provided the deck is of the appropriate type (deck-type constraints apply)
 
-  - CardDef and Library implementation notes: Card definitions declare declarative CardEffect entries (target: self|opponent, token_id, amount) that are resolved when the card is played. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; CardKind (enum) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, CombatEncounter{combatant_def}). Enemy card definitions used in CombatEncounter cards are embedded inline within CombatEncounter definitions rather than as separate Library references.
+  - CardDef and Library implementation notes: Card definitions declare declarative CardEffect entries (target: self|opponent, token_type, amount) that are resolved when the card is played. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; CardKind (enum) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, Encounter{kind: EncounterKind}). EncounterKind is an enum starting with Combat { combatant_def }; enemy card definitions are embedded inline within Encounter definitions rather than as separate Library references.
 
 
 The Player's decks (Attack, Defence, Resource etc.) are fixed and initialized at game start. Only the Library manages the canonical card definitions and the internal deck representation. The API does not expose deck-creation or deck-deletion endpoints; player deck composition is managed only through adding Library cards to decks via the deck-management flow.
@@ -34,26 +34,33 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 
 ## Current combat setup
 
-### Implementation updates (2026-02-22)
-- Token identifiers are a closed TokenId enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability. Each variant exposes lifecycle metadata via TokenId::lifecycle().
+### Implementation updates (2026-02-23)
+- Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability, DrawCards. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. Token lifecycle is dynamic per Token instance — different instances of the same TokenType can have different lifecycles.
 - The ScopedToEncounter lifecycle was replaced by FixedTypeDuration { phases, duration }; references to ScopedToEncounter were removed.
-- Combat state now lives in GameState (current_combat: Option<CombatSnapshot>, encounter_state, last_combat_result) and src/combat/ endpoints delegate to GameState methods (start_combat, resolve_player_card, resolve_enemy_play, advance_combat_phase).
+- Combat state lives in GameState (current_combat: Option<CombatSnapshot>, encounter_state) and src/combat/ endpoints delegate to GameState methods (start_combat, resolve_player_card, resolve_enemy_play, advance_combat_phase). CombatSnapshot tracks enemy state and combat metadata; player tokens live on GameState.token_balances, not inside CombatSnapshot.
+- Combat outcome is tracked via a `CombatOutcome` enum on CombatSnapshot with variants: Undecided, PlayerWon, EnemyWon. The separate CombatResult struct has been deleted.
 - Dodge absorption: damage consumes Dodge tokens first before Health is reduced.
-- Resource cards are the primary draw engine: CardKind::Resource has draw_count and playing one triggers draws. Starting decks target ~50% resource cards for steady pacing.
-- Enemy turns currently play one random card from each deck (attack, defence, resource); more sophisticated enemy scripts are future work.
-- AreaDeck models deck/hand/discard zones; the hand represents visible/pickable encounters and its size is controlled by the Foresight token (default 3).
-- Players can abandon combat via the AbandonCombat action; FinishScouting is a player action transitioning Scouting → Ready.
+- Drawing additional cards is modelled as a `DrawCards` variant of `TokenType` with a card effect. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via effects. Starting decks target ~50% resource cards for steady pacing.
+- Enemy turns play one random card matching the current CombatPhase (attack card during Attacking, defence during Defending, resource during Resourcing). More sophisticated enemy scripts are future work.
+- After a player plays a card via EncounterPlayCard, the system automatically resolves the enemy's play and advances the combat phase. There are no separate endpoints for enemy play or phase advancement.
+- Encounter cards are not a separate AreaDeck struct. They live in the Library and use the same CardCounts (library/deck/hand/discard) as all other card types. Helper methods on Library (encounter_hand, encounter_contains, encounter_draw_to_hand) query encounter cards by their counts. The hand represents visible/pickable encounters and its size is controlled by the Foresight token (default 3).
+- CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum starting with Combat { combatant_def }, preparing for future non-combat encounter types (Gathering, Puzzle, etc.).
+- Players cannot abandon combat once started. Combat continues until one side is defeated (HP reaches 0). EncounterApplyScouting is the action that transitions from post-combat Scouting phase back to Ready.
+- All amounts are positive: attacks have a positive number even though they remove health points, allowing unsigned integers to be used where possible.
+- Only four player actions exist: NewGame { seed: Option<u64> }, EncounterPickEncounter { card_id }, EncounterPlayCard { card_id }, EncounterApplyScouting. All other previously documented actions have been removed.
+- NewGame { seed: Option<u64> } initializes a fresh game. If no seed is provided, a random one is generated. The old /player/seed endpoint and SetSeed action have been removed.
+- The action log records only player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). Internal operations (token grants, consumes, card movements) are deterministic consequences of player actions and the seed, so they do not need logging for reproducibility.
 
 ## Current combat setup
 
 Combat is modelled as a deterministic, turn-based exchange between decks:
-1. Encounter draw: An enemy card is drawn from the Enemy deck for the current area/encounter.
-2. Setup: Enemy card exposes stats (HP, Attack, Defence, special effects) and may pull tokens from other decks to represent minions or modifiers.
-3. Player turn: The player draws from their Hand/Decks (Attack/Defence/Resource), plays cards, and resolves effects. Resource cards fund plays, attack cards deal damage, and defence cards mitigate incoming damage.
-4. Enemy turn: Enemy resolves its actions according to its card script (attack, apply effect, spawn token).
-5. Resolution: Cards moved to Discard or Deleted. Repeat until enemy defeated or player retreats/defeated.
+1. Encounter selection: The player picks an encounter card from the encounter hand (visible Library encounter cards). The handler validates the card is a combat encounter before starting combat.
+2. Setup: Enemy card exposes stats (HP, Attack, Defence, special effects) via its CombatantDef. Player tokens (Health, Shield, etc.) live on GameState, not inside the combat snapshot.
+3. Player turn: The player plays a card via EncounterPlayCard. The system resolves the card's effects (attack deals damage, defence grants shield, resource triggers draws via DrawCards effects).
+4. Auto-advance: After the player's card, the system automatically resolves the enemy's play (one random card matching the current CombatPhase) and advances the combat phase (Defending → Attacking → Resourcing → Defending).
+5. Resolution: Cards moved to Discard or Deleted. Repeat until one side is defeated (HP reaches 0). Combat outcome is tracked via CombatOutcome enum (Undecided, PlayerWon, EnemyWon) on CombatSnapshot.
 
-Combat is fully reproducible by recording the game's single initial seed used to initialize the RNG and any deterministic choices.
+Combat is fully reproducible by recording the game's single initial seed and the player's action log (which card was played each turn).
 
   - Encounter phases: use the EncounterPhase enum with values NoEncounter, Ready, InCombat, Scouting to name and track encounter phases consistently.
 
@@ -69,7 +76,7 @@ Combat is fully reproducible by recording the game's single initial seed used to
 Example - Iron Ore node:
 - Player visits a mine node: a card is drawn from the ore deck.
 - The drawn card might be `SmallIronVein`, `EncrustedIron`, or `ElementalCore` with varying difficulty and loot.
-- Some treasure spots explicitly allow alternate interactions such as "learning" or scouting-related actions: learning can grant recipes, lore, or crafting shortcuts; scouting is not a standalone encounter but a post-resolution step that changes the area deck and hand. After any encounter resolves (win, loss, or retreat) the resolved card is removed from the Area deck and immediately replaced by a new encounter of the same base type with affix modifiers; scouting controls how those replacement encounters are generated (see Scouting mechanics below).
+- Some treasure spots explicitly allow alternate interactions such as "learning" or scouting-related actions: learning can grant recipes, lore, or crafting shortcuts; scouting is not a standalone encounter but a post-resolution step that changes the area deck and hand. After any encounter resolves (win or loss) the resolved card is removed from the Area deck and immediately replaced by a new encounter of the same base type with affix modifiers; scouting controls how those replacement encounters are generated (see Scouting mechanics below).
 - A special "combat" starts where the player's `Mining` deck is used to interact with the ore card: mining cards represent mining tools/techniques, resource cards provide stamina/endurance, and failure/success is resolved as if the ore were an enemy with HP and resistances.
 - Success yields one or more specific treasure cards (iron ingot tokens, rare gems), moved into the player's Loot/Inventory deck.
 
@@ -163,9 +170,9 @@ Tokens explicitly declare their lifecycle semantics so designers, clients, and t
 - Conditional: persist until a condition is met (for example Durability hitting 0, Corruption crossing a threshold, or a specific external event).
 
 Rules and implementation notes:
-- Every token type must document its lifecycle class, generation rules, caps/decay semantics, authoritative spend paths, and whether it carries structured payload data.
-- The actions endpoint must record lifecycle events (grant, consume, expire, transfer) and include lifecycle metadata in the actions log so all token state transitions are reproducible.
-- Designers may choose whether expired tokens are archived (kept in history) or removed; the actions log must record which behaviour is chosen for that token type.
+- Every token type must document its lifecycle class, generation rules, caps/decay semantics, authoritative spend paths, and whether it carries structured payload data. Token lifecycle is dynamic per Token instance — different instances of the same TokenType can be granted with different lifecycles.
+- The actions log records only player actions for reproducibility. Internal token operations (grant, consume, expire) are deterministic consequences of player actions and the seed. The action log combined with the initial seed is sufficient to reproduce all token state transitions.
+- Designers may choose whether expired tokens are archived (kept in history) or removed.
 
 Discipline → primary tokens/materials produced (summary)
 
@@ -256,7 +263,7 @@ Research cards, modifier deck, and variant creation
 
 - Reproducibility: all draws and random rolls in this creation process are deterministically derived from the game's single initial seed and recorded so the exact Variant outcomes can be reproduced if needed.
 
-- Scouting (system / reconnaissance): Scouting is not an independent encounter type; it is the post-resolution step of every encounter lifecycle. After an encounter resolves (win, loss, or retreat), scouting-related effects may be applied to update the Area deck and future draws: scouting cards, actions, or tokens influence how replacement encounters are generated and how future encounter choices are presented.
+- Scouting (system / reconnaissance): Scouting is not an independent encounter type; it is the post-resolution step of every encounter lifecycle. After an encounter resolves (win or loss), scouting-related effects may be applied to update the Area deck and future draws: scouting cards, actions, or tokens influence how replacement encounters are generated and how future encounter choices are presented.
 
   Mechanics and flow:
   - Replacement pipeline: immediately after any encounter resolves it is removed from its Area deck and replaced by a new encounter of the same base type with affix modifiers; this replacement is part of the encounter lifecycle and occurs regardless of outcome.
@@ -307,7 +314,7 @@ This subsection is the authoritative token reference. Each token type below list
 General rules
 
 - Tokens may be numeric counters or structured JSON objects (for example CurrentResearch or Key tokens) and are persisted in save state.
-- Each token type must have clear earn rules, caps/decay/refresh semantics, and a single authoritative set of usages; the Actions endpoint is the canonical path to change token state to preserve the append-only log and reproducibility.
+- Each token type must have clear earn rules, caps/decay/refresh semantics, and a single authoritative set of usages; all state mutations go through the POST /action endpoint to preserve reproducibility.
 - Tokens are primarily single-player save-scoped; they are not account-shared or multiplayer objects.
 
 ## Trading and merchants
@@ -334,8 +341,8 @@ This design lets the game grow from simple beginnings to rich systems while pres
 ## Interface and API
 
 - The game is intentionally pure text-based and exposed entirely via a REST JSON API so it remains playable by humans who can issue and read JSON requests/responses.
-- All mutable interactions are performed through a single actions endpoint (e.g., POST /actions) where each operation is a concise JSON object describing the intended action; this endpoint is the canonical way to interact with and mutate game state.
-- An append-only actions log endpoint (for example GET /actions/log) exposes all actions in chronological order. When paired with the game's initial seed used for RNG, the full chronological action list is sufficient to deterministically reproduce the exact game state at any point.
+- All mutable interactions are performed through a single actions endpoint (e.g., POST /action) where each operation is a concise JSON object describing the intended action; this endpoint is the canonical way to interact with and mutate game state. The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting.
+- An append-only actions log endpoint (for example GET /actions/log) exposes all player actions in chronological order. When paired with the game's initial seed used for RNG, the full chronological action list is sufficient to deterministically reproduce the exact game state at any point. Only player actions are recorded; internal operations (token grants, card movements) are deterministic consequences of the seed and player actions.
 - Other endpoints (for example /library, /areas, /decks) provide read-only JSON access to game data; the actions endpoint is the only endpoint that performs state changes.
 - The project's OpenAPI specification will include thorough tutorials, documentation, and guided examples (end-to-end flows, example requests/responses, recipe/crafting walkthroughs) so integrators, designers, and QA can learn and exercise the API directly from the spec.
 
@@ -488,8 +495,8 @@ Concrete examples
 - Difficulty progression: enemies in areas gain modifiers, patterns grow more complex.
 - Distinctive features: adversarial play with reactive scripting and tempo importance.
 - Rewards: Loot, Renown, potential recipe drops.
-- Failure: player defeat (character HP depleted), retreat options with penalties.
-- Win/Lose: win by reducing enemy HP or fulfilling objectives; lose by player HP reaching 0 or failing required objectives.
+- Failure: player defeat (character HP depleted).
+- Win/Lose: win by reducing enemy HP to 0; lose by player HP reaching 0. Players cannot abandon or retreat from combat once started.
 
 6) Fabrication / Weaponcraft (refining / crafting encounter)
 
