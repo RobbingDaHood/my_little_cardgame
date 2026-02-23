@@ -1,5 +1,6 @@
+#### Applied: Changes to vision.md (2026-02-23)
 
-#### Changes to vision.md suggestions
+All suggestions below have been applied to docs/design/vision.md.
 
 14. **TokenType is the canonical enum; Token is a struct**: The vision mentions `TokenId` in several places. `TokenId` has been renamed to `TokenType` (a closed enum: Health, MaxHealth, Shield, etc.). A `Token` is now a struct with `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. Vision should update all references from `TokenId` to `TokenType` and document the `Token` struct.
 
@@ -35,7 +36,9 @@
 
 30. **Token lifecycle is dynamic per Token instance**: The vision should clarify that `TokenLifecycle` is not statically determined by `TokenType`. A `Token` consists of `(TokenType, TokenLifecycle)` and different instances of the same `TokenType` can have different lifecycles. For example, Health is typically `PersistentCounter` but could theoretically be granted with a different lifecycle.
 
-#### Changes to roadmap.md suggestions
+#### Applied: Changes to roadmap.md (2026-02-23)
+
+All suggestions below have been applied to docs/design/roadmap.md.
 
 14. **Steps 7.5 and 7.6 are now implemented**: The roadmap should mark steps 7.5 and 7.6 as complete. All playable acceptance criteria are met: unified combat system, resource-card driven draws, Foresight-controlled encounter hands, enemy random play, ~50% draw cards in starting decks, and the minimal pick→fight→scouting→pick loop works.
 
@@ -62,7 +65,9 @@
 
 20. **Replay from action log needs expansion**: The current `replay_from_log` function handles legacy token log entries but does not fully replay player actions (NewGame, EncounterPickEncounter, etc.). For step 8 and beyond, the replay system should be expanded to re-execute player actions against a fresh GameState initialized with the recorded seed, achieving true game state reproduction from seed + action log.
 
-#### Contradictions found and resolved
+#### Contradictions found and resolved (2026-02-23)
+
+All contradictions below have been resolved in vision.md and roadmap.md.
 
 1. **Two combat systems → unified**: The codebase had both `src/combat/` (old HTTP-driven) and `library::combat` (new deterministic). These are now unified — `src/combat/` endpoints delegate to `GameState` methods. The old `resolve_card_effects` function has been deleted.
 
