@@ -10,7 +10,7 @@ fn test_play_card_without_active_combat() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
     // Try to play a card without initializing combat first
-    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 0 }"#;
+    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 8 }"#;
 
     let response = client
         .post("/action")

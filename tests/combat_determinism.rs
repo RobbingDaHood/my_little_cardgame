@@ -18,6 +18,7 @@ mod tests {
                 token_id: TokenType::Health,
                 amount: -damage,
                 lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                card_effect_id: None,
             }],
         }
     }
@@ -31,6 +32,7 @@ mod tests {
                 token_id: TokenType::Health,
                 amount,
                 lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                card_effect_id: None,
             }],
         }
     }
@@ -44,6 +46,7 @@ mod tests {
                 token_id: token,
                 amount,
                 lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                card_effect_id: None,
             }],
         }
     }

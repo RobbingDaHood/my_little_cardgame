@@ -152,6 +152,7 @@ mod tests {
                     amount: -15,
                     lifecycle:
                         my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                    card_effect_id: None,
                 }],
             },
         );

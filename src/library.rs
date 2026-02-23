@@ -80,6 +80,9 @@ pub mod types {
         pub token_id: TokenType,
         pub amount: i64,
         pub lifecycle: TokenLifecycle,
+        /// Internal reference to the CardEffect card in the library.
+        #[serde(skip)]
+        pub card_effect_id: Option<usize>,
     }
 
     /// Who a card effect targets.
@@ -117,6 +120,8 @@ pub mod types {
         Defence { effects: Vec<CardEffect> },
         Resource { effects: Vec<CardEffect> },
         Encounter { encounter_kind: EncounterKind },
+        PlayerCardEffect { effect: CardEffect },
+        EnemyCardEffect { effect: CardEffect },
     }
 
     /// Sub-type of encounter cards.
@@ -1090,20 +1095,250 @@ impl Library {
             }
         }
     }
-}
 
-/// Build the initial Library with starter cards.
+    /// Validate that all card effects reference valid CardEffect deck entries.
+    pub fn validate_card_effects(&self) -> Result<(), Vec<String>> {
+        let mut errors = Vec::new();
+        for (id, card) in self.cards.iter().enumerate() {
+            match &card.kind {
+                CardKind::Attack { effects }
+                | CardKind::Defence { effects }
+                | CardKind::Resource { effects } => {
+                    for effect in effects {
+                        if let Some(ref_id) = effect.card_effect_id {
+                            match self.cards.get(ref_id) {
+                                Some(ref_card)
+                                    if matches!(
+                                        ref_card.kind,
+                                        CardKind::PlayerCardEffect { .. }
+                                    ) => {}
+                                _ => errors.push(format!(
+                                    "Card {} has effect referencing invalid PlayerCardEffect {}",
+                                    id, ref_id
+                                )),
+                            }
+                        } else {
+                            errors.push(format!("Card {} has effect without card_effect_id", id));
+                        }
+                    }
+                }
+                CardKind::Encounter {
+                    encounter_kind: EncounterKind::Combat { combatant_def },
+                } => {
+                    for deck in [
+                        &combatant_def.attack_deck,
+                        &combatant_def.defence_deck,
+                        &combatant_def.resource_deck,
+                    ] {
+                        for enemy_card in deck {
+                            for effect in &enemy_card.effects {
+                                if let Some(ref_id) = effect.card_effect_id {
+                                    match self.cards.get(ref_id) {
+                                        Some(ref_card)
+                                            if matches!(
+                                                ref_card.kind,
+                                                CardKind::EnemyCardEffect { .. }
+                                            ) => {}
+                                        _ => errors.push(format!(
+                                            "Enemy card in card {} has effect referencing invalid EnemyCardEffect {}",
+                                            id, ref_id
+                                        )),
+                                    }
+                                } else {
+                                    errors.push(format!(
+                                        "Enemy card in card {} has effect without card_effect_id",
+                                        id
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+}
 fn initialize_library() -> Library {
     let mut lib = Library::new();
 
-    // Attack card (id 0): deals 5 damage to opponent (~25% of starting deck)
+    // ---- Player CardEffect deck entries ----
+
+    // id 0: Player "deal 5 damage" effect
+    let player_damage_effect = CardEffect {
+        target: types::EffectTarget::OnOpponent,
+        token_id: types::TokenType::Health,
+        amount: -5,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(0),
+    };
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            effect: player_damage_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 1: Player "grant 3 shield" effect
+    let player_shield_effect = CardEffect {
+        target: types::EffectTarget::OnSelf,
+        token_id: types::TokenType::Shield,
+        amount: 3,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(1),
+    };
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            effect: player_shield_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 2: Player "grant 2 stamina" effect
+    let player_stamina_effect = CardEffect {
+        target: types::EffectTarget::OnSelf,
+        token_id: types::TokenType::Stamina,
+        amount: 2,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(2),
+    };
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            effect: player_stamina_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 3: Player "draw 1 card" effect
+    let player_draw_effect = CardEffect {
+        target: types::EffectTarget::OnSelf,
+        token_id: types::TokenType::DrawCards,
+        amount: 1,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(3),
+    };
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            effect: player_draw_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // ---- Enemy CardEffect deck entries ----
+
+    // id 4: Enemy "deal 3 damage" effect
+    let enemy_damage_effect = CardEffect {
+        target: types::EffectTarget::OnOpponent,
+        token_id: types::TokenType::Health,
+        amount: -3,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(4),
+    };
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            effect: enemy_damage_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 5: Enemy "grant 2 shield" effect
+    let enemy_shield_effect = CardEffect {
+        target: types::EffectTarget::OnSelf,
+        token_id: types::TokenType::Shield,
+        amount: 2,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(5),
+    };
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            effect: enemy_shield_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 6: Enemy "grant 1 stamina" effect
+    let enemy_stamina_effect = CardEffect {
+        target: types::EffectTarget::OnSelf,
+        token_id: types::TokenType::Stamina,
+        amount: 1,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(6),
+    };
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            effect: enemy_stamina_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 7: Enemy "draw 1 card" effect
+    let enemy_draw_effect = CardEffect {
+        target: types::EffectTarget::OnSelf,
+        token_id: types::TokenType::DrawCards,
+        amount: 1,
+        lifecycle: types::TokenLifecycle::PersistentCounter,
+        card_effect_id: Some(7),
+    };
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            effect: enemy_draw_effect.clone(),
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // ---- Player action cards (reference CardEffect cards) ----
+
+    // Attack card (id 8): deals 5 damage to opponent
     lib.add_card(
         CardKind::Attack {
             effects: vec![CardEffect {
-                target: types::EffectTarget::OnOpponent,
-                token_id: types::TokenType::Health,
-                amount: -5,
-                lifecycle: types::TokenLifecycle::PersistentCounter,
+                card_effect_id: Some(0),
+                ..player_damage_effect
             }],
         },
         CardCounts {
@@ -1114,14 +1349,12 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Defence card (id 1): grants 3 shield to self (~25% of starting deck)
+    // Defence card (id 9): grants 3 shield to self
     lib.add_card(
         CardKind::Defence {
             effects: vec![CardEffect {
-                target: types::EffectTarget::OnSelf,
-                token_id: types::TokenType::Shield,
-                amount: 3,
-                lifecycle: types::TokenLifecycle::PersistentCounter,
+                card_effect_id: Some(1),
+                ..player_shield_effect
             }],
         },
         CardCounts {
@@ -1132,21 +1365,17 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Resource card (id 2): grants 2 stamina to self, draws 1 card (~50% of starting deck)
+    // Resource card (id 10): grants 2 stamina to self, draws 1 card
     lib.add_card(
         CardKind::Resource {
             effects: vec![
                 CardEffect {
-                    target: types::EffectTarget::OnSelf,
-                    token_id: types::TokenType::Stamina,
-                    amount: 2,
-                    lifecycle: types::TokenLifecycle::PersistentCounter,
+                    card_effect_id: Some(2),
+                    ..player_stamina_effect
                 },
                 CardEffect {
-                    target: types::EffectTarget::OnSelf,
-                    token_id: types::TokenType::DrawCards,
-                    amount: 1,
-                    lifecycle: types::TokenLifecycle::PersistentCounter,
+                    card_effect_id: Some(3),
+                    ..player_draw_effect
                 },
             ],
         },
@@ -1158,7 +1387,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Combat encounter: Gnome (id 3)
+    // Combat encounter: Gnome (id 11)
     lib.add_card(
         CardKind::Encounter {
             encounter_kind: types::EncounterKind::Combat {
@@ -1169,10 +1398,8 @@ fn initialize_library() -> Library {
                     ]),
                     attack_deck: vec![types::EnemyCardDef {
                         effects: vec![CardEffect {
-                            target: types::EffectTarget::OnOpponent,
-                            token_id: types::TokenType::Health,
-                            amount: -3,
-                            lifecycle: types::TokenLifecycle::PersistentCounter,
+                            card_effect_id: Some(4),
+                            ..enemy_damage_effect
                         }],
                         counts: types::EnemyCardCounts {
                             deck: 0,
@@ -1182,10 +1409,8 @@ fn initialize_library() -> Library {
                     }],
                     defence_deck: vec![types::EnemyCardDef {
                         effects: vec![CardEffect {
-                            target: types::EffectTarget::OnSelf,
-                            token_id: types::TokenType::Shield,
-                            amount: 2,
-                            lifecycle: types::TokenLifecycle::PersistentCounter,
+                            card_effect_id: Some(5),
+                            ..enemy_shield_effect
                         }],
                         counts: types::EnemyCardCounts {
                             deck: 0,
@@ -1196,16 +1421,12 @@ fn initialize_library() -> Library {
                     resource_deck: vec![types::EnemyCardDef {
                         effects: vec![
                             CardEffect {
-                                target: types::EffectTarget::OnSelf,
-                                token_id: types::TokenType::Stamina,
-                                amount: 1,
-                                lifecycle: types::TokenLifecycle::PersistentCounter,
+                                card_effect_id: Some(6),
+                                ..enemy_stamina_effect
                             },
                             CardEffect {
-                                target: types::EffectTarget::OnSelf,
-                                token_id: types::TokenType::DrawCards,
-                                amount: 1,
-                                lifecycle: types::TokenLifecycle::PersistentCounter,
+                                card_effect_id: Some(7),
+                                ..enemy_draw_effect
                             },
                         ],
                         counts: types::EnemyCardCounts {
@@ -1224,6 +1445,10 @@ fn initialize_library() -> Library {
             discard: 0,
         },
     );
+
+    if let Err(errors) = lib.validate_card_effects() {
+        panic!("Library card effect validation failed: {:?}", errors);
+    }
 
     lib
 }
@@ -1506,7 +1731,15 @@ impl GameState {
             .cards
             .iter()
             .enumerate()
-            .filter(|(_, c)| c.counts.deck > 0 && !matches!(c.kind, CardKind::Encounter { .. }))
+            .filter(|(_, c)| {
+                c.counts.deck > 0
+                    && !matches!(
+                        c.kind,
+                        CardKind::Encounter { .. }
+                            | CardKind::PlayerCardEffect { .. }
+                            | CardKind::EnemyCardEffect { .. }
+                    )
+            })
             .map(|(i, _)| i)
             .collect();
         if drawable.is_empty() {
@@ -1789,4 +2022,59 @@ pub async fn add_test_library_card(
     let mut gs = game_state.lock().await;
     let id = gs.library.add_card(card.0.kind, card.0.counts);
     rocket::response::status::Created::new(format!("/library/cards/{}", id))
+}
+
+/// A single card effect entry with its library ID.
+#[derive(
+    Debug, Clone, rocket::serde::Serialize, rocket::serde::Deserialize, rocket_okapi::JsonSchema,
+)]
+#[serde(crate = "rocket::serde")]
+pub struct CardEffectEntry {
+    pub id: usize,
+    pub card: types::LibraryCard,
+}
+
+/// Response for the card effects endpoint.
+#[derive(
+    Debug, Clone, rocket::serde::Serialize, rocket::serde::Deserialize, rocket_okapi::JsonSchema,
+)]
+#[serde(crate = "rocket::serde")]
+pub struct CardEffectsResponse {
+    pub player_effects: Vec<CardEffectEntry>,
+    pub enemy_effects: Vec<CardEffectEntry>,
+}
+
+/// List all CardEffect deck entries (player and enemy).
+#[openapi]
+#[get("/library/card-effects")]
+pub async fn list_card_effects(
+    game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
+) -> Json<CardEffectsResponse> {
+    let gs = game_state.lock().await;
+    let player_effects: Vec<CardEffectEntry> = gs
+        .library
+        .cards
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| matches!(c.kind, CardKind::PlayerCardEffect { .. }))
+        .map(|(i, c)| CardEffectEntry {
+            id: i,
+            card: c.clone(),
+        })
+        .collect();
+    let enemy_effects: Vec<CardEffectEntry> = gs
+        .library
+        .cards
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| matches!(c.kind, CardKind::EnemyCardEffect { .. }))
+        .map(|(i, c)| CardEffectEntry {
+            id: i,
+            card: c.clone(),
+        })
+        .collect();
+    Json(CardEffectsResponse {
+        player_effects,
+        enemy_effects,
+    })
 }

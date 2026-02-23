@@ -14,8 +14,8 @@ fn test_play_defence_card_adds_tokens() {
     let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
-    // Play the existing Defence card (Library ID 1) which adds shield via CardEffect
-    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 1 }"#;
+    // Play the existing Defence card (Library ID 9) which adds shield via CardEffect
+    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 9 }"#;
     let play_response = client
         .post("/action")
         .header(Header {
@@ -57,8 +57,8 @@ fn test_play_attack_card_kills_enemy() {
     client.post("/tests/combat").dispatch();
 
     // Play cards cycling through phases until combat ends
-    // Phase cycle: Defending(1) -> Attacking(0) -> Resourcing(2) -> ...
-    let phase_cards = [1, 0, 2]; // Defence, Attack, Resource
+    // Phase cycle: Defending(9) -> Attacking(8) -> Resourcing(10) -> ...
+    let phase_cards = [9, 8, 10]; // Defence, Attack, Resource
     for (phase_idx, _) in (0..30).enumerate() {
         let card_id = phase_cards[phase_idx % 3];
         let action_json = format!(

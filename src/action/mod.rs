@@ -159,6 +159,8 @@ pub async fn play(
                     crate::library::types::CardKind::Defence { .. } => "Defence",
                     crate::library::types::CardKind::Resource { .. } => "Resource",
                     crate::library::types::CardKind::Encounter { .. } => "Encounter",
+                    crate::library::types::CardKind::PlayerCardEffect { .. } => "PlayerCardEffect",
+                    crate::library::types::CardKind::EnemyCardEffect { .. } => "EnemyCardEffect",
                 };
                 if card_kind_name != allowed_kind {
                     return Err(Right(BadRequest(new_status(format!(

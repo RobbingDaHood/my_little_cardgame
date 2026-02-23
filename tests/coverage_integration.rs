@@ -191,7 +191,7 @@ fn play_card_without_combat_returns_error() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"EncounterPlayCard","card_id":0}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }
@@ -246,27 +246,27 @@ fn play_finish_scouting_after_combat_win() {
     // Combat starts in Defending phase. Play defence, advance, attack, advance.
     // Repeat until enemy is dead (enemy has 20 HP, attack deals 5 → 4 rounds).
     for _ in 0..4 {
-        // Defending phase: play defence card (id 1)
+        // Defending phase: play defence card (id 9)
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterPlayCard","card_id":1}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
             .dispatch();
         // Advance to Attacking
         client.post("/tests/combat/advance").dispatch();
-        // Attacking phase: play attack card (id 0) — deals 5 damage
+        // Attacking phase: play attack card (id 8) — deals 5 damage
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterPlayCard","card_id":0}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
             .dispatch();
         // Advance to Resourcing
         client.post("/tests/combat/advance").dispatch();
-        // Resourcing phase: play resource card (id 2)
+        // Resourcing phase: play resource card (id 10)
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterPlayCard","card_id":2}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":10}"#)
             .dispatch();
         // Advance to Defending (next round)
         client.post("/tests/combat/advance").dispatch();
@@ -285,10 +285,17 @@ fn play_finish_scouting_after_combat_win() {
     let result_resp = client.get("/combat/result").dispatch();
     if result_resp.status() == Status::Ok {
         // We're in scouting, finish it via EncounterApplyScouting
+        let scouting_resp = client.get("/area/encounters").dispatch();
+        let scouting_encounters: Vec<usize> =
+            serde_json::from_str(&scouting_resp.into_string().unwrap()).unwrap();
+        let body = format!(
+            r#"{{"action_type":"EncounterApplyScouting","card_ids":[{}]}}"#,
+            scouting_encounters[0]
+        );
         let response = client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterApplyScouting","card_ids":[3]}"#)
+            .body(&body)
             .dispatch();
         assert_eq!(response.status(), Status::Created);
     }
@@ -364,11 +371,11 @@ fn encounter_play_card_action() {
         .dispatch();
 
     // Advance to Attacking to play defence card first
-    // Combat starts in Defending — play defence card (id 1)
+    // Combat starts in Defending — play defence card (id 9)
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"EncounterPlayCard","card_id":1}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
         .dispatch();
     assert_eq!(response.status(), Status::Created);
 }
@@ -387,7 +394,7 @@ fn encounter_apply_scouting_action() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterPlayCard","card_id":0}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
             .dispatch();
         client.post("/tests/combat/advance").dispatch();
         client.post("/tests/combat/enemy_play").dispatch();
@@ -416,7 +423,7 @@ fn encounter_apply_scouting_when_not_in_scouting() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"EncounterApplyScouting","card_ids":[3]}"#)
+        .body(r#"{"action_type":"EncounterApplyScouting","card_ids":[11]}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }
@@ -453,7 +460,7 @@ fn play_card_in_combat_with_wrong_phase() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"EncounterPlayCard","card_id":0}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }

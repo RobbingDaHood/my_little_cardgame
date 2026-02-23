@@ -13,8 +13,8 @@ fn interleaved_player_and_enemy_actions() {
     let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
-    // Use existing Defence card (Library ID 1, starts with 5 hand copies)
-    let card_id = 1;
+    // Use existing Defence card (Library ID 9, starts with 5 hand copies)
+    let card_id = 9;
 
     // Interleave plays and enemy plays sequentially to exercise locking
     for _ in 0..5 {
