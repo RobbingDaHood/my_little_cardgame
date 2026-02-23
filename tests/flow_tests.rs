@@ -5,6 +5,22 @@ use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 use std::borrow::Cow;
 
+/// Extract a token value from the serialized token array format.
+fn token_value(tokens: &serde_json::Value, token_type: &str) -> i64 {
+    tokens
+        .as_array()
+        .and_then(|arr| {
+            arr.iter().find_map(|entry| {
+                if entry["token"]["token_type"].as_str() == Some(token_type) {
+                    entry["value"].as_i64()
+                } else {
+                    None
+                }
+            })
+        })
+        .unwrap_or(0)
+}
+
 #[test]
 fn test_phase_enforcement_attack_in_defending_should_fail() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
@@ -78,10 +94,9 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     assert_eq!(resp_combat.status(), Status::Ok);
     let combat_json: serde_json::Value =
         serde_json::from_str(&resp_combat.into_string().expect("body")).expect("json");
-    // Enemy tokens are in enemy.active_tokens as a map
+    // Enemy tokens are in enemy.active_tokens as an array
     let enemy_tokens = &combat_json["enemy"]["active_tokens"];
-    // Expect shield token > 0 (defence card grants shield)
-    let shield = enemy_tokens["Shield"].as_i64().unwrap_or(0);
+    let shield = token_value(enemy_tokens, "Shield");
     assert!(
         shield > 0,
         "Enemy should have shield tokens after defence play"
@@ -171,9 +186,7 @@ fn test_enemy_play_applies_effects() {
     let resp_before = client.get("/combat").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let shield_before = combat_before["enemy"]["active_tokens"]["Shield"]
-        .as_i64()
-        .unwrap_or(0);
+    let shield_before = token_value(&combat_before["enemy"]["active_tokens"], "Shield");
 
     // Enemy plays in Defending phase → defence card grants shield
     let resp = client.post("/tests/combat/enemy_play").dispatch();
@@ -182,9 +195,7 @@ fn test_enemy_play_applies_effects() {
     let resp_after = client.get("/combat").dispatch();
     let combat_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-    let shield_after = combat_after["enemy"]["active_tokens"]["Shield"]
-        .as_i64()
-        .unwrap_or(0);
+    let shield_after = token_value(&combat_after["enemy"]["active_tokens"], "Shield");
 
     // Enemy defence card grants 2 shield
     assert_eq!(shield_after, shield_before + 2);
@@ -199,9 +210,7 @@ fn test_player_card_damages_enemy() {
     let resp_before = client.get("/combat").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let health_before = combat_before["enemy"]["active_tokens"]["Health"]
-        .as_i64()
-        .unwrap_or(0);
+    let health_before = token_value(&combat_before["enemy"]["active_tokens"], "Health");
 
     // Advance to Attacking
     client.post("/tests/combat/advance").dispatch();
@@ -223,9 +232,7 @@ fn test_player_card_damages_enemy() {
     if resp_after.status() == Status::Ok {
         let combat_after: serde_json::Value =
             serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-        let health_after = combat_after["enemy"]["active_tokens"]["Health"]
-            .as_i64()
-            .unwrap_or(0);
+        let health_after = token_value(&combat_after["enemy"]["active_tokens"], "Health");
         assert!(health_after < health_before);
     }
     // If combat ended, that's fine too — the attack dealt enough damage

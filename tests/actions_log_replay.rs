@@ -1,4 +1,8 @@
-use my_little_cardgame::library::{registry::TokenRegistry, types::TokenType, GameState};
+use my_little_cardgame::library::{
+    registry::TokenRegistry,
+    types::{token_balance_by_type, TokenType},
+    GameState,
+};
 
 #[test]
 fn replay_from_log_reproduces_state() {
@@ -12,8 +16,11 @@ fn replay_from_log_reproduces_state() {
 
     let replayed = GameState::replay_from_log(registry, &log_clone);
     assert_eq!(
-        replayed.token_balances.get(&TokenType::Insight),
-        Some(&10i64)
+        token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
+        10
     );
-    assert_eq!(replayed.token_balances.get(&TokenType::Renown), Some(&5i64));
+    assert_eq!(
+        token_balance_by_type(&replayed.token_balances, &TokenType::Renown),
+        5
+    );
 }

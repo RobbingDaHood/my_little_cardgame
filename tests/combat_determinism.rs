@@ -4,8 +4,8 @@
 mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
-        CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase, CombatSnapshot, Combatant,
-        EffectTarget, TokenType,
+        token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
+        CombatSnapshot, Combatant, EffectTarget, TokenType,
     };
     use std::collections::HashMap;
 
@@ -63,13 +63,13 @@ mod tests {
             player_turn: true,
             phase: CombatPhase::Defending,
             player_tokens: HashMap::from([
-                (TokenType::Health, player_hp),
-                (TokenType::MaxHealth, player_hp),
+                (TokenType::Health.with_default_lifecycle(), player_hp),
+                (TokenType::MaxHealth.with_default_lifecycle(), player_hp),
             ]),
             enemy: Combatant {
                 active_tokens: HashMap::from([
-                    (TokenType::Health, enemy_hp),
-                    (TokenType::MaxHealth, enemy_hp),
+                    (TokenType::Health.with_default_lifecycle(), enemy_hp),
+                    (TokenType::MaxHealth.with_default_lifecycle(), enemy_hp),
                 ]),
             },
             encounter_card_id: None,
@@ -106,12 +106,12 @@ mod tests {
         assert_eq!(state1.outcome, state2.outcome);
         assert_eq!(state1.is_finished, state2.is_finished);
         assert_eq!(
-            state1.player_tokens.get(&TokenType::Health),
-            state2.player_tokens.get(&TokenType::Health)
+            token_balance_by_type(&state1.player_tokens, &TokenType::Health),
+            token_balance_by_type(&state2.player_tokens, &TokenType::Health)
         );
         assert_eq!(
-            state1.enemy.active_tokens.get(&TokenType::Health),
-            state2.enemy.active_tokens.get(&TokenType::Health)
+            token_balance_by_type(&state1.enemy.active_tokens, &TokenType::Health),
+            token_balance_by_type(&state2.enemy.active_tokens, &TokenType::Health)
         );
     }
 
@@ -142,7 +142,10 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([(TokenType::Health, 100), (TokenType::MaxHealth, 100)]),
+            player_tokens: HashMap::from([
+                (TokenType::Health.with_default_lifecycle(), 100),
+                (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            ]),
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
@@ -184,7 +187,10 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            player_tokens: HashMap::from([(TokenType::Health, 100), (TokenType::MaxHealth, 100)]),
+            player_tokens: HashMap::from([
+                (TokenType::Health.with_default_lifecycle(), 100),
+                (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            ]),
             enemy: Combatant {
                 active_tokens: HashMap::new(),
             },
@@ -215,9 +221,12 @@ mod tests {
         let state2 = combat::simulate_combat(initial_state, seed, actions, &card_defs);
 
         assert_eq!(
-            state1.player_tokens.get(&TokenType::Health),
-            state2.player_tokens.get(&TokenType::Health)
+            token_balance_by_type(&state1.player_tokens, &TokenType::Health),
+            token_balance_by_type(&state2.player_tokens, &TokenType::Health)
         );
-        assert_eq!(state1.player_tokens.get(&TokenType::Health), Some(&108));
+        assert_eq!(
+            token_balance_by_type(&state1.player_tokens, &TokenType::Health),
+            108
+        );
     }
 }

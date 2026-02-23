@@ -1,5 +1,5 @@
 use my_little_cardgame::library::types::{
-    ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, TokenType,
+    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, TokenType,
 };
 use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
 
@@ -178,10 +178,7 @@ fn game_state_apply_consume() {
     let entry = gs.apply_consume(&TokenType::Insight, 3, None).unwrap();
     assert_eq!(entry.action_type, "ConsumeToken");
     assert_eq!(
-        gs.token_balances
-            .get(&TokenType::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         7
     );
 }
@@ -210,7 +207,8 @@ fn game_state_draw_random_cards() {
     assert!(initial_deck > 0);
     // draw_random_cards is private, but we can test it via resolve_player_card
     // playing a resource card (id 2) triggers draw_count=1
-    gs.token_balances.insert(TokenType::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     let _ = gs.start_combat(3);
     // Phase starts at Defending, but we need Resourcing to play resource
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
@@ -252,11 +250,7 @@ fn replay_from_log_with_consume_and_expire() {
     let registry = TokenRegistry::with_canonical();
     let replayed = GameState::replay_from_log(registry, &log_clone);
     assert_eq!(
-        replayed
-            .token_balances
-            .get(&TokenType::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
         15
     );
 }
@@ -276,7 +270,8 @@ fn game_state_default() {
 #[test]
 fn start_combat_with_non_encounter_card() {
     let mut gs = GameState::new();
-    gs.token_balances.insert(TokenType::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     let result = gs.start_combat(0); // card 0 is Attack, not CombatEncounter
     assert!(result.is_err());
 }
@@ -284,7 +279,8 @@ fn start_combat_with_non_encounter_card() {
 #[test]
 fn resolve_player_card_non_action_card() {
     let mut gs = GameState::new();
-    gs.token_balances.insert(TokenType::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     let _ = gs.start_combat(3);
     // Try to play CombatEncounter card (id 3) as a player card
     let result = gs.resolve_player_card(3);
@@ -294,7 +290,8 @@ fn resolve_player_card_non_action_card() {
 #[test]
 fn resolve_enemy_play_with_non_encounter() {
     let mut gs = GameState::new();
-    gs.token_balances.insert(TokenType::Health, 20);
+    gs.token_balances
+        .insert(TokenType::Health.with_default_lifecycle(), 20);
     // No combat started, should return error
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let result = gs.resolve_enemy_play(&mut rng);

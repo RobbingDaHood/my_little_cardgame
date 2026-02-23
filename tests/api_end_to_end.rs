@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{CombatSnapshot, TokenType};
+use my_little_cardgame::library::types::{token_balance_by_type, CombatSnapshot, TokenType};
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
@@ -61,21 +61,12 @@ fn hello_world() {
     assert!(actual_combat.player_turn);
     // Enemy should have initial tokens (health=20, max_health=20 from gnome combatant_def)
     assert_eq!(
-        actual_combat
-            .enemy
-            .active_tokens
-            .get(&TokenType::Health)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&actual_combat.enemy.active_tokens, &TokenType::Health),
         20
     );
     // Player should have health token from token_balances (initialized to 20)
     assert_eq!(
-        actual_combat
-            .player_tokens
-            .get(&TokenType::Health)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&actual_combat.player_tokens, &TokenType::Health),
         20
     );
 }

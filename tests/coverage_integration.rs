@@ -1,4 +1,5 @@
 use my_little_cardgame::library::types::{CombatSnapshot, TokenType};
+use my_little_cardgame::player_tokens::TokenBalance;
 use my_little_cardgame::rocket_initialize;
 use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
@@ -14,9 +15,13 @@ fn get_player_tokens_returns_initial_balances() {
     let response = client.get("/player/tokens").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
-    let tokens: std::collections::HashMap<TokenType, i64> = serde_json::from_str(&body).unwrap();
-    assert!(tokens.contains_key(&TokenType::Health));
-    assert!(tokens.contains_key(&TokenType::Foresight));
+    let tokens: Vec<TokenBalance> = serde_json::from_str(&body).unwrap();
+    assert!(tokens
+        .iter()
+        .any(|t| t.token.token_type == TokenType::Health));
+    assert!(tokens
+        .iter()
+        .any(|t| t.token.token_type == TokenType::Foresight));
 }
 
 #[test]
@@ -298,13 +303,14 @@ fn simulate_combat_endpoint() {
             "round": 1,
             "player_turn": true,
             "phase": "Attacking",
-            "player_tokens": {"Health": 20, "Shield": 0},
+            "player_tokens": [
+                {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 20},
+                {"token": {"token_type": "Shield", "lifecycle": "PersistentCounter"}, "value": 0}
+            ],
             "enemy": {
-                "name": "Test Enemy",
-                "active_tokens": {"Health": 10},
-                "attack_deck": [],
-                "defence_deck": [],
-                "resource_deck": []
+                "active_tokens": [
+                    {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 10}
+                ]
             },
             "encounter_card_id": 0,
             "is_finished": false,

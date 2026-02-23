@@ -1,7 +1,7 @@
 // Tests moved from src/library.rs
 use my_little_cardgame::library::{
     action_log,
-    types::{ActionPayload, TokenType},
+    types::{token_balance_by_type, ActionPayload, TokenType},
     GameState,
 };
 use std::sync::Arc;
@@ -11,10 +11,7 @@ use std::thread;
 fn grant_and_replay() {
     let mut gs = GameState::new();
     assert_eq!(
-        gs.token_balances
-            .get(&TokenType::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         0
     );
     let entry = gs
@@ -22,21 +19,14 @@ fn grant_and_replay() {
         .expect("apply_grant failed");
     assert_eq!(entry.seq, 1);
     assert_eq!(
-        gs.token_balances
-            .get(&TokenType::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         10
     );
 
     // replay
     let replayed = GameState::replay_from_log(gs.registry.clone(), &gs.action_log);
     assert_eq!(
-        replayed
-            .token_balances
-            .get(&TokenType::Insight)
-            .copied()
-            .unwrap_or(0),
+        token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
         10
     );
     assert_eq!(replayed.action_log.entries().len(), 1);
