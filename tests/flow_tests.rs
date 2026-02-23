@@ -70,7 +70,7 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     client.post("/tests/combat").dispatch();
 
     // Enemy plays for current phase (Defending → enemy plays defence card → shield)
-    let resp = client.post("/combat/enemy_play").dispatch();
+    let resp = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
     // Fetch combat and check enemy tokens via CombatSnapshot JSON
@@ -103,7 +103,7 @@ fn test_seed_determinism_for_enemy_selection() {
         .body(seed_body)
         .dispatch();
     assert_eq!(resp.status(), Status::Ok);
-    client.post("/combat/enemy_play").dispatch();
+    client.post("/tests/combat/enemy_play").dispatch();
     let resp1 = client.get("/combat").dispatch();
     let combat1: serde_json::Value =
         serde_json::from_str(&resp1.into_string().expect("body")).expect("json");
@@ -122,7 +122,7 @@ fn test_seed_determinism_for_enemy_selection() {
         .body(seed_body)
         .dispatch();
     assert_eq!(resp.status(), Status::Ok);
-    client.post("/combat/enemy_play").dispatch();
+    client.post("/tests/combat/enemy_play").dispatch();
     let resp2 = client.get("/combat").dispatch();
     let combat2: serde_json::Value =
         serde_json::from_str(&resp2.into_string().expect("body")).expect("json");
@@ -142,7 +142,7 @@ fn test_advance_phase_rotates_state() {
     assert_eq!(combat_json["phase"], "Defending");
 
     // advance -> Attacking
-    let resp = client.post("/combat/advance").dispatch();
+    let resp = client.post("/tests/combat/advance").dispatch();
     assert_eq!(resp.status(), Status::Created);
     let resp2 = client.get("/combat").dispatch();
     let combat_json2: serde_json::Value =
@@ -150,14 +150,14 @@ fn test_advance_phase_rotates_state() {
     assert_eq!(combat_json2["phase"], "Attacking");
 
     // advance -> Resourcing
-    client.post("/combat/advance").dispatch();
+    client.post("/tests/combat/advance").dispatch();
     let resp3 = client.get("/combat").dispatch();
     let combat_json3: serde_json::Value =
         serde_json::from_str(&resp3.into_string().expect("body")).expect("json");
     assert_eq!(combat_json3["phase"], "Resourcing");
 
     // advance -> Defending
-    client.post("/combat/advance").dispatch();
+    client.post("/tests/combat/advance").dispatch();
     let resp4 = client.get("/combat").dispatch();
     let combat_json4: serde_json::Value =
         serde_json::from_str(&resp4.into_string().expect("body")).expect("json");
@@ -178,7 +178,7 @@ fn test_enemy_play_applies_effects() {
         .unwrap_or(0);
 
     // Enemy plays in Defending phase → defence card grants shield
-    let resp = client.post("/combat/enemy_play").dispatch();
+    let resp = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
     let resp_after = client.get("/combat").dispatch();
@@ -206,7 +206,7 @@ fn test_player_card_damages_enemy() {
         .unwrap_or(0);
 
     // Advance to Attacking
-    client.post("/combat/advance").dispatch();
+    client.post("/tests/combat/advance").dispatch();
 
     // Play attack card (id 0, deals 5 damage)
     let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;
@@ -237,7 +237,7 @@ fn test_player_kills_enemy_and_combat_ends() {
 
     // Initialize combat and advance to Attacking
     client.post("/tests/combat").dispatch();
-    client.post("/combat/advance").dispatch(); // Defending -> Attacking
+    client.post("/tests/combat/advance").dispatch(); // Defending -> Attacking
 
     // Play the attack card 4 times (Library id 0, deals 5 damage each, gnome has 20 HP)
     let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;

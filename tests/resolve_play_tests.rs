@@ -44,7 +44,7 @@ fn test_play_attack_card_kills_enemy() {
 
     // Initialize combat and advance to Attacking
     client.post("/tests/combat").dispatch();
-    client.post("/combat/advance").dispatch();
+    client.post("/tests/combat/advance").dispatch();
 
     // Play the existing Attack card 4 times (Library ID 0, deals 5 damage each, gnome has 20 HP)
     let action_json = r#"{ "action_type": "PlayCard", "card_id": 0 }"#;

@@ -47,29 +47,33 @@ pub async fn initialize_combat(
     Created::new("/tests/combat")
 }
 
-#[openapi]
-#[post("/combat/enemy_play")]
+/// Enemy play for testing purposes.
+///
+/// **TESTING ENDPOINT ONLY**
+#[post("/tests/combat/enemy_play")]
 pub async fn enemy_play(
     player_data: &State<PlayerData>,
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
 ) -> Created<&'static str> {
     let mut gs = game_state.lock().await;
     if gs.current_combat.is_none() {
-        return Created::new("/combat/enemy_play");
+        return Created::new("/tests/combat/enemy_play");
     }
     let mut rng = player_data.random_generator_state.lock().await;
     let _ = gs.resolve_enemy_play(&mut rng);
-    Created::new("/combat/enemy_play")
+    Created::new("/tests/combat/enemy_play")
 }
 
-#[openapi]
-#[post("/combat/advance")]
+/// Advance combat phase for testing purposes.
+///
+/// **TESTING ENDPOINT ONLY**
+#[post("/tests/combat/advance")]
 pub async fn advance_phase(
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
 ) -> Created<&'static str> {
     let mut gs = game_state.lock().await;
     let _ = gs.advance_combat_phase();
-    Created::new("/combat/advance")
+    Created::new("/tests/combat/advance")
 }
 
 #[openapi]

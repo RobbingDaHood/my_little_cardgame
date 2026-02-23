@@ -59,15 +59,12 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::area_deck::endpoints::okapi_add_operation_for_get_area_;
     use crate::area_deck::endpoints::okapi_add_operation_for_get_area_encounters_;
     use crate::area_deck::endpoints::{get_area, get_area_encounters};
-    use crate::combat::okapi_add_operation_for_advance_phase_;
-    use crate::combat::okapi_add_operation_for_enemy_play_;
     use crate::combat::okapi_add_operation_for_get_combat_;
     use crate::combat::okapi_add_operation_for_get_combat_result_;
     use crate::combat::okapi_add_operation_for_initialize_combat_;
     use crate::combat::okapi_add_operation_for_simulate_combat_endpoint_;
     use crate::combat::{
-        advance_phase, enemy_play, get_combat, get_combat_result, initialize_combat,
-        simulate_combat_endpoint,
+        get_combat, get_combat_result, initialize_combat, simulate_combat_endpoint,
     };
     use crate::library::add_test_library_card;
     use crate::library::list_library_cards;
@@ -91,8 +88,6 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
             openapi_get_routes![
                 get_combat,
                 initialize_combat,
-                enemy_play,
-                advance_phase,
                 simulate_combat_endpoint,
                 play,
                 get_player_tokens,
@@ -107,7 +102,12 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
         .mount("/swagger", make_swagger_ui(&get_docs()))
         .mount(
             "/",
-            rocket::routes![list_library_cards, add_test_library_card],
+            rocket::routes![
+                list_library_cards,
+                add_test_library_card,
+                crate::combat::enemy_play,
+                crate::combat::advance_phase,
+            ],
         )
         .manage(player_data::new())
         .manage(gs.clone())

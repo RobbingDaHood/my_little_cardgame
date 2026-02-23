@@ -182,6 +182,16 @@ pub async fn play(
                         reason: Some("Player played card during encounter".to_string()),
                     };
                     let entry = gs.append_action("EncounterPlayCard", payload);
+
+                    // Auto-advance: enemy plays and phase advances
+                    if gs.current_combat.is_some() {
+                        let mut rng = player_data.random_generator_state.lock().await;
+                        let _ = gs.resolve_enemy_play(&mut rng);
+                        if gs.current_combat.is_some() {
+                            let _ = gs.advance_combat_phase();
+                        }
+                    }
+
                     Ok((rocket::http::Status::Created, Json(entry)))
                 }
                 Err(e) => Err(Right(BadRequest(new_status(e)))),

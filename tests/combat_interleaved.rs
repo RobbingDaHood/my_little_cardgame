@@ -40,7 +40,7 @@ fn interleaved_player_and_enemy_actions() {
             );
         }
 
-        let enemy_response = client.post("/combat/enemy_play").dispatch();
+        let enemy_response = client.post("/tests/combat/enemy_play").dispatch();
         assert_eq!(enemy_response.status(), Status::Created);
     }
 }

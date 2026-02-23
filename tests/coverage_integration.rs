@@ -139,11 +139,11 @@ fn combat_lifecycle_with_enemy_play_and_advance() {
     assert!(combat.player_turn);
 
     // Advance phase
-    let response = client.post("/combat/advance").dispatch();
+    let response = client.post("/tests/combat/advance").dispatch();
     assert_eq!(response.status(), Status::Created);
 
     // Enemy play
-    let response = client.post("/combat/enemy_play").dispatch();
+    let response = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(response.status(), Status::Created);
 }
 
@@ -151,7 +151,7 @@ fn combat_lifecycle_with_enemy_play_and_advance() {
 fn enemy_play_when_no_combat_returns_created() {
     let client = client();
     // No combat initialized - should still return Created (no-op)
-    let response = client.post("/combat/enemy_play").dispatch();
+    let response = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(response.status(), Status::Created);
 }
 
@@ -250,7 +250,7 @@ fn play_finish_scouting_after_combat_win() {
             .body(r#"{"action_type":"PlayCard","card_id":1}"#)
             .dispatch();
         // Advance to Attacking
-        client.post("/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
         // Attacking phase: play attack card (id 0) — deals 5 damage
         client
             .post("/action")
@@ -258,7 +258,7 @@ fn play_finish_scouting_after_combat_win() {
             .body(r#"{"action_type":"PlayCard","card_id":0}"#)
             .dispatch();
         // Advance to Resourcing
-        client.post("/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
         // Resourcing phase: play resource card (id 2)
         client
             .post("/action")
@@ -266,9 +266,9 @@ fn play_finish_scouting_after_combat_win() {
             .body(r#"{"action_type":"PlayCard","card_id":2}"#)
             .dispatch();
         // Advance to Defending (next round)
-        client.post("/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
         // Enemy play
-        client.post("/combat/enemy_play").dispatch();
+        client.post("/tests/combat/enemy_play").dispatch();
     }
 
     // Check if combat ended and we're in Scouting
@@ -382,10 +382,10 @@ fn encounter_apply_scouting_action() {
             .header(ContentType::JSON)
             .body(r#"{"action_type":"EncounterPlayCard","card_id":0,"effects":[]}"#)
             .dispatch();
-        client.post("/combat/advance").dispatch();
-        client.post("/combat/enemy_play").dispatch();
-        client.post("/combat/advance").dispatch();
-        client.post("/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
+        client.post("/tests/combat/enemy_play").dispatch();
+        client.post("/tests/combat/advance").dispatch();
+        client.post("/tests/combat/advance").dispatch();
     }
 
     let response = client.get("/area/encounters").dispatch();
