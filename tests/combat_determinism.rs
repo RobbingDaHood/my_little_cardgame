@@ -17,6 +17,7 @@ mod tests {
                 target: EffectTarget::OnOpponent,
                 token_id: TokenType::Health,
                 amount: -damage,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
             }],
         }
     }
@@ -29,6 +30,7 @@ mod tests {
                 target: EffectTarget::OnSelf,
                 token_id: TokenType::Health,
                 amount,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
             }],
         }
     }
@@ -41,6 +43,7 @@ mod tests {
                 target: EffectTarget::OnSelf,
                 token_id: token,
                 amount,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
             }],
         }
     }
@@ -62,8 +65,8 @@ mod tests {
         enemy_hp: i64,
     ) -> (CombatSnapshot, HashMap<Token, i64>) {
         let player_tokens = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), player_hp),
-            (TokenType::MaxHealth.with_default_lifecycle(), player_hp),
+            (Token::persistent(TokenType::Health), player_hp),
+            (Token::persistent(TokenType::MaxHealth), player_hp),
         ]);
         let snapshot = CombatSnapshot {
             round: 1,
@@ -71,8 +74,8 @@ mod tests {
             phase: CombatPhase::Defending,
             enemy: Combatant {
                 active_tokens: HashMap::from([
-                    (TokenType::Health.with_default_lifecycle(), enemy_hp),
-                    (TokenType::MaxHealth.with_default_lifecycle(), enemy_hp),
+                    (Token::persistent(TokenType::Health), enemy_hp),
+                    (Token::persistent(TokenType::MaxHealth), enemy_hp),
                 ]),
             },
             encounter_card_id: None,
@@ -154,8 +157,8 @@ mod tests {
     #[test]
     fn test_empty_combat_produces_log() {
         let pt = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), 100),
-            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            (Token::persistent(TokenType::Health), 100),
+            (Token::persistent(TokenType::MaxHealth), 100),
         ]);
         let initial_state = CombatSnapshot {
             round: 1,
@@ -200,8 +203,8 @@ mod tests {
     #[test]
     fn test_token_operations_deterministic() {
         let pt = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), 100),
-            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            (Token::persistent(TokenType::Health), 100),
+            (Token::persistent(TokenType::MaxHealth), 100),
         ]);
         let initial_state = CombatSnapshot {
             round: 1,

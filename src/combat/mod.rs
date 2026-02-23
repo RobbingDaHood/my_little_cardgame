@@ -35,13 +35,15 @@ pub async fn initialize_combat(
     // Initialize player health token if not set
     if gs
         .token_balances
-        .get(&crate::library::types::TokenType::Health.with_default_lifecycle())
+        .get(&crate::library::types::Token::persistent(
+            crate::library::types::TokenType::Health,
+        ))
         .copied()
         .unwrap_or(0)
         == 0
     {
         gs.token_balances.insert(
-            crate::library::types::TokenType::Health.with_default_lifecycle(),
+            crate::library::types::Token::persistent(crate::library::types::TokenType::Health),
             20,
         );
     }

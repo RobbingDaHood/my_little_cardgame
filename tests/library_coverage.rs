@@ -1,5 +1,6 @@
 use my_little_cardgame::library::types::{
-    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, TokenType,
+    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, Token,
+    TokenType,
 };
 use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
 
@@ -23,6 +24,7 @@ fn library_draw_and_play_and_return() {
                 target: EffectTarget::OnOpponent,
                 token_id: TokenType::Health,
                 amount: -5,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
             }],
         },
         CardCounts {
@@ -207,7 +209,7 @@ fn game_state_draw_random_cards() {
     // draw_random_cards is private, but we can test it via resolve_player_card
     // playing a resource card (id 2) triggers draw_count=1
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
+        .insert(Token::persistent(TokenType::Health), 20);
     let _ = gs.start_combat(3);
     // Phase starts at Defending, but we need Resourcing to play resource
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
@@ -276,7 +278,7 @@ fn game_state_default() {
 fn start_combat_with_non_encounter_card() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
+        .insert(Token::persistent(TokenType::Health), 20);
     let result = gs.start_combat(0); // card 0 is Attack, not CombatEncounter
     assert!(result.is_err());
 }
@@ -285,7 +287,7 @@ fn start_combat_with_non_encounter_card() {
 fn resolve_player_card_non_action_card() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
+        .insert(Token::persistent(TokenType::Health), 20);
     let _ = gs.start_combat(3);
     // Try to play CombatEncounter card (id 3) as a player card
     let result = gs.resolve_player_card(3);
@@ -296,7 +298,7 @@ fn resolve_player_card_non_action_card() {
 fn resolve_enemy_play_with_non_encounter() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
+        .insert(Token::persistent(TokenType::Health), 20);
     // No combat started, should return error
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let result = gs.resolve_enemy_play(&mut rng);

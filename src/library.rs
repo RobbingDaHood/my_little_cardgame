@@ -42,28 +42,23 @@ pub mod types {
         DrawCards,
     }
 
-    impl TokenType {
-        /// Default lifecycle for this token type (used when no specific lifecycle is given).
-        pub fn default_lifecycle(&self) -> TokenLifecycle {
-            match self {
-                TokenType::Health
-                | TokenType::MaxHealth
-                | TokenType::Shield
-                | TokenType::Stamina
-                | TokenType::Dodge
-                | TokenType::Mana => TokenLifecycle::FixedTypeDuration {
-                    duration: 1,
-                    phases: vec![EncounterPhase::Scouting],
-                },
-                _ => TokenLifecycle::PersistentCounter,
+    impl Token {
+        /// Create a persistent counter token (most tokens use this).
+        pub fn persistent(token_type: TokenType) -> Self {
+            Token {
+                token_type,
+                lifecycle: TokenLifecycle::PersistentCounter,
             }
         }
 
-        /// Create a Token with this type's default lifecycle.
-        pub fn with_default_lifecycle(&self) -> Token {
+        /// Create a dodge token with its unique lifecycle.
+        pub fn dodge() -> Self {
             Token {
-                token_type: self.clone(),
-                lifecycle: self.default_lifecycle(),
+                token_type: TokenType::Dodge,
+                lifecycle: TokenLifecycle::FixedTypeDuration {
+                    duration: 1,
+                    phases: vec![EncounterPhase::Defence],
+                },
             }
         }
     }
@@ -84,6 +79,7 @@ pub mod types {
         pub target: EffectTarget,
         pub token_id: TokenType,
         pub amount: i64,
+        pub lifecycle: TokenLifecycle,
     }
 
     /// Who a card effect targets.
@@ -228,7 +224,7 @@ pub mod types {
         map: &'a mut HashMap<Token, i64>,
         tt: &TokenType,
     ) -> &'a mut i64 {
-        let key = tt.with_default_lifecycle();
+        let key = Token::persistent(tt.clone());
         map.entry(key).or_insert(0)
     }
 
@@ -427,6 +423,8 @@ pub mod types {
         Scouting,
         /// No active encounter
         NoEncounter,
+        /// Defence phase (used by Dodge token lifecycle)
+        Defence,
     }
 
     /// User actions during an encounter (Step 7)
@@ -491,7 +489,10 @@ pub mod combat {
                     &mut state_after.enemy.active_tokens
                 }
             };
-            let token_key = effect.token_id.with_default_lifecycle();
+            let token_key = super::types::Token {
+                token_type: effect.token_id.clone(),
+                lifecycle: effect.lifecycle.clone(),
+            };
             let entry = actor_tokens.entry(token_key).or_insert(0);
             *entry = (*entry + effect.amount).max(0);
 
@@ -635,7 +636,7 @@ pub mod encounter {
 }
 
 pub mod registry {
-    use super::types::{TokenRegistryEntry, TokenType};
+    use super::types::{EncounterPhase, TokenLifecycle, TokenRegistryEntry, TokenType};
     use std::collections::HashMap;
 
     #[derive(Debug, Default, Clone)]
@@ -669,7 +670,7 @@ pub mod registry {
                 TokenType::Durability,
             ] {
                 r.register(TokenRegistryEntry {
-                    lifecycle: id.default_lifecycle(),
+                    lifecycle: TokenLifecycle::PersistentCounter,
                     id,
                     cap: Some(9999),
                 });
@@ -678,17 +679,25 @@ pub mod registry {
             for id in [
                 TokenType::Health,
                 TokenType::MaxHealth,
-                TokenType::Dodge,
                 TokenType::Shield,
                 TokenType::Stamina,
                 TokenType::Mana,
             ] {
                 r.register(TokenRegistryEntry {
-                    lifecycle: id.default_lifecycle(),
+                    lifecycle: TokenLifecycle::PersistentCounter,
                     id,
                     cap: Some(9999),
                 });
             }
+            // Dodge has a unique lifecycle
+            r.register(TokenRegistryEntry {
+                lifecycle: TokenLifecycle::FixedTypeDuration {
+                    duration: 1,
+                    phases: vec![EncounterPhase::Defence],
+                },
+                id: TokenType::Dodge,
+                cap: Some(9999),
+            });
             r
         }
 
@@ -1054,6 +1063,7 @@ fn initialize_library() -> Library {
                 target: types::EffectTarget::OnOpponent,
                 token_id: types::TokenType::Health,
                 amount: -5,
+                lifecycle: types::TokenLifecycle::PersistentCounter,
             }],
         },
         CardCounts {
@@ -1071,6 +1081,7 @@ fn initialize_library() -> Library {
                 target: types::EffectTarget::OnSelf,
                 token_id: types::TokenType::Shield,
                 amount: 3,
+                lifecycle: types::TokenLifecycle::PersistentCounter,
             }],
         },
         CardCounts {
@@ -1089,11 +1100,13 @@ fn initialize_library() -> Library {
                     target: types::EffectTarget::OnSelf,
                     token_id: types::TokenType::Stamina,
                     amount: 2,
+                    lifecycle: types::TokenLifecycle::PersistentCounter,
                 },
                 CardEffect {
                     target: types::EffectTarget::OnSelf,
                     token_id: types::TokenType::DrawCards,
                     amount: 1,
+                    lifecycle: types::TokenLifecycle::PersistentCounter,
                 },
             ],
         },
@@ -1111,14 +1124,15 @@ fn initialize_library() -> Library {
             encounter_kind: types::EncounterKind::Combat {
                 combatant_def: types::CombatantDef {
                     initial_tokens: HashMap::from([
-                        (types::TokenType::Health.with_default_lifecycle(), 20),
-                        (types::TokenType::MaxHealth.with_default_lifecycle(), 20),
+                        (types::Token::persistent(types::TokenType::Health), 20),
+                        (types::Token::persistent(types::TokenType::MaxHealth), 20),
                     ]),
                     attack_deck: vec![types::EnemyCardDef {
                         effects: vec![CardEffect {
                             target: types::EffectTarget::OnOpponent,
                             token_id: types::TokenType::Health,
                             amount: -3,
+                            lifecycle: types::TokenLifecycle::PersistentCounter,
                         }],
                     }],
                     defence_deck: vec![types::EnemyCardDef {
@@ -1126,6 +1140,7 @@ fn initialize_library() -> Library {
                             target: types::EffectTarget::OnSelf,
                             token_id: types::TokenType::Shield,
                             amount: 2,
+                            lifecycle: types::TokenLifecycle::PersistentCounter,
                         }],
                     }],
                     resource_deck: vec![types::EnemyCardDef {
@@ -1133,6 +1148,7 @@ fn initialize_library() -> Library {
                             target: types::EffectTarget::OnSelf,
                             token_id: types::TokenType::Stamina,
                             amount: 1,
+                            lifecycle: types::TokenLifecycle::PersistentCounter,
                         }],
                     }],
                 },
@@ -1170,24 +1186,24 @@ fn apply_card_effects(
             // Damage: consume dodge first, then reduce health
             let damage = -effect.amount;
             let dodge = target_tokens
-                .get(&types::TokenType::Dodge.with_default_lifecycle())
+                .get(&types::Token::dodge())
                 .copied()
                 .unwrap_or(0);
             let absorbed = dodge.min(damage);
-            target_tokens.insert(
-                types::TokenType::Dodge.with_default_lifecycle(),
-                (dodge - absorbed).max(0),
-            );
+            target_tokens.insert(types::Token::dodge(), (dodge - absorbed).max(0));
             let remaining_damage = damage - absorbed;
             if remaining_damage > 0 {
                 let health = target_tokens
-                    .entry(types::TokenType::Health.with_default_lifecycle())
+                    .entry(types::Token::persistent(types::TokenType::Health))
                     .or_insert(0);
                 *health = (*health - remaining_damage).max(0);
             }
         } else {
             let entry = target_tokens
-                .entry(effect.token_id.with_default_lifecycle())
+                .entry(types::Token {
+                    token_type: effect.token_id.clone(),
+                    lifecycle: effect.lifecycle.clone(),
+                })
                 .or_insert(0);
             *entry = (*entry + effect.amount).max(0);
         }
@@ -1200,13 +1216,13 @@ fn check_combat_end(
     combat: &mut types::CombatSnapshot,
 ) {
     let player_health = player_tokens
-        .get(&types::TokenType::Health.with_default_lifecycle())
+        .get(&types::Token::persistent(types::TokenType::Health))
         .copied()
         .unwrap_or(0);
     let enemy_health = combat
         .enemy
         .active_tokens
-        .get(&types::TokenType::Health.with_default_lifecycle())
+        .get(&types::Token::persistent(types::TokenType::Health))
         .copied()
         .unwrap_or(0);
 
@@ -1240,10 +1256,10 @@ impl GameState {
         let registry = TokenRegistry::with_canonical();
         let mut balances = HashMap::new();
         for id in registry.tokens.keys() {
-            balances.insert(id.with_default_lifecycle(), 0i64);
+            balances.insert(types::Token::persistent(id.clone()), 0i64);
         }
         // Default Foresight controls area deck hand size
-        balances.insert(types::TokenType::Foresight.with_default_lifecycle(), 3);
+        balances.insert(types::Token::persistent(types::TokenType::Foresight), 3);
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -1300,7 +1316,7 @@ impl GameState {
 
         let v = self
             .token_balances
-            .entry(token_id.with_default_lifecycle())
+            .entry(types::Token::persistent(token_id.clone()))
             .or_insert(0);
         *v += amount;
         Ok(())
@@ -1327,7 +1343,7 @@ impl GameState {
 
         let v = self
             .token_balances
-            .entry(token_id.with_default_lifecycle())
+            .entry(types::Token::persistent(token_id.clone()))
             .or_insert(0);
         *v -= amount;
         Ok(())
@@ -1484,10 +1500,10 @@ impl GameState {
         let mut gs = {
             let mut balances = HashMap::new();
             for id in registry.tokens.keys() {
-                balances.insert(id.with_default_lifecycle(), 0i64);
+                balances.insert(types::Token::persistent(id.clone()), 0i64);
             }
             // Default Foresight controls area deck hand size
-            balances.insert(types::TokenType::Foresight.with_default_lifecycle(), 3);
+            balances.insert(types::Token::persistent(types::TokenType::Foresight), 3);
             Self {
                 registry,
                 action_log: std::sync::Arc::new(ActionLog::new()),
@@ -1507,7 +1523,7 @@ impl GameState {
                 } => {
                     let v = gs
                         .token_balances
-                        .entry(token_id.with_default_lifecycle())
+                        .entry(types::Token::persistent(token_id.clone()))
                         .or_insert(0);
                     *v += *amount;
                 }
@@ -1516,7 +1532,7 @@ impl GameState {
                 } => {
                     let v = gs
                         .token_balances
-                        .entry(token_id.with_default_lifecycle())
+                        .entry(types::Token::persistent(token_id.clone()))
                         .or_insert(0);
                     *v -= *amount;
                 }
@@ -1525,7 +1541,7 @@ impl GameState {
                 } => {
                     let v = gs
                         .token_balances
-                        .entry(token_id.with_default_lifecycle())
+                        .entry(types::Token::persistent(token_id.clone()))
                         .or_insert(0);
                     *v = (*v - *amount).max(0);
                 }

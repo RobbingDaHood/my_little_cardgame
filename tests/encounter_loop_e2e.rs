@@ -133,7 +133,7 @@ mod tests {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
             token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
-            CombatSnapshot, Combatant, EffectTarget, TokenType,
+            CombatSnapshot, Combatant, EffectTarget, Token, TokenType,
         };
         use std::collections::HashMap;
 
@@ -150,6 +150,8 @@ mod tests {
                     target: EffectTarget::OnOpponent,
                     token_id: TokenType::Health,
                     amount: -15,
+                    lifecycle:
+                        my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
                 }],
             },
         );
@@ -171,8 +173,8 @@ mod tests {
 
         // Phase 2: Combat — play cards to defeat enemy
         let initial_pt = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), 100),
-            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            (Token::persistent(TokenType::Health), 100),
+            (Token::persistent(TokenType::MaxHealth), 100),
         ]);
         let initial_combat = CombatSnapshot {
             round: 1,
@@ -180,8 +182,8 @@ mod tests {
             phase: CombatPhase::Defending,
             enemy: Combatant {
                 active_tokens: HashMap::from([
-                    (TokenType::Health.with_default_lifecycle(), 30),
-                    (TokenType::MaxHealth.with_default_lifecycle(), 30),
+                    (Token::persistent(TokenType::Health), 30),
+                    (Token::persistent(TokenType::MaxHealth), 30),
                 ]),
             },
             encounter_card_id: None,
