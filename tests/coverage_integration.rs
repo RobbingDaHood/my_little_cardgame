@@ -419,17 +419,6 @@ fn replace_encounter_action() {
 }
 
 #[test]
-fn apply_scouting_action() {
-    let client = client();
-    let response = client
-        .post("/action")
-        .header(ContentType::JSON)
-        .body(r#"{"action_type":"ApplyScouting","area_id":"current","parameters":"test"}"#)
-        .dispatch();
-    assert_eq!(response.status(), Status::Created);
-}
-
-#[test]
 fn encounter_play_card_action() {
     let client = client();
 

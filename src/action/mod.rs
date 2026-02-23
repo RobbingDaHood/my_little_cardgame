@@ -36,10 +36,6 @@ pub enum PlayerActions {
         old_encounter_id: usize,
         new_encounter_id: usize,
     },
-    ApplyScouting {
-        area_id: String,
-        parameters: String,
-    },
     // Encounter actions (Step 7)
     EncounterPickEncounter {
         card_id: usize,
@@ -196,27 +192,6 @@ pub async fn play(
                         reason: Some("Player replaced resolved encounter".to_string()),
                     };
                     let entry = gs.append_action("ReplaceEncounter", payload);
-                    Ok((rocket::http::Status::Created, Json(entry)))
-                }
-                None => Err(Left(NotFound(new_status(
-                    "No current area set".to_string(),
-                )))),
-            }
-        }
-        PlayerActions::ApplyScouting {
-            area_id: _,
-            parameters,
-        } => {
-            let current_area = player_data.current_area_deck.lock().await;
-            match current_area.as_ref() {
-                Some(_) => {
-                    let gs = game_state.lock().await;
-                    let payload = crate::library::types::ActionPayload::ApplyScouting {
-                        area_id: "current".to_string(),
-                        parameters,
-                        reason: Some("Player applied scouting".to_string()),
-                    };
-                    let entry = gs.append_action("ApplyScouting", payload);
                     Ok((rocket::http::Status::Created, Json(entry)))
                 }
                 None => Err(Left(NotFound(new_status(
