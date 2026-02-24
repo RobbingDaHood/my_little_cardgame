@@ -1,6 +1,6 @@
 use my_little_cardgame::library::types::{
-    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardEffectKind, CardKind,
-    EffectTarget, Token, TokenType,
+    token_balance_by_type, ActionPayload, CardCounts, CardEffectKind, CardKind, EffectTarget,
+    Token, TokenType,
 };
 use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
 
@@ -18,17 +18,26 @@ fn card_counts_total() {
 #[test]
 fn library_draw_and_play_and_return() {
     let mut lib = Library::new();
+    // First add a card effect entry (id 0)
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::ChangeTokens {
+                target: EffectTarget::OnOpponent,
+                token_type: TokenType::Health,
+                amount: -5,
+            },
+            lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
     let id = lib.add_card(
         CardKind::Attack {
-            effects: vec![CardEffect {
-                kind: CardEffectKind::ChangeTokens {
-                    target: EffectTarget::OnOpponent,
-                    token_type: TokenType::Health,
-                    amount: -5,
-                },
-                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
-                card_effect_id: None,
-            }],
+            effect_ids: vec![0],
         },
         CardCounts {
             library: 0,
@@ -63,7 +72,7 @@ fn library_draw_and_play_and_return() {
 fn library_draw_error_when_deck_empty() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effects: vec![] },
+        CardKind::Attack { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -78,7 +87,7 @@ fn library_draw_error_when_deck_empty() {
 fn library_play_error_when_hand_empty() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effects: vec![] },
+        CardKind::Attack { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -93,7 +102,7 @@ fn library_play_error_when_hand_empty() {
 fn library_return_to_library_error_when_discard_empty() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effects: vec![] },
+        CardKind::Attack { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -108,7 +117,7 @@ fn library_return_to_library_error_when_discard_empty() {
 fn library_add_to_deck_error_when_library_insufficient() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effects: vec![] },
+        CardKind::Attack { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -123,7 +132,7 @@ fn library_add_to_deck_error_when_library_insufficient() {
 fn library_hand_cards_returns_cards_in_hand() {
     let mut lib = Library::new();
     lib.add_card(
-        CardKind::Attack { effects: vec![] },
+        CardKind::Attack { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -132,7 +141,7 @@ fn library_hand_cards_returns_cards_in_hand() {
         },
     );
     lib.add_card(
-        CardKind::Defence { effects: vec![] },
+        CardKind::Defence { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 5,
@@ -149,7 +158,7 @@ fn library_hand_cards_returns_cards_in_hand() {
 fn library_cards_matching_filters_by_predicate() {
     let mut lib = Library::new();
     lib.add_card(
-        CardKind::Attack { effects: vec![] },
+        CardKind::Attack { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 1,
@@ -158,7 +167,7 @@ fn library_cards_matching_filters_by_predicate() {
         },
     );
     lib.add_card(
-        CardKind::Defence { effects: vec![] },
+        CardKind::Defence { effect_ids: vec![] },
         CardCounts {
             library: 0,
             deck: 1,

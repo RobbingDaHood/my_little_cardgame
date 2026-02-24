@@ -301,40 +301,6 @@ fn play_finish_scouting_after_combat_win() {
     }
 }
 
-#[test]
-fn simulate_combat_endpoint() {
-    let client = client();
-
-    let request = serde_json::json!({
-        "initial_state": {
-            "round": 1,
-            "player_turn": true,
-            "phase": "Attacking",
-            "enemy_tokens": {"Health": 10},
-            "encounter_card_id": 0,
-            "is_finished": false,
-            "outcome": "Undecided",
-            "enemy_attack_deck": [],
-            "enemy_defence_deck": [],
-            "enemy_resource_deck": []
-        },
-        "player_tokens": [
-            {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 20},
-            {"token": {"token_type": "Shield", "lifecycle": "PersistentCounter"}, "value": 0}
-        ],
-        "seed": 42,
-        "actions": [],
-        "card_defs": {}
-    });
-
-    let response = client
-        .post("/tests/combat/simulate")
-        .header(ContentType::JSON)
-        .body(serde_json::to_string(&request).unwrap())
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-}
-
 fn get_combat(client: &Client) -> Option<CombatState> {
     let response = client.get("/combat").dispatch();
     if response.status().code == 404 {
@@ -490,7 +456,7 @@ fn play_card_nonexistent() {
 fn add_test_library_card_endpoint() {
     let client = client();
     let card = serde_json::json!({
-        "kind": {"kind": "Attack", "effects": []},
+        "kind": {"card_kind": "Attack", "effect_ids": []},
         "counts": {"library": 0, "deck": 5, "hand": 0, "discard": 0}
     });
     let response = client

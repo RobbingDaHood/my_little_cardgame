@@ -1,8 +1,7 @@
 use rocket::response::status::{Created, NotFound};
 use rocket::serde::json::Json;
-use rocket::serde::{Deserialize, Serialize};
 use rocket::State;
-use rocket_okapi::{openapi, JsonSchema};
+use rocket_okapi::openapi;
 
 use crate::library::types::{CombatOutcome, CombatState};
 use crate::player_data::PlayerData;
@@ -94,47 +93,4 @@ pub async fn get_combat_result(
             "No combat result available".to_string(),
         ))),
     }
-}
-
-/// Simulate a deterministic combat encounter from a seed and initial state.
-///
-/// **TESTING ENDPOINT ONLY** — This endpoint is temporary and should not be
-/// used in production. It bypasses the single mutator action endpoint.
-#[openapi]
-#[post("/tests/combat/simulate", format = "json", data = "<request>")]
-pub async fn simulate_combat_endpoint(
-    request: Json<SimulateCombatRequest>,
-) -> Json<SimulateCombatResponse> {
-    let (snapshot, player_tokens) = crate::library::combat::simulate_combat(
-        request.initial_state.clone(),
-        request.player_tokens.clone(),
-        request.seed,
-        request.actions.clone(),
-        &request.card_defs,
-    );
-    Json(SimulateCombatResponse {
-        snapshot,
-        player_tokens,
-    })
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct SimulateCombatRequest {
-    pub initial_state: CombatState,
-    #[serde(with = "crate::library::types::token_map_serde")]
-    #[schemars(with = "crate::library::types::token_map_serde::SchemaHelper")]
-    pub player_tokens: std::collections::HashMap<crate::library::types::Token, i64>,
-    pub seed: u64,
-    pub actions: Vec<crate::library::types::CombatAction>,
-    pub card_defs: std::collections::HashMap<u64, crate::library::types::CardDef>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct SimulateCombatResponse {
-    pub snapshot: CombatState,
-    #[serde(with = "crate::library::types::token_map_serde")]
-    #[schemars(with = "crate::library::types::token_map_serde::SchemaHelper")]
-    pub player_tokens: std::collections::HashMap<crate::library::types::Token, i64>,
 }

@@ -39,10 +39,10 @@ fn hello_world() {
     assert_eq!(library_cards[10].counts.hand, 5);
 
     // Verify card kinds
-    assert_eq!(library_cards[8].kind["kind"], "Attack");
-    assert_eq!(library_cards[9].kind["kind"], "Defence");
-    assert_eq!(library_cards[10].kind["kind"], "Resource");
-    assert_eq!(library_cards[11].kind["kind"], "Encounter");
+    assert_eq!(library_cards[8].kind["card_kind"], "Attack");
+    assert_eq!(library_cards[9].kind["card_kind"], "Defence");
+    assert_eq!(library_cards[10].kind["card_kind"], "Resource");
+    assert_eq!(library_cards[11].kind["card_kind"], "Encounter");
 
     // Verify combat not initialized yet
     assert_eq!(get_combat(&client), None);

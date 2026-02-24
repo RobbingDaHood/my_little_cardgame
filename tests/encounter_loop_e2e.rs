@@ -130,38 +130,10 @@ mod tests {
 
     #[test]
     fn test_encounter_loop_replay_from_seed() {
-        use my_little_cardgame::library::combat;
-        use my_little_cardgame::library::types::{
-            token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
-            CombatState, EffectTarget, Token, TokenType,
-        };
-        use std::collections::HashMap;
+        use my_little_cardgame::library::types::{EncounterPhase, EncounterState};
 
-        let seed = 42u64;
-
-        // Define cards
-        let mut card_defs = HashMap::new();
-        card_defs.insert(
-            1,
-            CardDef {
-                id: 1,
-                card_type: "Attack".to_string(),
-                effects: vec![CardEffect {
-                    kind: my_little_cardgame::library::types::CardEffectKind::ChangeTokens {
-                        target: EffectTarget::OnOpponent,
-                        token_type: TokenType::Health,
-                        amount: -15,
-                    },
-                    lifecycle:
-                        my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
-                    card_effect_id: None,
-                }],
-            },
-        );
-
-        // Record an action log (encounter actions + combat actions)
+        // Record an action log (encounter actions)
         let mut encounter_actions = Vec::new();
-        let mut combat_actions = Vec::new();
 
         // Phase 1: Pick encounter
         let mut enc_state = EncounterState {
@@ -174,47 +146,7 @@ mod tests {
         enc_state = encounter::apply_action(&enc_state, pick).unwrap();
         assert_eq!(enc_state.phase, EncounterPhase::InCombat);
 
-        // Phase 2: Combat — play cards to defeat enemy
-        let initial_pt = HashMap::from([
-            (Token::persistent(TokenType::Health), 100),
-            (Token::persistent(TokenType::MaxHealth), 100),
-        ]);
-        let initial_combat = CombatState {
-            round: 1,
-            player_turn: true,
-            phase: CombatPhase::Defending,
-            enemy_tokens: HashMap::from([
-                (Token::persistent(TokenType::Health), 30),
-                (Token::persistent(TokenType::MaxHealth), 30),
-            ]),
-            encounter_card_id: None,
-            is_finished: false,
-            outcome: CombatOutcome::Undecided,
-            enemy_attack_deck: vec![],
-            enemy_defence_deck: vec![],
-            enemy_resource_deck: vec![],
-        };
-
-        combat_actions.push(CombatAction {
-            is_player: true,
-            card_id: 1,
-        });
-        combat_actions.push(CombatAction {
-            is_player: true,
-            card_id: 1,
-        });
-
-        let (combat_result, combat_pt) = combat::simulate_combat(
-            initial_combat.clone(),
-            initial_pt.clone(),
-            seed,
-            combat_actions.clone(),
-            &card_defs,
-        );
-        assert!(combat_result.is_finished);
-        assert_eq!(combat_result.outcome, CombatOutcome::PlayerWon);
-
-        // Phase 3: Scouting
+        // Phase 2: Scouting (combat resolved externally via GameState)
         enc_state = EncounterState {
             phase: EncounterPhase::Scouting,
         };
@@ -229,20 +161,6 @@ mod tests {
         encounter_actions.push(finish.clone());
         enc_state = encounter::apply_action(&enc_state, finish).unwrap();
         assert_eq!(enc_state.phase, EncounterPhase::NoEncounter);
-
-        // REPLAY: same seed + same actions produce same combat result
-        let (replay_result, replay_pt) =
-            combat::simulate_combat(initial_combat, initial_pt, seed, combat_actions, &card_defs);
-        assert_eq!(replay_result.is_finished, combat_result.is_finished);
-        assert_eq!(replay_result.outcome, combat_result.outcome);
-        assert_eq!(
-            token_balance_by_type(&replay_pt, &TokenType::Health),
-            token_balance_by_type(&combat_pt, &TokenType::Health),
-        );
-        assert_eq!(
-            token_balance_by_type(&replay_result.enemy_tokens, &TokenType::Health),
-            token_balance_by_type(&combat_result.enemy_tokens, &TokenType::Health),
-        );
 
         // REPLAY: same encounter actions produce same state machine result
         let mut replay_enc = EncounterState {

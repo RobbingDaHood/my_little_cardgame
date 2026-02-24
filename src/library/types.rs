@@ -47,15 +47,6 @@ impl Token {
     }
 }
 
-/// Canonical card definition (minimal)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct CardDef {
-    pub id: u64,
-    pub card_type: String,
-    pub effects: Vec<CardEffect>,
-}
-
 /// Describes what kind of effect a card applies.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "effect_type")]
@@ -68,18 +59,6 @@ pub enum CardEffectKind {
     DrawCards {
         amount: u32,
     },
-}
-
-/// A single effect a card applies when played.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct CardEffect {
-    #[serde(flatten)]
-    pub kind: CardEffectKind,
-    pub lifecycle: TokenLifecycle,
-    /// Internal reference to the CardEffect card in the library.
-    #[serde(skip)]
-    pub card_effect_id: Option<usize>,
 }
 
 /// Who a card effect targets.
@@ -111,14 +90,28 @@ impl CardCounts {
 
 /// The kind of card and its type-specific payload.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde", tag = "kind")]
+#[serde(crate = "rocket::serde", tag = "card_kind")]
 pub enum CardKind {
-    Attack { effects: Vec<CardEffect> },
-    Defence { effects: Vec<CardEffect> },
-    Resource { effects: Vec<CardEffect> },
-    Encounter { encounter_kind: EncounterKind },
-    PlayerCardEffect { effect: CardEffect },
-    EnemyCardEffect { effect: CardEffect },
+    Attack {
+        effect_ids: Vec<usize>,
+    },
+    Defence {
+        effect_ids: Vec<usize>,
+    },
+    Resource {
+        effect_ids: Vec<usize>,
+    },
+    Encounter {
+        encounter_kind: EncounterKind,
+    },
+    PlayerCardEffect {
+        kind: CardEffectKind,
+        lifecycle: TokenLifecycle,
+    },
+    EnemyCardEffect {
+        kind: CardEffectKind,
+        lifecycle: TokenLifecycle,
+    },
 }
 
 /// Sub-type of encounter cards.
@@ -154,7 +147,7 @@ pub struct EnemyCardCounts {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCardDef {
-    pub effects: Vec<CardEffect>,
+    pub effect_ids: Vec<usize>,
     pub counts: EnemyCardCounts,
 }
 
