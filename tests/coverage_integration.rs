@@ -310,11 +310,7 @@ fn simulate_combat_endpoint() {
             "round": 1,
             "player_turn": true,
             "phase": "Attacking",
-            "enemy": {
-                "active_tokens": [
-                    {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 10}
-                ]
-            },
+            "enemy_tokens": {"Health": 10},
             "encounter_card_id": 0,
             "is_finished": false,
             "outcome": "Undecided",

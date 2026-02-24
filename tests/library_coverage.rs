@@ -1,6 +1,6 @@
 use my_little_cardgame::library::types::{
-    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, Token,
-    TokenType,
+    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardEffectKind, CardKind,
+    EffectTarget, Token, TokenType,
 };
 use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
 
@@ -21,9 +21,11 @@ fn library_draw_and_play_and_return() {
     let id = lib.add_card(
         CardKind::Attack {
             effects: vec![CardEffect {
-                target: EffectTarget::OnOpponent,
-                token_id: TokenType::Health,
-                amount: -5,
+                kind: CardEffectKind::ChangeTokens {
+                    target: EffectTarget::OnOpponent,
+                    token_type: TokenType::Health,
+                    amount: -5,
+                },
                 lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
                 card_effect_id: None,
             }],

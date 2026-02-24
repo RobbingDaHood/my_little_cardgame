@@ -4,8 +4,8 @@
 mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
-        token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
-        CombatState, Combatant, EffectTarget, Token, TokenType,
+        token_balance_by_type, CardDef, CardEffect, CardEffectKind, CombatAction, CombatOutcome,
+        CombatPhase, CombatState, EffectTarget, Token, TokenType,
     };
     use std::collections::HashMap;
 
@@ -14,9 +14,11 @@ mod tests {
             id,
             card_type: "Attack".to_string(),
             effects: vec![CardEffect {
-                target: EffectTarget::OnOpponent,
-                token_id: TokenType::Health,
-                amount: -damage,
+                kind: CardEffectKind::ChangeTokens {
+                    target: EffectTarget::OnOpponent,
+                    token_type: TokenType::Health,
+                    amount: -damage,
+                },
                 lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
                 card_effect_id: None,
             }],
@@ -28,9 +30,11 @@ mod tests {
             id,
             card_type: "Resource".to_string(),
             effects: vec![CardEffect {
-                target: EffectTarget::OnSelf,
-                token_id: TokenType::Health,
-                amount,
+                kind: CardEffectKind::ChangeTokens {
+                    target: EffectTarget::OnSelf,
+                    token_type: TokenType::Health,
+                    amount,
+                },
                 lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
                 card_effect_id: None,
             }],
@@ -42,9 +46,11 @@ mod tests {
             id,
             card_type: "Resource".to_string(),
             effects: vec![CardEffect {
-                target: EffectTarget::OnSelf,
-                token_id: token,
-                amount,
+                kind: CardEffectKind::ChangeTokens {
+                    target: EffectTarget::OnSelf,
+                    token_type: token,
+                    amount,
+                },
                 lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
                 card_effect_id: None,
             }],
@@ -72,12 +78,10 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            enemy: Combatant {
-                active_tokens: HashMap::from([
-                    (Token::persistent(TokenType::Health), enemy_hp),
-                    (Token::persistent(TokenType::MaxHealth), enemy_hp),
-                ]),
-            },
+            enemy_tokens: HashMap::from([
+                (Token::persistent(TokenType::Health), enemy_hp),
+                (Token::persistent(TokenType::MaxHealth), enemy_hp),
+            ]),
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
@@ -126,8 +130,8 @@ mod tests {
             token_balance_by_type(&pt2, &TokenType::Health)
         );
         assert_eq!(
-            token_balance_by_type(&s1.enemy.active_tokens, &TokenType::Health),
-            token_balance_by_type(&s2.enemy.active_tokens, &TokenType::Health)
+            token_balance_by_type(&s1.enemy_tokens, &TokenType::Health),
+            token_balance_by_type(&s2.enemy_tokens, &TokenType::Health)
         );
     }
 
@@ -167,9 +171,7 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            enemy: Combatant {
-                active_tokens: HashMap::new(),
-            },
+            enemy_tokens: HashMap::new(),
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
@@ -216,9 +218,7 @@ mod tests {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
-            enemy: Combatant {
-                active_tokens: HashMap::new(),
-            },
+            enemy_tokens: HashMap::new(),
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
