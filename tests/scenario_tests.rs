@@ -369,3 +369,169 @@ fn scenario_action_log_records_full_game() {
         );
     }
 }
+
+/// Helper: extract (deck, hand, discard) counts for a player card by library index.
+fn player_card_counts(client: &Client, card_index: usize) -> (u32, u32, u32) {
+    let cards = get_json(client, "/library/cards");
+    let card = &cards.as_array().expect("cards array")[card_index];
+    let counts = card.get("counts").expect("counts");
+    (
+        counts["deck"].as_u64().unwrap_or(0) as u32,
+        counts["hand"].as_u64().unwrap_or(0) as u32,
+        counts["discard"].as_u64().unwrap_or(0) as u32,
+    )
+}
+
+/// Helper: sum (deck, hand, discard) across all entries of an enemy deck from combat state.
+fn enemy_deck_totals(combat: &serde_json::Value, deck_key: &str) -> (u32, u32, u32) {
+    let deck = combat
+        .get(deck_key)
+        .and_then(|v| v.as_array())
+        .expect("enemy deck array");
+    let mut total_deck = 0u32;
+    let mut total_hand = 0u32;
+    let mut total_discard = 0u32;
+    for entry in deck {
+        let c = entry.get("counts").expect("enemy card counts");
+        total_deck += c["deck"].as_u64().unwrap_or(0) as u32;
+        total_hand += c["hand"].as_u64().unwrap_or(0) as u32;
+        total_discard += c["discard"].as_u64().unwrap_or(0) as u32;
+    }
+    (total_deck, total_hand, total_discard)
+}
+
+#[test]
+fn scenario_player_draw_cards_per_type() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // Start game and enter combat
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created);
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // Initial counts: Attack(8) deck=15 hand=5, Defence(9) deck=15 hand=5, Resource(10) deck=35 hand=5
+    let (atk_deck_before, atk_hand_before, _) = player_card_counts(&client, 8);
+    let (def_deck_before, def_hand_before, _) = player_card_counts(&client, 9);
+    let (res_deck_before, res_hand_before, _) = player_card_counts(&client, 10);
+
+    // Combat starts in Defending phase. Play defence first, then attack.
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":9}"#,
+    );
+    assert_eq!(status, Status::Created);
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":8}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // Now in Resourcing phase. Play resource card (id 10) which draws 1 atk, 1 def, 2 res.
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":10}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let (atk_deck_after, atk_hand_after, _) = player_card_counts(&client, 8);
+    let (def_deck_after, def_hand_after, _) = player_card_counts(&client, 9);
+    let (res_deck_after, res_hand_after, res_discard_after) = player_card_counts(&client, 10);
+
+    // Attack: -1 played, +1 drawn from deck
+    assert_eq!(
+        atk_hand_after,
+        atk_hand_before - 1 + 1,
+        "Attack hand: -1 played, +1 drawn"
+    );
+    assert_eq!(atk_deck_after, atk_deck_before - 1, "Attack deck: -1 drawn");
+
+    // Defence: -1 played, +1 drawn from deck
+    assert_eq!(
+        def_hand_after,
+        def_hand_before - 1 + 1,
+        "Defence hand: -1 played, +1 drawn"
+    );
+    assert_eq!(
+        def_deck_after,
+        def_deck_before - 1,
+        "Defence deck: -1 drawn"
+    );
+
+    // Resource: -1 played to discard, +2 drawn from deck
+    assert_eq!(
+        res_hand_after,
+        res_hand_before - 1 + 2,
+        "Resource hand: -1 played, +2 drawn"
+    );
+    assert_eq!(
+        res_deck_after,
+        res_deck_before - 2,
+        "Resource deck: -2 drawn"
+    );
+    assert_eq!(res_discard_after, 1, "Resource discard: 1 played card");
+}
+
+#[test]
+fn scenario_enemy_draws_per_type() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created);
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // Record enemy deck totals before any round
+    let combat_before = combat_state(&client);
+    let ea_total = {
+        let (d, h, di) = enemy_deck_totals(&combat_before, "enemy_attack_deck");
+        d + h + di
+    };
+    let ed_total = {
+        let (d, h, di) = enemy_deck_totals(&combat_before, "enemy_defence_deck");
+        d + h + di
+    };
+    let er_total = {
+        let (d, h, di) = enemy_deck_totals(&combat_before, "enemy_resource_deck");
+        d + h + di
+    };
+
+    // Play one full round which triggers enemy plays too
+    play_one_round(&client);
+
+    // Check if combat is still active (GET /combat returns 404 when finished)
+    let resp = client.get("/combat").dispatch();
+    if resp.status() != Status::Ok {
+        return;
+    }
+    let combat_after: serde_json::Value =
+        serde_json::from_str(&resp.into_string().unwrap_or_default()).unwrap_or_default();
+
+    let (ea_deck_a, ea_hand_a, ea_disc_a) = enemy_deck_totals(&combat_after, "enemy_attack_deck");
+    let (ed_deck_a, ed_hand_a, ed_disc_a) = enemy_deck_totals(&combat_after, "enemy_defence_deck");
+    let (er_deck_a, er_hand_a, er_disc_a) = enemy_deck_totals(&combat_after, "enemy_resource_deck");
+
+    // Card conservation: total cards per deck type must not change
+    // (enemy plays move hand→discard, draw effects recycle discard→deck→hand)
+    assert_eq!(
+        ea_deck_a + ea_hand_a + ea_disc_a,
+        ea_total,
+        "Enemy attack cards should be conserved"
+    );
+    assert_eq!(
+        ed_deck_a + ed_hand_a + ed_disc_a,
+        ed_total,
+        "Enemy defence cards should be conserved"
+    );
+    assert_eq!(
+        er_deck_a + er_hand_a + er_disc_a,
+        er_total,
+        "Enemy resource cards should be conserved"
+    );
+}
