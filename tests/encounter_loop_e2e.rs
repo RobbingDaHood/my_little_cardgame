@@ -147,9 +147,11 @@ mod tests {
                 id: 1,
                 card_type: "Attack".to_string(),
                 effects: vec![CardEffect {
-                    target: EffectTarget::OnOpponent,
-                    token_id: TokenType::Health,
-                    amount: -15,
+                    kind: my_little_cardgame::library::types::CardEffectKind::ChangeTokens {
+                        target: EffectTarget::OnOpponent,
+                        token_type: TokenType::Health,
+                        amount: -15,
+                    },
                     lifecycle:
                         my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
                     card_effect_id: None,

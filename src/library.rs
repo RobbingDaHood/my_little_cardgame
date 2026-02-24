@@ -38,8 +38,6 @@ pub mod types {
         Corruption,
         Exhaustion,
         Durability,
-        // Effect-only tokens (not stored in balances)
-        DrawCards,
     }
 
     impl Token {
@@ -72,13 +70,26 @@ pub mod types {
         pub effects: Vec<CardEffect>,
     }
 
+    /// Describes what kind of effect a card applies.
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+    #[serde(crate = "rocket::serde", tag = "effect_type")]
+    pub enum CardEffectKind {
+        ChangeTokens {
+            target: EffectTarget,
+            token_type: TokenType,
+            amount: i64,
+        },
+        DrawCards {
+            amount: u32,
+        },
+    }
+
     /// A single effect a card applies when played.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
     pub struct CardEffect {
-        pub target: EffectTarget,
-        pub token_id: TokenType,
-        pub amount: i64,
+        #[serde(flatten)]
+        pub kind: CardEffectKind,
         pub lifecycle: TokenLifecycle,
         /// Internal reference to the CardEffect card in the library.
         #[serde(skip)]
@@ -537,23 +548,31 @@ pub mod combat {
         rng_values.push(rng_val);
 
         for effect in &card.effects {
-            let actor_tokens = match (&effect.target, action.is_player) {
+            let (target, token_type, amount) = match &effect.kind {
+                super::types::CardEffectKind::ChangeTokens {
+                    target,
+                    token_type,
+                    amount,
+                } => (target, token_type, *amount),
+                super::types::CardEffectKind::DrawCards { .. } => continue,
+            };
+            let actor_tokens = match (target, action.is_player) {
                 (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => &mut pt_after,
                 (EffectTarget::OnOpponent, true) | (EffectTarget::OnSelf, false) => {
                     &mut state_after.enemy_tokens
                 }
             };
             let token_key = super::types::Token {
-                token_type: effect.token_id.clone(),
+                token_type: token_type.clone(),
                 lifecycle: effect.lifecycle.clone(),
             };
             let entry = actor_tokens.entry(token_key).or_insert(0);
-            *entry = (*entry + effect.amount).max(0);
+            *entry = (*entry + amount).max(0);
 
-            if effect.token_id == super::types::TokenType::Health && *entry == 0 {
+            if *token_type == super::types::TokenType::Health && *entry == 0 {
                 state_after.is_finished = true;
                 let affected_is_player = matches!(
-                    (&effect.target, action.is_player),
+                    (target, action.is_player),
                     (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false)
                 );
                 state_after.outcome = if affected_is_player {
@@ -1161,9 +1180,11 @@ fn initialize_library() -> Library {
 
     // id 0: Player "deal 5 damage" effect
     let player_damage_effect = CardEffect {
-        target: types::EffectTarget::OnOpponent,
-        token_id: types::TokenType::Health,
-        amount: -5,
+        kind: types::CardEffectKind::ChangeTokens {
+            target: types::EffectTarget::OnOpponent,
+            token_type: types::TokenType::Health,
+            amount: -5,
+        },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(0),
     };
@@ -1181,9 +1202,11 @@ fn initialize_library() -> Library {
 
     // id 1: Player "grant 3 shield" effect
     let player_shield_effect = CardEffect {
-        target: types::EffectTarget::OnSelf,
-        token_id: types::TokenType::Shield,
-        amount: 3,
+        kind: types::CardEffectKind::ChangeTokens {
+            target: types::EffectTarget::OnSelf,
+            token_type: types::TokenType::Shield,
+            amount: 3,
+        },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(1),
     };
@@ -1201,9 +1224,11 @@ fn initialize_library() -> Library {
 
     // id 2: Player "grant 2 stamina" effect
     let player_stamina_effect = CardEffect {
-        target: types::EffectTarget::OnSelf,
-        token_id: types::TokenType::Stamina,
-        amount: 2,
+        kind: types::CardEffectKind::ChangeTokens {
+            target: types::EffectTarget::OnSelf,
+            token_type: types::TokenType::Stamina,
+            amount: 2,
+        },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(2),
     };
@@ -1221,9 +1246,7 @@ fn initialize_library() -> Library {
 
     // id 3: Player "draw 1 card" effect
     let player_draw_effect = CardEffect {
-        target: types::EffectTarget::OnSelf,
-        token_id: types::TokenType::DrawCards,
-        amount: 1,
+        kind: types::CardEffectKind::DrawCards { amount: 1 },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(3),
     };
@@ -1243,9 +1266,11 @@ fn initialize_library() -> Library {
 
     // id 4: Enemy "deal 3 damage" effect
     let enemy_damage_effect = CardEffect {
-        target: types::EffectTarget::OnOpponent,
-        token_id: types::TokenType::Health,
-        amount: -3,
+        kind: types::CardEffectKind::ChangeTokens {
+            target: types::EffectTarget::OnOpponent,
+            token_type: types::TokenType::Health,
+            amount: -3,
+        },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(4),
     };
@@ -1263,9 +1288,11 @@ fn initialize_library() -> Library {
 
     // id 5: Enemy "grant 2 shield" effect
     let enemy_shield_effect = CardEffect {
-        target: types::EffectTarget::OnSelf,
-        token_id: types::TokenType::Shield,
-        amount: 2,
+        kind: types::CardEffectKind::ChangeTokens {
+            target: types::EffectTarget::OnSelf,
+            token_type: types::TokenType::Shield,
+            amount: 2,
+        },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(5),
     };
@@ -1283,9 +1310,11 @@ fn initialize_library() -> Library {
 
     // id 6: Enemy "grant 1 stamina" effect
     let enemy_stamina_effect = CardEffect {
-        target: types::EffectTarget::OnSelf,
-        token_id: types::TokenType::Stamina,
-        amount: 1,
+        kind: types::CardEffectKind::ChangeTokens {
+            target: types::EffectTarget::OnSelf,
+            token_type: types::TokenType::Stamina,
+            amount: 1,
+        },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(6),
     };
@@ -1303,9 +1332,7 @@ fn initialize_library() -> Library {
 
     // id 7: Enemy "draw 1 card" effect
     let enemy_draw_effect = CardEffect {
-        target: types::EffectTarget::OnSelf,
-        token_id: types::TokenType::DrawCards,
-        amount: 1,
+        kind: types::CardEffectKind::DrawCards { amount: 1 },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(7),
     };
@@ -1444,6 +1471,7 @@ fn initialize_library() -> Library {
 }
 
 /// Apply card effects to combat, modifying player tokens and combat snapshot.
+/// Only processes ChangeTokens effects; DrawCards effects are handled separately.
 fn apply_card_effects(
     effects: &[CardEffect],
     is_player: bool,
@@ -1451,7 +1479,16 @@ fn apply_card_effects(
     combat: &mut types::CombatState,
 ) {
     for effect in effects {
-        let target_tokens = match (&effect.target, is_player) {
+        let (target, token_type, amount) = match &effect.kind {
+            types::CardEffectKind::ChangeTokens {
+                target,
+                token_type,
+                amount,
+            } => (target, token_type, *amount),
+            types::CardEffectKind::DrawCards { .. } => continue,
+        };
+
+        let target_tokens = match (target, is_player) {
             (types::EffectTarget::OnSelf, true) | (types::EffectTarget::OnOpponent, false) => {
                 &mut *player_tokens
             }
@@ -1460,9 +1497,9 @@ fn apply_card_effects(
             }
         };
 
-        if effect.token_id == types::TokenType::Health && effect.amount < 0 {
+        if *token_type == types::TokenType::Health && amount < 0 {
             // Damage: consume dodge first, then reduce health
-            let damage = -effect.amount;
+            let damage = -amount;
             let dodge = target_tokens
                 .get(&types::Token::dodge())
                 .copied()
@@ -1479,11 +1516,11 @@ fn apply_card_effects(
         } else {
             let entry = target_tokens
                 .entry(types::Token {
-                    token_type: effect.token_id.clone(),
+                    token_type: token_type.clone(),
                     lifecycle: effect.lifecycle.clone(),
                 })
                 .or_insert(0);
-            *entry = (*entry + effect.amount).max(0);
+            *entry = (*entry + amount).max(0);
         }
     }
 }
@@ -1687,18 +1724,14 @@ impl GameState {
             | CardKind::Resource { effects } => effects.clone(),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
-        // Separate draw effects from combat effects
         let draw_count: u32 = effects
             .iter()
-            .filter(|e| e.token_id == types::TokenType::DrawCards)
-            .map(|e| e.amount.max(0) as u32)
+            .filter_map(|e| match &e.kind {
+                types::CardEffectKind::DrawCards { amount } => Some(*amount),
+                _ => None,
+            })
             .sum();
-        let combat_effects: Vec<_> = effects
-            .iter()
-            .filter(|e| e.token_id != types::TokenType::DrawCards)
-            .cloned()
-            .collect();
-        apply_card_effects(&combat_effects, true, &mut self.token_balances, combat);
+        apply_card_effects(&effects, true, &mut self.token_balances, combat);
         check_combat_end(&self.token_balances, combat);
         if combat.is_finished {
             self.last_combat_result = Some(combat.outcome.clone());
@@ -1767,19 +1800,15 @@ impl GameState {
             deck[card_idx].counts.discard += 1;
             let effects = deck[card_idx].effects.clone();
 
-            // Separate draw effects from combat effects
             let draw_count: u32 = effects
                 .iter()
-                .filter(|e| e.token_id == types::TokenType::DrawCards)
-                .map(|e| e.amount.max(0) as u32)
+                .filter_map(|e| match &e.kind {
+                    types::CardEffectKind::DrawCards { amount } => Some(*amount),
+                    _ => None,
+                })
                 .sum();
-            let combat_effects: Vec<_> = effects
-                .iter()
-                .filter(|e| e.token_id != types::TokenType::DrawCards)
-                .cloned()
-                .collect();
 
-            apply_card_effects(&combat_effects, false, &mut self.token_balances, combat);
+            apply_card_effects(&effects, false, &mut self.token_balances, combat);
             check_combat_end(&self.token_balances, combat);
 
             // Handle enemy draws from resource cards
