@@ -9,6 +9,22 @@ This document describes the high-level gameplay vision for the project, with a f
 - Fully reproducible: The game is initialized with a single explicit random seed at new-game start; all shuffles and random choices are derived from that seed so the entire game can be reproduced or replayed exactly.
 - Intentional minimal canonical data: the authoritative game state deliberately omits titles, verbose descriptions, and flavor text; only structural names, types, tokens, and essential parameters are stored. Presentation and flavour are delegated to clients and separate design notes.
 
+## Architecture and module layout
+
+The codebase is organized into the following main modules:
+
+- `src/library/` — core domain module containing:
+  - `types.rs` — core data types (LibraryCard, CardKind, CardEffect, CardEffectKind, CombatantDef, etc.)
+  - `combat.rs` — combat resolution logic (CombatState, CombatOutcome, card effect resolution)
+  - `encounter.rs` — encounter loop and phase management
+  - `registry.rs` — canonical TokenRegistry with token type definitions and caps
+  - `action_log.rs` — append-only player action log
+  - `game_state.rs` — top-level GameState managing Library, tokens, combat, and encounter state
+  - `endpoints.rs` — HTTP route handlers for gameplay and library queries
+- `src/combat/` — combat state endpoints (delegates to GameState methods)
+- `src/action/` — player action handling and POST /action request processing
+- `src/main.rs` — binary entry that mounts Rocket routes and serves OpenAPI/Swagger UI
+
 ## Core gameplay elements
 
 Deck types (examples):
@@ -42,11 +58,18 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 - Combat outcome is tracked via a `CombatOutcome` enum on CombatState with variants: Undecided, PlayerWon, EnemyWon. The separate CombatResult struct has been deleted.
 - Dodge absorption: damage consumes Dodge tokens first before Health is reduced.
 - Drawing additional cards is modelled via the `CardEffectKind::DrawCards { amount }` variant of the `CardEffectKind` enum. `CardEffect` uses a `kind` field with two variants: `ChangeTokens { target, token_type, amount }` for token manipulation, and `DrawCards { amount }` for card draw. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via ChangeTokens effects. Starting decks draw 2 cards per resource play for steady pacing. DrawCards is not a token type — it is purely a card effect subtype.
+- CardEffectKind extensibility: new card effect subtypes (e.g., conditional effects, area-of-effect, combo triggers) should be added as new `CardEffectKind` variants rather than overloading `ChangeTokens` with special token types. This keeps each effect kind self-describing and ensures exhaustive match coverage in Rust.
 - Enemy decks use `EnemyCardCounts { deck, hand, discard }` to track card locations. At combat start, enemy hands are shuffled (all cards move to deck, then random cards drawn to restore hand size using the seeded RNG). Enemies play from hand only; played cards go to discard. When a deck is empty and a draw is needed, the discard pile is recycled into the deck. Resource cards draw their DrawCards amount (via CardEffectKind::DrawCards) of cards for each of the three enemy deck types (attack, defence, resource), providing the only replenishment mechanism for all enemy decks.
-- After a player plays a card via EncounterPlayCard, the system automatically resolves the enemy's play and advances the combat phase. There are no separate endpoints for enemy play or phase advancement.
+- After a player plays a card via EncounterPlayCard, the system automatically resolves the enemy's play and advances the combat phase. There are no separate endpoints for enemy play or phase advancement. The exact auto-advance sequence is:
+  1. Player plays card → resolve player card effects
+  2. Resolve enemy play (one random card matching current CombatPhase from enemy hand)
+  3. Advance combat phase (Defending → Attacking → Resourcing → Defending)
+  4. Check combat end conditions (either side HP ≤ 0)
 - Encounter cards are not a separate AreaDeck struct. They live in the Library and use the same CardCounts (library/deck/hand/discard) as all other card types. Helper methods on Library (encounter_hand, encounter_contains, encounter_draw_to_hand) query encounter cards by their counts. The hand represents visible/pickable encounters and its size is controlled by the Foresight token (default 3).
 - CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum starting with Combat { combatant_def }, preparing for future non-combat encounter types (Gathering, Puzzle, etc.).
 - Players cannot abandon combat once started. Combat continues until one side is defeated (HP reaches 0). EncounterApplyScouting is the action that transitions from post-combat Scouting phase back to Ready.
+- Scouting after loss: after combat ends (whether the player wins or loses), the game transitions to the Scouting phase. The player can apply scouting regardless of combat outcome. This is intentional — scouting is a post-encounter lifecycle step, not a victory reward.
+- Health initialization: player Health is set to 20 when picking an encounter only if current Health is 0. Health persists across encounters within a game; it is not reset between encounters.
 - All amounts are positive: attacks have a positive number even though they remove health points, allowing unsigned integers to be used where possible.
 - Only four player actions exist: NewGame { seed: Option<u64> }, EncounterPickEncounter { card_id }, EncounterPlayCard { card_id }, EncounterApplyScouting. All other previously documented actions have been removed.
 - NewGame { seed: Option<u64> } initializes a fresh game. If no seed is provided, a random one is generated. The old /player/seed endpoint and SetSeed action have been removed.
@@ -63,7 +86,11 @@ Combat is modelled as a deterministic, turn-based exchange between decks:
 
 Combat is fully reproducible by recording the game's single initial seed and the player's action log (which card was played each turn).
 
-  - Encounter phases: use the EncounterPhase enum with values NoEncounter, Ready, InCombat, Scouting to name and track encounter phases consistently.
+  - Encounter phases: the `EncounterPhase` enum defines the encounter state machine with the following variants:
+    - `NoEncounter` — no encounter is active (initial state after NewGame)
+    - `Ready` — encounter hand is populated, player may pick an encounter
+    - `InCombat` — combat is in progress
+    - `Scouting` — post-combat phase where the player applies scouting before returning to Ready
 
   - HP as tokens: Hit points are modelled as tokens (e.g., health and max_health in active_tokens) rather than dedicated fields, following the 'everything is a token' principle.
 

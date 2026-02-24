@@ -49,6 +49,14 @@ Roadmap steps
 - Step 7.7 implemented: PlayerCardEffect and EnemyCardEffect CardKind variants; card_effect_id references; validation; GET /library/card-effects endpoint
 - New cards should always be appended to the end of the Library vector to preserve stable card IDs
 
+### Post-7.7 cleanup (2026-02-24)
+- Removed `EncounterPhase::Defence` (now uses `CombatPhase::Defending`)
+- Removed `Combatant` struct (enemy tokens moved directly to `CombatState.enemy_tokens`)
+- Extracted `DrawCards` from `TokenType` into `CardEffectKind` enum
+- Increased DrawCards amount from 1 to 2 per resource play for steady pacing
+- Split `library.rs` into `src/library/` module directory with submodules (types, combat, encounter, registry, action_log, game_state, endpoints)
+- Added long-scenario integration tests (`tests/scenario_tests.rs`) using only production endpoints
+
 Roadmap steps
 --------------: unify decks, hands, tokens, and enforce vision constraints
    - Goal: Create a single library crate that is the authoritative implementation of decks, tokens, Library semantics, and the canonical token registry.
@@ -112,6 +120,7 @@ Roadmap steps
    - Encounter handsize & Foresight: The encounter handsize is controlled by the Foresight token (default starting value: 3). When an encounter is chosen it is moved to the discard pile and when the encounter is over cards are drawn until the "area deck" hand reaches the Foresight number of cards (this behavior applies to area/encounter hand management).
    - Enemy play behavior: On each enemy turn the enemy plays one random card matching the current CombatPhase (attack card during Attacking, defence during Defending, resource during Resourcing). After the player plays a card, the system automatically resolves the enemy's play and advances the combat phase.
    - Deck composition: Ensure starting decks for both players and enemies contain approximately 50% draw/resource cards so games have steady card-flow and pacing.
+   - Current balance parameters: DrawCards amount is 2 per resource play (via CardEffectKind::DrawCards { amount: 2 }). This value significantly affects deck pacing and should be revisited as encounter complexity grows.
    - Playable acceptance: A minimal loop exists (pick -> fight -> scouting -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
 
 7.7) Prepare CardEffects decks 
@@ -132,6 +141,7 @@ Roadmap steps
    - Replay: The replay system (replay_from_log) already supports the core game loop (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). New encounter types will need to extend the replay handler accordingly.
    - Playable acceptance: At least one gathering discipline is playable end-to-end, produces material tokens consumed by craft flows, and actions are routed via POST /action.
    - Notes: Ensure node encounter resolution follows the same remove-and-replace lifecycl: In this simple setup the just finished encounter is just added back to the deck again with no changes.
+   - Scenario tests: update or add scenario tests in `tests/scenario_tests.rs` demonstrating the full gameplay loop with the new encounter type. Each new encounter type or gameplay feature from step 8 onwards should have at least one scenario test.
 
 9) Add basic crafting as discipline encounters and respect Library semantics
    - Goal: Implement crafting as discipline-specific encounters (Fabrication, Provisioning, etc.) that use discipline decks, consume materials, and create Library card copies when finalized.
@@ -202,6 +212,7 @@ Implementation guidelines and priorities
 - Prioritize deterministic behavior and reproducibility from the start.
 - Prefer data-driven content formats (deck files, affix tables) so designers can author content without code changes.
 - Try to migrate tests away from test endpoints and use only public endpoints. Only use test endpoints temporarily if it is not possible to run the test without them; the expectation is that a later point in the roadmap will make any test endpoint redundant. 
+- Test migration status: `tests/scenario_tests.rs` uses only production endpoints and serves as the model for new tests. Track which test files still depend on /tests/* endpoints and target full migration as features make test endpoints redundant.
 
 How to use this roadmap
 -----------------------
