@@ -90,3 +90,11 @@ If you ever get a message about being rate limited then stop the current plan an
 Messages could contain phrases like "rate limit that restricts the number of Copilot model requests" but is not limited to that. 
 
 Do not continue retrying if that message shows up! 
+
+Branches and pull request 
+
+Always ask if the work should be done on a new branch or the current branch. 
+
+Always commit small isolated commits, but each commit should pass the tests and other checks. 
+
+Never push and never create a pull request. I will do that manually. 
