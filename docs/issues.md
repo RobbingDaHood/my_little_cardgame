@@ -1,27 +1,28 @@
-4. **Token map serialization and vision.md**: The compact JSON format ({"Health": 20}) is not documented in vision.md. Since API format is part of the contract, consider documenting it.
-    1. Be clear that "Persistant" is the default duration, but that this could be overwritten by any other duration for any type of token.
-
-1. All new cards should be added to the end of the Lilbrary vector and not at the beginning, so all ids are kept stable. 
-
-1. The DrawCards is not a token, but a CardEffect. 
-
-1. The DrawCards effect is a seperate subtype of CardEffects (and there could be other substypes in the future): because this does not manipulate any tokens but just pick up cards on hand. Implement the two subtypes of CardEffect: draw cards and change tokens. 
-
-1. The DrawCards effect draws 2 cards in the initial setup of the game. 
-
-1. Just move the rest of the fields out of Combatant and into CombatState and then get rid of Combatant. 
-
-1. Consider splitting Library.rs up and create more seperate files and folders. 
-
-1. EncounterPhase should not not have a Defence. That is a CombatPhase.
-
-1. Add a new type of automatic test: That tests longer scenarioes. Like all the way from a new game to first combat is won and then start a new scenario etc. They should call the action endpoint and assert relevant get endpoints. The point is to be a very easy "guide" of how to use the interface (besides being a test that some uses cases are reachable). I know it can be tricky to make these decks, because there is some try and error until you find the nessesary steps to get to this case. These tests can never use any test endpoint, only the action endpoint. All these test should be put in one test file: Make sure the test file starts with a good description of what type of tests are in this test file. Some use cases I have in mind for now is: 
-    1. Start new game, start encounter, play encounter until the player win, pick new encounter and observe the next combat is started. Also assert that the first game were registered as a win for the player and what tokens the player and enemy had during the battle. 
-    1. Then the same case, but just that the enemy won. 
-
-1. Add to the copilot instructions file that I want the test described above updated if there are other use cases added. It should cover all genereal use cases with at least one happy path. 
-
-1. Add to the README that the test described above can be used as a guide on how to play the game. 
+1. The draw card effects should define a list of "decks" that get X amount of cards drawn. 
+    1. Example: One draw card effect could draw 1 card in the attack deck, 1 card in the defence deck and 2 cards in the ressource deck. 
+    1. So the draw card effect always have a map of "CardType" to counter. Representing the collections of "decks" that are affected and how many cards there is drawn for each. 
+    1. To be clear it all interacts with the library as it is currently implmented and only the Draw CardEffect and the code that executes the card effect need to change. 
+        1. This is because the attack deck/hand is defined as all the cards in the library with the attack card type: etc. 
+    1. I want the initial created cards at a new game to each to give exacly: 1 attack, 1 defence and 2 ressource draw cards. 
+1. The DrawCard effect does now seem to be implemented in the apply_card_effect. Implent this. 
+    1. The DrawCard effect should "draw a card" for the relevant deck. 
+    1. If an enemy playes the card then the enmy will draw a card. 
+    1. If the palyer playes it they can draw a card. 
+    1. It respect the library way of counting. 
+    1. Add that both player and enemy draws some cards to the scenario tests: it is fine if that just get added to at least one existing test. 
+    1. When the player draws cards, then it is random cards from the relevant "deck" and on hand. 
+    1. If there are not any more cards left in the relevant deck, then move all cards from "discard" to "deck" and then draw. 
+1. CardDef.card_type should be an enum.
+1. CardEffect.kind should be defined by whatever "card_effect_id" is pointing at. 
+1. CardEffect.card_effect_id should not be optional but is mandatory.
+1. CardEffect.lifecycle should just be deletd: If the card effect that is reffered too manipulates with tokens, then their lifecycle is defined there. 
+1. Seems like this means that the CardEffect struct is not needed anymore? if se delete it and just use the card CardEffect. 
+1. The deck struct seems unused, if it is then delete it. 
+1. Make a bigger more thorough analasys of the codebase and refacor:
+    1. Get rid of legacy code: do not consider breaking changes.
+    1. Get rid of dead code. 
+    1. Optimize the code and simplify the implementations. 
+    1. Cannot loose any functionality on the public /action POST endpoint: But else I think the rest can be changed. 
 
 # When done with all of this then update the subbestions-vision-roadmap.md 
 
