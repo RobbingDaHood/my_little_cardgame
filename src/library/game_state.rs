@@ -64,10 +64,14 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 3: Player "draw 2 cards" effect
+    // id 3: Player "draw 1 attack, 1 defence, 2 resource" effect
     lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::DrawCards { amount: 2 },
+            kind: super::types::CardEffectKind::DrawCards {
+                attack: 1,
+                defence: 1,
+                resource: 2,
+            },
             lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
@@ -134,10 +138,14 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 7: Enemy "draw 2 cards" effect
+    // id 7: Enemy "draw 1 attack, 1 defence, 2 resource" effect
     lib.add_card(
         CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::DrawCards { amount: 2 },
+            kind: super::types::CardEffectKind::DrawCards {
+                attack: 1,
+                defence: 1,
+                resource: 2,
+            },
             lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
@@ -516,13 +524,22 @@ impl GameState {
             | CardKind::Resource { effect_ids } => effect_ids.clone(),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
-        let draw_count: u32 = effect_ids
-            .iter()
-            .filter_map(|&id| match self.library.resolve_effect(id) {
-                Some((super::types::CardEffectKind::DrawCards { amount }, _)) => Some(amount),
-                _ => None,
-            })
-            .sum();
+        let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
+        for &id in &effect_ids {
+            if let Some((
+                super::types::CardEffectKind::DrawCards {
+                    attack,
+                    defence,
+                    resource,
+                },
+                _,
+            )) = self.library.resolve_effect(id)
+            {
+                atk_draws += attack;
+                def_draws += defence;
+                res_draws += resource;
+            }
+        }
         apply_card_effects(
             &effect_ids,
             true,
@@ -536,41 +553,59 @@ impl GameState {
             self.current_combat = None;
             self.encounter_state.phase = super::types::EncounterPhase::Scouting;
         }
-        if draw_count > 0 {
-            self.draw_random_cards(draw_count);
-        }
+        self.draw_player_cards_by_type(atk_draws, def_draws, res_draws);
         Ok(())
     }
 
-    /// Draw random cards from deck to hand (for resource card draw mechanic).
-    fn draw_random_cards(&mut self, count: u32) {
-        let drawable: Vec<usize> = self
-            .library
-            .cards
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| {
-                c.counts.deck > 0
-                    && !matches!(
-                        c.kind,
-                        CardKind::Encounter { .. }
-                            | CardKind::PlayerCardEffect { .. }
-                            | CardKind::EnemyCardEffect { .. }
-                    )
-            })
-            .map(|(i, _)| i)
-            .collect();
-        if drawable.is_empty() {
-            return;
-        }
-        for i in 0..count {
-            let idx = drawable[i as usize % drawable.len()];
-            let _ = self.library.draw(idx);
+    /// Draw player cards from deck to hand per card type, recycling discard if needed.
+    fn draw_player_cards_by_type(&mut self, attack: u32, defence: u32, resource: u32) {
+        self.draw_player_cards_of_kind(attack, |k| matches!(k, CardKind::Attack { .. }));
+        self.draw_player_cards_of_kind(defence, |k| matches!(k, CardKind::Defence { .. }));
+        self.draw_player_cards_of_kind(resource, |k| matches!(k, CardKind::Resource { .. }));
+    }
+
+    /// Draw `count` player cards of a specific kind from deck to hand.
+    /// Recycles discard→deck for cards matching `kind_filter` when deck is empty.
+    fn draw_player_cards_of_kind(&mut self, count: u32, kind_filter: fn(&CardKind) -> bool) {
+        for _ in 0..count {
+            let drawable: Vec<usize> = self
+                .library
+                .cards
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| c.counts.deck > 0 && kind_filter(&c.kind))
+                .map(|(i, _)| i)
+                .collect();
+            if drawable.is_empty() {
+                // Recycle discard→deck for this card type
+                for card in self.library.cards.iter_mut() {
+                    if kind_filter(&card.kind) && card.counts.discard > 0 {
+                        card.counts.deck += card.counts.discard;
+                        card.counts.discard = 0;
+                    }
+                }
+                let drawable: Vec<usize> = self
+                    .library
+                    .cards
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, c)| c.counts.deck > 0 && kind_filter(&c.kind))
+                    .map(|(i, _)| i)
+                    .collect();
+                if drawable.is_empty() {
+                    return;
+                }
+                let idx = drawable[0];
+                let _ = self.library.draw(idx);
+            } else {
+                let idx = drawable[0];
+                let _ = self.library.draw(idx);
+            }
         }
     }
 
     /// Resolve an enemy card play from hand in the current combat phase.
-    /// Played cards move to discard. Resource cards with DrawCards trigger enemy draws.
+    /// Played cards move to discard. DrawCards effects trigger per-type enemy draws.
     pub fn resolve_enemy_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) -> Result<(), String> {
         let combat = self.current_combat.as_ref().ok_or("No active combat")?;
         let phase = combat.phase.clone();
@@ -598,13 +633,22 @@ impl GameState {
             deck[card_idx].counts.discard += 1;
             let effect_ids = deck[card_idx].effect_ids.clone();
 
-            let draw_count: u32 = effect_ids
-                .iter()
-                .filter_map(|&id| match self.library.resolve_effect(id) {
-                    Some((super::types::CardEffectKind::DrawCards { amount }, _)) => Some(amount),
-                    _ => None,
-                })
-                .sum();
+            let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
+            for &id in &effect_ids {
+                if let Some((
+                    super::types::CardEffectKind::DrawCards {
+                        attack,
+                        defence,
+                        resource,
+                    },
+                    _,
+                )) = self.library.resolve_effect(id)
+                {
+                    atk_draws += attack;
+                    def_draws += defence;
+                    res_draws += resource;
+                }
+            }
 
             apply_card_effects(
                 &effect_ids,
@@ -615,12 +659,11 @@ impl GameState {
             );
             check_combat_end(&self.token_balances, combat);
 
-            // Handle enemy draws from resource cards
-            if draw_count > 0 && !combat.is_finished {
-                let resource_deck = &mut combat.enemy_resource_deck;
-                for _ in 0..draw_count {
-                    Self::enemy_draw_random(rng, resource_deck);
-                }
+            // Handle enemy draws per deck type
+            if !combat.is_finished {
+                Self::enemy_draw_n(rng, &mut combat.enemy_attack_deck, atk_draws);
+                Self::enemy_draw_n(rng, &mut combat.enemy_defence_deck, def_draws);
+                Self::enemy_draw_n(rng, &mut combat.enemy_resource_deck, res_draws);
             }
 
             if combat.is_finished {
@@ -630,6 +673,17 @@ impl GameState {
             }
         }
         Ok(())
+    }
+
+    /// Draw `count` random cards from a single enemy deck to hand, recycling discard if needed.
+    fn enemy_draw_n(
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        deck: &mut [super::types::EnemyCardDef],
+        count: u32,
+    ) {
+        for _ in 0..count {
+            Self::enemy_draw_random(rng, deck);
+        }
     }
 
     /// Shuffle enemy hand: move all cards to deck, then draw random cards back to hand.

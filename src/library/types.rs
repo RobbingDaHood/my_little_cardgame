@@ -57,7 +57,9 @@ pub enum CardEffectKind {
         amount: i64,
     },
     DrawCards {
-        amount: u32,
+        attack: u32,
+        defence: u32,
+        resource: u32,
     },
 }
 
