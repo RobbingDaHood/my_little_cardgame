@@ -396,16 +396,6 @@ pub mod types {
 
     // ====== Combat types for deterministic, logged combat resolution (Step 6) ======
 
-    /// Represents a combatant (player or enemy) in combat.
-    /// Pure-data representation of combat state.
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-    #[serde(crate = "rocket::serde")]
-    pub struct Combatant {
-        #[serde(with = "token_map_serde")]
-        #[schemars(with = "token_map_serde::SchemaHelper")]
-        pub active_tokens: HashMap<Token, i64>,
-    }
-
     /// A combat action is a card play by a combatant.
     #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
     #[serde(crate = "rocket::serde")]
@@ -448,7 +438,9 @@ pub mod types {
         pub round: u64,
         pub player_turn: bool,
         pub phase: CombatPhase,
-        pub enemy: Combatant,
+        #[serde(with = "token_map_serde")]
+        #[schemars(with = "token_map_serde::SchemaHelper")]
+        pub enemy_tokens: HashMap<Token, i64>,
         pub encounter_card_id: Option<usize>,
         pub is_finished: bool,
         pub outcome: CombatOutcome,
@@ -548,7 +540,7 @@ pub mod combat {
             let actor_tokens = match (&effect.target, action.is_player) {
                 (EffectTarget::OnSelf, true) | (EffectTarget::OnOpponent, false) => &mut pt_after,
                 (EffectTarget::OnOpponent, true) | (EffectTarget::OnSelf, false) => {
-                    &mut state_after.enemy.active_tokens
+                    &mut state_after.enemy_tokens
                 }
             };
             let token_key = super::types::Token {
@@ -1464,7 +1456,7 @@ fn apply_card_effects(
                 &mut *player_tokens
             }
             (types::EffectTarget::OnOpponent, true) | (types::EffectTarget::OnSelf, false) => {
-                &mut combat.enemy.active_tokens
+                &mut combat.enemy_tokens
             }
         };
 
@@ -1503,8 +1495,7 @@ fn check_combat_end(player_tokens: &HashMap<types::Token, i64>, combat: &mut typ
         .copied()
         .unwrap_or(0);
     let enemy_health = combat
-        .enemy
-        .active_tokens
+        .enemy_tokens
         .get(&types::Token::persistent(types::TokenType::Health))
         .copied()
         .unwrap_or(0);
@@ -1669,9 +1660,7 @@ impl GameState {
             round: 1,
             player_turn: true,
             phase: types::CombatPhase::Defending,
-            enemy: types::Combatant {
-                active_tokens: combatant_def.initial_tokens.clone(),
-            },
+            enemy_tokens: combatant_def.initial_tokens.clone(),
             encounter_card_id: Some(encounter_card_id),
             is_finished: false,
             outcome: types::CombatOutcome::Undecided,

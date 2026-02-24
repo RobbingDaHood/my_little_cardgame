@@ -86,8 +86,8 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     assert_eq!(resp_combat.status(), Status::Ok);
     let combat_json: serde_json::Value =
         serde_json::from_str(&resp_combat.into_string().expect("body")).expect("json");
-    // Enemy tokens are in enemy.active_tokens as an array
-    let enemy_tokens = &combat_json["enemy"]["active_tokens"];
+    // Enemy tokens are in enemy_tokens as a map
+    let enemy_tokens = &combat_json["enemy_tokens"];
     let shield = token_value(enemy_tokens, "Shield");
     assert!(
         shield > 0,
@@ -115,7 +115,7 @@ fn test_seed_determinism_for_enemy_selection() {
         serde_json::from_str(&resp1.into_string().expect("body")).expect("json");
 
     // Capture enemy tokens after first play
-    let enemy_tokens_1 = combat1["enemy"]["active_tokens"].clone();
+    let enemy_tokens_1 = combat1["enemy_tokens"].clone();
 
     // Second run: reinitialize, set same seed via NewGame, enemy_play
     client
@@ -131,7 +131,7 @@ fn test_seed_determinism_for_enemy_selection() {
     let resp2 = client.get("/combat").dispatch();
     let combat2: serde_json::Value =
         serde_json::from_str(&resp2.into_string().expect("body")).expect("json");
-    let enemy_tokens_2 = combat2["enemy"]["active_tokens"].clone();
+    let enemy_tokens_2 = combat2["enemy_tokens"].clone();
 
     // Compare individual token values (order may differ due to HashMap iteration)
     assert_eq!(
@@ -190,7 +190,7 @@ fn test_enemy_play_applies_effects() {
     let resp_before = client.get("/combat").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let shield_before = token_value(&combat_before["enemy"]["active_tokens"], "Shield");
+    let shield_before = token_value(&combat_before["enemy_tokens"], "Shield");
 
     // Enemy plays in Defending phase → defence card grants shield
     let resp = client.post("/tests/combat/enemy_play").dispatch();
@@ -199,7 +199,7 @@ fn test_enemy_play_applies_effects() {
     let resp_after = client.get("/combat").dispatch();
     let combat_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-    let shield_after = token_value(&combat_after["enemy"]["active_tokens"], "Shield");
+    let shield_after = token_value(&combat_after["enemy_tokens"], "Shield");
 
     // Enemy defence card grants 2 shield
     assert_eq!(shield_after, shield_before + 2);
@@ -214,7 +214,7 @@ fn test_player_card_damages_enemy() {
     let resp_before = client.get("/combat").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let health_before = token_value(&combat_before["enemy"]["active_tokens"], "Health");
+    let health_before = token_value(&combat_before["enemy_tokens"], "Health");
 
     // Advance to Attacking
     client.post("/tests/combat/advance").dispatch();
@@ -236,7 +236,7 @@ fn test_player_card_damages_enemy() {
     if resp_after.status() == Status::Ok {
         let combat_after: serde_json::Value =
             serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-        let health_after = token_value(&combat_after["enemy"]["active_tokens"], "Health");
+        let health_after = token_value(&combat_after["enemy_tokens"], "Health");
         assert!(health_after < health_before);
     }
     // If combat ended, that's fine too — the attack dealt enough damage

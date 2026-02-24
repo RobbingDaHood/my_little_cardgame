@@ -61,7 +61,7 @@ fn hello_world() {
     assert!(actual_combat.player_turn);
     // Enemy should have initial tokens (health=20, max_health=20 from gnome combatant_def)
     assert_eq!(
-        token_balance_by_type(&actual_combat.enemy.active_tokens, &TokenType::Health),
+        token_balance_by_type(&actual_combat.enemy_tokens, &TokenType::Health),
         20
     );
     // Player should have health token from token_balances (initialized to 20)
