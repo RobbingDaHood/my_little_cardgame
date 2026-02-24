@@ -124,6 +124,8 @@ Run tests with output:
 cargo test -- --nocapture
 ```
 
+The `tests/scenario_tests.rs` file contains long-scenario integration tests that exercise full gameplay loops (new game → combat → scout → next encounter). These tests use only production endpoints and serve as a guide for how to play the game via the HTTP API.
+
 ### Code Quality
 
 Check for linting issues:
