@@ -19,10 +19,12 @@ High-level architecture
 - Core crates and layout:
   - `src/lib.rs` — library entry point exposing the public API used by the binary.
   - `src/main.rs` — binary entry that mounts Rocket routes and serves the OpenAPI/Swagger UI.
-  - `src/deck/` — deck and card management (card definitions, deck operations, token handling).
-  - `src/combat/` — combat resolution and play logic.
+  - `src/library/` — core domain module: types, game state, combat resolution, encounter loop, token registry, action log, and HTTP endpoints.
+  - `src/combat/` — combat state endpoints and simulation.
   - `src/action/` — player action handling and request processing.
+  - `src/area_deck/` — area/encounter deck endpoints.
   - `src/player_data.rs` — player state and persistence logic.
+  - `src/player_tokens.rs` — player token balance endpoint.
   - `src/status_messages.rs` — standardized API response messages.
 - All runtime behaviour is exposed via HTTP endpoints; most internal functionality is tested with integration tests that drive the API.
 
@@ -30,6 +32,7 @@ Key conventions and repository-specific notes
 
 - "Everything is a deck" design: core game state is modelled as decks (Attack, Defence, Resource) and cards move between Deck, Hand, Discarded, Deleted states.
 - Tests: place tests in separate files under the top-level `tests/` directory (do not put tests inline in `src` files). Prefer integration tests that exercise the public HTTP API (see `tests/` and `src/tests.rs`). Do not make items `pub` solely to enable unit testing — keep as much of the program private as possible and test through integration tests instead. When running a single integration test, use the test name shown in source (substring matching is supported by `cargo test`). Aim for at least 90% test coverage before committing; ensure coverage is measured and enforced in CI.
+- Scenario tests: `tests/scenario_tests.rs` contains long-scenario integration tests that exercise full gameplay loops (new game → combat → scout → next encounter). These tests use only production endpoints and serve as living documentation. When adding new encounter types, card mechanics, or gameplay features, update or add scenario tests so they remain an accurate API gameplay guide.
 - OpenAPI/Swagger is enabled using `rocket_okapi`; when the server is running, view Swagger UI at `/swagger/`.
 - No unwraps and zero Clippy warnings policy: avoid adding unwrap() in production code; prefer Result propagation and explicit error handling.
 - Features and dependencies: Rocket is built with `json` feature disabled by default — follow existing Cargo.toml features when adding dependencies.
