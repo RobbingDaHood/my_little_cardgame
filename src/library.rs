@@ -1244,9 +1244,9 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 3: Player "draw 1 card" effect
+    // id 3: Player "draw 2 cards" effect
     let player_draw_effect = CardEffect {
-        kind: types::CardEffectKind::DrawCards { amount: 1 },
+        kind: types::CardEffectKind::DrawCards { amount: 2 },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(3),
     };
@@ -1330,9 +1330,9 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 7: Enemy "draw 1 card" effect
+    // id 7: Enemy "draw 2 cards" effect
     let enemy_draw_effect = CardEffect {
-        kind: types::CardEffectKind::DrawCards { amount: 1 },
+        kind: types::CardEffectKind::DrawCards { amount: 2 },
         lifecycle: types::TokenLifecycle::PersistentCounter,
         card_effect_id: Some(7),
     };
