@@ -300,20 +300,6 @@ pub enum TokenLifecycle {
     Conditional,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct Deck {
-    pub id: String,
-    pub card_ids: Vec<u64>,
-}
-
-/// Small, explicit action requests used by the library mutator.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub enum ActionRequest {
-    GrantToken { token_id: TokenType, amount: i64 },
-}
-
 /// Action payloads for the append-only log
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "type")]
