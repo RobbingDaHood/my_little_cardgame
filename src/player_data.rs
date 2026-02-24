@@ -5,9 +5,7 @@ use rand_pcg::Lcg64Xsh32;
 use rocket::futures::lock::Mutex;
 
 pub struct PlayerData {
-    #[allow(dead_code)]
     pub(crate) seed: Arc<Mutex<[u8; 16]>>,
-    #[allow(dead_code)]
     pub(crate) random_generator_state: Arc<Mutex<Lcg64Xsh32>>,
 }
 

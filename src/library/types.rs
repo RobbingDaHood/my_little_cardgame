@@ -455,17 +455,3 @@ pub enum EncounterPhase {
     /// No active encounter
     NoEncounter,
 }
-
-/// User actions during an encounter (Step 7)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde", tag = "action_type")]
-pub enum EncounterAction {
-    /// Pick an encounter from the area deck and initialize combat
-    PickEncounter { card_id: String },
-    /// Play a card during combat
-    PlayCard { card_id: u64 },
-    /// Make a scouting choice post-encounter using card_ids
-    ApplyScouting { card_ids: Vec<String> },
-    /// System-driven: finish/conclude the encounter (not a player action)
-    FinishEncounter,
-}

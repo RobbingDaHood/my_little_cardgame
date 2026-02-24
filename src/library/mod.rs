@@ -3,8 +3,6 @@
 //! This file provides small, well-scoped domain primitives used by higher-level systems.
 
 pub mod action_log;
-pub mod combat;
-pub mod encounter;
 mod endpoints;
 pub mod game_state;
 pub mod registry;
