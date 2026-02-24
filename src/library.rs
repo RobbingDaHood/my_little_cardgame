@@ -57,7 +57,7 @@ pub mod types {
                 token_type: TokenType::Dodge,
                 lifecycle: TokenLifecycle::FixedTypeDuration {
                     duration: 1,
-                    phases: vec![EncounterPhase::Defence],
+                    phases: vec![CombatPhase::Defending],
                 },
             }
         }
@@ -299,7 +299,7 @@ pub mod types {
         },
         FixedTypeDuration {
             duration: u64,
-            phases: Vec<EncounterPhase>,
+            phases: Vec<CombatPhase>,
         },
         UntilNextAction,
         SingleUse,
@@ -415,7 +415,7 @@ pub mod types {
     }
 
     /// Combat phases for turn-based combat.
-    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
     #[serde(crate = "rocket::serde")]
     pub enum CombatPhase {
         Defending,
@@ -487,8 +487,6 @@ pub mod types {
         Scouting,
         /// No active encounter
         NoEncounter,
-        /// Defence phase (used by Dodge token lifecycle)
-        Defence,
     }
 
     /// User actions during an encounter (Step 7)
