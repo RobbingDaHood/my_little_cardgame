@@ -5,19 +5,11 @@ use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 use std::borrow::Cow;
 
-/// Extract a token value from the serialized token array format.
+/// Extract a token value from the serialized token map format.
 fn token_value(tokens: &serde_json::Value, token_type: &str) -> i64 {
     tokens
-        .as_array()
-        .and_then(|arr| {
-            arr.iter().find_map(|entry| {
-                if entry["token"]["token_type"].as_str() == Some(token_type) {
-                    entry["value"].as_i64()
-                } else {
-                    None
-                }
-            })
-        })
+        .as_object()
+        .and_then(|obj| obj.get(token_type).and_then(|v| v.as_i64()))
         .unwrap_or(0)
 }
 
@@ -28,8 +20,8 @@ fn test_phase_enforcement_attack_in_defending_should_fail() {
     let init_response = client.post("/tests/combat").dispatch();
     assert_eq!(init_response.status(), Status::Created);
 
-    // Try to play an Attack card (id 0) while in Defending phase -> should be BadRequest
-    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 0, "effects": [] }"#;
+    // Try to play an Attack card (id 8) while in Defending phase -> should be BadRequest
+    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 8 }"#;
     let response = client
         .post("/action")
         .header(Header {
@@ -47,16 +39,16 @@ fn test_play_defence_moves_card_to_discard() {
     // Initialize combat (Defending)
     client.post("/tests/combat").dispatch();
 
-    // Check initial Library card state for defence card (id 1)
+    // Check initial Library card state for defence card (id 9)
     let resp_before = client.get("/library/cards").dispatch();
     assert_eq!(resp_before.status(), Status::Ok);
     let cards_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
-    let hand_before = cards_before[1]["counts"]["hand"].as_u64().unwrap_or(0) as u32;
-    let discard_before = cards_before[1]["counts"]["discard"].as_u64().unwrap_or(0) as u32;
+    let hand_before = cards_before[9]["counts"]["hand"].as_u64().unwrap_or(0) as u32;
+    let discard_before = cards_before[9]["counts"]["discard"].as_u64().unwrap_or(0) as u32;
 
-    // Play a defence card (id 1)
-    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 1, "effects": [] }"#;
+    // Play a defence card (id 9)
+    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 9 }"#;
     let response = client
         .post("/action")
         .header(Header {
@@ -72,8 +64,8 @@ fn test_play_defence_moves_card_to_discard() {
     assert_eq!(resp_after.status(), Status::Ok);
     let cards_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
-    let hand_after = cards_after[1]["counts"]["hand"].as_u64().unwrap_or(0) as u32;
-    let discard_after = cards_after[1]["counts"]["discard"].as_u64().unwrap_or(0) as u32;
+    let hand_after = cards_after[9]["counts"]["hand"].as_u64().unwrap_or(0) as u32;
+    let discard_after = cards_after[9]["counts"]["discard"].as_u64().unwrap_or(0) as u32;
 
     assert_eq!(hand_after, hand_before.saturating_sub(1));
     assert_eq!(discard_after, discard_before + 1);
@@ -89,7 +81,7 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     let resp = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
-    // Fetch combat and check enemy tokens via CombatSnapshot JSON
+    // Fetch combat and check enemy tokens via CombatState JSON
     let resp_combat = client.get("/combat").dispatch();
     assert_eq!(resp_combat.status(), Status::Ok);
     let combat_json: serde_json::Value =
@@ -227,8 +219,8 @@ fn test_player_card_damages_enemy() {
     // Advance to Attacking
     client.post("/tests/combat/advance").dispatch();
 
-    // Play attack card (id 0, deals 5 damage)
-    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 0, "effects": [] }"#;
+    // Play attack card (id 8, deals 5 damage)
+    let action_json = r#"{ "action_type": "EncounterPlayCard", "card_id": 8 }"#;
     let resp = client
         .post("/action")
         .header(Header {
@@ -258,13 +250,13 @@ fn test_player_kills_enemy_and_combat_ends() {
     client.post("/tests/combat").dispatch();
 
     // Play cards cycling through phases until combat ends
-    // Phase cycle: Defending(1) -> Attacking(0) -> Resourcing(2) -> Defending(1) ...
-    // Card ids: 0=Attack, 1=Defence, 2=Resource
-    let phase_cards = [1, 0, 2]; // Defence, Attack, Resource
+    // Phase cycle: Defending(9) -> Attacking(8) -> Resourcing(10) -> Defending(9) ...
+    // Card ids: 8=Attack, 9=Defence, 10=Resource
+    let phase_cards = [9, 8, 10]; // Defence, Attack, Resource
     for (phase_idx, _) in (0..30).enumerate() {
         let card_id = phase_cards[phase_idx % 3];
         let action_json = format!(
-            r#"{{ "action_type": "EncounterPlayCard", "card_id": {}, "effects": [] }}"#,
+            r#"{{ "action_type": "EncounterPlayCard", "card_id": {} }}"#,
             card_id
         );
         let resp = client

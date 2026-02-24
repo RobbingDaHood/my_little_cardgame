@@ -5,7 +5,7 @@ mod tests {
     use my_little_cardgame::library::combat;
     use my_little_cardgame::library::types::{
         token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
-        CombatSnapshot, Combatant, EffectTarget, Token, TokenType,
+        CombatState, Combatant, EffectTarget, Token, TokenType,
     };
     use std::collections::HashMap;
 
@@ -17,6 +17,8 @@ mod tests {
                 target: EffectTarget::OnOpponent,
                 token_id: TokenType::Health,
                 amount: -damage,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                card_effect_id: None,
             }],
         }
     }
@@ -29,6 +31,8 @@ mod tests {
                 target: EffectTarget::OnSelf,
                 token_id: TokenType::Health,
                 amount,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                card_effect_id: None,
             }],
         }
     }
@@ -41,6 +45,8 @@ mod tests {
                 target: EffectTarget::OnSelf,
                 token_id: token,
                 amount,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                card_effect_id: None,
             }],
         }
     }
@@ -57,27 +63,27 @@ mod tests {
         defs
     }
 
-    fn two_combatant_snapshot(
-        player_hp: i64,
-        enemy_hp: i64,
-    ) -> (CombatSnapshot, HashMap<Token, i64>) {
+    fn two_combatant_snapshot(player_hp: i64, enemy_hp: i64) -> (CombatState, HashMap<Token, i64>) {
         let player_tokens = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), player_hp),
-            (TokenType::MaxHealth.with_default_lifecycle(), player_hp),
+            (Token::persistent(TokenType::Health), player_hp),
+            (Token::persistent(TokenType::MaxHealth), player_hp),
         ]);
-        let snapshot = CombatSnapshot {
+        let snapshot = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
             enemy: Combatant {
                 active_tokens: HashMap::from([
-                    (TokenType::Health.with_default_lifecycle(), enemy_hp),
-                    (TokenType::MaxHealth.with_default_lifecycle(), enemy_hp),
+                    (Token::persistent(TokenType::Health), enemy_hp),
+                    (Token::persistent(TokenType::MaxHealth), enemy_hp),
                 ]),
             },
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
         (snapshot, player_tokens)
     }
@@ -154,10 +160,10 @@ mod tests {
     #[test]
     fn test_empty_combat_produces_log() {
         let pt = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), 100),
-            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            (Token::persistent(TokenType::Health), 100),
+            (Token::persistent(TokenType::MaxHealth), 100),
         ]);
-        let initial_state = CombatSnapshot {
+        let initial_state = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
@@ -167,6 +173,9 @@ mod tests {
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
         let card_defs = test_card_defs();
 
@@ -200,10 +209,10 @@ mod tests {
     #[test]
     fn test_token_operations_deterministic() {
         let pt = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), 100),
-            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            (Token::persistent(TokenType::Health), 100),
+            (Token::persistent(TokenType::MaxHealth), 100),
         ]);
-        let initial_state = CombatSnapshot {
+        let initial_state = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
@@ -213,6 +222,9 @@ mod tests {
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
         let card_defs = test_card_defs();
 

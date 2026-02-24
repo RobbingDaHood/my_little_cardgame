@@ -133,7 +133,7 @@ mod tests {
         use my_little_cardgame::library::combat;
         use my_little_cardgame::library::types::{
             token_balance_by_type, CardDef, CardEffect, CombatAction, CombatOutcome, CombatPhase,
-            CombatSnapshot, Combatant, EffectTarget, TokenType,
+            CombatState, Combatant, EffectTarget, Token, TokenType,
         };
         use std::collections::HashMap;
 
@@ -150,6 +150,9 @@ mod tests {
                     target: EffectTarget::OnOpponent,
                     token_id: TokenType::Health,
                     amount: -15,
+                    lifecycle:
+                        my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                    card_effect_id: None,
                 }],
             },
         );
@@ -171,22 +174,25 @@ mod tests {
 
         // Phase 2: Combat — play cards to defeat enemy
         let initial_pt = HashMap::from([
-            (TokenType::Health.with_default_lifecycle(), 100),
-            (TokenType::MaxHealth.with_default_lifecycle(), 100),
+            (Token::persistent(TokenType::Health), 100),
+            (Token::persistent(TokenType::MaxHealth), 100),
         ]);
-        let initial_combat = CombatSnapshot {
+        let initial_combat = CombatState {
             round: 1,
             player_turn: true,
             phase: CombatPhase::Defending,
             enemy: Combatant {
                 active_tokens: HashMap::from([
-                    (TokenType::Health.with_default_lifecycle(), 30),
-                    (TokenType::MaxHealth.with_default_lifecycle(), 30),
+                    (Token::persistent(TokenType::Health), 30),
+                    (Token::persistent(TokenType::MaxHealth), 30),
                 ]),
             },
             encounter_card_id: None,
             is_finished: false,
             outcome: CombatOutcome::Undecided,
+            enemy_attack_deck: vec![],
+            enemy_defence_deck: vec![],
+            enemy_resource_deck: vec![],
         };
 
         combat_actions.push(CombatAction {

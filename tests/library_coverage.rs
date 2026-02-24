@@ -1,5 +1,6 @@
 use my_little_cardgame::library::types::{
-    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, TokenType,
+    token_balance_by_type, ActionPayload, CardCounts, CardEffect, CardKind, EffectTarget, Token,
+    TokenType,
 };
 use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
 
@@ -23,6 +24,8 @@ fn library_draw_and_play_and_return() {
                 target: EffectTarget::OnOpponent,
                 token_id: TokenType::Health,
                 amount: -5,
+                lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
+                card_effect_id: None,
             }],
         },
         CardCounts {
@@ -200,20 +203,20 @@ fn token_registry_contains() {
 #[test]
 fn game_state_draw_random_cards() {
     let mut gs = GameState::new();
-    // Library starts with Attack having deck:15 hand:5
-    let initial_hand = gs.library.cards[0].counts.hand;
-    let initial_deck = gs.library.cards[0].counts.deck;
+    // Library starts with Attack having deck:15 hand:5 (now at index 8)
+    let initial_hand = gs.library.cards[8].counts.hand;
+    let initial_deck = gs.library.cards[8].counts.deck;
     assert!(initial_deck > 0);
     // draw_random_cards is private, but we can test it via resolve_player_card
-    // playing a resource card (id 2) triggers draw_count=1
+    // playing a resource card (id 10) triggers draw_count=1
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
-    let _ = gs.start_combat(3);
-    // Phase starts at Defending, but we need Resourcing to play resource
+        .insert(Token::persistent(TokenType::Health), 20);
+    let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
+    let _ = gs.start_combat(11, &mut rng);
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
     let _ = gs.advance_combat_phase(); // Attacking -> Resourcing
-    let _ = gs.resolve_player_card(2); // Resource card draws 1
-                                       // Check that total cards in hand changed
+    let _ = gs.resolve_player_card(10); // Resource card draws 1
+                                        // Check that total cards in hand changed
     let total_hand: u32 = gs.library.cards.iter().map(|c| c.counts.hand).sum();
     assert!(total_hand >= initial_hand); // drew at least 1 card
 }
@@ -221,7 +224,9 @@ fn game_state_draw_random_cards() {
 #[test]
 fn replay_from_log_handles_legacy_entries() {
     let gs = GameState::new();
-    // Manually add legacy-format entries to action log
+    // SetSeed first (as in real game flow) resets state, then legacy token ops apply
+    gs.action_log
+        .append("NewGame", ActionPayload::SetSeed { seed: 42 });
     gs.action_log.append(
         "GrantToken",
         ActionPayload::GrantToken {
@@ -248,8 +253,6 @@ fn replay_from_log_handles_legacy_entries() {
             reason: Some("test expire".to_string()),
         },
     );
-    gs.action_log
-        .append("NewGame", ActionPayload::SetSeed { seed: 42 });
 
     let log_clone = gs.action_log.clone();
     let registry = TokenRegistry::with_canonical();
@@ -276,8 +279,8 @@ fn game_state_default() {
 fn start_combat_with_non_encounter_card() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
-    let result = gs.start_combat(0); // card 0 is Attack, not CombatEncounter
+        .insert(Token::persistent(TokenType::Health), 20);
+    let result = gs.start_combat(0, &mut rand_pcg::Lcg64Xsh32::from_seed([0u8; 16])); // card 0 is PlayerCardEffect, not CombatEncounter
     assert!(result.is_err());
 }
 
@@ -285,10 +288,11 @@ fn start_combat_with_non_encounter_card() {
 fn resolve_player_card_non_action_card() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
-    let _ = gs.start_combat(3);
-    // Try to play CombatEncounter card (id 3) as a player card
-    let result = gs.resolve_player_card(3);
+        .insert(Token::persistent(TokenType::Health), 20);
+    let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
+    let _ = gs.start_combat(11, &mut rng);
+    // Try to play Encounter card (id 11) as a player card
+    let result = gs.resolve_player_card(11);
     assert!(result.is_err());
 }
 
@@ -296,7 +300,7 @@ fn resolve_player_card_non_action_card() {
 fn resolve_enemy_play_with_non_encounter() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(TokenType::Health.with_default_lifecycle(), 20);
+        .insert(Token::persistent(TokenType::Health), 20);
     // No combat started, should return error
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let result = gs.resolve_enemy_play(&mut rng);

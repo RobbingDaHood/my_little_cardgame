@@ -20,7 +20,7 @@ pub enum PlayerActions {
     NewGame { seed: Option<u64> },
     // Encounter actions (Step 7)
     EncounterPickEncounter { card_id: usize },
-    EncounterPlayCard { card_id: u64, effects: Vec<String> },
+    EncounterPlayCard { card_id: u64 },
     EncounterApplyScouting { card_ids: Vec<usize> },
 }
 
@@ -100,17 +100,22 @@ pub async fn play(
             // Initialize player health if not set
             if gs
                 .token_balances
-                .get(&crate::library::types::TokenType::Health.with_default_lifecycle())
+                .get(&crate::library::types::Token::persistent(
+                    crate::library::types::TokenType::Health,
+                ))
                 .copied()
                 .unwrap_or(0)
                 == 0
             {
                 gs.token_balances.insert(
-                    crate::library::types::TokenType::Health.with_default_lifecycle(),
+                    crate::library::types::Token::persistent(
+                        crate::library::types::TokenType::Health,
+                    ),
                     20,
                 );
             }
-            match gs.start_combat(card_id) {
+            let mut rng = player_data.random_generator_state.lock().await;
+            match gs.start_combat(card_id, &mut rng) {
                 Ok(()) => {
                     let payload = crate::library::types::ActionPayload::DrawEncounter {
                         area_id: "current".to_string(),
@@ -123,10 +128,7 @@ pub async fn play(
                 Err(e) => Err(Right(BadRequest(new_status(e)))),
             }
         }
-        PlayerActions::EncounterPlayCard {
-            card_id,
-            effects: _,
-        } => {
+        PlayerActions::EncounterPlayCard { card_id } => {
             let mut gs = game_state.lock().await;
             if gs.current_combat.is_none() {
                 return Err(Right(BadRequest(new_status(
@@ -157,6 +159,8 @@ pub async fn play(
                     crate::library::types::CardKind::Defence { .. } => "Defence",
                     crate::library::types::CardKind::Resource { .. } => "Resource",
                     crate::library::types::CardKind::Encounter { .. } => "Encounter",
+                    crate::library::types::CardKind::PlayerCardEffect { .. } => "PlayerCardEffect",
+                    crate::library::types::CardKind::EnemyCardEffect { .. } => "EnemyCardEffect",
                 };
                 if card_kind_name != allowed_kind {
                     return Err(Right(BadRequest(new_status(format!(
@@ -222,7 +226,9 @@ pub async fn play(
             }
             let foresight = gs
                 .token_balances
-                .get(&crate::library::types::TokenType::Foresight.with_default_lifecycle())
+                .get(&crate::library::types::Token::persistent(
+                    crate::library::types::TokenType::Foresight,
+                ))
                 .copied()
                 .unwrap_or(3) as usize;
             gs.library.encounter_draw_to_hand(foresight);

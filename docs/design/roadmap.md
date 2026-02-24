@@ -28,17 +28,29 @@ Roadmap steps
 - Replaced SetSeed with NewGame { seed: Option<u64> }; removed /player/seed endpoint and player_seed.rs module entirely.
 - Removed explicit AreaDeck struct; encounter cards now use Library CardCounts (library/deck/hand/discard) like all other card types, with helper methods (encounter_hand, encounter_contains, encounter_draw_to_hand) on Library.
 - Renamed TokenId → TokenType; created Token struct with token_type + lifecycle fields for dynamic lifecycle per instance.
-- Deleted CombatResult struct; replaced with CombatOutcome enum (Undecided, PlayerWon, EnemyWon) on CombatSnapshot.
+- Deleted CombatResult struct; replaced with CombatOutcome enum (Undecided, PlayerWon, EnemyWon) on CombatState.
 - Moved Resource draw_count into card effects: DrawCards is now a TokenType variant used in card effects.
 - Renamed CardKind::CombatEncounter → CardKind::Encounter { kind: EncounterKind } with EncounterKind enum.
 - Enemy now plays one card matching the current CombatPhase (not one from each deck).
 - Player tokens (Health, Shield, etc.) moved out of CombatSnapshot to GameState.token_balances.
 - Action log audited: only player actions are logged. Internal operations (token grants, consumes, card movements) are deterministic from player actions + seed.
-- Replay system note: replay_from_log handles legacy token entries for backwards compatibility but does not yet fully replay player actions. Full player-action replay should be implemented in a future step.
+- Replay system note: replay_from_log now replays player actions (SetSeed, DrawEncounter, PlayCard, ApplyScouting) in addition to legacy token entries. Combined with the initial seed, the action log is sufficient to reconstruct the full game state for the core loop.
+
+### Post-7.7 implementation (2026-02-23)
+- All issues from docs/issues.md resolved:
+  - Issue 9: Removed unused `effects` field from EncounterPlayCard
+  - Issue 7: Removed with_default_lifecycle; all tokens PersistentCounter except Dodge (FixedTypeDuration to Defence phase); CardEffect now carries explicit lifecycle
+  - Issue 2: Removed lifecycle from TokenRegistryEntry (now only id + cap)
+  - Issue 4: Token maps serialize as compact JSON objects (e.g., {"Health": 20}); backward-compatible deserialization
+  - Issue 5: Renamed CombatSnapshot → CombatState
+  - Issue 6: Enemy decks track deck/hand/discard counts; hand shuffle at combat start; play from hand only. Resource DrawCards should draw its amount for all three deck types (attack, defence, resource) — not yet fully implemented in code.
+  - Issue 8: /tokens endpoint returns full TokenRegistryEntry objects
+  - Issue 1: replay_from_log handles SetSeed, DrawEncounter, PlayCard, ApplyScouting
+- Step 7.7 implemented: PlayerCardEffect and EnemyCardEffect CardKind variants; card_effect_id references; validation; GET /library/card-effects endpoint
+- New cards should always be appended to the end of the Library vector to preserve stable card IDs
 
 Roadmap steps
---------------
-1) Refactor library: unify decks, hands, tokens, and enforce vision constraints
+--------------: unify decks, hands, tokens, and enforce vision constraints
    - Goal: Create a single library crate that is the authoritative implementation of decks, tokens, Library semantics, and the canonical token registry.
    - Description: Extract Deck, Hand, Zone, Token, CardDef, Library and ActionLog types; implement a token registry with lifecycle metadata and a compact actions log API to record lifecycle events.
    - Playable acceptance: Unit tests and property tests for deck/token invariants; an API endpoint GET /library returns canonical card entries; actions log records simple token grant/consume events.
@@ -73,7 +85,7 @@ Roadmap steps
 
 6) Refactor combat into the library core (deterministic, logged)
 
-   - Note: CombatAction is a simple card-play struct { is_player, card_index } and CombatSnapshot replaces CombatState in the library-centric design.
+   - Note: CombatAction is a simple card-play struct { is_player, card_index }. CombatState (formerly CombatSnapshot) is the pure-data combat representation.
 
    - Goal: Move combat resolution, deterministic start-of-turn draws, turn order, actions, and enemy scripts into the shared library, using the seeded RNG and writing a deterministic actions log.
    - Description: Define CombatState, CombatAction, enemy scripts, and resolve_tick/resolve_turn methods that produce an explicit, replayable combat log. Ensure start-of-turn mechanics (draws, tempo, and turn order) are deterministic and driven by the session RNG. Integrate combat events into the ActionLog so every state change is auditable.
@@ -102,11 +114,22 @@ Roadmap steps
    - Deck composition: Ensure starting decks for both players and enemies contain approximately 50% draw/resource cards so games have steady card-flow and pacing.
    - Playable acceptance: A minimal loop exists (pick -> fight -> scouting -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
 
+7.7) Prepare CardEffects decks 
+    - There is a player CardEffect "deck" and a EnemyCardEffect deck. 
+    - By deck we mean a library representation of a deck. 
+    - The enemy card effect deck is also in the library: even though all other enemy decks are on the encounter. 
+    - No card in the player deck (besides the encounter) can have a CardEffect that is not present in the players CardEffect deck.
+        - Same goes for the enemy cards Card effects, they all need to be represented in the enemy CardEffect "deck". 
+    - These two decks will be used in the future: The enemy deck will be used during the post-encounter scouting phase to help generate new encounters for the encounter deck. The player CardEffect deck will be used during research to help generate new cards for the library. Details will be fleshed out in later steps.
+    - So data wise every CardEffect on a card is a refference back to its "CardEffect"-card in the card effect "deck". 
+        - When exposing the data on the endpoint the CardEffect on cards will just show the value and not the refference.
+    - Playable acceptance: Library contains both player and enemy CardEffect decks; all card effects on player/enemy cards reference valid CardEffect deck entries (validated at initialization); GET /library/card-effects returns both decks.
+
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
    - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
    - Description: Implement node-based gathering encounters where discipline decks resolve the node (e.g., Mining uses Mining deck vs IronOre card) and produce raw/refined material tokens. Ensure Discipline Durability and Rations semantics are enforced; failures produce Exhaustion or Durability loss. Record material token grants in the ActionLog so crafting has a provable input history.
    - Player actions: All gameplay flows must use the four canonical player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). New encounter types (gathering, crafting) will need to either extend these actions or add new well-defined variants to PlayerActions.
-   - Replay: The replay system should be expanded to re-execute player actions against a fresh GameState initialized with the recorded seed, achieving true game state reproduction from seed + action log.
+   - Replay: The replay system (replay_from_log) already supports the core game loop (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). New encounter types will need to extend the replay handler accordingly.
    - Playable acceptance: At least one gathering discipline is playable end-to-end, produces material tokens consumed by craft flows, and actions are routed via POST /action.
    - Notes: Ensure node encounter resolution follows the same remove-and-replace lifecycl: In this simple setup the just finished encounter is just added back to the deck again with no changes.
 
