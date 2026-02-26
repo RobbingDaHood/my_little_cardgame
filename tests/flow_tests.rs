@@ -81,8 +81,8 @@ fn test_enemy_play_adds_shield_to_enemy_in_defending() {
     let resp = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
-    // Fetch combat and check enemy tokens via CombatState JSON
-    let resp_combat = client.get("/combat").dispatch();
+    // Fetch combat and check enemy tokens via EncounterState JSON
+    let resp_combat = client.get("/encounter").dispatch();
     assert_eq!(resp_combat.status(), Status::Ok);
     let combat_json: serde_json::Value =
         serde_json::from_str(&resp_combat.into_string().expect("body")).expect("json");
@@ -110,7 +110,7 @@ fn test_seed_determinism_for_enemy_selection() {
         .dispatch();
     client.post("/tests/combat").dispatch();
     client.post("/tests/combat/enemy_play").dispatch();
-    let resp1 = client.get("/combat").dispatch();
+    let resp1 = client.get("/encounter").dispatch();
     let combat1: serde_json::Value =
         serde_json::from_str(&resp1.into_string().expect("body")).expect("json");
 
@@ -128,7 +128,7 @@ fn test_seed_determinism_for_enemy_selection() {
         .dispatch();
     client.post("/tests/combat").dispatch();
     client.post("/tests/combat/enemy_play").dispatch();
-    let resp2 = client.get("/combat").dispatch();
+    let resp2 = client.get("/encounter").dispatch();
     let combat2: serde_json::Value =
         serde_json::from_str(&resp2.into_string().expect("body")).expect("json");
     let enemy_tokens_2 = combat2["enemy_tokens"].clone();
@@ -153,7 +153,7 @@ fn test_advance_phase_rotates_state() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     client.post("/tests/combat").dispatch();
     // initially Defending
-    let resp = client.get("/combat").dispatch();
+    let resp = client.get("/encounter").dispatch();
     let combat_json: serde_json::Value =
         serde_json::from_str(&resp.into_string().expect("body")).expect("json");
     assert_eq!(combat_json["phase"], "Defending");
@@ -161,21 +161,21 @@ fn test_advance_phase_rotates_state() {
     // advance -> Attacking
     let resp = client.post("/tests/combat/advance").dispatch();
     assert_eq!(resp.status(), Status::Created);
-    let resp2 = client.get("/combat").dispatch();
+    let resp2 = client.get("/encounter").dispatch();
     let combat_json2: serde_json::Value =
         serde_json::from_str(&resp2.into_string().expect("body")).expect("json");
     assert_eq!(combat_json2["phase"], "Attacking");
 
     // advance -> Resourcing
     client.post("/tests/combat/advance").dispatch();
-    let resp3 = client.get("/combat").dispatch();
+    let resp3 = client.get("/encounter").dispatch();
     let combat_json3: serde_json::Value =
         serde_json::from_str(&resp3.into_string().expect("body")).expect("json");
     assert_eq!(combat_json3["phase"], "Resourcing");
 
     // advance -> Defending
     client.post("/tests/combat/advance").dispatch();
-    let resp4 = client.get("/combat").dispatch();
+    let resp4 = client.get("/encounter").dispatch();
     let combat_json4: serde_json::Value =
         serde_json::from_str(&resp4.into_string().expect("body")).expect("json");
     assert_eq!(combat_json4["phase"], "Defending");
@@ -187,7 +187,7 @@ fn test_enemy_play_applies_effects() {
     client.post("/tests/combat").dispatch();
 
     // Get enemy tokens before play
-    let resp_before = client.get("/combat").dispatch();
+    let resp_before = client.get("/encounter").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
     let shield_before = token_value(&combat_before["enemy_tokens"], "Shield");
@@ -196,7 +196,7 @@ fn test_enemy_play_applies_effects() {
     let resp = client.post("/tests/combat/enemy_play").dispatch();
     assert_eq!(resp.status(), Status::Created);
 
-    let resp_after = client.get("/combat").dispatch();
+    let resp_after = client.get("/encounter").dispatch();
     let combat_after: serde_json::Value =
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
     let shield_after = token_value(&combat_after["enemy_tokens"], "Shield");
@@ -211,7 +211,7 @@ fn test_player_card_damages_enemy() {
     client.post("/tests/combat").dispatch();
 
     // Get enemy health before attack
-    let resp_before = client.get("/combat").dispatch();
+    let resp_before = client.get("/encounter").dispatch();
     let combat_before: serde_json::Value =
         serde_json::from_str(&resp_before.into_string().expect("body")).expect("json");
     let health_before = token_value(&combat_before["enemy_tokens"], "Health");
@@ -232,7 +232,7 @@ fn test_player_card_damages_enemy() {
     assert_eq!(resp.status(), Status::Created);
 
     // Enemy should have lost at least 5 health (may have also been hit by enemy actions)
-    let resp_after = client.get("/combat").dispatch();
+    let resp_after = client.get("/encounter").dispatch();
     if resp_after.status() == Status::Ok {
         let combat_after: serde_json::Value =
             serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
@@ -271,18 +271,18 @@ fn test_player_kills_enemy_and_combat_ends() {
             break;
         }
         // Check if combat ended
-        let combat_resp = client.get("/combat").dispatch();
+        let combat_resp = client.get("/encounter").dispatch();
         if combat_resp.status() == Status::NotFound {
             break;
         }
     }
 
     // Combat should be ended (GET /combat -> 404)
-    let resp = client.get("/combat").dispatch();
+    let resp = client.get("/encounter").dispatch();
     assert_eq!(resp.status(), Status::NotFound);
 
     // Combat result should be recorded
-    let resp = client.get("/combat/results").dispatch();
+    let resp = client.get("/encounter/results").dispatch();
     assert_eq!(resp.status(), Status::Ok);
     let body = resp.into_string().unwrap();
     let results: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();

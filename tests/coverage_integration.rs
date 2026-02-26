@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{CombatState, TokenType};
+use my_little_cardgame::library::types::{EncounterState, TokenType};
 use my_little_cardgame::player_tokens::TokenBalance;
 use my_little_cardgame::rocket_initialize;
 use rocket::http::{ContentType, Status};
@@ -99,9 +99,9 @@ fn actions_log_filtering() {
 }
 
 #[test]
-fn combat_results_returns_empty_when_no_result() {
+fn encounter_results_returns_empty_when_no_result() {
     let client = client();
-    let response = client.get("/combat/results").dispatch();
+    let response = client.get("/encounter/results").dispatch();
     assert_eq!(response.status(), Status::Ok);
     let body = response.into_string().unwrap();
     let results: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
@@ -117,7 +117,11 @@ fn combat_lifecycle_with_enemy_play_and_advance() {
     assert_eq!(response.status(), Status::Created);
 
     // Get initial combat state
-    let combat = get_combat(&client).expect("combat exists");
+    let enc = get_combat(&client).expect("combat exists");
+    let combat = match &enc {
+        EncounterState::Combat(c) => c,
+        _ => panic!("Expected combat encounter"),
+    };
     assert_eq!(
         combat.phase,
         my_little_cardgame::library::types::CombatPhase::Defending
@@ -246,7 +250,7 @@ fn play_finish_scouting_after_combat_win() {
     }
 
     // Check combat result
-    let result_resp = client.get("/combat/results").dispatch();
+    let result_resp = client.get("/encounter/results").dispatch();
     let results_body = result_resp.into_string().unwrap_or_default();
     let results: Vec<serde_json::Value> = serde_json::from_str(&results_body).unwrap_or_default();
     if !results.is_empty() {
@@ -265,8 +269,8 @@ fn play_finish_scouting_after_combat_win() {
     }
 }
 
-fn get_combat(client: &Client) -> Option<CombatState> {
-    let response = client.get("/combat").dispatch();
+fn get_combat(client: &Client) -> Option<EncounterState> {
+    let response = client.get("/encounter").dispatch();
     if response.status().code == 404 {
         None
     } else if response.status().code == 200 {
@@ -312,7 +316,7 @@ fn encounter_apply_scouting_action() {
     client.post("/tests/combat").dispatch();
     // Play attack cards until combat ends (enters Scouting)
     for _ in 0..20 {
-        let combat_resp = client.get("/combat").dispatch();
+        let combat_resp = client.get("/encounter").dispatch();
         if combat_resp.status() != Status::Ok {
             break;
         }

@@ -1,5 +1,8 @@
 use super::action_log::ActionLog;
-use super::types::{ActionEntry, ActionPayload, CardCounts, CardKind, EncounterKind};
+use super::types::{
+    ActionEntry, ActionPayload, CardCounts, CardKind, CombatEncounterState, EncounterKind,
+    EncounterOutcome, EncounterState, MiningEncounterState,
+};
 use super::Library;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
@@ -252,7 +255,7 @@ fn apply_card_effects(
     effect_ids: &[usize],
     is_player: bool,
     player_tokens: &mut HashMap<super::types::Token, i64>,
-    combat: &mut super::types::CombatState,
+    combat: &mut CombatEncounterState,
     library: &Library,
 ) {
     for &effect_id in effect_ids {
@@ -306,7 +309,7 @@ fn apply_card_effects(
 /// Check if combat has ended (either side at 0 health).
 fn check_combat_end(
     player_tokens: &HashMap<super::types::Token, i64>,
-    combat: &mut super::types::CombatState,
+    combat: &mut CombatEncounterState,
 ) {
     let player_health = player_tokens
         .get(&super::types::Token::persistent(
@@ -325,11 +328,11 @@ fn check_combat_end(
     if enemy_health <= 0 || player_health <= 0 {
         combat.is_finished = true;
         combat.outcome = if enemy_health <= 0 && player_health > 0 {
-            super::types::CombatOutcome::PlayerWon
+            EncounterOutcome::PlayerWon
         } else if player_health <= 0 && enemy_health > 0 {
-            super::types::CombatOutcome::EnemyWon
+            EncounterOutcome::PlayerLost
         } else {
-            super::types::CombatOutcome::PlayerWon // Draw defaults to player
+            EncounterOutcome::PlayerWon // Draw defaults to player
         };
     }
 }
@@ -340,10 +343,10 @@ pub struct GameState {
     pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<super::types::Token, i64>,
     pub library: Library,
-    pub current_combat: Option<super::types::CombatState>,
+    pub current_encounter: Option<EncounterState>,
     pub encounter_phase: super::types::EncounterPhase,
-    pub last_combat_result: Option<super::types::CombatOutcome>,
-    pub combat_results: Vec<super::types::CombatOutcome>,
+    pub last_encounter_result: Option<EncounterOutcome>,
+    pub encounter_results: Vec<EncounterOutcome>,
 }
 
 impl GameState {
@@ -377,10 +380,10 @@ impl GameState {
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
             library: initialize_library(),
-            current_combat: None,
+            current_encounter: None,
             encounter_phase: super::types::EncounterPhase::NoEncounter,
-            last_combat_result: None,
-            combat_results: Vec::new(),
+            last_encounter_result: None,
+            encounter_results: Vec::new(),
         }
     }
 
@@ -417,7 +420,7 @@ impl GameState {
         Self::enemy_shuffle_hand(rng, &mut enemy_attack_deck);
         Self::enemy_shuffle_hand(rng, &mut enemy_defence_deck);
         Self::enemy_shuffle_hand(rng, &mut enemy_resource_deck);
-        let snapshot = super::types::CombatState {
+        let snapshot = CombatEncounterState {
             round: 1,
             phase: super::types::CombatPhase::Defending,
             enemy_tokens: combatant_def
@@ -427,23 +430,67 @@ impl GameState {
                 .collect(),
             encounter_card_id: Some(encounter_card_id),
             is_finished: false,
-            outcome: super::types::CombatOutcome::Undecided,
+            outcome: EncounterOutcome::Undecided,
             enemy_attack_deck,
             enemy_defence_deck,
             enemy_resource_deck,
         };
-        self.current_combat = Some(snapshot);
+        self.current_encounter = Some(EncounterState::Combat(snapshot));
         self.encounter_phase = super::types::EncounterPhase::Combat;
         Ok(())
     }
 
-    /// Resolve a player card play against the current combat snapshot.
+    /// Initialize a mining gathering encounter from a Library Encounter card.
+    pub fn start_mining_encounter(
+        &mut self,
+        encounter_card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(encounter_card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
+            .clone();
+        let mining_def = match &lib_card.kind {
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Mining { mining_def },
+            } => mining_def.clone(),
+            _ => {
+                return Err(format!(
+                    "Card {} is not a mining encounter",
+                    encounter_card_id
+                ))
+            }
+        };
+        let mut ore_deck = mining_def.ore_deck.clone();
+        Self::ore_shuffle_hand(rng, &mut ore_deck);
+        let state = MiningEncounterState {
+            round: 1,
+            encounter_card_id: Some(encounter_card_id),
+            is_finished: false,
+            outcome: EncounterOutcome::Undecided,
+            ore_hp: mining_def.ore_hp as i64,
+            ore_max_hp: mining_def.ore_hp as i64,
+            ore_deck,
+            rewards: mining_def.rewards,
+            failure_penalties: mining_def.failure_penalties,
+            last_durability_prevent: 0,
+        };
+        self.current_encounter = Some(EncounterState::Mining(state));
+        self.encounter_phase = super::types::EncounterPhase::Gathering;
+        Ok(())
+    }
+
+    /// Resolve a player card play against the current combat encounter.
     pub fn resolve_player_card(
         &mut self,
         card_id: usize,
         rng: &mut rand_pcg::Lcg64Xsh32,
     ) -> Result<(), String> {
-        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+        let combat = match &mut self.current_encounter {
+            Some(EncounterState::Combat(c)) => c,
+            _ => return Err("No active combat".to_string()),
+        };
         let lib_card = self
             .library
             .get(card_id)
@@ -477,9 +524,9 @@ impl GameState {
         );
         check_combat_end(&self.token_balances, combat);
         if combat.is_finished {
-            self.last_combat_result = Some(combat.outcome.clone());
-            self.combat_results.push(combat.outcome.clone());
-            self.current_combat = None;
+            self.last_encounter_result = Some(combat.outcome.clone());
+            self.encounter_results.push(combat.outcome.clone());
+            self.current_encounter = None;
             self.encounter_phase = super::types::EncounterPhase::Scouting;
         }
         self.draw_player_cards_by_type(atk_draws, def_draws, res_draws, rng);
@@ -548,10 +595,16 @@ impl GameState {
     /// Resolve an enemy card play from hand in the current combat phase.
     /// Played cards move to discard. DrawCards effects trigger per-type enemy draws.
     pub fn resolve_enemy_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) -> Result<(), String> {
-        let combat = self.current_combat.as_ref().ok_or("No active combat")?;
+        let combat = match &self.current_encounter {
+            Some(EncounterState::Combat(c)) => c,
+            _ => return Err("No active combat".to_string()),
+        };
         let phase = combat.phase.clone();
 
-        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+        let combat = match &mut self.current_encounter {
+            Some(EncounterState::Combat(c)) => c,
+            _ => return Err("No active combat".to_string()),
+        };
         let deck = match phase {
             super::types::CombatPhase::Attacking => &mut combat.enemy_attack_deck,
             super::types::CombatPhase::Defending => &mut combat.enemy_defence_deck,
@@ -605,9 +658,9 @@ impl GameState {
             }
 
             if combat.is_finished {
-                self.last_combat_result = Some(combat.outcome.clone());
-                self.combat_results.push(combat.outcome.clone());
-                self.current_combat = None;
+                self.last_encounter_result = Some(combat.outcome.clone());
+                self.encounter_results.push(combat.outcome.clone());
+                self.current_encounter = None;
                 self.encounter_phase = super::types::EncounterPhase::Scouting;
             }
         }
@@ -669,9 +722,190 @@ impl GameState {
 
     /// Advance combat phase to next (Defending → Attacking → Resourcing → Defending).
     pub fn advance_combat_phase(&mut self) -> Result<(), String> {
-        let combat = self.current_combat.as_mut().ok_or("No active combat")?;
+        let combat = match &mut self.current_encounter {
+            Some(EncounterState::Combat(c)) => c,
+            _ => return Err("No active combat".to_string()),
+        };
         combat.phase = combat.phase.next();
         Ok(())
+    }
+
+    /// Resolve a player mining card play against the current mining encounter.
+    /// Applies ore damage, stores durability prevent, auto-resolves ore play,
+    /// draws cards for both sides, and checks encounter end.
+    pub fn resolve_player_mining_card(
+        &mut self,
+        card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", card_id))?
+            .clone();
+        let mining_effect = match &lib_card.kind {
+            CardKind::Mining { mining_effect } => mining_effect.clone(),
+            _ => return Err("Cannot play a non-mining card in mining encounter".to_string()),
+        };
+
+        // Apply player mining card: damage ore and store prevent
+        let ore_defeated = {
+            let mining = match &mut self.current_encounter {
+                Some(EncounterState::Mining(m)) => m,
+                _ => return Err("No active mining encounter".to_string()),
+            };
+            mining.ore_hp = (mining.ore_hp - mining_effect.ore_damage).max(0);
+            mining.last_durability_prevent = mining_effect.durability_prevent;
+            mining.ore_hp <= 0
+        };
+
+        if ore_defeated {
+            self.finish_mining_encounter(true);
+            return Ok(());
+        }
+
+        // Auto-resolve ore play
+        self.resolve_ore_play(rng);
+
+        // Player draws a mining card
+        self.draw_player_mining_card(rng);
+
+        Ok(())
+    }
+
+    /// Ore plays a random card from hand, dealing durability damage minus prevent.
+    /// Then draws a card from deck to hand.
+    fn resolve_ore_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
+        use rand::RngCore;
+
+        // Play ore card and extract damage info
+        let (effective_damage, played) = {
+            let mining = match &mut self.current_encounter {
+                Some(EncounterState::Mining(m)) => m,
+                _ => return,
+            };
+            let hand_indices: Vec<usize> = mining
+                .ore_deck
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| c.counts.hand > 0)
+                .map(|(i, _)| i)
+                .collect();
+            if hand_indices.is_empty() {
+                return;
+            }
+            let pick_idx = (rng.next_u64() as usize) % hand_indices.len();
+            let card_idx = hand_indices[pick_idx];
+            mining.ore_deck[card_idx].counts.hand -= 1;
+            mining.ore_deck[card_idx].counts.discard += 1;
+            let raw_damage = mining.ore_deck[card_idx].durability_damage;
+            let effective = (raw_damage - mining.last_durability_prevent).max(0);
+            mining.last_durability_prevent = 0;
+            mining.round += 1;
+            (effective, true)
+        };
+
+        if !played {
+            return;
+        }
+
+        // Apply durability damage to player
+        let durability_key = super::types::Token::persistent(super::types::TokenType::Durability);
+        let durability = self
+            .token_balances
+            .entry(durability_key.clone())
+            .or_insert(0);
+        *durability = (*durability - effective_damage).max(0);
+
+        // Ore draws a card
+        if let Some(EncounterState::Mining(mining)) = &mut self.current_encounter {
+            Self::ore_draw_random(rng, &mut mining.ore_deck);
+        }
+
+        // Check if player durability is depleted
+        let durability = self
+            .token_balances
+            .get(&durability_key)
+            .copied()
+            .unwrap_or(0);
+        if durability <= 0 {
+            self.finish_mining_encounter(false);
+        }
+    }
+
+    /// Finalize a mining encounter: grant rewards (win) or apply penalties (loss).
+    fn finish_mining_encounter(&mut self, is_win: bool) {
+        use super::types::Token;
+        let token_changes = match &self.current_encounter {
+            Some(EncounterState::Mining(m)) => {
+                if is_win {
+                    m.rewards.clone()
+                } else {
+                    m.failure_penalties.clone()
+                }
+            }
+            _ => return,
+        };
+        for (token_type, amount) in &token_changes {
+            let key = Token::persistent(token_type.clone());
+            let entry = self.token_balances.entry(key).or_insert(0);
+            *entry += amount;
+        }
+        let outcome = if is_win {
+            EncounterOutcome::PlayerWon
+        } else {
+            EncounterOutcome::PlayerLost
+        };
+        self.last_encounter_result = Some(outcome.clone());
+        self.encounter_results.push(outcome);
+        self.current_encounter = None;
+        self.encounter_phase = super::types::EncounterPhase::Scouting;
+    }
+
+    /// Draw one player mining card from deck to hand, recycling discard if needed.
+    fn draw_player_mining_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
+        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Mining { .. }), rng);
+    }
+
+    /// Shuffle ore hand: move all to deck, redraw to original hand size.
+    fn ore_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::OreCard]) {
+        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
+        for card in deck.iter_mut() {
+            card.counts.deck += card.counts.hand;
+            card.counts.hand = 0;
+        }
+        for _ in 0..target_hand {
+            Self::ore_draw_random(rng, deck);
+        }
+    }
+
+    /// Draw one random ore card from deck to hand, recycling discard if needed.
+    fn ore_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::OreCard]) {
+        use rand::RngCore;
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        if total_deck == 0 {
+            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
+            if total_discard == 0 {
+                return;
+            }
+            for card in deck.iter_mut() {
+                card.counts.deck += card.counts.discard;
+                card.counts.discard = 0;
+            }
+        }
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        if total_deck == 0 {
+            return;
+        }
+        let mut pick = (rng.next_u64() as u32) % total_deck;
+        for card in deck.iter_mut() {
+            if pick < card.counts.deck {
+                card.counts.deck -= 1;
+                card.counts.hand += 1;
+                return;
+            }
+            pick -= card.counts.deck;
+        }
     }
 
     /// Reconstruct state from an existing action log.
@@ -692,10 +926,10 @@ impl GameState {
                     let new_gs = GameState::new();
                     gs.library = new_gs.library;
                     gs.token_balances = new_gs.token_balances;
-                    gs.current_combat = None;
+                    gs.current_encounter = None;
                     gs.encounter_phase = new_gs.encounter_phase;
-                    gs.last_combat_result = None;
-                    gs.combat_results.clear();
+                    gs.last_encounter_result = None;
+                    gs.encounter_results.clear();
                 }
                 ActionPayload::DrawEncounter { encounter_id } => {
                     if let Ok(card_id) = encounter_id.parse::<usize>() {
@@ -705,22 +939,50 @@ impl GameState {
                             gs.token_balances.insert(health_key, 20);
                         }
                         let _ = gs.library.play(card_id);
-                        let _ = gs.start_combat(card_id, &mut rng);
+                        // Dispatch based on encounter kind
+                        if let Some(lib_card) = gs.library.get(card_id) {
+                            match &lib_card.kind {
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Mining { .. },
+                                } => {
+                                    let durability_key = super::types::Token::persistent(
+                                        super::types::TokenType::Durability,
+                                    );
+                                    if gs.token_balances.get(&durability_key).copied().unwrap_or(0)
+                                        == 0
+                                    {
+                                        gs.token_balances.insert(durability_key, 15);
+                                    }
+                                    let _ = gs.start_mining_encounter(card_id, &mut rng);
+                                }
+                                _ => {
+                                    let _ = gs.start_combat(card_id, &mut rng);
+                                }
+                            }
+                        }
                     }
                 }
                 ActionPayload::PlayCard { card_id } => {
                     let _ = gs.library.play(*card_id);
-                    let _ = gs.resolve_player_card(*card_id, &mut rng);
-                    if gs.current_combat.is_some() {
-                        let _ = gs.resolve_enemy_play(&mut rng);
-                        if gs.current_combat.is_some() {
-                            let _ = gs.advance_combat_phase();
+                    match &gs.current_encounter {
+                        Some(EncounterState::Combat(_)) => {
+                            let _ = gs.resolve_player_card(*card_id, &mut rng);
+                            if gs.current_encounter.is_some() {
+                                let _ = gs.resolve_enemy_play(&mut rng);
+                                if gs.current_encounter.is_some() {
+                                    let _ = gs.advance_combat_phase();
+                                }
+                            }
                         }
+                        Some(EncounterState::Mining(_)) => {
+                            let _ = gs.resolve_player_mining_card(*card_id, &mut rng);
+                        }
+                        None => {}
                     }
                 }
                 ActionPayload::ApplyScouting { .. } => {
-                    if let Some(ref combat) = gs.current_combat {
-                        if let Some(enc_id) = combat.encounter_card_id {
+                    if let Some(ref enc) = gs.current_encounter {
+                        if let Some(enc_id) = enc.encounter_card_id() {
                             let _ = gs.library.return_to_deck(enc_id);
                         }
                     }

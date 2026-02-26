@@ -50,6 +50,6 @@ fn test_play_nonexistent_card_in_combat() {
 fn test_get_combat_before_initialization() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
-    let response = client.get("/combat").dispatch();
+    let response = client.get("/encounter").dispatch();
     assert_eq!(response.status(), Status::NotFound);
 }

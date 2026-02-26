@@ -58,10 +58,10 @@ pub async fn play(
             let new_gs = crate::library::GameState::new();
             gs.library = new_gs.library;
             gs.token_balances = new_gs.token_balances;
-            gs.current_combat = None;
+            gs.current_encounter = None;
             gs.encounter_phase = new_gs.encounter_phase;
-            gs.last_combat_result = None;
-            gs.combat_results.clear();
+            gs.last_encounter_result = None;
+            gs.encounter_results.clear();
 
             let payload = crate::library::types::ActionPayload::SetSeed { seed: s };
             let entry = gs.append_action("NewGame", payload);
@@ -80,58 +80,84 @@ pub async fn play(
             if let Err(e) = gs.library.play(card_id) {
                 return Err(Right(BadRequest(new_status(e))));
             }
-            // Validate card is a combat encounter before starting combat
+            // Get the encounter kind to dispatch
             let lib_card = gs.library.get(card_id).ok_or_else(|| {
                 Left(NotFound(new_status(format!(
                     "Card {} not found in Library",
                     card_id
                 ))))
             })?;
-            if !matches!(
-                &lib_card.kind,
-                crate::library::types::CardKind::Encounter {
-                    encounter_kind: crate::library::types::EncounterKind::Combat { .. }
+            let encounter_kind = match &lib_card.kind {
+                crate::library::types::CardKind::Encounter { encounter_kind } => {
+                    encounter_kind.clone()
                 }
-            ) {
-                return Err(Right(BadRequest(new_status(format!(
-                    "Encounter card {} is not a combat encounter",
-                    card_id
-                )))));
-            }
-            // Initialize player health if not set
-            if gs
-                .token_balances
-                .get(&crate::library::types::Token::persistent(
-                    crate::library::types::TokenType::Health,
-                ))
-                .copied()
-                .unwrap_or(0)
-                == 0
-            {
-                gs.token_balances.insert(
-                    crate::library::types::Token::persistent(
-                        crate::library::types::TokenType::Health,
-                    ),
-                    20,
-                );
-            }
+                _ => {
+                    return Err(Right(BadRequest(new_status(format!(
+                        "Card {} is not an encounter",
+                        card_id
+                    )))));
+                }
+            };
             let mut rng = player_data.random_generator_state.lock().await;
-            match gs.start_combat(card_id, &mut rng) {
-                Ok(()) => {
-                    let payload = crate::library::types::ActionPayload::DrawEncounter {
-                        encounter_id: card_id.to_string(),
-                    };
-                    let entry = gs.append_action("EncounterPickEncounter", payload);
-                    Ok((rocket::http::Status::Created, Json(entry)))
+            match encounter_kind {
+                crate::library::types::EncounterKind::Combat { .. } => {
+                    // Initialize player health if not set
+                    if gs
+                        .token_balances
+                        .get(&crate::library::types::Token::persistent(
+                            crate::library::types::TokenType::Health,
+                        ))
+                        .copied()
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        gs.token_balances.insert(
+                            crate::library::types::Token::persistent(
+                                crate::library::types::TokenType::Health,
+                            ),
+                            20,
+                        );
+                    }
+                    match gs.start_combat(card_id, &mut rng) {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
                 }
-                Err(e) => Err(Right(BadRequest(new_status(e)))),
+                crate::library::types::EncounterKind::Mining { .. } => {
+                    // Initialize player durability if not set
+                    if gs
+                        .token_balances
+                        .get(&crate::library::types::Token::persistent(
+                            crate::library::types::TokenType::Durability,
+                        ))
+                        .copied()
+                        .unwrap_or(0)
+                        == 0
+                    {
+                        gs.token_balances.insert(
+                            crate::library::types::Token::persistent(
+                                crate::library::types::TokenType::Durability,
+                            ),
+                            15,
+                        );
+                    }
+                    match gs.start_mining_encounter(card_id, &mut rng) {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
             }
+            let payload = crate::library::types::ActionPayload::DrawEncounter {
+                encounter_id: card_id.to_string(),
+            };
+            let entry = gs.append_action("EncounterPickEncounter", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
         }
         PlayerActions::EncounterPlayCard { card_id } => {
             let mut gs = game_state.lock().await;
-            if gs.current_combat.is_none() {
+            if gs.current_encounter.is_none() {
                 return Err(Right(BadRequest(new_status(
-                    "No active combat".to_string(),
+                    "No active encounter".to_string(),
                 ))));
             }
             let lib_card = match gs.library.get(card_id as usize) {
@@ -149,39 +175,71 @@ pub async fn play(
                     card_id
                 )))));
             }
-            // Validate card kind matches current combat phase
-            {
-                let combat = gs.current_combat.as_ref().expect("checked above");
-                let is_allowed = combat.phase.allowed_card_kind();
-                if !is_allowed(&lib_card.kind) {
-                    return Err(Right(BadRequest(new_status(format!(
-                        "Card {} is not playable in current phase (expected {})",
-                        card_id,
-                        combat.phase.allowed_card_kind_name()
-                    )))));
-                }
-            }
-            match gs.library.play(card_id as usize) {
-                Ok(()) => {
-                    let mut rng = player_data.random_generator_state.lock().await;
-                    let _ = gs.resolve_player_card(card_id as usize, &mut rng);
-                    let payload = crate::library::types::ActionPayload::PlayCard {
-                        card_id: card_id as usize,
-                    };
-                    let entry = gs.append_action("EncounterPlayCard", payload);
 
-                    // Auto-advance: enemy plays and phase advances
-                    if gs.current_combat.is_some() {
-                        let _ = gs.resolve_enemy_play(&mut rng);
-                        if gs.current_combat.is_some() {
-                            let _ = gs.advance_combat_phase();
+            // Dispatch based on encounter type
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Combat(_)) => {
+                    // Validate card kind matches current combat phase
+                    {
+                        let combat = match &gs.current_encounter {
+                            Some(crate::library::types::EncounterState::Combat(c)) => c,
+                            _ => unreachable!(),
+                        };
+                        let is_allowed = combat.phase.allowed_card_kind();
+                        if !is_allowed(&lib_card.kind) {
+                            return Err(Right(BadRequest(new_status(format!(
+                                "Card {} is not playable in current phase (expected {})",
+                                card_id,
+                                combat.phase.allowed_card_kind_name()
+                            )))));
                         }
                     }
-
-                    Ok((rocket::http::Status::Created, Json(entry)))
+                    match gs.library.play(card_id as usize) {
+                        Ok(()) => {
+                            let mut rng = player_data.random_generator_state.lock().await;
+                            let _ = gs.resolve_player_card(card_id as usize, &mut rng);
+                            // Auto-advance: enemy plays and phase advances
+                            if gs.current_encounter.is_some() {
+                                let _ = gs.resolve_enemy_play(&mut rng);
+                                if gs.current_encounter.is_some() {
+                                    let _ = gs.advance_combat_phase();
+                                }
+                            }
+                        }
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
                 }
-                Err(e) => Err(Right(BadRequest(new_status(e)))),
+                Some(crate::library::types::EncounterState::Mining(_)) => {
+                    // Validate card is a Mining card
+                    if !matches!(
+                        lib_card.kind,
+                        crate::library::types::CardKind::Mining { .. }
+                    ) {
+                        return Err(Right(BadRequest(new_status(format!(
+                            "Card {} is not a Mining card (required for mining encounter)",
+                            card_id
+                        )))));
+                    }
+                    match gs.library.play(card_id as usize) {
+                        Ok(()) => {
+                            let mut rng = player_data.random_generator_state.lock().await;
+                            let _ = gs.resolve_player_mining_card(card_id as usize, &mut rng);
+                        }
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                None => {
+                    return Err(Right(BadRequest(new_status(
+                        "No active encounter".to_string(),
+                    ))));
+                }
             }
+
+            let payload = crate::library::types::ActionPayload::PlayCard {
+                card_id: card_id as usize,
+            };
+            let entry = gs.append_action("EncounterPlayCard", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
         }
         PlayerActions::EncounterApplyScouting { card_ids } => {
             let mut gs = game_state.lock().await;
@@ -200,8 +258,8 @@ pub async fn play(
             }
 
             // Recycle encounter back to deck and refill hand
-            if let Some(ref combat) = gs.current_combat {
-                if let Some(enc_id) = combat.encounter_card_id {
+            if let Some(ref enc) = gs.current_encounter {
+                if let Some(enc_id) = enc.encounter_card_id() {
                     let _ = gs.library.return_to_deck(enc_id);
                 }
             }

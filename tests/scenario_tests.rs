@@ -58,7 +58,7 @@ fn player_health(client: &Client) -> i64 {
 }
 
 fn combat_state(client: &Client) -> serde_json::Value {
-    get_json(client, "/combat")
+    get_json(client, "/encounter")
 }
 
 fn encounter_hand_ids(client: &Client) -> Vec<usize> {
@@ -72,7 +72,7 @@ fn encounter_hand_ids(client: &Client) -> Vec<usize> {
 }
 
 fn combat_result(client: &Client) -> Option<String> {
-    let resp = client.get("/combat/results").dispatch();
+    let resp = client.get("/encounter/results").dispatch();
     if resp.status() == Status::Ok {
         let body: Vec<serde_json::Value> =
             serde_json::from_str(&resp.into_string().unwrap_or_default()).unwrap_or_default();
@@ -150,8 +150,8 @@ fn scenario_player_wins_combat_then_picks_next_encounter() {
     // With seed 42, determine who won and assert appropriately
     let outcome = result.unwrap();
     assert!(
-        outcome == "PlayerWon" || outcome == "EnemyWon",
-        "Combat outcome should be PlayerWon or EnemyWon, got: {}",
+        outcome == "PlayerWon" || outcome == "PlayerLost",
+        "Combat outcome should be PlayerWon or PlayerLost, got: {}",
         outcome
     );
 
@@ -244,7 +244,7 @@ fn scenario_full_loop_new_game_combat_scout_combat() {
 
         let result2 = combat_result(&client).expect("Should have second combat result");
         assert!(
-            result2 == "PlayerWon" || result2 == "EnemyWon",
+            result2 == "PlayerWon" || result2 == "PlayerLost",
             "Second combat should have an outcome"
         );
     }
@@ -282,7 +282,7 @@ fn scenario_enemy_wins_combat() {
         }
 
         if let Some(result) = combat_result(&client) {
-            if result == "EnemyWon" {
+            if result == "PlayerLost" {
                 found_enemy_win = true;
 
                 // Verify player health is 0
@@ -514,7 +514,7 @@ fn scenario_enemy_draws_per_type() {
     play_one_round(&client);
 
     // Check if combat is still active (GET /combat returns 404 when finished)
-    let resp = client.get("/combat").dispatch();
+    let resp = client.get("/encounter").dispatch();
     if resp.status() != Status::Ok {
         return;
     }
