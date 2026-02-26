@@ -26,6 +26,29 @@ pub enum TokenType {
     Durability,
 }
 
+/// All known token types.
+impl TokenType {
+    pub fn all() -> Vec<TokenType> {
+        vec![
+            TokenType::Health,
+            TokenType::MaxHealth,
+            TokenType::Shield,
+            TokenType::Stamina,
+            TokenType::Dodge,
+            TokenType::Mana,
+            TokenType::Insight,
+            TokenType::Renown,
+            TokenType::Refinement,
+            TokenType::Stability,
+            TokenType::Foresight,
+            TokenType::Momentum,
+            TokenType::Corruption,
+            TokenType::Exhaustion,
+            TokenType::Durability,
+        ]
+    }
+}
+
 impl Token {
     /// Create a persistent counter token (most tokens use this).
     pub fn persistent(token_type: TokenType) -> Self {
@@ -145,14 +168,6 @@ pub struct EnemyCardDef {
 pub struct LibraryCard {
     pub kind: CardKind,
     pub counts: CardCounts,
-}
-
-/// Token type metadata and lifecycle
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct TokenRegistryEntry {
-    pub id: TokenType,
-    pub cap: Option<u64>,
 }
 
 /// A token instance: token type + lifecycle. Used as key in token balance maps.

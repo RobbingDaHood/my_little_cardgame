@@ -1,5 +1,4 @@
 use super::action_log::ActionLog;
-use super::registry::TokenRegistry;
 use super::types::{ActionEntry, ActionPayload, CardCounts, CardKind, EncounterKind};
 use super::Library;
 use std::collections::HashMap;
@@ -338,7 +337,6 @@ fn check_combat_end(
 /// Minimal in-memory game state driven by the library's mutator API.
 #[derive(Debug, Clone)]
 pub struct GameState {
-    pub registry: TokenRegistry,
     pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<super::types::Token, i64>,
     pub library: Library,
@@ -348,12 +346,10 @@ pub struct GameState {
 }
 
 impl GameState {
-    /// Create a new game state seeded with the canonical token registry
     pub fn new() -> Self {
-        let registry = TokenRegistry::with_canonical();
         let mut balances = HashMap::new();
-        for id in registry.tokens.keys() {
-            balances.insert(super::types::Token::persistent(id.clone()), 0i64);
+        for id in super::types::TokenType::all() {
+            balances.insert(super::types::Token::persistent(id), 0i64);
         }
         // Default Foresight controls area deck hand size
         balances.insert(
@@ -377,7 +373,6 @@ impl GameState {
             Err(_) => ActionLog::new(),
         };
         Self {
-            registry,
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
             library: initialize_library(),
@@ -385,66 +380,6 @@ impl GameState {
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_combat_result: None,
         }
-    }
-
-    /// Apply a simple GrantToken action: update balances and append to the action log.
-    /// Apply a grant operation: add to token balances with cap checking.
-    pub fn apply_grant(
-        &mut self,
-        token_id: &super::types::TokenType,
-        amount: i64,
-        _reason: Option<String>,
-    ) -> Result<(), String> {
-        let token_type = self
-            .registry
-            .tokens
-            .get(token_id)
-            .ok_or_else(|| format!("Unknown token '{:?}'", token_id))?;
-
-        // Check cap if present
-        if let Some(cap) = token_type.cap {
-            let current = super::types::token_balance_by_type(&self.token_balances, token_id);
-            if current + amount > cap as i64 {
-                return Err(format!(
-                    "Token '{:?}' would exceed cap of {} (current: {})",
-                    token_id, cap, current
-                ));
-            }
-        }
-
-        let v = self
-            .token_balances
-            .entry(super::types::Token::persistent(token_id.clone()))
-            .or_insert(0);
-        *v += amount;
-        Ok(())
-    }
-
-    /// Apply a consume operation: deduct from token balances.
-    pub fn apply_consume(
-        &mut self,
-        token_id: &super::types::TokenType,
-        amount: i64,
-        _reason: Option<String>,
-    ) -> Result<(), String> {
-        if !self.registry.contains(token_id) {
-            return Err(format!("Unknown token '{:?}'", token_id));
-        }
-
-        let current = super::types::token_balance_by_type(&self.token_balances, token_id);
-        if current < amount {
-            return Err(format!(
-                "Cannot consume {} of token '{:?}': insufficient balance (have {})",
-                amount, token_id, current
-            ));
-        }
-
-        let v = self
-            .token_balances
-            .entry(super::types::Token::persistent(token_id.clone()))
-            .or_insert(0);
-        *v -= amount;
-        Ok(())
     }
 
     /// Append an action to the action log with optional metadata; returns the appended entry.
@@ -731,31 +666,12 @@ impl GameState {
         Ok(())
     }
 
-    /// Reconstruct state from a registry and an existing action log.
+    /// Reconstruct state from an existing action log.
     /// The RNG is initialized from the first `SetSeed` entry in the log.
-    pub fn replay_from_log(registry: TokenRegistry, log: &ActionLog) -> Self {
+    pub fn replay_from_log(log: &ActionLog) -> Self {
         use rand::SeedableRng;
 
-        let mut gs = {
-            let mut balances = HashMap::new();
-            for id in registry.tokens.keys() {
-                balances.insert(super::types::Token::persistent(id.clone()), 0i64);
-            }
-            // Default Foresight controls area deck hand size
-            balances.insert(
-                super::types::Token::persistent(super::types::TokenType::Foresight),
-                3,
-            );
-            Self {
-                registry,
-                action_log: std::sync::Arc::new(ActionLog::new()),
-                token_balances: balances,
-                library: initialize_library(),
-                current_combat: None,
-                encounter_phase: super::types::EncounterPhase::NoEncounter,
-                last_combat_result: None,
-            }
-        };
+        let mut gs = GameState::new();
         let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
 
         for e in log.entries() {

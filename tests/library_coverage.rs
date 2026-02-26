@@ -2,7 +2,7 @@ use my_little_cardgame::library::types::{
     token_balance_by_type, ActionPayload, CardCounts, CardEffectKind, CardKind, EffectTarget,
     Token, TokenType,
 };
-use my_little_cardgame::library::{registry::TokenRegistry, GameState, Library};
+use my_little_cardgame::library::{GameState, Library};
 
 #[test]
 fn card_counts_total() {
@@ -185,32 +185,6 @@ fn library_draw_nonexistent_card_returns_error() {
 }
 
 #[test]
-fn game_state_apply_consume() {
-    let mut gs = GameState::new();
-    gs.apply_grant(&TokenType::Insight, 10, None).unwrap();
-    gs.apply_consume(&TokenType::Insight, 3, None).unwrap();
-    assert_eq!(
-        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
-        7
-    );
-}
-
-#[test]
-fn game_state_apply_consume_insufficient_balance() {
-    let mut gs = GameState::new();
-    gs.apply_grant(&TokenType::Insight, 2, None).unwrap();
-    let result = gs.apply_consume(&TokenType::Insight, 5, None);
-    assert!(result.is_err());
-}
-
-#[test]
-fn token_registry_contains() {
-    let reg = TokenRegistry::with_canonical();
-    assert!(reg.contains(&TokenType::Health));
-    assert!(reg.contains(&TokenType::Foresight));
-}
-
-#[test]
 fn game_state_draw_random_cards() {
     let mut gs = GameState::new();
     // Library starts with Attack having deck:15 hand:5 (now at index 8)
@@ -265,8 +239,7 @@ fn replay_from_log_handles_legacy_entries() {
     );
 
     let log_clone = gs.action_log.clone();
-    let registry = TokenRegistry::with_canonical();
-    let replayed = GameState::replay_from_log(registry, &log_clone);
+    let replayed = GameState::replay_from_log(&log_clone);
     assert_eq!(
         token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
         15

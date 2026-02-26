@@ -178,17 +178,6 @@ fn area_deck_endpoints() {
 }
 
 #[test]
-fn library_tokens_endpoint() {
-    let client = client();
-    let response = client.get("/tokens").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let tokens: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
-    assert!(!tokens.is_empty());
-    assert!(tokens.iter().any(|t| t["id"] == "Health"));
-}
-
-#[test]
 fn play_card_without_combat_returns_error() {
     let client = client();
     let response = client

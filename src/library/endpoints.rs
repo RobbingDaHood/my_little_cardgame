@@ -1,16 +1,7 @@
 use super::game_state::GameState;
-use super::registry::TokenRegistry;
 use super::types::CardKind;
 use rocket::serde::json::Json;
 use rocket_okapi::openapi;
-
-/// Get canonical token registry with full token details
-#[openapi]
-#[get("/tokens")]
-pub async fn list_library_tokens() -> Json<Vec<super::types::TokenRegistryEntry>> {
-    let reg = TokenRegistry::with_canonical();
-    Json(reg.tokens.into_values().collect())
-}
 
 /// Library cards endpoint: returns all cards from the canonical Library.
 #[openapi]

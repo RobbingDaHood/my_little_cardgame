@@ -1,21 +1,21 @@
 // Tests moved from src/library.rs
 use my_little_cardgame::library::{
     action_log,
-    types::{token_balance_by_type, ActionPayload, TokenType},
+    types::{token_balance_by_type, ActionPayload, Token, TokenType},
     GameState,
 };
 use std::sync::Arc;
 use std::thread;
 
 #[test]
-fn grant_modifies_balance() {
+fn direct_balance_modifies_balance() {
     let mut gs = GameState::new();
     assert_eq!(
         token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         0
     );
-    gs.apply_grant(&TokenType::Insight, 10, None)
-        .expect("apply_grant failed");
+    gs.token_balances
+        .insert(Token::persistent(TokenType::Insight), 10);
     assert_eq!(
         token_balance_by_type(&gs.token_balances, &TokenType::Insight),
         10

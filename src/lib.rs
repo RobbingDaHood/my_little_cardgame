@@ -65,9 +65,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::library::add_test_library_card;
     use crate::library::list_card_effects;
     use crate::library::list_library_cards;
-    use crate::library::list_library_tokens;
     use crate::library::okapi_add_operation_for_list_card_effects_;
-    use crate::library::okapi_add_operation_for_list_library_tokens_;
     use crate::player_tokens::get_player_tokens;
     use crate::player_tokens::okapi_add_operation_for_get_player_tokens_;
 
@@ -87,7 +85,6 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 play,
                 get_player_tokens,
                 get_combat_result,
-                list_library_tokens,
                 list_card_effects,
                 list_actions_log,
                 get_area,
