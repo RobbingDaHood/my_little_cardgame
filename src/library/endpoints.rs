@@ -4,13 +4,28 @@ use rocket::serde::json::Json;
 use rocket_okapi::openapi;
 
 /// Library cards endpoint: returns all cards from the canonical Library.
+/// Optionally filter by ?location= (Library, Deck, Hand, Discard).
 #[openapi]
-#[get("/library/cards")]
+#[get("/library/cards?<location>")]
 pub async fn list_library_cards(
+    location: Option<String>,
     game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
 ) -> Json<Vec<super::types::LibraryCard>> {
     let gs = game_state.lock().await;
-    Json(gs.library.cards.clone())
+    let cards: Vec<super::types::LibraryCard> = gs
+        .library
+        .cards
+        .iter()
+        .filter(|c| match location.as_deref() {
+            Some("Library") => c.counts.library > 0,
+            Some("Deck") => c.counts.deck > 0,
+            Some("Hand") => c.counts.hand > 0,
+            Some("Discard") => c.counts.discard > 0,
+            _ => true,
+        })
+        .cloned()
+        .collect();
+    Json(cards)
 }
 
 /// Test endpoint: add a card to the Library with specified kind and counts.

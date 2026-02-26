@@ -96,6 +96,16 @@ pub enum EffectTarget {
 
 // ====== Library types (card location model from vision.md) ======
 
+/// Where card copies reside.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum CardLocation {
+    Library,
+    Deck,
+    Hand,
+    Discard,
+}
+
 /// Exclusive copy counts describing where player copies reside.
 /// [library, deck, hand, discard] — each copy exists in exactly one location.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
