@@ -241,6 +241,109 @@ fn initialize_library() -> Library {
         },
     );
 
+    // ---- Mining player cards ----
+
+    // Aggressive mining card (id 12): high ore damage, no protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 5,
+                durability_prevent: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Balanced mining card (id 13): moderate ore damage and protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 3,
+                durability_prevent: 2,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Protective mining card (id 14): low ore damage, high protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 1,
+                durability_prevent: 3,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Mining encounter: Iron Ore (id 15)
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: super::types::EncounterKind::Mining {
+                mining_def: super::types::MiningDef {
+                    ore_hp: 15,
+                    ore_deck: vec![
+                        super::types::OreCard {
+                            durability_damage: 0,
+                            counts: super::types::OreCardCounts {
+                                deck: 0,
+                                hand: 6,
+                                discard: 0,
+                            },
+                        },
+                        super::types::OreCard {
+                            durability_damage: 1,
+                            counts: super::types::OreCardCounts {
+                                deck: 0,
+                                hand: 8,
+                                discard: 0,
+                            },
+                        },
+                        super::types::OreCard {
+                            durability_damage: 2,
+                            counts: super::types::OreCardCounts {
+                                deck: 0,
+                                hand: 4,
+                                discard: 0,
+                            },
+                        },
+                        super::types::OreCard {
+                            durability_damage: 3,
+                            counts: super::types::OreCardCounts {
+                                deck: 0,
+                                hand: 2,
+                                discard: 0,
+                            },
+                        },
+                    ],
+                    rewards: HashMap::from([(super::types::TokenType::Ore, 10)]),
+                    failure_penalties: HashMap::from([(super::types::TokenType::Exhaustion, 2)]),
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
     }

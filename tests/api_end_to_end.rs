@@ -27,7 +27,7 @@ fn hello_world() {
 
     // Verify Library cards are initialized (4 PlayerCardEffect + 4 EnemyCardEffect + Attack, Defence, Resource, CombatEncounter)
     let library_cards = get_library_cards(&client);
-    assert_eq!(12, library_cards.len());
+    assert_eq!(16, library_cards.len());
 
     // Verify card counts: attack/defence have deck:15 hand:5, resource has deck:35 hand:5
     for card in &library_cards[8..10] {
