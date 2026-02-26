@@ -26,7 +26,6 @@ fn library_draw_and_play_and_return() {
                 token_type: TokenType::Health,
                 amount: -5,
             },
-            lifecycle: my_little_cardgame::library::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,

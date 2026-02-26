@@ -18,7 +18,6 @@ fn initialize_library() -> Library {
                 token_type: super::types::TokenType::Health,
                 amount: -5,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -36,7 +35,6 @@ fn initialize_library() -> Library {
                 token_type: super::types::TokenType::Shield,
                 amount: 3,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -54,7 +52,6 @@ fn initialize_library() -> Library {
                 token_type: super::types::TokenType::Stamina,
                 amount: 2,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -72,7 +69,6 @@ fn initialize_library() -> Library {
                 defence: 1,
                 resource: 2,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -92,7 +88,6 @@ fn initialize_library() -> Library {
                 token_type: super::types::TokenType::Health,
                 amount: -3,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -110,7 +105,6 @@ fn initialize_library() -> Library {
                 token_type: super::types::TokenType::Shield,
                 amount: 2,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -128,7 +122,6 @@ fn initialize_library() -> Library {
                 token_type: super::types::TokenType::Stamina,
                 amount: 1,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -146,7 +139,6 @@ fn initialize_library() -> Library {
                 defence: 1,
                 resource: 2,
             },
-            lifecycle: super::types::TokenLifecycle::PersistentCounter,
         },
         CardCounts {
             library: 1,
@@ -265,7 +257,7 @@ fn apply_card_effects(
     library: &Library,
 ) {
     for &effect_id in effect_ids {
-        let (kind, lifecycle) = match library.resolve_effect(effect_id) {
+        let kind = match library.resolve_effect(effect_id) {
             Some(resolved) => resolved,
             None => continue,
         };
@@ -305,10 +297,7 @@ fn apply_card_effects(
             }
         } else {
             let entry = target_tokens
-                .entry(super::types::Token {
-                    token_type: token_type.clone(),
-                    lifecycle: lifecycle.clone(),
-                })
+                .entry(super::types::Token::persistent(token_type.clone()))
                 .or_insert(0);
             *entry = (*entry + amount).max(0);
         }
@@ -530,14 +519,11 @@ impl GameState {
         };
         let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
         for &id in &effect_ids {
-            if let Some((
-                super::types::CardEffectKind::DrawCards {
-                    attack,
-                    defence,
-                    resource,
-                },
-                _,
-            )) = self.library.resolve_effect(id)
+            if let Some(super::types::CardEffectKind::DrawCards {
+                attack,
+                defence,
+                resource,
+            }) = self.library.resolve_effect(id)
             {
                 atk_draws += attack;
                 def_draws += defence;
@@ -651,14 +637,11 @@ impl GameState {
 
             let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
             for &id in &effect_ids {
-                if let Some((
-                    super::types::CardEffectKind::DrawCards {
-                        attack,
-                        defence,
-                        resource,
-                    },
-                    _,
-                )) = self.library.resolve_effect(id)
+                if let Some(super::types::CardEffectKind::DrawCards {
+                    attack,
+                    defence,
+                    resource,
+                }) = self.library.resolve_effect(id)
                 {
                     atk_draws += attack;
                     def_draws += defence;

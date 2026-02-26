@@ -94,26 +94,12 @@ impl CardCounts {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "card_kind")]
 pub enum CardKind {
-    Attack {
-        effect_ids: Vec<usize>,
-    },
-    Defence {
-        effect_ids: Vec<usize>,
-    },
-    Resource {
-        effect_ids: Vec<usize>,
-    },
-    Encounter {
-        encounter_kind: EncounterKind,
-    },
-    PlayerCardEffect {
-        kind: CardEffectKind,
-        lifecycle: TokenLifecycle,
-    },
-    EnemyCardEffect {
-        kind: CardEffectKind,
-        lifecycle: TokenLifecycle,
-    },
+    Attack { effect_ids: Vec<usize> },
+    Defence { effect_ids: Vec<usize> },
+    Resource { effect_ids: Vec<usize> },
+    Encounter { encounter_kind: EncounterKind },
+    PlayerCardEffect { kind: CardEffectKind },
+    EnemyCardEffect { kind: CardEffectKind },
 }
 
 /// Sub-type of encounter cards.

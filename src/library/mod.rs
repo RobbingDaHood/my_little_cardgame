@@ -106,20 +106,14 @@ impl Library {
         Ok(())
     }
 
-    /// Resolve a card effect entry by ID, returning its kind and lifecycle.
+    /// Resolve a card effect entry by ID, returning its kind.
     /// Only works for PlayerCardEffect and EnemyCardEffect entries.
-    pub fn resolve_effect(
-        &self,
-        effect_id: usize,
-    ) -> Option<(types::CardEffectKind, types::TokenLifecycle)> {
+    pub fn resolve_effect(&self, effect_id: usize) -> Option<types::CardEffectKind> {
         let card = self.cards.get(effect_id)?;
         match &card.kind {
-            CardKind::PlayerCardEffect {
-                kind, lifecycle, ..
+            CardKind::PlayerCardEffect { kind, .. } | CardKind::EnemyCardEffect { kind, .. } => {
+                Some(kind.clone())
             }
-            | CardKind::EnemyCardEffect {
-                kind, lifecycle, ..
-            } => Some((kind.clone(), lifecycle.clone())),
             _ => None,
         }
     }
