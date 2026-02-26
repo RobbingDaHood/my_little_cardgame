@@ -14,15 +14,13 @@ This document describes the high-level gameplay vision for the project, with a f
 The codebase is organized into the following main modules:
 
 - `src/library/` — core domain module containing:
-  - `types.rs` — core data types (LibraryCard, CardKind, CardEffect, CardEffectKind, CombatantDef, etc.)
-  - `combat.rs` — combat resolution logic (CombatState, CombatOutcome, card effect resolution)
-  - `encounter.rs` — encounter loop and phase management
-  - `registry.rs` — canonical TokenRegistry with token type definitions and caps
+  - `types.rs` — core data types (LibraryCard, CardKind, CardEffectKind, CombatantDef, CombatState, ActionPayload, CardLocation, etc.)
   - `action_log.rs` — append-only player action log
-  - `game_state.rs` — top-level GameState managing Library, tokens, combat, and encounter state
+  - `game_state.rs` — top-level GameState managing Library, tokens, combat, and encounter phase
   - `endpoints.rs` — HTTP route handlers for gameplay and library queries
 - `src/combat/` — combat state endpoints (delegates to GameState methods)
-- `src/action/` — player action handling and POST /action request processing
+- `src/action/` — player action handling and POST /action request processing (PlayerActions enum manages encounter phase transitions)
+- `src/player_data.rs` — RandomGeneratorWrapper: seeded RNG wrapper for deterministic random operations
 - `src/main.rs` — binary entry that mounts Rocket routes and serves OpenAPI/Swagger UI
 
 ## Core gameplay elements
@@ -32,11 +30,11 @@ Deck types (examples):
 - Encounter decks: Enemy, Trap, Puzzle
 - Treasure decks: Ore, Lumber, Herbs, Loot, MerchantOffers
 - Recipe deck: Recipes that can be drawn/selected to craft items
-- Area deck: Represents the players current location. There is one deck with encounters. 
+- Area deck: Represents the player's current location. Encounter cards live in the Library and use the same CardCounts (library/deck/hand/discard) and CardLocation tracking as all other card types. There is no separate AreaDeck struct; encounter card management uses Library helper methods (encounter_hand, encounter_contains, encounter_draw_to_hand). The hand represents visible/pickable encounters and its size is controlled by the Foresight token (default 3). Encounter cards are accessed via `/library/cards?location=Hand&card_kind=Encounter`.
 - Library: a canonical collection of all cards accessible via the library endpoint; any card present in the library can be added to a deck provided the deck is of the appropriate type (deck-type constraints apply)
 
-  - CardDef and Library implementation notes: Card definitions declare declarative CardEffect entries (target: self|opponent, token_type, amount, lifecycle) that are resolved when the card is played. Each CardEffect carries an explicit lifecycle field and a card_effect_id referencing its corresponding CardEffect card in the Library. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; new cards must always be appended to the end to preserve stable IDs. CardKind (enum) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, Encounter{kind: EncounterKind}, PlayerCardEffect{effect}, EnemyCardEffect{effect}). EncounterKind is an enum starting with Combat { combatant_def }; enemy card definitions are embedded inline within Encounter definitions rather than as separate Library references.
-  - The Library contains two CardEffect "decks": PlayerCardEffect cards (used during research to generate new player cards) and EnemyCardEffect cards (used during the post-encounter scouting phase to generate new encounters). Every CardEffect on action/enemy cards references a CardEffect deck entry via card_effect_id. API responses show full effect values, not references. All card effects on player cards must reference a valid PlayerCardEffect entry; all effects on enemy cards must reference a valid EnemyCardEffect entry (validated at Library initialization).
+  - Library implementation notes: Card definitions use `effect_ids: Vec<usize>` to reference their CardEffect entries in the Library by index. Effect data lives on `PlayerCardEffect` and `EnemyCardEffect` library entries which hold `kind: CardEffectKind` directly. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; new cards must always be appended to the end to preserve stable IDs. CardKind (enum, serde tag `"card_kind"`) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, Encounter{kind: EncounterKind}, PlayerCardEffect{kind: CardEffectKind}, EnemyCardEffect{kind: CardEffectKind}). EncounterKind is an enum starting with Combat { combatant_def }; enemy card definitions are embedded inline within Encounter definitions rather than as separate Library references.
+  - The Library contains two CardEffect "decks": PlayerCardEffect cards (used during research to generate new player cards) and EnemyCardEffect cards (used during the post-encounter scouting phase to generate new encounters). Every card effect on action/enemy cards references a CardEffect deck entry via `effect_ids: Vec<usize>`. API responses show full effect values, not references. All card effects on player cards must reference a valid PlayerCardEffect entry; all effects on enemy cards must reference a valid EnemyCardEffect entry (validated at Library initialization).
 
 
 The Player's decks (Attack, Defence, Resource etc.) are fixed and initialized at game start. Only the Library manages the canonical card definitions and the internal deck representation. The API does not expose deck-creation or deck-deletion endpoints; player deck composition is managed only through adding Library cards to decks via the deck-management flow.
@@ -54,26 +52,30 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 ### Implementation updates (2026-02-23)
 - Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. PersistentCounter is the default lifecycle for all token types, but any token type can use any lifecycle — for example Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`); the old array-of-entries format is still accepted for backward-compatible deserialization.
 - The ScopedToEncounter lifecycle was replaced by FixedTypeDuration { phases, duration }; references to ScopedToEncounter were removed.
-- Combat state lives in GameState (current_combat: Option<CombatState>, encounter_state) and src/combat/ endpoints delegate to GameState methods (start_combat, resolve_player_card, resolve_enemy_play, advance_combat_phase). CombatState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside CombatState.
-- Combat outcome is tracked via a `CombatOutcome` enum on CombatState with variants: Undecided, PlayerWon, EnemyWon. The separate CombatResult struct has been deleted.
+- Combat state lives in GameState (current_combat: Option<CombatState>, encounter_phase: EncounterPhase) and src/combat/ endpoints delegate to GameState methods (start_combat, resolve_player_card, resolve_enemy_play, advance_combat_phase). CombatState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside CombatState. Turn control is implicit: the player always acts first, then the system auto-resolves enemy play and advances combat phase within the same action.
+- Combat outcome is tracked via a `CombatOutcome` enum on CombatState with variants: Undecided, PlayerWon, EnemyWon. GameState maintains `combat_results: Vec<CombatOutcome>` — each completed combat pushes its outcome to this vector. The `/combat/results` endpoint returns the full history.
 - Dodge absorption: damage consumes Dodge tokens first before Health is reduced.
-- Drawing additional cards is modelled via the `CardEffectKind::DrawCards { amount }` variant of the `CardEffectKind` enum. `CardEffect` uses a `kind` field with two variants: `ChangeTokens { target, token_type, amount }` for token manipulation, and `DrawCards { amount }` for card draw. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via ChangeTokens effects. Starting decks draw 2 cards per resource play for steady pacing. DrawCards is not a token type — it is purely a card effect subtype.
+- Drawing additional cards is modelled via the `CardEffectKind::DrawCards { attack, defence, resource }` variant of the `CardEffectKind` enum. `CardEffectKind` has two variants: `ChangeTokens { target, token_type, amount }` for token manipulation, and `DrawCards { attack: u32, defence: u32, resource: u32 }` for per-deck-type card draw. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via ChangeTokens effects. Starting decks draw 1 attack, 1 defence, 2 resource cards per resource play (4 total) for steady pacing. DrawCards is not a token type — it is purely a card effect subtype. Both player and enemy draws happen per deck type with discard recycling per type.
 - CardEffectKind extensibility: new card effect subtypes (e.g., conditional effects, area-of-effect, combo triggers) should be added as new `CardEffectKind` variants rather than overloading `ChangeTokens` with special token types. This keeps each effect kind self-describing and ensures exhaustive match coverage in Rust.
-- Enemy decks use `EnemyCardCounts { deck, hand, discard }` to track card locations. At combat start, enemy hands are shuffled (all cards move to deck, then random cards drawn to restore hand size using the seeded RNG). Enemies play from hand only; played cards go to discard. When a deck is empty and a draw is needed, the discard pile is recycled into the deck. Resource cards draw their DrawCards amount (via CardEffectKind::DrawCards) of cards for each of the three enemy deck types (attack, defence, resource), providing the only replenishment mechanism for all enemy decks.
+- Enemy decks use `EnemyCardCounts { deck, hand, discard }` to track card locations. At combat start, enemy hands are shuffled (all cards move to deck, then random cards drawn to restore hand size using the seeded RNG). Enemies play from hand only; played cards go to discard. When a deck is empty and a draw is needed, the discard pile is recycled into the deck. Resource cards draw their DrawCards amounts (via CardEffectKind::DrawCards { attack, defence, resource }) of cards for each of the three enemy deck types, providing the only replenishment mechanism for all enemy decks.
 - After a player plays a card via EncounterPlayCard, the system automatically resolves the enemy's play and advances the combat phase. There are no separate endpoints for enemy play or phase advancement. The exact auto-advance sequence is:
   1. Player plays card → resolve player card effects
   2. Resolve enemy play (one random card matching current CombatPhase from enemy hand)
   3. Advance combat phase (Defending → Attacking → Resourcing → Defending)
   4. Check combat end conditions (either side HP ≤ 0)
-- Encounter cards are not a separate AreaDeck struct. They live in the Library and use the same CardCounts (library/deck/hand/discard) as all other card types. Helper methods on Library (encounter_hand, encounter_contains, encounter_draw_to_hand) query encounter cards by their counts. The hand represents visible/pickable encounters and its size is controlled by the Foresight token (default 3).
 - CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum starting with Combat { combatant_def }, preparing for future non-combat encounter types (Gathering, Puzzle, etc.).
-- Players cannot abandon combat once started. Combat continues until one side is defeated (HP reaches 0). EncounterApplyScouting is the action that transitions from post-combat Scouting phase back to Ready.
+- Players cannot abandon combat once started. Combat continues until one side is defeated (HP reaches 0). EncounterApplyScouting is the action that transitions from post-combat Scouting phase back to NoEncounter.
 - Scouting after loss: after combat ends (whether the player wins or loses), the game transitions to the Scouting phase. The player can apply scouting regardless of combat outcome. This is intentional — scouting is a post-encounter lifecycle step, not a victory reward.
 - Health initialization: player Health is set to 20 when picking an encounter only if current Health is 0. Health persists across encounters within a game; it is not reset between encounters.
 - All amounts are positive: attacks have a positive number even though they remove health points, allowing unsigned integers to be used where possible.
 - Only four player actions exist: NewGame { seed: Option<u64> }, EncounterPickEncounter { card_id }, EncounterPlayCard { card_id }, EncounterApplyScouting. All other previously documented actions have been removed.
 - NewGame { seed: Option<u64> } initializes a fresh game. If no seed is provided, a random one is generated. The old /player/seed endpoint and SetSeed action have been removed.
-- The action log records only player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). Internal operations (token grants, consumes, card movements) are deterministic consequences of player actions and the seed, so they do not need logging for reproducibility.
+- The action log records only player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). Internal operations (token grants, consumes, card movements) are deterministic consequences of player actions and the seed, so they do not need logging for reproducibility. ActionEntry contains only `seq: usize` (index in the log) and `payload: ActionPayload`. The `/actions/log` endpoint returns chronologically ordered entries.
+- CardLocation enum: `Library`, `Deck`, `Hand`, `Discard`. Used as a query filter on `/library/cards?location=Hand&card_kind=Encounter`. All card types use the same location tracking system via CardCounts. The `/library/cards` endpoint returns `LibraryCardWithId` (includes card ID/index) with optional `?location=` and `?card_kind=` filters.
+- Card draws are random (seeded): `draw_player_cards_of_kind` accepts an RNG parameter and picks a random card from the drawable pool, not the first card sequentially.
+- CombatPhase::allowed_card_kind() returns a type-safe predicate `fn(&CardKind) -> bool` rather than a string comparison.
+- CombatantDef.initial_tokens uses `HashMap<Token, u64>` (unsigned); runtime token_balances uses `i64` for signed arithmetic during damage calculations.
+- Token definitions live in the `TokenType` enum and `Token` struct (token_type + lifecycle). There is no separate TokenRegistry; tokens are created directly from TokenType via constructors like `Token::persistent(token_type)` and `Token::dodge()`. GameState.token_balances is the sole source of truth for token state.
 
 ## Current combat setup
 
@@ -87,10 +89,10 @@ Combat is modelled as a deterministic, turn-based exchange between decks:
 Combat is fully reproducible by recording the game's single initial seed and the player's action log (which card was played each turn).
 
   - Encounter phases: the `EncounterPhase` enum defines the encounter state machine with the following variants:
-    - `NoEncounter` — no encounter is active (initial state after NewGame)
-    - `Ready` — encounter hand is populated, player may pick an encounter
-    - `InCombat` — combat is in progress
-    - `Scouting` — post-combat phase where the player applies scouting before returning to Ready
+    - `NoEncounter` — no encounter is active; the player may pick an encounter from the encounter hand
+    - `Combat` — combat is in progress
+    - `Scouting` — post-combat phase where the player applies scouting before returning to NoEncounter
+  - Note: `EncounterPhase` is stored directly on `GameState.encounter_phase` (the `EncounterState` wrapper has been removed).
 
   - HP as tokens: Hit points are modelled as tokens (e.g., health and max_health in active_tokens) rather than dedicated fields, following the 'everything is a token' principle.
 
@@ -198,7 +200,7 @@ Tokens explicitly declare their lifecycle semantics so designers, clients, and t
 - Conditional: persist until a condition is met (for example Durability hitting 0, Corruption crossing a threshold, or a specific external event).
 
 Rules and implementation notes:
-- Every token type must document its lifecycle class, generation rules, caps/decay semantics, authoritative spend paths, and whether it carries structured payload data. CardEffect entries carry an explicit lifecycle field stating the duration of the token they provide. PersistentCounter is the default lifecycle; any token type can use any lifecycle (e.g. Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }). Token constructors Token::persistent(token_type) and Token::dodge() enforce these defaults.
+- Every token type must document its lifecycle class, generation rules, caps/decay semantics, authoritative spend paths, and whether it carries structured payload data. Lifecycle is declared solely on the `Token` struct (token_type + lifecycle), not on card effects. Card effects reference a `TokenType` and the lifecycle comes from the token definition. PersistentCounter is the default lifecycle; any token type can use any lifecycle (e.g. Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }). Token constructors Token::persistent(token_type) and Token::dodge() enforce these defaults. Token definitions live in the `TokenType` enum — there is no separate token registry data structure.
 - The actions log records only player actions for reproducibility. Internal token operations (grant, consume, expire) are deterministic consequences of player actions and the seed. The action log combined with the initial seed is sufficient to reproduce all token state transitions.
 - Designers may choose whether expired tokens are archived (kept in history) or removed.
 
@@ -371,7 +373,7 @@ This design lets the game grow from simple beginnings to rich systems while pres
 - The game is intentionally pure text-based and exposed entirely via a REST JSON API so it remains playable by humans who can issue and read JSON requests/responses.
 - All mutable interactions are performed through a single actions endpoint (e.g., POST /action) where each operation is a concise JSON object describing the intended action; this endpoint is the canonical way to interact with and mutate game state. The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting.
 - An append-only actions log endpoint (for example GET /actions/log) exposes all player actions in chronological order. When paired with the game's initial seed used for RNG, the full chronological action list is sufficient to deterministically reproduce the exact game state at any point. Only player actions are recorded; internal operations (token grants, card movements) are deterministic consequences of the seed and player actions.
-- Other endpoints (for example /library, /areas, /decks) provide read-only JSON access to game data; the actions endpoint is the only endpoint that performs state changes.
+- Other endpoints (for example /library/cards, /combat, /combat/results, /player/tokens, /actions/log) provide read-only JSON access to game data; the actions endpoint is the only endpoint that performs state changes. The /library/cards endpoint supports `?location=` and `?card_kind=` query filters and returns cards with their IDs.
 - The project's OpenAPI specification will include thorough tutorials, documentation, and guided examples (end-to-end flows, example requests/responses, recipe/crafting walkthroughs) so integrators, designers, and QA can learn and exercise the API directly from the spec.
 
 ## Card location model and counts

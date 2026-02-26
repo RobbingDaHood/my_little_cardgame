@@ -10,7 +10,7 @@ Alignment requirements (inherited from vision.md)
 - Everything-as-deck/token: Core library types and APIs must model cards, encounters, recipes, merchants and materials as decks and individual items as tokens.
 - Single-seed reproducibility: New games are created with a single explicit seed; all random operations (shuffles, rolls, selection) are derived from that seed and are replayable.
 - Canonical Library semantics: The Library is the authoritative catalog of card definitions. Crafted card copies are created in the Library and never directly injected into player decks; players add Library cards into decks via deck-management flows subject to deck-type constraints.
-- Token lifecycle & actions log: The action log records only player actions (not internal token operations). Combined with the initial seed, the player action log is sufficient to reproduce all game state including token lifecycles. Tokens declare lifecycle semantics in the token registry.
+- Token lifecycle & actions log: The action log records only player actions (not internal token operations). Combined with the initial seed, the player action log is sufficient to reproduce all game state including token lifecycles. Token definitions live in the `TokenType` enum and `Token` struct; lifecycle is declared on the Token directly (not in a separate registry).
 - Single mutator endpoint: All state mutations must be performed via a single POST /action endpoint (the "action" endpoint) which accepts structured action payloads; other endpoints are read-only. The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting.
 - All gameplay state mutations must be performed via POST /action. Testing and debugging endpoints under /tests/* are exceptions and should be documented as temporary testing utilities.
 
@@ -29,22 +29,22 @@ Roadmap steps
 - Removed explicit AreaDeck struct; encounter cards now use Library CardCounts (library/deck/hand/discard) like all other card types, with helper methods (encounter_hand, encounter_contains, encounter_draw_to_hand) on Library.
 - Renamed TokenId → TokenType; created Token struct with token_type + lifecycle fields for dynamic lifecycle per instance.
 - Deleted CombatResult struct; replaced with CombatOutcome enum (Undecided, PlayerWon, EnemyWon) on CombatState.
-- Moved Resource draw_count into card effects: DrawCards is now a TokenType variant used in card effects.
+- Moved Resource draw_count into card effects: DrawCards is now a CardEffectKind variant (not a TokenType).
 - Renamed CardKind::CombatEncounter → CardKind::Encounter { kind: EncounterKind } with EncounterKind enum.
 - Enemy now plays one card matching the current CombatPhase (not one from each deck).
 - Player tokens (Health, Shield, etc.) moved out of CombatSnapshot to GameState.token_balances.
 - Action log audited: only player actions are logged. Internal operations (token grants, consumes, card movements) are deterministic from player actions + seed.
-- Replay system note: replay_from_log now replays player actions (SetSeed, DrawEncounter, PlayCard, ApplyScouting) in addition to legacy token entries. Combined with the initial seed, the action log is sufficient to reconstruct the full game state for the core loop.
+- Replay system note: replay_from_log now replays player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). Combined with the initial seed, the action log is sufficient to reconstruct the full game state for the core loop.
 
 ### Post-7.7 implementation (2026-02-23)
 - All issues from docs/issues.md resolved:
   - Issue 9: Removed unused `effects` field from EncounterPlayCard
-  - Issue 7: Removed with_default_lifecycle; all tokens PersistentCounter except Dodge (FixedTypeDuration to Defence phase); CardEffect now carries explicit lifecycle
-  - Issue 2: Removed lifecycle from TokenRegistryEntry (now only id + cap)
+  - Issue 7: Removed with_default_lifecycle; all tokens PersistentCounter except Dodge (FixedTypeDuration to Defence phase); lifecycle is solely on the Token struct, not on card effects
+  - Issue 2: Removed lifecycle from TokenRegistryEntry (now only id + cap); TokenRegistry has since been fully deleted
   - Issue 4: Token maps serialize as compact JSON objects (e.g., {"Health": 20}); backward-compatible deserialization
   - Issue 5: Renamed CombatSnapshot → CombatState
-  - Issue 6: Enemy decks track deck/hand/discard counts; hand shuffle at combat start; play from hand only. Resource DrawCards should draw its amount for all three deck types (attack, defence, resource) — not yet fully implemented in code.
-  - Issue 8: /tokens endpoint returns full TokenRegistryEntry objects
+  - Issue 6: Enemy decks track deck/hand/discard counts; hand shuffle at combat start; play from hand only. Resource DrawCards draws per deck type (attack, defence, resource) for all three enemy deck types.
+  - Issue 8: /tokens endpoint removed (TokenRegistry deleted); token state is accessed via /player/tokens
   - Issue 1: replay_from_log handles SetSeed, DrawEncounter, PlayCard, ApplyScouting
 - Step 7.7 implemented: PlayerCardEffect and EnemyCardEffect CardKind variants; card_effect_id references; validation; GET /library/card-effects endpoint
 - New cards should always be appended to the end of the Library vector to preserve stable card IDs
@@ -52,16 +52,44 @@ Roadmap steps
 ### Post-7.7 cleanup (2026-02-24)
 - Removed `EncounterPhase::Defence` (now uses `CombatPhase::Defending`)
 - Removed `Combatant` struct (enemy tokens moved directly to `CombatState.enemy_tokens`)
-- Extracted `DrawCards` from `TokenType` into `CardEffectKind` enum
-- Increased DrawCards amount from 1 to 2 per resource play for steady pacing
-- Split `library.rs` into `src/library/` module directory with submodules (types, combat, encounter, registry, action_log, game_state, endpoints)
+- Extracted `DrawCards` from `TokenType` into `CardEffectKind` enum with per-deck-type fields { attack, defence, resource }
+- DrawCards amounts: 1 attack, 1 defence, 2 resource per resource play (4 total) for steady pacing
+- Split `library.rs` into `src/library/` module directory with submodules (types, action_log, game_state, endpoints)
 - Added long-scenario integration tests (`tests/scenario_tests.rs`) using only production endpoints
 
+### Pre-step-8 cleanup (2026-02-26)
+- All issues from docs/issues.md (second round) resolved:
+  - Fixed draw_player_cards_of_kind to draw random cards (was always drawing first card)
+  - Removed lifecycle field from PlayerCardEffect and EnemyCardEffect (lifecycle solely on Token)
+  - Deleted empty src/tests.rs and removed leftover comments
+  - Renamed PlayerData to RandomGeneratorWrapper
+  - Used typed CardKind check in CombatPhase::allowed_card_kind (returns fn(&CardKind)->bool)
+  - Removed redundant CombatState.player_turn field (turn control is implicit)
+  - Replaced EncounterState wrapper with EncounterPhase directly on GameState
+  - Simplified EncounterPhase: removed Ready variant, renamed InCombat to Combat
+  - Removed TokenRegistry, apply_grant, apply_consume, /tokens endpoint entirely
+  - Expanded last_combat_result to combat_results: Vec<CombatOutcome> with /combat/results endpoint
+  - Changed CombatantDef.initial_tokens to HashMap<Token, u64>
+  - Simplified ActionPayload to 4 variants matching PlayerActions (SetSeed, DrawEncounter, PlayCard, ApplyScouting)
+  - Simplified ActionEntry to just seq + payload (removed action_type, timestamp, actor, request_id, version)
+  - Added CardLocation enum (Library, Deck, Hand, Discard) and ?location=/?card_kind= filters to /library/cards
+  - Removed /area and /area/encounters endpoints; encounter cards accessed via /library/cards?location=Hand&card_kind=Encounter
+  - Removed AreaDeck struct (was only used in tests)
+  - Removed ScoutingParams and entire src/area_deck/ module
+- Test files removed (tested deleted production code): library_integration.rs, proptest_sequences.rs, proptest_replay.rs, replay_determinism.rs, area_deck_integration.rs, area_deck_e2e.rs
+- All scenario coverage is now in `tests/scenario_tests.rs` using only production endpoints
+- Note: ScoutingParams will need to be re-implemented as part of step 11 (post-encounter scouting choices) within the Library/GameState system
+
+### Step 7 COMPLETE
+Steps 7, 7.5, 7.6, and 7.7 are fully implemented and cleaned up. The core encounter loop (pick → fight → scouting → pick) is operational with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, CardEffect decks, and a single unified combat system. All legacy code (CardDef, old combat simulation, EncounterAction state machine, TokenRegistry, AreaDeck) has been removed.
+
 Roadmap steps
---------------: unify decks, hands, tokens, and enforce vision constraints
-   - Goal: Create a single library crate that is the authoritative implementation of decks, tokens, Library semantics, and the canonical token registry.
-   - Description: Extract Deck, Hand, Zone, Token, CardDef, Library and ActionLog types; implement a token registry with lifecycle metadata and a compact actions log API to record lifecycle events.
-   - Playable acceptance: Unit tests and property tests for deck/token invariants; an API endpoint GET /library returns canonical card entries; actions log records simple token grant/consume events.
+--------------
+
+1) Implement core Library types: unify decks, hands, tokens, and enforce vision constraints
+   - Goal: Create a single library crate that is the authoritative implementation of decks, tokens, Library semantics, and the canonical token definitions.
+   - Description: Extract Deck, Hand, Zone, Token, Library and ActionLog types; implement token types with lifecycle metadata and a compact actions log API to record player actions.
+   - Playable acceptance: Unit tests and property tests for deck/token invariants; an API endpoint GET /library/cards returns canonical card entries; actions log records player actions.
    - Notes: Make the library the only place that mutates authoritative game state; surface a small, well-documented API and enforce "everything is deck/token" at type level.
 
 2) Implement global seeded RNG and deterministic execution primitives
@@ -72,55 +100,56 @@ Roadmap steps
 
 3) Implement append-only Actions Log endpoint and structured actions API
    - Goal: Provide an append-only actions log endpoint (GET /actions/log) and a structured action API to record player actions so runs can be reproduced from seed + action list.
-   - Description: Implement an append-only, chronologically ordered ActionLog that records player action metadata; expose GET /actions/log and an internal append API for the action handler to write atomic entries. Only player actions are logged (not internal token operations); combined with the initial seed, the action log is sufficient to reconstruct game state.
+   - Description: Implement an append-only, chronologically ordered ActionLog; expose GET /actions/log and an internal append API for the action handler to write atomic entries. Only player actions are logged (not internal token operations); combined with the initial seed, the action log is sufficient to reconstruct game state. ActionEntry contains only `seq` (index) and `payload` (the player action). No timestamp, actor, or other metadata is stored.
    - Playable acceptance: API returns chronologically ordered action entries and a replay test reconstructs state from seed + action log.
    - Notes: Make the ActionLog the canonical audit trail for player actions. Internal token operations (grant, consume, expire) are deterministic consequences of player actions and the seed, so they do not need explicit logging.
 
 4) Implement canonical token list and lifecycle enforcement
-   - Goal: Add the canonical token definitions (Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, etc.) and lifecycle classes from vision.md and ensure the ActionLog records lifecycle events.
-   - Description: Implement token types, caps/decay rules, and lifecycle metadata. Ensure actions API records token events with reason, amount, and resulting state.
-   - Playable acceptance: Tests assert lifecycle transitions (grant, consume, expire) for at least three token types and actions log entries are produced.
-   - Notes: Keep the canonical token list authoritative and extensible via the library crate.
-    - Current token registry (scope of Step 4): Health, Dodge, Stamina (basic survival tokens used in current combat).
-    - Future token registry (Step 4 onwards): Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Purity, and discipline-specific tokens.
-    - Each token type must declare its lifecycle (Permanent, PersistentCounter, FixedDuration, etc.) in the canonical registry.
+   - Goal: Add the canonical token definitions (Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, etc.) and lifecycle classes from vision.md.
+   - Description: Implement token types in the `TokenType` enum with lifecycle on the `Token` struct. Tokens are created directly from TokenType (e.g. Token::persistent(token_type)); there is no separate token registry data structure. GameState.token_balances is the source of truth for token state.
+   - Playable acceptance: Tests assert lifecycle transitions (grant, consume, expire) for at least three token types.
+   - Notes: Keep the canonical token list authoritative and extensible via the TokenType enum.
+    - Current token types (scope of Step 4): Health, Dodge, Stamina (basic survival tokens used in current combat).
+    - Future token types (Step 4 onwards): Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Purity, and discipline-specific tokens.
+    - Each token type declares its lifecycle on the Token struct (Permanent, PersistentCounter, FixedDuration, etc.).
 
-5) Add Area Decks with encounter removal + replacement and scouting hooks
-   - Goal: Introduce AreaDecks that contain encounter cards and support the vision's replace-on-resolve behavior: resolved encounter cards are removed and replaced by freshly generated encounters with affixes; scouting biases replacement generation.
-   - Description: Implement AreaDeck, encounter consumption, replacement-generation (base type + affixes), and a simple affix pipeline. Implement binding of encounter decks to the encounter instance (encounter deck, reward deck, modifier pulls) and ensure any entry_cost for attempting an encounter is consumed/locked at start. Expose GET /area/{id}/draw and POST /area/{id}/replace endpoints and ensure all deck-bound draws, entry_cost consumes, and replacement-generation steps are recorded in the ActionLog.
-   - Playable acceptance: Drawing and resolving an area encounter removes it from the area deck and immediately creates a replacement entry; scouting-related parameters can bias replacement generation in deterministic tests.
-   - Notes: Start with small affix sets and deterministic replacement rules.
+5) Encounter replacement and scouting hooks (formerly "Add Area Decks")
+   - Note: The structural AreaDeck work has been superseded by Library card location tracking (CardLocation enum with Deck/Hand/Discard). Encounter cards now use the same CardCounts as all other card types. This step focuses on the replacement-generation and scouting mechanics.
+   - Goal: Implement the vision's replace-on-resolve behavior: resolved encounter cards are removed and replaced by freshly generated encounters with affixes; scouting biases replacement generation.
+   - Description: Implement encounter consumption, replacement-generation (base type + affixes), and a simple affix pipeline. Implement binding of encounter decks to the encounter instance (encounter deck, reward deck, modifier pulls) and ensure any entry_cost for attempting an encounter is consumed/locked at start. All deck-bound draws, entry_cost consumes, and replacement-generation steps are recorded in the ActionLog.
+   - Playable acceptance: Drawing and resolving an area encounter removes it from the Library hand and immediately creates a replacement entry; scouting-related parameters can bias replacement generation in deterministic tests.
+   - Notes: Start with small affix sets and deterministic replacement rules. ScoutingParams was deleted during cleanup and will need to be re-implemented here as part of the Library/GameState system rather than as a separate module.
 
-6) Refactor combat into the library core (deterministic, logged)
+6) Refactor combat into the library core (deterministic, logged) — COMPLETE
 
-   - Note: CombatAction is a simple card-play struct { is_player, card_index }. CombatState (formerly CombatSnapshot) is the pure-data combat representation.
+   - Note: CombatAction was a simple card-play struct { is_player, card_index }. CombatState is the pure-data combat representation. The old library::combat module and /combat/simulate endpoint have been fully removed; all combat resolution now uses GameState methods (start_combat, resolve_player_card, resolve_enemy_play, advance_combat_phase). CardDef struct has also been deleted.
 
    - Goal: Move combat resolution, deterministic start-of-turn draws, turn order, actions, and enemy scripts into the shared library, using the seeded RNG and writing a deterministic actions log.
-   - Description: Define CombatState, CombatAction, enemy scripts, and resolve_tick/resolve_turn methods that produce an explicit, replayable combat log. Ensure start-of-turn mechanics (draws, tempo, and turn order) are deterministic and driven by the session RNG. Integrate combat events into the ActionLog so every state change is auditable.
-   - Playable acceptance: POST /combat/simulate accepts a CombatState and seed and returns a deterministic combat log that reproduces when replayed.
-   - Notes: Keep combat pure-data where possible and surface minimal side-effecting entry points that only write to the action log.
+   - Description: Define CombatState, enemy scripts, and resolution methods that produce an explicit, replayable combat log. Ensure start-of-turn mechanics (draws, tempo, and turn order) are deterministic and driven by the session RNG. Combat events are recorded via the ActionLog so every state change is auditable.
+   - Playable acceptance: A single combat API produces deterministic combat results, reconciles card definitions and locations with the Library.
+   - Notes: Combat is pure-data with minimal side-effecting entry points that only write to the action log.
 
 7) Add the simple encounter play loop (pick -> fight -> replace -> scouting)
    - Goal: Support a single-playable encounter loop as described in the vision: pick an encounter, resolve it, perform the post-encounter scouting step, and repeat. 
    - Description: Implement /encounter/start, /encounter/step, /encounter/finish flows that use in-memory session state for now and write all events (including replacement and scouting decisions) to the ActionLog.
         - Remember that the action endpoint is the only endpoint allowed to change state. When the player plays an action (examples: pick an encounter, play a card, etc.), the game evaluates whether that changes any state (for example: move the combat one phase forward, conclude the combat, and go to the post-encounter scouting step, etc.). 
-   - Playable acceptance: API user can draw an encounter, resolve combat to conclusion, perform a scouting post-resolution step that biases replacement, and the area deck updates accordingly.
+   - Playable acceptance: API user can draw an encounter, resolve combat to conclusion, perform a scouting post-resolution step that biases replacement, and the encounter Library cards update accordingly.
    - Notes: Ensure session can be replayed from seed + action log.
     - - Scouting parameters (preview count, affix bias, pool modifier) are internal mechanics that influence encounter-generation deterministically during the scouting post-encounter step. They are not user-facing API endpoints but are controlled by the player's scouting action choices and token expenditures (Foresight, etc.).
 
-7.5) Unify combat systems and remove old deck types
-   - Goal: Unify the two combat implementations (src/combat/ old HTTP-driven Combat/Unit/States and library::combat deterministic CombatSnapshot/CombatAction) so a single authoritative combat system resolves card effects and token lifecycles.
-   - Description: Migrate resolve_card_effects to read from the Library and player state consistently, replace CombatState with CombatSnapshot, and adopt CombatAction as a simple struct { is_player, card_index }. After unification, remove legacy Deck, DeckCard, CardState from src/deck/ and player_data.cards, and migrate or remove test endpoints that rely on legacy deck CRUD.
-   - Playable acceptance: A single combat API backed by library::combat produces deterministic CombatSnapshots, reconciles card definitions and locations with the Library, and provides a clear migration path for removing legacy deck types.
-   - Minimal playable loop: After this step introduce a very simple game loop: pick an encounter, play cards until one side has lost all HP, run a quick scouting phase (Just add the current finished encounter card back into the encounter "deck": Change the library counters -1 on discard +1 on deck (Later we will expand on this setup)), then prepare to pick another encounter.
+7.5) Unify combat systems and remove old deck types — COMPLETE
+   - Goal: Unify the two combat implementations so a single authoritative combat system resolves card effects and token lifecycles.
+   - Description: Migrated resolve_card_effects to read from the Library and player state consistently. Removed legacy Deck, DeckCard, CardState from src/deck/ and player_data.cards, and test endpoints that relied on legacy deck CRUD. The library::combat module has been deleted; all combat logic lives in GameState methods.
+   - Playable acceptance: A single combat API backed by GameState produces deterministic CombatStates and reconciles card definitions with the Library.
+   - Minimal playable loop: After this step a very simple game loop exists: pick an encounter, play cards until one side has lost all HP, run a quick scouting phase (add the finished encounter card back into the encounter deck), then pick another encounter.
 
 7.6) Flesh out combat and draw mechanics
    - Goal: Implement basic resource-card draw mechanics and encounter handsize rules to make pacing simple and deterministic.
    - Description: Resource cards are the only way to draw additional cards into hands: playing a resource card triggers draws onto one or more hands and is the primary way players gain cards to their hand. Enemies follow the same principle: certain enemy cards act as resource/draw cards that cause draws for their hands.
-   - Encounter handsize & Foresight: The encounter handsize is controlled by the Foresight token (default starting value: 3). When an encounter is chosen it is moved to the discard pile and when the encounter is over cards are drawn until the "area deck" hand reaches the Foresight number of cards (this behavior applies to area/encounter hand management).
+   - Encounter handsize & Foresight: The encounter handsize is controlled by the Foresight token (default starting value: 3). When an encounter is chosen it is moved to the discard pile and when the encounter is over cards are drawn until the encounter hand reaches the Foresight number of cards (this behavior applies to encounter hand management via Library CardCounts).
    - Enemy play behavior: On each enemy turn the enemy plays one random card matching the current CombatPhase (attack card during Attacking, defence during Defending, resource during Resourcing). After the player plays a card, the system automatically resolves the enemy's play and advances the combat phase.
    - Deck composition: Ensure starting decks for both players and enemies contain approximately 50% draw/resource cards so games have steady card-flow and pacing.
-   - Current balance parameters: DrawCards amount is 2 per resource play (via CardEffectKind::DrawCards { amount: 2 }). This value significantly affects deck pacing and should be revisited as encounter complexity grows.
+   - Current balance parameters: DrawCards per resource play is 1 attack, 1 defence, 2 resource (4 total) via CardEffectKind::DrawCards { attack: 1, defence: 1, resource: 2 }. These values significantly affect deck pacing and should be revisited as encounter complexity grows.
    - Playable acceptance: A minimal loop exists (pick -> fight -> scouting -> pick) with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, and starting decks containing ~half draw cards.
 
 7.7) Prepare CardEffects decks 
@@ -135,7 +164,7 @@ Roadmap steps
     - Playable acceptance: Library contains both player and enemy CardEffect decks; all card effects on player/enemy cards reference valid CardEffect deck entries (validated at initialization); GET /library/card-effects returns both decks.
 
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
-   - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and discipline decks, and produce raw materials required for crafting.
+   - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and add discipline decks, and produce raw materials required for crafting.
    - Description: Implement node-based gathering encounters where discipline decks resolve the node (e.g., Mining uses Mining deck vs IronOre card) and produce raw/refined material tokens. Ensure Discipline Durability and Rations semantics are enforced; failures produce Exhaustion or Durability loss. Record material token grants in the ActionLog so crafting has a provable input history.
    - Player actions: All gameplay flows must use the four canonical player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). New encounter types (gathering, crafting) will need to either extend these actions or add new well-defined variants to PlayerActions.
    - Replay: The replay system (replay_from_log) already supports the core game loop (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). New encounter types will need to extend the replay handler accordingly.
@@ -157,10 +186,10 @@ Roadmap steps
 
 11) Add post-encounter scouting choices (vision-driven)
    - Goal: Present scouting choices as a post-resolution step that influence replacement-generation parameters (preview counts, affix biases, candidate pools) and grant Foresight/related tokens.
-   - Description: Implement ScoutChoice objects and a deterministic application that updates replacement parameters for the specific area deck. Record scouting decisions and effects in the ActionLog.
+   - Description: Implement ScoutChoice objects and a deterministic application that updates replacement parameters for encounter generation (using Library CardCounts). Record scouting decisions and effects in the ActionLog.
    - Playable acceptance: After an encounter, API returns scouting choices; making a choice updates the replacement-generation seed/parameters and is reflected in the next replacement card deterministically.
    - Notes: Keep initial choices small and data-driven (e.g., +1 Foresight, increase affix-pool size).
-    - Up to this point then all encounters just added the same encounter back into the area deck: no changes. 
+    - Up to this point then all encounters just added the same encounter back into the encounter Library: no changes. 
 
 12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
    - Goal: Model merchants as decks (MerchantOffers, Barter) and deterministic merchant interactions that mirror vision.md's barter mechanics.
@@ -170,7 +199,7 @@ Roadmap steps
 
 13) Finalize edge cases for a repeatable loop and concurrency
    - Goal: Make the loop robust: reshuffle/renew rules, player death and recovery, encounter exhaustion and replacement guarantees, and multi-session concurrency safety.
-   - Description: Add tests for deck exhaustion/reshuffle, rules for encounter removal+replacement when decks empty, and concurrency controls for per-session AreaDeck mutations.
+   - Description: Add tests for deck exhaustion/reshuffle, rules for encounter removal+replacement when decks empty, and concurrency controls for per-session Library encounter mutations.
    - Playable acceptance: A session can play multiple encounters in sequence without violating invariants; action logs provide a full replay and tests pass.
    - Notes: Add minimal instrumentation to spot-check correct replacement and token lifecycles.
 
@@ -222,12 +251,12 @@ How to use this roadmap
 
 Appendix: Minimum ticket examples for the first 8 steps
 -----------------------------------------------------
-- Refactor library: Extract Deck/Hand/Zone/Token/Library into lib crate, add unit tests for move/draw/reshuffle, and implement a canonical token registry.
+- Refactor library: Extract Card/Hand/Token/Library into lib crate, add unit tests for move/draw/reshuffle, and implement TokenType enum for token definitions.
 - RNG: Add seeded RNG, deterministic derive API, and replay helper for restoring runs.
 - Token lifecycles: Implement Insight/Foresight/Renown/Refinement/Stability and action-log recording for lifecycle events.
-- Area deck: Create AreaDeck with seed data, implement draw/resolve/replace and affix replacement pipeline.
-- Combat refactor: Implement CombatState and resolve_tick using seeded RNG and output deterministic logs recorded to the ActionLog.
-- Encounter loop: Implement /encounter/start, /encounter/step, /encounter/finish endpoints, include replacement and scouting as part of the lifecycle.
+- Encounter tracking: Track encounter cards via Library CardCounts (deck/hand/discard), implement draw/resolve/replace and affix replacement pipeline.
+- Combat refactor: Implement CombatState and resolution using seeded RNG and output deterministic logs recorded to the ActionLog.
+- Encounter loop: Implement the encounter loop via POST /action (pick encounter, play cards, advance phases, scouting), include replacement and scouting as part of the lifecycle.
 - Research: Implement ResearchDeck + ModifierDeck pipeline and deterministic variant generation recorded to the ActionLog.
 - Merchants: Implement MerchantOffers and Barter decks, deterministic visits, and barter flows recorded to the ActionLog.
 
