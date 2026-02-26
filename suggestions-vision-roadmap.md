@@ -244,3 +244,88 @@ DrawCards { attack: u32, defence: u32, resource: u32 }
 7. **Step 4 (Token lifecycle):** Update to reflect that token definitions are in the `TokenType` enum, not a separate registry. Remove mentions of TokenRegistryEntry.
 8. **ScoutingParams note:** Add a note that ScoutingParams was deleted in the cleanup and will need to be re-implemented as part of step 11 (post-encounter scouting choices) when that work begins.
 9. **Action log clarity:** The alignment requirements correctly state "action log records only player actions." Ensure step 3's description matches this (remove any mention of logging internal token operations).
+
+---
+
+## Step 8 Implementation — New Suggestions
+
+These suggestions are based on implementing Step 8 (mining gathering encounters):
+
+### vision.md Updates
+
+#### 1. Update Combat/Encounter terminology
+The vision doc still refers to `CombatState` and `CombatOutcome`. These have been renamed:
+- `CombatState` → `EncounterState` (an enum with `Combat(CombatEncounterState)` and `Mining(MiningEncounterState)` variants)
+- `CombatOutcome` → `EncounterOutcome` (variants: `PlayerWon`, `PlayerLost`, `Undecided` — `EnemyWon` renamed to `PlayerLost`)
+- `current_combat` → `current_encounter`, `combat_results` → `encounter_results`
+
+#### 2. Document the EncounterState enum pattern
+Add a section explaining the encounter dispatch pattern:
+```rust
+pub enum EncounterState {
+    Combat(CombatEncounterState),
+    Mining(MiningEncounterState),
+    // future: Herbalism, Woodcutting, Crafting, etc.
+}
+```
+Each encounter type has its own struct because mechanics differ fundamentally. Combat has 3 decks + phases; mining has a single deck with no phases. This pattern should guide future encounter type implementations.
+
+#### 3. Document Mining encounter mechanics
+The vision doc describes gathering disciplines at a high level. Now that Mining is implemented, add concrete mechanics:
+- **Single-deck resolution**: Player Mining deck (cards with `ore_damage` + `durability_prevent` tradeoff). Ore has OreDeck with cards dealing 0-3 durability damage (skewed low: ~30% zero, ~40% one, ~20% two, ~10% three).
+- **Turn flow**: Player plays → ore_damage reduces ore HP, prevent is stored → ore plays random card → effective durability damage = raw - prevent → both draw → check end.
+- **Win**: Ore HP ≤ 0 → grant material tokens (Ore: 10).
+- **Lose**: Player Durability ≤ 0 → Exhaustion penalty (2).
+- **No phases**: Unlike combat's Defending → Attacking → Resourcing cycle, mining is one action per turn.
+
+#### 4. Clarify endpoint renaming
+`/combat` → `/encounter`, `/combat/results` → `/encounter/results`. All encounter types share these endpoints. The response JSON includes `encounter_state_type` discriminator field (`"Combat"` or `"Mining"`).
+
+#### 5. Add Mining to card kind enumeration
+`CardKind::Mining { mining_effect: MiningCardEffect }` is now alongside Attack, Defence, Resource. Mining effects are inline (`ore_damage: i64, durability_prevent: i64`) rather than using effect_id references.
+
+#### 6. Document new token types
+- `TokenType::Ore`: Persistent material token granted on mining success. First material token; Woodcutting/Herbalism will add their own.
+- `TokenType::Durability`: Initialized to 15 when starting mining encounter (if zero). Functions as mining HP. Persists across encounters.
+
+#### 7. Update EncounterPhase
+`EncounterPhase::Gathering` variant added (previously only `NoEncounter`, `Combat`, `Scouting`). Mining encounters use `Gathering` phase.
+
+### roadmap.md Updates
+
+#### 1. Mark Step 8 as partially complete
+- ✅ Mining gathering discipline: playable end-to-end with 3 card types (Aggressive ore_damage=5/prevent=0, Balanced 3/2, Protective 1/3)
+- ✅ Iron Ore encounter: ore HP 15, 20 ore cards weighted low, rewards Ore:10, failure Exhaustion:2
+- ✅ EncounterState enum pattern established as template for future encounter types
+- ✅ BREAKING: `/combat` → `/encounter` endpoint rename, `CombatState` → `EncounterState`
+- ✅ Mining scenario tests demonstrating full gameplay loop
+- ✅ Replay system updated for mining encounters
+- ⬜ Woodcutting and Herbalism disciplines (follow same pattern)
+- ⬜ Rations/Durability cross-discipline consumption (Step 15)
+
+#### 2. Simplify future gathering discipline steps
+With the EncounterState enum as a template, adding new disciplines is mechanical:
+1. Add new CardKind variant (e.g., `Woodcutting { effect: WoodcuttingEffect }`)
+2. Add new EncounterState variant + state struct
+3. Add cards to `initialize_library()`
+4. Dispatch in action handler and game_state resolution
+5. Update `/library/cards?card_kind=` filter
+6. Update `replay_from_log`
+7. Add scenario tests
+
+Consider making each discipline a separate sub-step of Step 8.
+
+#### 3. Note the replay coverage pattern
+`replay_from_log` dispatches by encounter type for `DrawEncounter` and by EncounterState variant for `PlayCard`. Each new encounter type must extend replay. Add this as an explicit checklist item for new encounter type steps.
+
+#### 4. Card_kind filter maintenance
+The `/library/cards?card_kind=` endpoint was extended to support `Mining`. Each new card kind needs to be added to this filter. Consider auto-deriving from the CardKind enum in a future cleanup to avoid manual updates.
+
+#### 5. Library card IDs
+Current library card ID assignments (for reference in future steps):
+- 0-3: PlayerCardEffect entries (damage, shield, stamina, draw)
+- 4-7: EnemyCardEffect entries
+- 8: Attack card, 9: Defence card, 10: Resource card
+- 11: Combat encounter (Gnome)
+- 12: Mining card (Aggressive), 13: Mining card (Balanced), 14: Mining card (Protective)
+- 15: Mining encounter (Iron Ore)
