@@ -383,7 +383,15 @@ impl CombatPhase {
         }
     }
 
-    pub fn allowed_card_kind(&self) -> &'static str {
+    pub fn allowed_card_kind(&self) -> fn(&CardKind) -> bool {
+        match self {
+            CombatPhase::Defending => |k| matches!(k, CardKind::Defence { .. }),
+            CombatPhase::Attacking => |k| matches!(k, CardKind::Attack { .. }),
+            CombatPhase::Resourcing => |k| matches!(k, CardKind::Resource { .. }),
+        }
+    }
+
+    pub fn allowed_card_kind_name(&self) -> &'static str {
         match self {
             CombatPhase::Defending => "Defence",
             CombatPhase::Attacking => "Attack",

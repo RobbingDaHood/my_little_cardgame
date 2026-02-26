@@ -153,19 +153,12 @@ pub async fn play(
             // Validate card kind matches current combat phase
             {
                 let combat = gs.current_combat.as_ref().expect("checked above");
-                let allowed_kind = combat.phase.allowed_card_kind();
-                let card_kind_name = match &lib_card.kind {
-                    crate::library::types::CardKind::Attack { .. } => "Attack",
-                    crate::library::types::CardKind::Defence { .. } => "Defence",
-                    crate::library::types::CardKind::Resource { .. } => "Resource",
-                    crate::library::types::CardKind::Encounter { .. } => "Encounter",
-                    crate::library::types::CardKind::PlayerCardEffect { .. } => "PlayerCardEffect",
-                    crate::library::types::CardKind::EnemyCardEffect { .. } => "EnemyCardEffect",
-                };
-                if card_kind_name != allowed_kind {
+                let is_allowed = combat.phase.allowed_card_kind();
+                if !is_allowed(&lib_card.kind) {
                     return Err(Right(BadRequest(new_status(format!(
                         "Card {} is not playable in current phase (expected {})",
-                        card_id, allowed_kind
+                        card_id,
+                        combat.phase.allowed_card_kind_name()
                     )))));
                 }
             }
