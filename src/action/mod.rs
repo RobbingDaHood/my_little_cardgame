@@ -119,9 +119,7 @@ pub async fn play(
             match gs.start_combat(card_id, &mut rng) {
                 Ok(()) => {
                     let payload = crate::library::types::ActionPayload::DrawEncounter {
-                        area_id: "current".to_string(),
                         encounter_id: card_id.to_string(),
-                        reason: Some("Player picked encounter by card_id".to_string()),
                     };
                     let entry = gs.append_action("EncounterPickEncounter", payload);
                     Ok((rocket::http::Status::Created, Json(entry)))
@@ -169,8 +167,6 @@ pub async fn play(
                     let _ = gs.resolve_player_card(card_id as usize, &mut rng);
                     let payload = crate::library::types::ActionPayload::PlayCard {
                         card_id: card_id as usize,
-                        deck_id: None,
-                        reason: Some("Player played card during encounter".to_string()),
                     };
                     let entry = gs.append_action("EncounterPlayCard", payload);
 
@@ -203,15 +199,6 @@ pub async fn play(
                 }
             }
 
-            let parameters = match serde_json::to_string(&card_ids) {
-                Ok(s) => s,
-                Err(e) => {
-                    return Err(Left(NotFound(new_status(format!(
-                        "Failed to serialize card_ids: {e}"
-                    )))));
-                }
-            };
-
             // Recycle encounter back to deck and refill hand
             if let Some(ref combat) = gs.current_combat {
                 if let Some(enc_id) = combat.encounter_card_id {
@@ -229,9 +216,7 @@ pub async fn play(
 
             gs.encounter_phase = crate::library::types::EncounterPhase::NoEncounter;
             let payload = crate::library::types::ActionPayload::ApplyScouting {
-                area_id: "current".to_string(),
-                parameters,
-                reason: Some("Player applied scouting with card_ids".to_string()),
+                card_ids: card_ids.clone(),
             };
             let entry = gs.append_action("EncounterApplyScouting", payload);
             Ok((rocket::http::Status::Created, Json(entry)))

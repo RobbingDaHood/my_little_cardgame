@@ -32,13 +32,8 @@ fn action_log_concurrent_append() {
         let log_clone = Arc::clone(&log);
         handles.push(thread::spawn(move || {
             for j in 0..per_thread {
-                let payload = ActionPayload::GrantToken {
-                    token_id: TokenType::Insight,
-                    amount: j as i64,
-                    reason: None,
-                    resulting_amount: j as i64,
-                };
-                log_clone.append("GrantToken", payload);
+                let payload = ActionPayload::SetSeed { seed: j as u64 };
+                log_clone.append("SetSeed", payload);
             }
         }));
     }

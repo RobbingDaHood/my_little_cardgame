@@ -364,65 +364,14 @@ pub enum TokenLifecycle {
     Conditional,
 }
 
-/// Action payloads for the append-only log
+/// Action payloads for the append-only log — only player-initiated actions.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "type")]
 pub enum ActionPayload {
-    GrantToken {
-        token_id: TokenType,
-        amount: i64,
-        reason: Option<String>,
-        resulting_amount: i64,
-    },
-    ConsumeToken {
-        token_id: TokenType,
-        amount: i64,
-        reason: Option<String>,
-        resulting_amount: i64,
-    },
-    ExpireToken {
-        token_id: TokenType,
-        amount: i64,
-        reason: Option<String>,
-    },
-    SetSeed {
-        seed: u64,
-    },
-    RngDraw {
-        purpose: String,
-        value: u64,
-    },
-    RngSnapshot {
-        snapshot: String,
-    },
-    PlayCard {
-        card_id: usize,
-        deck_id: Option<String>,
-        reason: Option<String>,
-    },
-    DrawEncounter {
-        area_id: String,
-        encounter_id: String,
-        reason: Option<String>,
-    },
-    ReplaceEncounter {
-        area_id: String,
-        old_encounter_id: String,
-        new_encounter_id: String,
-        affixes_applied: Vec<String>,
-        reason: Option<String>,
-    },
-    ConsumEntryCost {
-        area_id: String,
-        encounter_id: String,
-        cost_amount: i64,
-        reason: Option<String>,
-    },
-    ApplyScouting {
-        area_id: String,
-        parameters: String,
-        reason: Option<String>,
-    },
+    SetSeed { seed: u64 },
+    DrawEncounter { encounter_id: String },
+    PlayCard { card_id: usize },
+    ApplyScouting { card_ids: Vec<usize> },
 }
 
 /// Stored action entry in the append-only action log.

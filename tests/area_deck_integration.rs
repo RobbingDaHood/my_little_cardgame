@@ -42,49 +42,13 @@ fn test_multiple_scouting_params_produce_same_seed() {
 #[test]
 fn test_action_payload_draw_encounter() {
     let payload = ActionPayload::DrawEncounter {
-        area_id: "area_1".to_string(),
         encounter_id: "enc_1".to_string(),
-        reason: Some("Test draw".to_string()),
     };
 
     match payload {
-        ActionPayload::DrawEncounter {
-            area_id,
-            encounter_id,
-            reason,
-        } => {
-            assert_eq!(area_id, "area_1");
+        ActionPayload::DrawEncounter { encounter_id } => {
             assert_eq!(encounter_id, "enc_1");
-            assert_eq!(reason, Some("Test draw".to_string()));
         }
         _ => panic!("Expected DrawEncounter payload"),
-    }
-}
-
-#[test]
-fn test_action_payload_replace_encounter() {
-    let payload = ActionPayload::ReplaceEncounter {
-        area_id: "area_1".to_string(),
-        old_encounter_id: "enc_1".to_string(),
-        new_encounter_id: "enc_2".to_string(),
-        affixes_applied: vec!["fire".to_string()],
-        reason: Some("Replacement".to_string()),
-    };
-
-    match payload {
-        ActionPayload::ReplaceEncounter {
-            area_id,
-            old_encounter_id,
-            new_encounter_id,
-            affixes_applied,
-            reason,
-        } => {
-            assert_eq!(area_id, "area_1");
-            assert_eq!(old_encounter_id, "enc_1");
-            assert_eq!(new_encounter_id, "enc_2");
-            assert_eq!(affixes_applied.len(), 1);
-            assert_eq!(reason, Some("Replacement".to_string()));
-        }
-        _ => panic!("Expected ReplaceEncounter payload"),
     }
 }

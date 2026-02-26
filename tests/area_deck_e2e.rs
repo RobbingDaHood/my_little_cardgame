@@ -22,9 +22,7 @@ async fn test_area_deck_with_library_card_refs() {
     // Record draw action in action log
     let gs_lock = gs.lock().await;
     let payload = my_little_cardgame::library::types::ActionPayload::DrawEncounter {
-        area_id: "forest_area".to_string(),
         encounter_id: "3".to_string(),
-        reason: Some("Player selected encounter".to_string()),
     };
     let entry = gs_lock.append_action("DrawEncounter", payload);
     drop(gs_lock);
@@ -33,11 +31,8 @@ async fn test_area_deck_with_library_card_refs() {
 
     // Record scouting decision
     let gs_lock = gs.lock().await;
-    let payload = my_little_cardgame::library::types::ActionPayload::ApplyScouting {
-        area_id: "forest_area".to_string(),
-        parameters: "preview_count=2,affix_bias=blessed".to_string(),
-        reason: Some("Scouting applied to next replacement".to_string()),
-    };
+    let payload =
+        my_little_cardgame::library::types::ActionPayload::ApplyScouting { card_ids: vec![3] };
     let entry = gs_lock.append_action("ApplyScouting", payload);
     drop(gs_lock);
 

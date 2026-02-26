@@ -1,8 +1,5 @@
 // Async stress test for ActionLog using tokio tasks
-use my_little_cardgame::library::{
-    action_log,
-    types::{ActionPayload, TokenType},
-};
+use my_little_cardgame::library::{action_log, types::ActionPayload};
 use std::sync::Arc;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -15,14 +12,8 @@ async fn action_log_async_stress() {
         let log_clone = Arc::clone(&log);
         handles.push(tokio::spawn(async move {
             for j in 0..per_thread {
-                let payload = ActionPayload::GrantToken {
-                    token_id: TokenType::Insight,
-                    amount: j as i64,
-                    reason: None,
-                    resulting_amount: j as i64,
-                };
-                // append synchronously from async task (should be safe); yield occasionally
-                log_clone.append("GrantToken", payload);
+                let payload = ActionPayload::SetSeed { seed: j as u64 };
+                log_clone.append("SetSeed", payload);
                 if j % 10 == 0 {
                     tokio::task::yield_now().await;
                 }

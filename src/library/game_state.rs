@@ -697,7 +697,7 @@ impl GameState {
                     gs.last_combat_result = None;
                     gs.combat_results.clear();
                 }
-                ActionPayload::DrawEncounter { encounter_id, .. } => {
+                ActionPayload::DrawEncounter { encounter_id } => {
                     if let Ok(card_id) = encounter_id.parse::<usize>() {
                         let health_key =
                             super::types::Token::persistent(super::types::TokenType::Health);
@@ -708,7 +708,7 @@ impl GameState {
                         let _ = gs.start_combat(card_id, &mut rng);
                     }
                 }
-                ActionPayload::PlayCard { card_id, .. } => {
+                ActionPayload::PlayCard { card_id } => {
                     let _ = gs.library.play(*card_id);
                     let _ = gs.resolve_player_card(*card_id, &mut rng);
                     if gs.current_combat.is_some() {
@@ -733,36 +733,6 @@ impl GameState {
                         .unwrap_or(3) as usize;
                     gs.library.encounter_draw_to_hand(foresight);
                     gs.encounter_phase = super::types::EncounterPhase::NoEncounter;
-                }
-                ActionPayload::GrantToken {
-                    token_id, amount, ..
-                } => {
-                    let v = gs
-                        .token_balances
-                        .entry(super::types::Token::persistent(token_id.clone()))
-                        .or_insert(0);
-                    *v += *amount;
-                }
-                ActionPayload::ConsumeToken {
-                    token_id, amount, ..
-                } => {
-                    let v = gs
-                        .token_balances
-                        .entry(super::types::Token::persistent(token_id.clone()))
-                        .or_insert(0);
-                    *v -= *amount;
-                }
-                ActionPayload::ExpireToken {
-                    token_id, amount, ..
-                } => {
-                    let v = gs
-                        .token_balances
-                        .entry(super::types::Token::persistent(token_id.clone()))
-                        .or_insert(0);
-                    *v = (*v - *amount).max(0);
-                }
-                _ => {
-                    // RngDraw, RngSnapshot, etc. are audit entries
                 }
             }
             match gs.action_log.entries.lock() {

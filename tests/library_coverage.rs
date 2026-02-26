@@ -206,43 +206,17 @@ fn game_state_draw_random_cards() {
 }
 
 #[test]
-fn replay_from_log_handles_legacy_entries() {
+fn replay_from_log_handles_set_seed() {
     let gs = GameState::new();
-    // SetSeed first (as in real game flow) resets state, then legacy token ops apply
     gs.action_log
         .append("NewGame", ActionPayload::SetSeed { seed: 42 });
-    gs.action_log.append(
-        "GrantToken",
-        ActionPayload::GrantToken {
-            token_id: TokenType::Insight,
-            amount: 20,
-            reason: None,
-            resulting_amount: 20,
-        },
-    );
-    gs.action_log.append(
-        "ConsumeToken",
-        ActionPayload::ConsumeToken {
-            token_id: TokenType::Insight,
-            amount: 5,
-            reason: None,
-            resulting_amount: 15,
-        },
-    );
-    gs.action_log.append(
-        "ExpireToken",
-        ActionPayload::ExpireToken {
-            token_id: TokenType::Stability,
-            amount: 2,
-            reason: Some("test expire".to_string()),
-        },
-    );
 
     let log_clone = gs.action_log.clone();
     let replayed = GameState::replay_from_log(&log_clone);
+    // After replay, state should be freshly initialized (SetSeed resets)
     assert_eq!(
         token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
-        15
+        0
     );
 }
 
