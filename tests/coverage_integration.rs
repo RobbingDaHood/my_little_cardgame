@@ -139,7 +139,10 @@ fn combat_lifecycle_with_enemy_play_and_advance() {
 
     // Get initial combat state
     let combat = get_combat(&client).expect("combat exists");
-    assert!(combat.player_turn);
+    assert_eq!(
+        combat.phase,
+        my_little_cardgame::library::types::CombatPhase::Defending
+    );
 
     // Advance phase
     let response = client.post("/tests/combat/advance").dispatch();

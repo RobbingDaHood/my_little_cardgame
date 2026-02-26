@@ -58,7 +58,6 @@ fn hello_world() {
         my_little_cardgame::library::types::CombatPhase::Defending
     );
     assert_eq!(actual_combat.round, 1);
-    assert!(actual_combat.player_turn);
     // Enemy should have initial tokens (health=20, max_health=20 from gnome combatant_def)
     assert_eq!(
         token_balance_by_type(&actual_combat.enemy_tokens, &TokenType::Health),

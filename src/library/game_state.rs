@@ -484,7 +484,6 @@ impl GameState {
         Self::enemy_shuffle_hand(rng, &mut enemy_resource_deck);
         let snapshot = super::types::CombatState {
             round: 1,
-            player_turn: true,
             phase: super::types::CombatPhase::Defending,
             enemy_tokens: combatant_def.initial_tokens.clone(),
             encounter_card_id: Some(encounter_card_id),

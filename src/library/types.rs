@@ -405,7 +405,6 @@ impl CombatPhase {
 #[serde(crate = "rocket::serde")]
 pub struct CombatState {
     pub round: u64,
-    pub player_turn: bool,
     pub phase: CombatPhase,
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
