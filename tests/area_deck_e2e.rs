@@ -27,7 +27,10 @@ async fn test_area_deck_with_library_card_refs() {
     let entry = gs_lock.append_action("DrawEncounter", payload);
     drop(gs_lock);
 
-    assert_eq!(entry.action_type, "DrawEncounter");
+    assert!(matches!(
+        entry.payload,
+        my_little_cardgame::library::types::ActionPayload::DrawEncounter { .. }
+    ));
 
     // Record scouting decision
     let gs_lock = gs.lock().await;
@@ -36,7 +39,10 @@ async fn test_area_deck_with_library_card_refs() {
     let entry = gs_lock.append_action("ApplyScouting", payload);
     drop(gs_lock);
 
-    assert_eq!(entry.action_type, "ApplyScouting");
+    assert!(matches!(
+        entry.payload,
+        my_little_cardgame::library::types::ActionPayload::ApplyScouting { .. }
+    ));
 }
 
 #[tokio::test]

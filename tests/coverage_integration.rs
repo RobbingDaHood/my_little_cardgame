@@ -34,11 +34,11 @@ fn new_game_records_action() {
         .dispatch();
     assert_eq!(response.status(), Status::Created);
 
-    // Verify action log contains NewGame entry
-    let log_resp = client.get("/actions/log?action_type=NewGame").dispatch();
+    // Verify action log contains SetSeed entry
+    let log_resp = client.get("/actions/log").dispatch();
     assert_eq!(log_resp.status(), Status::Ok);
     let log_body = log_resp.into_string().unwrap();
-    assert!(log_body.contains("NewGame"));
+    assert!(log_body.contains("SetSeed"));
 }
 
 #[test]
@@ -77,42 +77,6 @@ fn actions_log_filtering() {
     let body = response.into_string().unwrap();
     let log: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert!(!log["entries"].as_array().unwrap().is_empty());
-
-    // Filter by action_type
-    let response = client.get("/actions/log?action_type=NewGame").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    let entries = log["entries"].as_array().unwrap();
-    assert!(entries.len() >= 2);
-    for entry in entries {
-        assert_eq!(entry["action_type"], "NewGame");
-    }
-
-    // Filter by action_type that doesn't exist
-    let response = client
-        .get("/actions/log?action_type=NonExistent")
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    assert!(log["entries"].as_array().unwrap().is_empty());
-
-    // Filter by since=0 (should include all)
-    let response = client.get("/actions/log?since=0").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    assert!(!log["entries"].as_array().unwrap().is_empty());
-
-    // Filter by since=very_high (should exclude all)
-    let response = client
-        .get("/actions/log?since=99999999999999999999999")
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    assert!(log["entries"].as_array().unwrap().is_empty());
 
     // Limit=1
     let response = client.get("/actions/log?limit=1").dispatch();

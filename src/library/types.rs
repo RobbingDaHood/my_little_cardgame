@@ -379,12 +379,7 @@ pub enum ActionPayload {
 #[serde(crate = "rocket::serde")]
 pub struct ActionEntry {
     pub seq: u64,
-    pub action_type: String,
-    pub payload: ActionPayload, // structured payload for replay
-    pub timestamp: String,      // milliseconds since epoch as string
-    pub actor: Option<String>,
-    pub request_id: Option<String>,
-    pub version: Option<u32>,
+    pub payload: ActionPayload,
 }
 
 // ====== Combat types for deterministic, logged combat resolution (Step 6) ======

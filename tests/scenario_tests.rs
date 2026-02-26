@@ -338,23 +338,27 @@ fn scenario_action_log_records_full_game() {
         .and_then(|v| v.as_array())
         .expect("Action log should have an entries array");
 
-    // Should have at least: NewGame, EncounterPickEncounter, EncounterPlayCard
-    let action_types: Vec<&str> = entries
+    // Should have at least: SetSeed, DrawEncounter, PlayCard
+    let payload_types: Vec<&str> = entries
         .iter()
-        .filter_map(|e| e.get("action_type").and_then(|v| v.as_str()))
+        .filter_map(|e| {
+            e.get("payload")
+                .and_then(|p| p.get("type"))
+                .and_then(|v| v.as_str())
+        })
         .collect();
 
     assert!(
-        action_types.contains(&"NewGame"),
-        "Log should contain NewGame"
+        payload_types.contains(&"SetSeed"),
+        "Log should contain SetSeed"
     );
     assert!(
-        action_types.contains(&"EncounterPickEncounter"),
-        "Log should contain EncounterPickEncounter"
+        payload_types.contains(&"DrawEncounter"),
+        "Log should contain DrawEncounter"
     );
     assert!(
-        action_types.contains(&"EncounterPlayCard"),
-        "Log should contain EncounterPlayCard"
+        payload_types.contains(&"PlayCard"),
+        "Log should contain PlayCard"
     );
 
     // Verify entries have sequential seq numbers

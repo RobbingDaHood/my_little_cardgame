@@ -20,12 +20,7 @@ fn file_writer_writes_and_flushes() {
     for i in 0..3 {
         let entry = ActionEntry {
             seq: i,
-            action_type: "SetSeed".to_string(),
             payload: ActionPayload::SetSeed { seed: i + 1 },
-            timestamp: format!("{}", i),
-            actor: None,
-            request_id: None,
-            version: None,
         };
         writer.send(entry);
     }
@@ -72,12 +67,7 @@ fn file_writer_close_is_idempotent() {
     // Send after close should not panic
     let entry = ActionEntry {
         seq: 0,
-        action_type: "SetSeed".to_string(),
         payload: ActionPayload::SetSeed { seed: 1 },
-        timestamp: "0".to_string(),
-        actor: None,
-        request_id: None,
-        version: None,
     };
     writer.send(entry);
 
