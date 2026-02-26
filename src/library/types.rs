@@ -137,9 +137,9 @@ pub enum EncounterKind {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CombatantDef {
-    #[serde(with = "token_map_serde")]
-    #[schemars(with = "token_map_serde::SchemaHelper")]
-    pub initial_tokens: HashMap<Token, i64>,
+    #[serde(with = "token_map_serde_u64")]
+    #[schemars(with = "token_map_serde_u64::SchemaHelper")]
+    pub initial_tokens: HashMap<Token, u64>,
     pub attack_deck: Vec<EnemyCardDef>,
     pub defence_deck: Vec<EnemyCardDef>,
     pub resource_deck: Vec<EnemyCardDef>,
@@ -264,7 +264,75 @@ pub mod token_map_serde {
     }
 }
 
-/// Get the total value of all tokens of a given type in a token map.
+pub mod token_map_serde_u64 {
+    use super::{HashMap, Token, TokenLifecycle, TokenType};
+    use rocket::serde::{self, Deserialize, Serialize};
+    use std::collections::BTreeMap;
+
+    pub type SchemaHelper = BTreeMap<String, u64>;
+
+    fn token_to_key(token: &Token) -> String {
+        let type_str = format!("{:?}", token.token_type);
+        match &token.lifecycle {
+            TokenLifecycle::PersistentCounter => type_str,
+            other => format!("{}:{:?}", type_str, other),
+        }
+    }
+
+    fn key_to_token(key: &str) -> Result<Token, String> {
+        let (type_str, lifecycle_str) = if let Some((t, l)) = key.split_once(':') {
+            (t, Some(l))
+        } else {
+            (key, None)
+        };
+
+        let token_type: TokenType =
+            serde_json::from_str(&format!("\"{}\"", type_str)).map_err(|e| e.to_string())?;
+
+        let lifecycle = match lifecycle_str {
+            None | Some("PersistentCounter") => TokenLifecycle::PersistentCounter,
+            Some(s) => serde_json::from_str(s).unwrap_or(TokenLifecycle::PersistentCounter),
+        };
+
+        Ok(Token {
+            token_type,
+            lifecycle,
+        })
+    }
+
+    pub fn serialize<S>(map: &HashMap<Token, u64>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let compact: BTreeMap<String, u64> =
+            map.iter().map(|(k, v)| (token_to_key(k), *v)).collect();
+        compact.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<Token, u64>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value: serde_json::Value = serde_json::Value::deserialize(deserializer)?;
+        match value {
+            serde_json::Value::Object(map) => {
+                let mut result = HashMap::new();
+                for (k, v) in map {
+                    let token = key_to_token(&k).map_err(serde::de::Error::custom)?;
+                    let val = v.as_u64().ok_or_else(|| {
+                        serde::de::Error::custom(format!(
+                            "expected unsigned integer value for {}",
+                            k
+                        ))
+                    })?;
+                    result.insert(token, val);
+                }
+                Ok(result)
+            }
+            _ => Err(serde::de::Error::custom("expected object for token map")),
+        }
+    }
+}
 pub fn token_balance_by_type(map: &HashMap<Token, i64>, tt: &TokenType) -> i64 {
     map.iter()
         .filter(|(k, _)| k.token_type == *tt)

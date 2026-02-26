@@ -420,7 +420,11 @@ impl GameState {
         let snapshot = super::types::CombatState {
             round: 1,
             phase: super::types::CombatPhase::Defending,
-            enemy_tokens: combatant_def.initial_tokens.clone(),
+            enemy_tokens: combatant_def
+                .initial_tokens
+                .iter()
+                .map(|(k, v)| (k.clone(), *v as i64))
+                .collect(),
             encounter_card_id: Some(encounter_card_id),
             is_finished: false,
             outcome: super::types::CombatOutcome::Undecided,
