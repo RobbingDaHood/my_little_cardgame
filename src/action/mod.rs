@@ -59,7 +59,7 @@ pub async fn play(
             gs.library = new_gs.library;
             gs.token_balances = new_gs.token_balances;
             gs.current_combat = None;
-            gs.encounter_state = new_gs.encounter_state;
+            gs.encounter_phase = new_gs.encounter_phase;
             gs.last_combat_result = None;
 
             let payload = crate::library::types::ActionPayload::SetSeed { seed: s };
@@ -188,7 +188,7 @@ pub async fn play(
         }
         PlayerActions::EncounterApplyScouting { card_ids } => {
             let mut gs = game_state.lock().await;
-            if gs.encounter_state.phase != crate::library::types::EncounterPhase::Scouting {
+            if gs.encounter_phase != crate::library::types::EncounterPhase::Scouting {
                 return Err(Right(BadRequest(new_status(
                     "Not in Scouting phase".to_string(),
                 ))));
@@ -226,7 +226,7 @@ pub async fn play(
                 .unwrap_or(3) as usize;
             gs.library.encounter_draw_to_hand(foresight);
 
-            gs.encounter_state.phase = crate::library::types::EncounterPhase::Ready;
+            gs.encounter_phase = crate::library::types::EncounterPhase::Ready;
             let payload = crate::library::types::ActionPayload::ApplyScouting {
                 area_id: "current".to_string(),
                 parameters,

@@ -428,13 +428,6 @@ pub enum CombatOutcome {
 
 // ====== Encounter types for the encounter loop (Step 7) ======
 
-/// Represents the state of a single encounter session.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct EncounterState {
-    pub phase: EncounterPhase,
-}
-
 /// Phases of an encounter (Step 7 state machine)
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
 #[serde(crate = "rocket::serde")]

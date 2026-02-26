@@ -343,7 +343,7 @@ pub struct GameState {
     pub token_balances: HashMap<super::types::Token, i64>,
     pub library: Library,
     pub current_combat: Option<super::types::CombatState>,
-    pub encounter_state: super::types::EncounterState,
+    pub encounter_phase: super::types::EncounterPhase,
     pub last_combat_result: Option<super::types::CombatOutcome>,
 }
 
@@ -382,9 +382,7 @@ impl GameState {
             token_balances: balances,
             library: initialize_library(),
             current_combat: None,
-            encounter_state: super::types::EncounterState {
-                phase: super::types::EncounterPhase::Ready,
-            },
+            encounter_phase: super::types::EncounterPhase::Ready,
             last_combat_result: None,
         }
     }
@@ -494,7 +492,7 @@ impl GameState {
             enemy_resource_deck,
         };
         self.current_combat = Some(snapshot);
-        self.encounter_state.phase = super::types::EncounterPhase::InCombat;
+        self.encounter_phase = super::types::EncounterPhase::InCombat;
         Ok(())
     }
 
@@ -540,7 +538,7 @@ impl GameState {
         if combat.is_finished {
             self.last_combat_result = Some(combat.outcome.clone());
             self.current_combat = None;
-            self.encounter_state.phase = super::types::EncounterPhase::Scouting;
+            self.encounter_phase = super::types::EncounterPhase::Scouting;
         }
         self.draw_player_cards_by_type(atk_draws, def_draws, res_draws, rng);
         Ok(())
@@ -667,7 +665,7 @@ impl GameState {
             if combat.is_finished {
                 self.last_combat_result = Some(combat.outcome.clone());
                 self.current_combat = None;
-                self.encounter_state.phase = super::types::EncounterPhase::Scouting;
+                self.encounter_phase = super::types::EncounterPhase::Scouting;
             }
         }
         Ok(())
@@ -754,9 +752,7 @@ impl GameState {
                 token_balances: balances,
                 library: initialize_library(),
                 current_combat: None,
-                encounter_state: super::types::EncounterState {
-                    phase: super::types::EncounterPhase::Ready,
-                },
+                encounter_phase: super::types::EncounterPhase::Ready,
                 last_combat_result: None,
             }
         };
@@ -773,7 +769,7 @@ impl GameState {
                     gs.library = new_gs.library;
                     gs.token_balances = new_gs.token_balances;
                     gs.current_combat = None;
-                    gs.encounter_state = new_gs.encounter_state;
+                    gs.encounter_phase = new_gs.encounter_phase;
                     gs.last_combat_result = None;
                 }
                 ActionPayload::DrawEncounter { encounter_id, .. } => {
@@ -811,7 +807,7 @@ impl GameState {
                         .copied()
                         .unwrap_or(3) as usize;
                     gs.library.encounter_draw_to_hand(foresight);
-                    gs.encounter_state.phase = super::types::EncounterPhase::Ready;
+                    gs.encounter_phase = super::types::EncounterPhase::Ready;
                 }
                 ActionPayload::GrantToken {
                     token_id, amount, ..
