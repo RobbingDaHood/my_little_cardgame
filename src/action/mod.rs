@@ -226,7 +226,7 @@ pub async fn play(
                 .unwrap_or(3) as usize;
             gs.library.encounter_draw_to_hand(foresight);
 
-            gs.encounter_phase = crate::library::types::EncounterPhase::Ready;
+            gs.encounter_phase = crate::library::types::EncounterPhase::NoEncounter;
             let payload = crate::library::types::ActionPayload::ApplyScouting {
                 area_id: "current".to_string(),
                 parameters,

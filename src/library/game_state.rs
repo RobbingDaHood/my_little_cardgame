@@ -382,7 +382,7 @@ impl GameState {
             token_balances: balances,
             library: initialize_library(),
             current_combat: None,
-            encounter_phase: super::types::EncounterPhase::Ready,
+            encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_combat_result: None,
         }
     }
@@ -492,7 +492,7 @@ impl GameState {
             enemy_resource_deck,
         };
         self.current_combat = Some(snapshot);
-        self.encounter_phase = super::types::EncounterPhase::InCombat;
+        self.encounter_phase = super::types::EncounterPhase::Combat;
         Ok(())
     }
 
@@ -752,7 +752,7 @@ impl GameState {
                 token_balances: balances,
                 library: initialize_library(),
                 current_combat: None,
-                encounter_phase: super::types::EncounterPhase::Ready,
+                encounter_phase: super::types::EncounterPhase::NoEncounter,
                 last_combat_result: None,
             }
         };
@@ -807,7 +807,7 @@ impl GameState {
                         .copied()
                         .unwrap_or(3) as usize;
                     gs.library.encounter_draw_to_hand(foresight);
-                    gs.encounter_phase = super::types::EncounterPhase::Ready;
+                    gs.encounter_phase = super::types::EncounterPhase::NoEncounter;
                 }
                 ActionPayload::GrantToken {
                     token_id, amount, ..
