@@ -171,7 +171,8 @@ pub async fn play(
             }
             match gs.library.play(card_id as usize) {
                 Ok(()) => {
-                    let _ = gs.resolve_player_card(card_id as usize);
+                    let mut rng = player_data.random_generator_state.lock().await;
+                    let _ = gs.resolve_player_card(card_id as usize, &mut rng);
                     let payload = crate::library::types::ActionPayload::PlayCard {
                         card_id: card_id as usize,
                         deck_id: None,
@@ -181,7 +182,6 @@ pub async fn play(
 
                     // Auto-advance: enemy plays and phase advances
                     if gs.current_combat.is_some() {
-                        let mut rng = player_data.random_generator_state.lock().await;
                         let _ = gs.resolve_enemy_play(&mut rng);
                         if gs.current_combat.is_some() {
                             let _ = gs.advance_combat_phase();

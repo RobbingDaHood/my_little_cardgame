@@ -511,7 +511,11 @@ impl GameState {
     }
 
     /// Resolve a player card play against the current combat snapshot.
-    pub fn resolve_player_card(&mut self, card_id: usize) -> Result<(), String> {
+    pub fn resolve_player_card(
+        &mut self,
+        card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
         let combat = self.current_combat.as_mut().ok_or("No active combat")?;
         let lib_card = self
             .library
@@ -553,20 +557,32 @@ impl GameState {
             self.current_combat = None;
             self.encounter_state.phase = super::types::EncounterPhase::Scouting;
         }
-        self.draw_player_cards_by_type(atk_draws, def_draws, res_draws);
+        self.draw_player_cards_by_type(atk_draws, def_draws, res_draws, rng);
         Ok(())
     }
 
     /// Draw player cards from deck to hand per card type, recycling discard if needed.
-    fn draw_player_cards_by_type(&mut self, attack: u32, defence: u32, resource: u32) {
-        self.draw_player_cards_of_kind(attack, |k| matches!(k, CardKind::Attack { .. }));
-        self.draw_player_cards_of_kind(defence, |k| matches!(k, CardKind::Defence { .. }));
-        self.draw_player_cards_of_kind(resource, |k| matches!(k, CardKind::Resource { .. }));
+    fn draw_player_cards_by_type(
+        &mut self,
+        attack: u32,
+        defence: u32,
+        resource: u32,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) {
+        self.draw_player_cards_of_kind(attack, |k| matches!(k, CardKind::Attack { .. }), rng);
+        self.draw_player_cards_of_kind(defence, |k| matches!(k, CardKind::Defence { .. }), rng);
+        self.draw_player_cards_of_kind(resource, |k| matches!(k, CardKind::Resource { .. }), rng);
     }
 
     /// Draw `count` player cards of a specific kind from deck to hand.
     /// Recycles discard→deck for cards matching `kind_filter` when deck is empty.
-    fn draw_player_cards_of_kind(&mut self, count: u32, kind_filter: fn(&CardKind) -> bool) {
+    fn draw_player_cards_of_kind(
+        &mut self,
+        count: u32,
+        kind_filter: fn(&CardKind) -> bool,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) {
+        use rand::RngCore;
         for _ in 0..count {
             let drawable: Vec<usize> = self
                 .library
@@ -595,11 +611,11 @@ impl GameState {
                 if drawable.is_empty() {
                     return;
                 }
-                let idx = drawable[0];
-                let _ = self.library.draw(idx);
+                let pick = (rng.next_u64() as usize) % drawable.len();
+                let _ = self.library.draw(drawable[pick]);
             } else {
-                let idx = drawable[0];
-                let _ = self.library.draw(idx);
+                let pick = (rng.next_u64() as usize) % drawable.len();
+                let _ = self.library.draw(drawable[pick]);
             }
         }
     }
@@ -791,7 +807,7 @@ impl GameState {
                 }
                 ActionPayload::PlayCard { card_id, .. } => {
                     let _ = gs.library.play(*card_id);
-                    let _ = gs.resolve_player_card(*card_id);
+                    let _ = gs.resolve_player_card(*card_id, &mut rng);
                     if gs.current_combat.is_some() {
                         let _ = gs.resolve_enemy_play(&mut rng);
                         if gs.current_combat.is_some() {

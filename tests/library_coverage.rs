@@ -226,8 +226,8 @@ fn game_state_draw_random_cards() {
     let _ = gs.start_combat(11, &mut rng);
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
     let _ = gs.advance_combat_phase(); // Attacking -> Resourcing
-    let _ = gs.resolve_player_card(10); // Resource card draws 1
-                                        // Check that total cards in hand changed
+    let _ = gs.resolve_player_card(10, &mut rng); // Resource card draws 1
+                                                  // Check that total cards in hand changed
     let total_hand: u32 = gs.library.cards.iter().map(|c| c.counts.hand).sum();
     assert!(total_hand >= initial_hand); // drew at least 1 card
 }
@@ -303,7 +303,7 @@ fn resolve_player_card_non_action_card() {
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let _ = gs.start_combat(11, &mut rng);
     // Try to play Encounter card (id 11) as a player card
-    let result = gs.resolve_player_card(11);
+    let result = gs.resolve_player_card(11, &mut rng);
     assert!(result.is_err());
 }
 
