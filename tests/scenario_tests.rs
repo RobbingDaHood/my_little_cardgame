@@ -39,6 +39,10 @@ fn get_json(client: &Client, uri: &str) -> serde_json::Value {
 }
 
 fn player_health(client: &Client) -> i64 {
+    player_token(client, "Health")
+}
+
+fn player_token(client: &Client, token_type_name: &str) -> i64 {
     let resp = client.get("/player/tokens").dispatch();
     let tokens: serde_json::Value =
         serde_json::from_str(&resp.into_string().unwrap_or_default()).unwrap_or_default();
@@ -47,7 +51,7 @@ fn player_health(client: &Client) -> i64 {
         .and_then(|arr| {
             arr.iter().find_map(|entry| {
                 let tt = entry.get("token")?.get("token_type")?.as_str()?;
-                if tt == "Health" {
+                if tt == token_type_name {
                     entry.get("value")?.as_i64()
                 } else {
                     None
@@ -542,4 +546,210 @@ fn scenario_enemy_draws_per_type() {
         er_total,
         "Enemy resource cards should be conserved"
     );
+}
+
+// --- Mining helpers ---
+
+/// Find mining card IDs available in the player's hand (card IDs 12, 13, 14).
+fn mining_hand_card_ids(client: &Client) -> Vec<usize> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Mining");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
+/// Play one mining card. Returns true if the mining encounter is still active.
+fn play_one_mining_card(client: &Client) -> bool {
+    let mining_ids = mining_hand_card_ids(client);
+    if mining_ids.is_empty() {
+        return false;
+    }
+    let card_id = mining_ids[0];
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        card_id
+    );
+    let (status, _) = post_action(client, &json);
+    if status != Status::Created {
+        return false;
+    }
+    let encounter = combat_state(client);
+    encounter.get("is_finished").and_then(|v| v.as_bool()) != Some(true)
+}
+
+/// Find mining encounter card IDs in the encounter hand.
+fn mining_encounter_ids(client: &Client) -> Vec<usize> {
+    let encounter_ids = encounter_hand_ids(client);
+    // ID 15 is the mining encounter; filter for it
+    encounter_ids.into_iter().filter(|&id| id == 15).collect()
+}
+
+#[test]
+fn scenario_mining_encounter_full_loop() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // 1. Start a new game with a fixed seed
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created, "NewGame should succeed");
+
+    // 2. Verify mining encounter cards are in hand
+    let mining_enc = mining_encounter_ids(&client);
+    assert!(
+        !mining_enc.is_empty(),
+        "Should have mining encounter cards in hand"
+    );
+
+    // 3. Pick the mining encounter (card_id 15)
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    );
+    assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
+    // 4. Verify mining encounter started
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Mining"),
+        "Encounter should be Mining type"
+    );
+    assert_eq!(
+        encounter.get("is_finished").and_then(|v| v.as_bool()),
+        Some(false),
+        "Mining should be active"
+    );
+    assert_eq!(
+        encounter.get("ore_hp").and_then(|v| v.as_i64()),
+        Some(15),
+        "Ore HP should start at 15"
+    );
+
+    // 5. Verify player has Durability token
+    let durability = player_token(&client, "Durability");
+    assert_eq!(durability, 15, "Player should start with 15 durability");
+
+    // 6. Play mining cards until the encounter finishes (max 50 turns)
+    let mut turns = 0;
+    while play_one_mining_card(&client) {
+        turns += 1;
+        assert!(turns < 50, "Mining should end within 50 turns");
+    }
+
+    // 7. Verify encounter ended
+    let result = combat_result(&client);
+    assert!(result.is_some(), "Should have an encounter result");
+    let outcome = result.unwrap();
+    assert!(
+        outcome == "PlayerWon" || outcome == "PlayerLost",
+        "Mining outcome should be PlayerWon or PlayerLost, got: {}",
+        outcome
+    );
+
+    // 8. If player won, verify Ore tokens were granted and transition to Scouting
+    if outcome == "PlayerWon" {
+        let ore = player_token(&client, "Ore");
+        assert!(ore > 0, "Player should have Ore after winning mining");
+
+        // Apply scouting
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+        );
+        assert_eq!(status, Status::Created, "ApplyScouting should succeed");
+
+        // Verify we can pick another encounter
+        let ids_after = encounter_hand_ids(&client);
+        assert!(
+            !ids_after.is_empty(),
+            "Should have encounter cards after scouting"
+        );
+    }
+
+    // 9. If player lost, verify Exhaustion penalty
+    if outcome == "PlayerLost" {
+        let exhaustion = player_token(&client, "Exhaustion");
+        assert!(
+            exhaustion > 0,
+            "Player should have Exhaustion after losing mining"
+        );
+        let durability = player_token(&client, "Durability");
+        assert_eq!(
+            durability, 0,
+            "Player durability should be 0 when losing mining"
+        );
+
+        // Should still be able to scout after a loss
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+        );
+        assert_eq!(
+            status,
+            Status::Created,
+            "Should be able to scout after mining loss"
+        );
+    }
+}
+
+#[test]
+fn scenario_mining_then_combat_coexist() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // Start game and verify both combat and mining encounters exist in hand
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":100}"#);
+    assert_eq!(status, Status::Created);
+
+    let all_encounters = encounter_hand_ids(&client);
+    let has_combat = all_encounters.contains(&11);
+    let has_mining = all_encounters.contains(&15);
+    assert!(has_combat, "Should have combat encounter cards (id 11)");
+    assert!(has_mining, "Should have mining encounter cards (id 15)");
+
+    // Do a mining encounter first
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let mut turns = 0;
+    while play_one_mining_card(&client) {
+        turns += 1;
+        if turns >= 50 {
+            break;
+        }
+    }
+
+    // Scout after mining
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // Now do a combat encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // Verify combat started correctly
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Combat"),
+        "Should now be in a combat encounter"
+    );
+    assert!(player_health(&client) > 0, "Player should have health");
+
+    // Play one round of combat to verify it works after mining
+    play_one_round(&client);
 }

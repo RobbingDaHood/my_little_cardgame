@@ -16,7 +16,7 @@ pub struct LibraryCardWithId {
 
 /// Library cards endpoint: returns all cards from the canonical Library.
 /// Optionally filter by ?location= (Library, Deck, Hand, Discard)
-/// and ?card_kind= (Attack, Defence, Resource, Encounter, PlayerCardEffect, EnemyCardEffect).
+/// and ?card_kind= (Attack, Defence, Resource, Mining, Encounter, PlayerCardEffect, EnemyCardEffect).
 #[openapi]
 #[get("/library/cards?<location>&<card_kind>")]
 pub async fn list_library_cards(
@@ -41,6 +41,7 @@ pub async fn list_library_cards(
             Some("Attack") => matches!(c.kind, CardKind::Attack { .. }),
             Some("Defence") => matches!(c.kind, CardKind::Defence { .. }),
             Some("Resource") => matches!(c.kind, CardKind::Resource { .. }),
+            Some("Mining") => matches!(c.kind, CardKind::Mining { .. }),
             Some("Encounter") => matches!(c.kind, CardKind::Encounter { .. }),
             Some("PlayerCardEffect") => matches!(c.kind, CardKind::PlayerCardEffect { .. }),
             Some("EnemyCardEffect") => matches!(c.kind, CardKind::EnemyCardEffect { .. }),
