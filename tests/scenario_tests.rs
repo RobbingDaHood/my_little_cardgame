@@ -62,11 +62,11 @@ fn combat_state(client: &Client) -> serde_json::Value {
 }
 
 fn combat_result(client: &Client) -> Option<String> {
-    let resp = client.get("/combat/result").dispatch();
+    let resp = client.get("/combat/results").dispatch();
     if resp.status() == Status::Ok {
-        let body: serde_json::Value =
+        let body: Vec<serde_json::Value> =
             serde_json::from_str(&resp.into_string().unwrap_or_default()).unwrap_or_default();
-        body.as_str().map(String::from)
+        body.last().and_then(|v| v.as_str()).map(String::from)
     } else {
         None
     }

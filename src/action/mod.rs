@@ -61,6 +61,7 @@ pub async fn play(
             gs.current_combat = None;
             gs.encounter_phase = new_gs.encounter_phase;
             gs.last_combat_result = None;
+            gs.combat_results.clear();
 
             let payload = crate::library::types::ActionPayload::SetSeed { seed: s };
             let entry = gs.append_action("NewGame", payload);

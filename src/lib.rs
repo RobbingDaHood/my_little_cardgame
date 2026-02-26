@@ -59,9 +59,9 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::area_deck::endpoints::okapi_add_operation_for_get_area_encounters_;
     use crate::area_deck::endpoints::{get_area, get_area_encounters};
     use crate::combat::okapi_add_operation_for_get_combat_;
-    use crate::combat::okapi_add_operation_for_get_combat_result_;
+    use crate::combat::okapi_add_operation_for_get_combat_results_;
     use crate::combat::okapi_add_operation_for_initialize_combat_;
-    use crate::combat::{get_combat, get_combat_result, initialize_combat};
+    use crate::combat::{get_combat, get_combat_results, initialize_combat};
     use crate::library::add_test_library_card;
     use crate::library::list_card_effects;
     use crate::library::list_library_cards;
@@ -84,7 +84,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 initialize_combat,
                 play,
                 get_player_tokens,
-                get_combat_result,
+                get_combat_results,
                 list_card_effects,
                 list_actions_log,
                 get_area,

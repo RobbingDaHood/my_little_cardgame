@@ -343,6 +343,7 @@ pub struct GameState {
     pub current_combat: Option<super::types::CombatState>,
     pub encounter_phase: super::types::EncounterPhase,
     pub last_combat_result: Option<super::types::CombatOutcome>,
+    pub combat_results: Vec<super::types::CombatOutcome>,
 }
 
 impl GameState {
@@ -379,6 +380,7 @@ impl GameState {
             current_combat: None,
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_combat_result: None,
+            combat_results: Vec::new(),
         }
     }
 
@@ -472,6 +474,7 @@ impl GameState {
         check_combat_end(&self.token_balances, combat);
         if combat.is_finished {
             self.last_combat_result = Some(combat.outcome.clone());
+            self.combat_results.push(combat.outcome.clone());
             self.current_combat = None;
             self.encounter_phase = super::types::EncounterPhase::Scouting;
         }
@@ -599,6 +602,7 @@ impl GameState {
 
             if combat.is_finished {
                 self.last_combat_result = Some(combat.outcome.clone());
+                self.combat_results.push(combat.outcome.clone());
                 self.current_combat = None;
                 self.encounter_phase = super::types::EncounterPhase::Scouting;
             }
@@ -687,6 +691,7 @@ impl GameState {
                     gs.current_combat = None;
                     gs.encounter_phase = new_gs.encounter_phase;
                     gs.last_combat_result = None;
+                    gs.combat_results.clear();
                 }
                 ActionPayload::DrawEncounter { encounter_id, .. } => {
                     if let Ok(card_id) = encounter_id.parse::<usize>() {

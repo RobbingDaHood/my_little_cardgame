@@ -123,10 +123,13 @@ fn actions_log_filtering() {
 }
 
 #[test]
-fn combat_result_returns_404_when_no_result() {
+fn combat_results_returns_empty_when_no_result() {
     let client = client();
-    let response = client.get("/combat/result").dispatch();
-    assert_eq!(response.status(), Status::NotFound);
+    let response = client.get("/combat/results").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_string().unwrap();
+    let results: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+    assert!(results.is_empty());
 }
 
 #[test]
@@ -274,8 +277,10 @@ fn play_finish_scouting_after_combat_win() {
     }
 
     // Check combat result
-    let result_resp = client.get("/combat/result").dispatch();
-    if result_resp.status() == Status::Ok {
+    let result_resp = client.get("/combat/results").dispatch();
+    let results_body = result_resp.into_string().unwrap_or_default();
+    let results: Vec<serde_json::Value> = serde_json::from_str(&results_body).unwrap_or_default();
+    if !results.is_empty() {
         // We're in scouting, finish it via EncounterApplyScouting
         let scouting_resp = client.get("/area/encounters").dispatch();
         let scouting_encounters: Vec<usize> =

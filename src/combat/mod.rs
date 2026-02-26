@@ -82,15 +82,10 @@ pub async fn advance_phase(
 }
 
 #[openapi]
-#[get("/combat/result")]
-pub async fn get_combat_result(
+#[get("/combat/results")]
+pub async fn get_combat_results(
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
-) -> Result<Json<CombatOutcome>, NotFound<Json<Status>>> {
+) -> Json<Vec<CombatOutcome>> {
     let gs = game_state.lock().await;
-    match &gs.last_combat_result {
-        Some(r) => Ok(Json(r.clone())),
-        None => Err(NotFound(new_status(
-            "No combat result available".to_string(),
-        ))),
-    }
+    Json(gs.combat_results.clone())
 }

@@ -82,7 +82,10 @@ fn test_play_attack_card_kills_enemy() {
         }
     }
 
-    // Verify combat result exists
-    let result_resp = client.get("/combat/result").dispatch();
+    // Verify combat results exist
+    let result_resp = client.get("/combat/results").dispatch();
     assert_eq!(result_resp.status(), Status::Ok);
+    let body = result_resp.into_string().unwrap();
+    let results: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+    assert!(!results.is_empty());
 }
