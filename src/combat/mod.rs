@@ -4,7 +4,7 @@ use rocket::State;
 use rocket_okapi::openapi;
 
 use crate::library::types::{CombatOutcome, CombatState};
-use crate::player_data::PlayerData;
+use crate::player_data::RandomGeneratorWrapper;
 use crate::status_messages::{new_status, Status};
 
 #[openapi]
@@ -28,7 +28,7 @@ pub async fn get_combat(
 #[openapi]
 #[post("/tests/combat")]
 pub async fn initialize_combat(
-    player_data: &State<PlayerData>,
+    player_data: &State<RandomGeneratorWrapper>,
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
 ) -> Created<&'static str> {
     let mut gs = game_state.lock().await;
@@ -57,7 +57,7 @@ pub async fn initialize_combat(
 /// **TESTING ENDPOINT ONLY**
 #[post("/tests/combat/enemy_play")]
 pub async fn enemy_play(
-    player_data: &State<PlayerData>,
+    player_data: &State<RandomGeneratorWrapper>,
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
 ) -> Created<&'static str> {
     let mut gs = game_state.lock().await;

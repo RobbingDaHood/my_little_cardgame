@@ -7,7 +7,7 @@ use rocket_okapi::{openapi, JsonSchema};
 
 pub mod persistence;
 
-use crate::player_data::PlayerData;
+use crate::player_data::RandomGeneratorWrapper;
 use crate::status_messages::{new_status, Status};
 
 use rand::SeedableRng;
@@ -27,7 +27,7 @@ pub enum PlayerActions {
 #[openapi]
 #[post("/action", format = "json", data = "<player_action>")]
 pub async fn play(
-    player_data: &State<PlayerData>,
+    player_data: &State<RandomGeneratorWrapper>,
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
     player_action: Json<PlayerActions>,
 ) -> Result<
