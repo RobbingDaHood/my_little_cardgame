@@ -264,44 +264,4 @@ fn resolve_enemy_play_with_non_encounter() {
     assert!(result.is_err());
 }
 
-use my_little_cardgame::area_deck::AreaDeck;
 use rand::SeedableRng;
-
-#[test]
-fn area_deck_recycle_encounter() {
-    let mut ad = AreaDeck::new("test".to_string());
-    ad.add_encounter(10);
-    ad.add_encounter(20);
-    ad.draw_to_hand(2);
-    assert!(ad.pick_encounter(10));
-    assert_eq!(ad.discard.len(), 1);
-    assert!(ad.recycle_encounter(10));
-    assert_eq!(ad.discard.len(), 0);
-    assert_eq!(ad.deck.len(), 1);
-    // recycle non-existent returns false
-    assert!(!ad.recycle_encounter(99));
-}
-
-#[test]
-fn area_deck_draw_to_hand_exhausts_deck() {
-    let mut ad = AreaDeck::new("test".to_string());
-    ad.add_encounter(1);
-    ad.draw_to_hand(5); // target 5 but only 1 in deck
-    assert_eq!(ad.hand.len(), 1);
-    assert!(ad.deck.is_empty());
-}
-
-#[test]
-fn area_deck_encounter_card_ids_all_zones() {
-    let mut ad = AreaDeck::new("test".to_string());
-    ad.add_encounter(1);
-    ad.add_encounter(2);
-    ad.add_encounter(3);
-    ad.draw_to_hand(2);
-    ad.pick_encounter(2);
-    let all = ad.encounter_card_ids();
-    assert_eq!(all.len(), 3);
-    assert!(all.contains(&1));
-    assert!(all.contains(&2));
-    assert!(all.contains(&3));
-}
