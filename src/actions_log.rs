@@ -12,12 +12,10 @@ pub struct ActionLogResponse {
 }
 
 #[openapi]
-#[get("/actions/log?<from_seq>&<limit>&<action_type>&<since>")]
+#[get("/actions/log?<from_seq>&<limit>")]
 pub async fn list_actions_log(
     from_seq: Option<u64>,
     limit: Option<usize>,
-    action_type: Option<String>,
-    since: Option<u128>,
     game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
 ) -> Json<ActionLogResponse> {
     let gs = game_state.lock().await;
@@ -27,20 +25,6 @@ pub async fn list_actions_log(
         .filter(|e| {
             if let Some(f) = from_seq {
                 if e.seq < f {
-                    return false;
-                }
-            }
-            if let Some(ref at) = action_type {
-                if e.action_type != *at {
-                    return false;
-                }
-            }
-            if let Some(s) = since {
-                if let Ok(ts) = e.timestamp.parse::<u128>() {
-                    if ts < s {
-                        return false;
-                    }
-                } else {
                     return false;
                 }
             }

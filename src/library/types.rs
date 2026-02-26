@@ -26,6 +26,29 @@ pub enum TokenType {
     Durability,
 }
 
+/// All known token types.
+impl TokenType {
+    pub fn all() -> Vec<TokenType> {
+        vec![
+            TokenType::Health,
+            TokenType::MaxHealth,
+            TokenType::Shield,
+            TokenType::Stamina,
+            TokenType::Dodge,
+            TokenType::Mana,
+            TokenType::Insight,
+            TokenType::Renown,
+            TokenType::Refinement,
+            TokenType::Stability,
+            TokenType::Foresight,
+            TokenType::Momentum,
+            TokenType::Corruption,
+            TokenType::Exhaustion,
+            TokenType::Durability,
+        ]
+    }
+}
+
 impl Token {
     /// Create a persistent counter token (most tokens use this).
     pub fn persistent(token_type: TokenType) -> Self {
@@ -47,15 +70,6 @@ impl Token {
     }
 }
 
-/// Canonical card definition (minimal)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct CardDef {
-    pub id: u64,
-    pub card_type: String,
-    pub effects: Vec<CardEffect>,
-}
-
 /// Describes what kind of effect a card applies.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "effect_type")]
@@ -66,20 +80,10 @@ pub enum CardEffectKind {
         amount: i64,
     },
     DrawCards {
-        amount: u32,
+        attack: u32,
+        defence: u32,
+        resource: u32,
     },
-}
-
-/// A single effect a card applies when played.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct CardEffect {
-    #[serde(flatten)]
-    pub kind: CardEffectKind,
-    pub lifecycle: TokenLifecycle,
-    /// Internal reference to the CardEffect card in the library.
-    #[serde(skip)]
-    pub card_effect_id: Option<usize>,
 }
 
 /// Who a card effect targets.
@@ -91,6 +95,16 @@ pub enum EffectTarget {
 }
 
 // ====== Library types (card location model from vision.md) ======
+
+/// Where card copies reside.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum CardLocation {
+    Library,
+    Deck,
+    Hand,
+    Discard,
+}
 
 /// Exclusive copy counts describing where player copies reside.
 /// [library, deck, hand, discard] — each copy exists in exactly one location.
@@ -111,14 +125,14 @@ impl CardCounts {
 
 /// The kind of card and its type-specific payload.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde", tag = "kind")]
+#[serde(crate = "rocket::serde", tag = "card_kind")]
 pub enum CardKind {
-    Attack { effects: Vec<CardEffect> },
-    Defence { effects: Vec<CardEffect> },
-    Resource { effects: Vec<CardEffect> },
+    Attack { effect_ids: Vec<usize> },
+    Defence { effect_ids: Vec<usize> },
+    Resource { effect_ids: Vec<usize> },
     Encounter { encounter_kind: EncounterKind },
-    PlayerCardEffect { effect: CardEffect },
-    EnemyCardEffect { effect: CardEffect },
+    PlayerCardEffect { kind: CardEffectKind },
+    EnemyCardEffect { kind: CardEffectKind },
 }
 
 /// Sub-type of encounter cards.
@@ -133,9 +147,9 @@ pub enum EncounterKind {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CombatantDef {
-    #[serde(with = "token_map_serde")]
-    #[schemars(with = "token_map_serde::SchemaHelper")]
-    pub initial_tokens: HashMap<Token, i64>,
+    #[serde(with = "token_map_serde_u64")]
+    #[schemars(with = "token_map_serde_u64::SchemaHelper")]
+    pub initial_tokens: HashMap<Token, u64>,
     pub attack_deck: Vec<EnemyCardDef>,
     pub defence_deck: Vec<EnemyCardDef>,
     pub resource_deck: Vec<EnemyCardDef>,
@@ -154,7 +168,7 @@ pub struct EnemyCardCounts {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCardDef {
-    pub effects: Vec<CardEffect>,
+    pub effect_ids: Vec<usize>,
     pub counts: EnemyCardCounts,
 }
 
@@ -164,14 +178,6 @@ pub struct EnemyCardDef {
 pub struct LibraryCard {
     pub kind: CardKind,
     pub counts: CardCounts,
-}
-
-/// Token type metadata and lifecycle
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct TokenRegistryEntry {
-    pub id: TokenType,
-    pub cap: Option<u64>,
 }
 
 /// A token instance: token type + lifecycle. Used as key in token balance maps.
@@ -268,7 +274,75 @@ pub mod token_map_serde {
     }
 }
 
-/// Get the total value of all tokens of a given type in a token map.
+pub mod token_map_serde_u64 {
+    use super::{HashMap, Token, TokenLifecycle, TokenType};
+    use rocket::serde::{self, Deserialize, Serialize};
+    use std::collections::BTreeMap;
+
+    pub type SchemaHelper = BTreeMap<String, u64>;
+
+    fn token_to_key(token: &Token) -> String {
+        let type_str = format!("{:?}", token.token_type);
+        match &token.lifecycle {
+            TokenLifecycle::PersistentCounter => type_str,
+            other => format!("{}:{:?}", type_str, other),
+        }
+    }
+
+    fn key_to_token(key: &str) -> Result<Token, String> {
+        let (type_str, lifecycle_str) = if let Some((t, l)) = key.split_once(':') {
+            (t, Some(l))
+        } else {
+            (key, None)
+        };
+
+        let token_type: TokenType =
+            serde_json::from_str(&format!("\"{}\"", type_str)).map_err(|e| e.to_string())?;
+
+        let lifecycle = match lifecycle_str {
+            None | Some("PersistentCounter") => TokenLifecycle::PersistentCounter,
+            Some(s) => serde_json::from_str(s).unwrap_or(TokenLifecycle::PersistentCounter),
+        };
+
+        Ok(Token {
+            token_type,
+            lifecycle,
+        })
+    }
+
+    pub fn serialize<S>(map: &HashMap<Token, u64>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let compact: BTreeMap<String, u64> =
+            map.iter().map(|(k, v)| (token_to_key(k), *v)).collect();
+        compact.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<Token, u64>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value: serde_json::Value = serde_json::Value::deserialize(deserializer)?;
+        match value {
+            serde_json::Value::Object(map) => {
+                let mut result = HashMap::new();
+                for (k, v) in map {
+                    let token = key_to_token(&k).map_err(serde::de::Error::custom)?;
+                    let val = v.as_u64().ok_or_else(|| {
+                        serde::de::Error::custom(format!(
+                            "expected unsigned integer value for {}",
+                            k
+                        ))
+                    })?;
+                    result.insert(token, val);
+                }
+                Ok(result)
+            }
+            _ => Err(serde::de::Error::custom("expected object for token map")),
+        }
+    }
+}
 pub fn token_balance_by_type(map: &HashMap<Token, i64>, tt: &TokenType) -> i64 {
     map.iter()
         .filter(|(k, _)| k.token_type == *tt)
@@ -300,79 +374,14 @@ pub enum TokenLifecycle {
     Conditional,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct Deck {
-    pub id: String,
-    pub card_ids: Vec<u64>,
-}
-
-/// Small, explicit action requests used by the library mutator.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub enum ActionRequest {
-    GrantToken { token_id: TokenType, amount: i64 },
-}
-
-/// Action payloads for the append-only log
+/// Action payloads for the append-only log — only player-initiated actions.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "type")]
 pub enum ActionPayload {
-    GrantToken {
-        token_id: TokenType,
-        amount: i64,
-        reason: Option<String>,
-        resulting_amount: i64,
-    },
-    ConsumeToken {
-        token_id: TokenType,
-        amount: i64,
-        reason: Option<String>,
-        resulting_amount: i64,
-    },
-    ExpireToken {
-        token_id: TokenType,
-        amount: i64,
-        reason: Option<String>,
-    },
-    SetSeed {
-        seed: u64,
-    },
-    RngDraw {
-        purpose: String,
-        value: u64,
-    },
-    RngSnapshot {
-        snapshot: String,
-    },
-    PlayCard {
-        card_id: usize,
-        deck_id: Option<String>,
-        reason: Option<String>,
-    },
-    DrawEncounter {
-        area_id: String,
-        encounter_id: String,
-        reason: Option<String>,
-    },
-    ReplaceEncounter {
-        area_id: String,
-        old_encounter_id: String,
-        new_encounter_id: String,
-        affixes_applied: Vec<String>,
-        reason: Option<String>,
-    },
-    ConsumEntryCost {
-        area_id: String,
-        encounter_id: String,
-        cost_amount: i64,
-        reason: Option<String>,
-    },
-    ApplyScouting {
-        area_id: String,
-        parameters: String,
-        reason: Option<String>,
-    },
+    SetSeed { seed: u64 },
+    DrawEncounter { encounter_id: String },
+    PlayCard { card_id: usize },
+    ApplyScouting { card_ids: Vec<usize> },
 }
 
 /// Stored action entry in the append-only action log.
@@ -380,12 +389,7 @@ pub enum ActionPayload {
 #[serde(crate = "rocket::serde")]
 pub struct ActionEntry {
     pub seq: u64,
-    pub action_type: String,
-    pub payload: ActionPayload, // structured payload for replay
-    pub timestamp: String,      // milliseconds since epoch as string
-    pub actor: Option<String>,
-    pub request_id: Option<String>,
-    pub version: Option<u32>,
+    pub payload: ActionPayload,
 }
 
 // ====== Combat types for deterministic, logged combat resolution (Step 6) ======
@@ -416,7 +420,15 @@ impl CombatPhase {
         }
     }
 
-    pub fn allowed_card_kind(&self) -> &'static str {
+    pub fn allowed_card_kind(&self) -> fn(&CardKind) -> bool {
+        match self {
+            CombatPhase::Defending => |k| matches!(k, CardKind::Defence { .. }),
+            CombatPhase::Attacking => |k| matches!(k, CardKind::Attack { .. }),
+            CombatPhase::Resourcing => |k| matches!(k, CardKind::Resource { .. }),
+        }
+    }
+
+    pub fn allowed_card_kind_name(&self) -> &'static str {
         match self {
             CombatPhase::Defending => "Defence",
             CombatPhase::Attacking => "Attack",
@@ -430,7 +442,6 @@ impl CombatPhase {
 #[serde(crate = "rocket::serde")]
 pub struct CombatState {
     pub round: u64,
-    pub player_turn: bool,
     pub phase: CombatPhase,
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
@@ -454,37 +465,14 @@ pub enum CombatOutcome {
 
 // ====== Encounter types for the encounter loop (Step 7) ======
 
-/// Represents the state of a single encounter session.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct EncounterState {
-    pub phase: EncounterPhase,
-}
-
 /// Phases of an encounter (Step 7 state machine)
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
 #[serde(crate = "rocket::serde")]
 pub enum EncounterPhase {
-    /// Encounter has been drawn; player can start combat
-    Ready,
     /// Combat is currently active
-    InCombat,
+    Combat,
     /// Combat has finished; scouting is available
     Scouting,
     /// No active encounter
     NoEncounter,
-}
-
-/// User actions during an encounter (Step 7)
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde", tag = "action_type")]
-pub enum EncounterAction {
-    /// Pick an encounter from the area deck and initialize combat
-    PickEncounter { card_id: String },
-    /// Play a card during combat
-    PlayCard { card_id: u64 },
-    /// Make a scouting choice post-encounter using card_ids
-    ApplyScouting { card_ids: Vec<String> },
-    /// System-driven: finish/conclude the encounter (not a player action)
-    FinishEncounter,
 }

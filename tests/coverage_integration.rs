@@ -9,6 +9,18 @@ fn client() -> Client {
     Client::tracked(rocket_initialize()).expect("valid rocket instance")
 }
 
+fn encounter_hand_ids(client: &Client) -> Vec<usize> {
+    let response = client
+        .get("/library/cards?location=Hand&card_kind=Encounter")
+        .dispatch();
+    let body = response.into_string().unwrap();
+    let cards: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+    cards
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
 #[test]
 fn get_player_tokens_returns_initial_balances() {
     let client = client();
@@ -34,11 +46,11 @@ fn new_game_records_action() {
         .dispatch();
     assert_eq!(response.status(), Status::Created);
 
-    // Verify action log contains NewGame entry
-    let log_resp = client.get("/actions/log?action_type=NewGame").dispatch();
+    // Verify action log contains SetSeed entry
+    let log_resp = client.get("/actions/log").dispatch();
     assert_eq!(log_resp.status(), Status::Ok);
     let log_body = log_resp.into_string().unwrap();
-    assert!(log_body.contains("NewGame"));
+    assert!(log_body.contains("SetSeed"));
 }
 
 #[test]
@@ -78,42 +90,6 @@ fn actions_log_filtering() {
     let log: serde_json::Value = serde_json::from_str(&body).unwrap();
     assert!(!log["entries"].as_array().unwrap().is_empty());
 
-    // Filter by action_type
-    let response = client.get("/actions/log?action_type=NewGame").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    let entries = log["entries"].as_array().unwrap();
-    assert!(entries.len() >= 2);
-    for entry in entries {
-        assert_eq!(entry["action_type"], "NewGame");
-    }
-
-    // Filter by action_type that doesn't exist
-    let response = client
-        .get("/actions/log?action_type=NonExistent")
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    assert!(log["entries"].as_array().unwrap().is_empty());
-
-    // Filter by since=0 (should include all)
-    let response = client.get("/actions/log?since=0").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    assert!(!log["entries"].as_array().unwrap().is_empty());
-
-    // Filter by since=very_high (should exclude all)
-    let response = client
-        .get("/actions/log?since=99999999999999999999999")
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let log: serde_json::Value = serde_json::from_str(&body).unwrap();
-    assert!(log["entries"].as_array().unwrap().is_empty());
-
     // Limit=1
     let response = client.get("/actions/log?limit=1").dispatch();
     assert_eq!(response.status(), Status::Ok);
@@ -123,10 +99,13 @@ fn actions_log_filtering() {
 }
 
 #[test]
-fn combat_result_returns_404_when_no_result() {
+fn combat_results_returns_empty_when_no_result() {
     let client = client();
-    let response = client.get("/combat/result").dispatch();
-    assert_eq!(response.status(), Status::NotFound);
+    let response = client.get("/combat/results").dispatch();
+    assert_eq!(response.status(), Status::Ok);
+    let body = response.into_string().unwrap();
+    let results: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+    assert!(results.is_empty());
 }
 
 #[test]
@@ -139,7 +118,10 @@ fn combat_lifecycle_with_enemy_play_and_advance() {
 
     // Get initial combat state
     let combat = get_combat(&client).expect("combat exists");
-    assert!(combat.player_turn);
+    assert_eq!(
+        combat.phase,
+        my_little_cardgame::library::types::CombatPhase::Defending
+    );
 
     // Advance phase
     let response = client.post("/tests/combat/advance").dispatch();
@@ -159,30 +141,16 @@ fn enemy_play_when_no_combat_returns_created() {
 }
 
 #[test]
-fn area_deck_endpoints() {
+fn library_cards_with_filters() {
     let client = client();
 
-    // Get area info
-    let response = client.get("/area").dispatch();
+    // Get all cards
+    let response = client.get("/library/cards").dispatch();
     assert_eq!(response.status(), Status::Ok);
 
-    // Get area encounters
-    let response = client.get("/area/encounters").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let encounters: Vec<usize> = serde_json::from_str(&body).unwrap();
+    // Get encounter cards in hand
+    let encounters = encounter_hand_ids(&client);
     assert!(!encounters.is_empty());
-}
-
-#[test]
-fn library_tokens_endpoint() {
-    let client = client();
-    let response = client.get("/tokens").dispatch();
-    assert_eq!(response.status(), Status::Ok);
-    let body = response.into_string().unwrap();
-    let tokens: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
-    assert!(!tokens.is_empty());
-    assert!(tokens.iter().any(|t| t["id"] == "Health"));
 }
 
 #[test]
@@ -200,10 +168,7 @@ fn play_card_without_combat_returns_error() {
 fn play_encounter_pick_starts_combat() {
     let client = client();
 
-    // Get area encounters to find a valid encounter card
-    let response = client.get("/area/encounters").dispatch();
-    let body = response.into_string().unwrap();
-    let encounters: Vec<usize> = serde_json::from_str(&body).unwrap();
+    let encounters = encounter_hand_ids(&client);
     assert!(!encounters.is_empty());
     let encounter_id = encounters[0];
 
@@ -229,8 +194,7 @@ fn play_finish_scouting_after_combat_win() {
     let client = client();
 
     // Pick an encounter to enter combat
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let encounters = encounter_hand_ids(&client);
     let encounter_id = encounters[0];
 
     let body = format!(
@@ -282,12 +246,12 @@ fn play_finish_scouting_after_combat_win() {
     }
 
     // Check combat result
-    let result_resp = client.get("/combat/result").dispatch();
-    if result_resp.status() == Status::Ok {
+    let result_resp = client.get("/combat/results").dispatch();
+    let results_body = result_resp.into_string().unwrap_or_default();
+    let results: Vec<serde_json::Value> = serde_json::from_str(&results_body).unwrap_or_default();
+    if !results.is_empty() {
         // We're in scouting, finish it via EncounterApplyScouting
-        let scouting_resp = client.get("/area/encounters").dispatch();
-        let scouting_encounters: Vec<usize> =
-            serde_json::from_str(&scouting_resp.into_string().unwrap()).unwrap();
+        let scouting_encounters = encounter_hand_ids(&client);
         let body = format!(
             r#"{{"action_type":"EncounterApplyScouting","card_ids":[{}]}}"#,
             scouting_encounters[0]
@@ -299,40 +263,6 @@ fn play_finish_scouting_after_combat_win() {
             .dispatch();
         assert_eq!(response.status(), Status::Created);
     }
-}
-
-#[test]
-fn simulate_combat_endpoint() {
-    let client = client();
-
-    let request = serde_json::json!({
-        "initial_state": {
-            "round": 1,
-            "player_turn": true,
-            "phase": "Attacking",
-            "enemy_tokens": {"Health": 10},
-            "encounter_card_id": 0,
-            "is_finished": false,
-            "outcome": "Undecided",
-            "enemy_attack_deck": [],
-            "enemy_defence_deck": [],
-            "enemy_resource_deck": []
-        },
-        "player_tokens": [
-            {"token": {"token_type": "Health", "lifecycle": "PersistentCounter"}, "value": 20},
-            {"token": {"token_type": "Shield", "lifecycle": "PersistentCounter"}, "value": 0}
-        ],
-        "seed": 42,
-        "actions": [],
-        "card_defs": {}
-    });
-
-    let response = client
-        .post("/tests/combat/simulate")
-        .header(ContentType::JSON)
-        .body(serde_json::to_string(&request).unwrap())
-        .dispatch();
-    assert_eq!(response.status(), Status::Ok);
 }
 
 fn get_combat(client: &Client) -> Option<CombatState> {
@@ -352,8 +282,7 @@ fn encounter_play_card_action() {
     let client = client();
 
     // Pick encounter to start combat
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let encounters = encounter_hand_ids(&client);
     let encounter_id = encounters[0];
 
     let body = format!(
@@ -398,8 +327,7 @@ fn encounter_apply_scouting_action() {
         client.post("/tests/combat/advance").dispatch();
     }
 
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let encounters = encounter_hand_ids(&client);
 
     let body = format!(
         r#"{{"action_type":"EncounterApplyScouting","card_ids":[{}]}}"#,
@@ -440,8 +368,7 @@ fn play_card_in_combat_with_wrong_phase() {
     let client = client();
 
     // Pick encounter
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let encounters = encounter_hand_ids(&client);
     let body = format!(
         r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
         encounters[0]
@@ -466,8 +393,7 @@ fn play_card_nonexistent() {
     let client = client();
 
     // Start combat
-    let response = client.get("/area/encounters").dispatch();
-    let encounters: Vec<usize> = serde_json::from_str(&response.into_string().unwrap()).unwrap();
+    let encounters = encounter_hand_ids(&client);
     let body = format!(
         r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
         encounters[0]
@@ -490,7 +416,7 @@ fn play_card_nonexistent() {
 fn add_test_library_card_endpoint() {
     let client = client();
     let card = serde_json::json!({
-        "kind": {"kind": "Attack", "effects": []},
+        "kind": {"card_kind": "Attack", "effect_ids": []},
         "counts": {"library": 0, "deck": 5, "hand": 0, "discard": 0}
     });
     let response = client

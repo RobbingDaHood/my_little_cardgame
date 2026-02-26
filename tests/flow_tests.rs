@@ -282,6 +282,9 @@ fn test_player_kills_enemy_and_combat_ends() {
     assert_eq!(resp.status(), Status::NotFound);
 
     // Combat result should be recorded
-    let resp = client.get("/combat/result").dispatch();
+    let resp = client.get("/combat/results").dispatch();
     assert_eq!(resp.status(), Status::Ok);
+    let body = resp.into_string().unwrap();
+    let results: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+    assert!(!results.is_empty());
 }

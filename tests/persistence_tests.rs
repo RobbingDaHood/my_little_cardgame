@@ -1,5 +1,5 @@
 use my_little_cardgame::action::persistence::FileWriter;
-use my_little_cardgame::library::types::{ActionEntry, ActionPayload, TokenType};
+use my_little_cardgame::library::types::{ActionEntry, ActionPayload};
 use std::io::Read;
 
 #[test]
@@ -20,17 +20,7 @@ fn file_writer_writes_and_flushes() {
     for i in 0..3 {
         let entry = ActionEntry {
             seq: i,
-            action_type: "GrantToken".to_string(),
-            payload: ActionPayload::GrantToken {
-                token_id: TokenType::Insight,
-                amount: (i as i64) + 1,
-                reason: None,
-                resulting_amount: 0,
-            },
-            timestamp: format!("{}", i),
-            actor: None,
-            request_id: None,
-            version: None,
+            payload: ActionPayload::SetSeed { seed: i + 1 },
         };
         writer.send(entry);
     }
@@ -77,17 +67,7 @@ fn file_writer_close_is_idempotent() {
     // Send after close should not panic
     let entry = ActionEntry {
         seq: 0,
-        action_type: "GrantToken".to_string(),
-        payload: ActionPayload::GrantToken {
-            token_id: TokenType::Health,
-            amount: 1,
-            reason: None,
-            resulting_amount: 0,
-        },
-        timestamp: "0".to_string(),
-        actor: None,
-        request_id: None,
-        version: None,
+        payload: ActionPayload::SetSeed { seed: 1 },
     };
     writer.send(entry);
 

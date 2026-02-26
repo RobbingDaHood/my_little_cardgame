@@ -39,10 +39,10 @@ fn hello_world() {
     assert_eq!(library_cards[10].counts.hand, 5);
 
     // Verify card kinds
-    assert_eq!(library_cards[8].kind["kind"], "Attack");
-    assert_eq!(library_cards[9].kind["kind"], "Defence");
-    assert_eq!(library_cards[10].kind["kind"], "Resource");
-    assert_eq!(library_cards[11].kind["kind"], "Encounter");
+    assert_eq!(library_cards[8].kind["card_kind"], "Attack");
+    assert_eq!(library_cards[9].kind["card_kind"], "Defence");
+    assert_eq!(library_cards[10].kind["card_kind"], "Resource");
+    assert_eq!(library_cards[11].kind["card_kind"], "Encounter");
 
     // Verify combat not initialized yet
     assert_eq!(get_combat(&client), None);
@@ -58,7 +58,6 @@ fn hello_world() {
         my_little_cardgame::library::types::CombatPhase::Defending
     );
     assert_eq!(actual_combat.round, 1);
-    assert!(actual_combat.player_turn);
     // Enemy should have initial tokens (health=20, max_health=20 from gnome combatant_def)
     assert_eq!(
         token_balance_by_type(&actual_combat.enemy_tokens, &TokenType::Health),

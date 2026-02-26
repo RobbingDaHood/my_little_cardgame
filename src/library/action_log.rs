@@ -113,40 +113,16 @@ impl ActionLog {
     }
 
     /// Append an action entry, assigning an incrementing sequence number.
-    /// This implementation writes into the in-memory entries immediately (synchronously)
-    /// and also sends the entry to a background worker for offloaded tasks.
-    pub fn append(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
-        self.append_with_meta(action_type, payload, None, None, None)
-    }
-
-    pub fn append_with_meta(
-        &self,
-        action_type: &str,
-        payload: ActionPayload,
-        actor: Option<String>,
-        request_id: Option<String>,
-        version: Option<u32>,
-    ) -> ActionEntry {
+    pub fn append(&self, _action_type: &str, payload: ActionPayload) -> ActionEntry {
         let seq = self.seq.fetch_add(1, Ordering::SeqCst) + 1;
-        let timestamp = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-            Ok(dur) => format!("{}", dur.as_millis()),
-            Err(_) => "0".to_string(),
-        };
         let entry = ActionEntry {
             seq,
-            action_type: action_type.to_string(),
             payload: payload.clone(),
-            timestamp,
-            actor,
-            request_id,
-            version,
         };
-        // write into in-memory entries immediately to preserve synchronous semantics
         match self.entries.lock() {
             Ok(mut g) => g.push(entry.clone()),
             Err(e) => e.into_inner().push(entry.clone()),
         }
-        // best-effort send to worker for offloaded processing; ignore errors if the worker has shut down
         let _ = self.sender.send(entry.clone());
         entry
     }
@@ -159,13 +135,11 @@ impl ActionLog {
         }
     }
 
-    /// Async wrapper for compatibility with async callsites.
     pub async fn append_async(
         self: Arc<Self>,
         action_type: &str,
         payload: ActionPayload,
     ) -> ActionEntry {
-        // append is non-blocking (sends to worker) so this can be synchronous
         self.append(action_type, payload)
     }
 }

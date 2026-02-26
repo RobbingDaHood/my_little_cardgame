@@ -3,17 +3,13 @@
 //! This file provides small, well-scoped domain primitives used by higher-level systems.
 
 pub mod action_log;
-pub mod combat;
-pub mod encounter;
 mod endpoints;
 pub mod game_state;
-pub mod registry;
 pub mod types;
 
 pub use endpoints::{
-    add_test_library_card, list_card_effects, list_library_cards, list_library_tokens,
-    okapi_add_operation_for_list_card_effects_, okapi_add_operation_for_list_library_tokens_,
-    CardEffectEntry, CardEffectsResponse,
+    add_test_library_card, list_card_effects, list_library_cards,
+    okapi_add_operation_for_list_card_effects_, CardEffectEntry, CardEffectsResponse,
 };
 pub use game_state::GameState;
 
@@ -108,6 +104,18 @@ impl Library {
         Ok(())
     }
 
+    /// Resolve a card effect entry by ID, returning its kind.
+    /// Only works for PlayerCardEffect and EnemyCardEffect entries.
+    pub fn resolve_effect(&self, effect_id: usize) -> Option<types::CardEffectKind> {
+        let card = self.cards.get(effect_id)?;
+        match &card.kind {
+            CardKind::PlayerCardEffect { kind, .. } | CardKind::EnemyCardEffect { kind, .. } => {
+                Some(kind.clone())
+            }
+            _ => None,
+        }
+    }
+
     /// All cards currently on hand.
     pub fn hand_cards(&self) -> Vec<(usize, &LibraryCard)> {
         self.cards
@@ -187,24 +195,17 @@ impl Library {
         let mut errors = Vec::new();
         for (id, card) in self.cards.iter().enumerate() {
             match &card.kind {
-                CardKind::Attack { effects }
-                | CardKind::Defence { effects }
-                | CardKind::Resource { effects } => {
-                    for effect in effects {
-                        if let Some(ref_id) = effect.card_effect_id {
-                            match self.cards.get(ref_id) {
-                                Some(ref_card)
-                                    if matches!(
-                                        ref_card.kind,
-                                        CardKind::PlayerCardEffect { .. }
-                                    ) => {}
-                                _ => errors.push(format!(
-                                    "Card {} has effect referencing invalid PlayerCardEffect {}",
-                                    id, ref_id
-                                )),
-                            }
-                        } else {
-                            errors.push(format!("Card {} has effect without card_effect_id", id));
+                CardKind::Attack { effect_ids }
+                | CardKind::Defence { effect_ids }
+                | CardKind::Resource { effect_ids } => {
+                    for &ref_id in effect_ids {
+                        match self.cards.get(ref_id) {
+                            Some(ref_card)
+                                if matches!(ref_card.kind, CardKind::PlayerCardEffect { .. }) => {}
+                            _ => errors.push(format!(
+                                "Card {} has effect referencing invalid PlayerCardEffect {}",
+                                id, ref_id
+                            )),
                         }
                     }
                 }
@@ -217,24 +218,17 @@ impl Library {
                         &combatant_def.resource_deck,
                     ] {
                         for enemy_card in deck {
-                            for effect in &enemy_card.effects {
-                                if let Some(ref_id) = effect.card_effect_id {
-                                    match self.cards.get(ref_id) {
-                                        Some(ref_card)
-                                            if matches!(
-                                                ref_card.kind,
-                                                CardKind::EnemyCardEffect { .. }
-                                            ) => {}
-                                        _ => errors.push(format!(
-                                            "Enemy card in card {} has effect referencing invalid EnemyCardEffect {}",
-                                            id, ref_id
-                                        )),
-                                    }
-                                } else {
-                                    errors.push(format!(
-                                        "Enemy card in card {} has effect without card_effect_id",
-                                        id
-                                    ));
+                            for &ref_id in &enemy_card.effect_ids {
+                                match self.cards.get(ref_id) {
+                                    Some(ref_card)
+                                        if matches!(
+                                            ref_card.kind,
+                                            CardKind::EnemyCardEffect { .. }
+                                        ) => {}
+                                    _ => errors.push(format!(
+                                        "Enemy card in card {} has effect referencing invalid EnemyCardEffect {}",
+                                        id, ref_id
+                                    )),
                                 }
                             }
                         }

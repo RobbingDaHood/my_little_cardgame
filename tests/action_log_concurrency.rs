@@ -1,10 +1,7 @@
 use std::sync::Arc;
 use std::thread;
 
-use my_little_cardgame::library::{
-    action_log::ActionLog,
-    types::{ActionPayload, TokenType},
-};
+use my_little_cardgame::library::{action_log::ActionLog, types::ActionPayload};
 
 #[test]
 fn concurrent_appends_produce_unique_seqs() {
@@ -13,15 +10,7 @@ fn concurrent_appends_produce_unique_seqs() {
     for _ in 0..100 {
         let log_cloned = Arc::clone(&log);
         let handle = thread::spawn(move || {
-            log_cloned.append(
-                "GrantToken",
-                ActionPayload::GrantToken {
-                    token_id: TokenType::Insight,
-                    amount: 1,
-                    reason: None,
-                    resulting_amount: 1,
-                },
-            );
+            log_cloned.append("SetSeed", ActionPayload::SetSeed { seed: 1 });
         });
         handles.push(handle);
     }
@@ -33,7 +22,6 @@ fn concurrent_appends_produce_unique_seqs() {
     let mut seqs: Vec<u64> = entries.iter().map(|e| e.seq).collect();
     seqs.sort_unstable();
     for (i, s) in seqs.iter().enumerate() {
-        // sequences should be strictly increasing starting at 1
         assert_eq!(*s as usize, i + 1);
     }
 }
