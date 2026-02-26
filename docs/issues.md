@@ -52,3 +52,5 @@ It represents suggested changes to vision.md and roadmap.md that would clarify t
 If I instructed you to do something that you could not read from those two files, then suggest how they can be changed to avoid that in the future. 
 
 Also give me a list of contradictions and areas of improvements. 
+
+Also, add a section about the copilot instruction file: for more code style kind of instructions suggestions. 
