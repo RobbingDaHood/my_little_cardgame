@@ -1,7 +1,6 @@
 use rocket_okapi::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub mod endpoints;
 pub mod scouting;
 
 pub use scouting::ScoutingParams;

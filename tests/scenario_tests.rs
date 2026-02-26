@@ -61,6 +61,16 @@ fn combat_state(client: &Client) -> serde_json::Value {
     get_json(client, "/combat")
 }
 
+fn encounter_hand_ids(client: &Client) -> Vec<usize> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
 fn combat_result(client: &Client) -> Option<String> {
     let resp = client.get("/combat/results").dispatch();
     if resp.status() == Status::Ok {
@@ -103,11 +113,11 @@ fn scenario_player_wins_combat_then_picks_next_encounter() {
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status, Status::Created, "NewGame should succeed");
 
-    // 2. Verify encounter state is Ready
-    let area = get_json(&client, "/area/encounters");
+    // 2. Verify encounter cards are available
+    let encounter_ids = encounter_hand_ids(&client);
     assert!(
-        !area.as_array().unwrap_or(&vec![]).is_empty(),
-        "Area hand should have encounter cards"
+        !encounter_ids.is_empty(),
+        "Should have encounter cards in hand"
     );
 
     // 3. Pick the Gnome encounter (card_id 11)
@@ -155,10 +165,10 @@ fn scenario_player_wins_combat_then_picks_next_encounter() {
         assert_eq!(status, Status::Created, "ApplyScouting should succeed");
 
         // Verify we're back in Ready phase — can pick another encounter
-        let area_after = get_json(&client, "/area/encounters");
+        let ids_after = encounter_hand_ids(&client);
         assert!(
-            !area_after.as_array().unwrap_or(&vec![]).is_empty(),
-            "Area hand should have encounter cards after scouting"
+            !ids_after.is_empty(),
+            "Should have encounter cards after scouting"
         );
     }
 }
@@ -199,13 +209,7 @@ fn scenario_full_loop_new_game_combat_scout_combat() {
         assert!(hp > 0, "Player health should be positive after winning");
 
         // Pick second encounter
-        let area = get_json(&client, "/area/encounters");
-        let encounter_ids: Vec<usize> = area
-            .as_array()
-            .unwrap_or(&vec![])
-            .iter()
-            .filter_map(|v| v.as_u64().map(|n| n as usize))
-            .collect();
+        let encounter_ids = encounter_hand_ids(&client);
         assert!(
             !encounter_ids.is_empty(),
             "Should have encounters available after scouting"
