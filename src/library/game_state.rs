@@ -537,7 +537,7 @@ impl GameState {
             enemy_resource_deck,
         };
         self.current_encounter = Some(EncounterState::Combat(snapshot));
-        self.encounter_phase = super::types::EncounterPhase::Combat;
+        self.encounter_phase = super::types::EncounterPhase::InEncounter;
         Ok(())
     }
 
@@ -577,7 +577,7 @@ impl GameState {
             last_durability_prevent: 0,
         };
         self.current_encounter = Some(EncounterState::Mining(state));
-        self.encounter_phase = super::types::EncounterPhase::Gathering;
+        self.encounter_phase = super::types::EncounterPhase::InEncounter;
         Ok(())
     }
 

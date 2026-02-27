@@ -543,10 +543,8 @@ pub enum EncounterOutcome {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
 #[serde(crate = "rocket::serde")]
 pub enum EncounterPhase {
-    /// Combat is currently active
-    Combat,
-    /// Gathering (mining) is currently active
-    Gathering,
+    /// An encounter is currently active (combat, mining, etc.)
+    InEncounter,
     /// Encounter has finished; scouting is available
     Scouting,
     /// No active encounter
