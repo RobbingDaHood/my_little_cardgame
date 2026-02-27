@@ -478,7 +478,7 @@ pub struct CombatEncounterState {
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub enemy_tokens: HashMap<Token, i64>,
-    pub encounter_card_id: Option<usize>,
+    pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
     pub enemy_attack_deck: Vec<EnemyCardDef>,
     pub enemy_defence_deck: Vec<EnemyCardDef>,
@@ -490,7 +490,7 @@ pub struct CombatEncounterState {
 #[serde(crate = "rocket::serde")]
 pub struct MiningEncounterState {
     pub round: u64,
-    pub encounter_card_id: Option<usize>,
+    pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
     pub ore_hp: i64,
     pub ore_max_hp: i64,
@@ -509,7 +509,7 @@ pub enum EncounterState {
 }
 
 impl EncounterState {
-    pub fn encounter_card_id(&self) -> Option<usize> {
+    pub fn encounter_card_id(&self) -> usize {
         match self {
             EncounterState::Combat(c) => c.encounter_card_id,
             EncounterState::Mining(m) => m.encounter_card_id,

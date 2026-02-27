@@ -259,9 +259,8 @@ pub async fn play(
 
             // Recycle encounter back to deck and refill hand
             if let Some(ref enc) = gs.current_encounter {
-                if let Some(enc_id) = enc.encounter_card_id() {
-                    let _ = gs.library.return_to_deck(enc_id);
-                }
+                let enc_id = enc.encounter_card_id();
+                let _ = gs.library.return_to_deck(enc_id);
             }
             let foresight = gs
                 .token_balances

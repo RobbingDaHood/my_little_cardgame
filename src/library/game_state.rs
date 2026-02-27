@@ -530,7 +530,7 @@ impl GameState {
                 .iter()
                 .map(|(k, v)| (k.clone(), *v as i64))
                 .collect(),
-            encounter_card_id: Some(encounter_card_id),
+            encounter_card_id,
             outcome: EncounterOutcome::Undecided,
             enemy_attack_deck,
             enemy_defence_deck,
@@ -567,7 +567,7 @@ impl GameState {
         Self::ore_shuffle_hand(rng, &mut ore_deck);
         let state = MiningEncounterState {
             round: 1,
-            encounter_card_id: Some(encounter_card_id),
+            encounter_card_id,
             outcome: EncounterOutcome::Undecided,
             ore_hp: mining_def.ore_hp as i64,
             ore_max_hp: mining_def.ore_hp as i64,
@@ -1082,9 +1082,8 @@ impl GameState {
                 }
                 ActionPayload::ApplyScouting { .. } => {
                     if let Some(ref enc) = gs.current_encounter {
-                        if let Some(enc_id) = enc.encounter_card_id() {
-                            let _ = gs.library.return_to_deck(enc_id);
-                        }
+                        let enc_id = enc.encounter_card_id();
+                        let _ = gs.library.return_to_deck(enc_id);
                     }
                     let foresight = gs
                         .token_balances
