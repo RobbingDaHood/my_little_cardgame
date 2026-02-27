@@ -22,6 +22,7 @@ pub enum PlayerActions {
     EncounterPickEncounter { card_id: usize },
     EncounterPlayCard { card_id: u64 },
     EncounterApplyScouting { card_ids: Vec<usize> },
+    EncounterAbort,
 }
 
 #[openapi]
@@ -259,6 +260,28 @@ pub async fn play(
                 card_ids: card_ids.clone(),
             };
             let entry = gs.append_action("EncounterApplyScouting", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterAbort => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Combat(_)) => {
+                    return Err(Right(BadRequest(new_status(
+                        "Cannot abort a combat encounter".to_string(),
+                    ))));
+                }
+                Some(_) => {
+                    // Mark non-combat encounter as lost, go to scouting
+                    gs.abort_encounter();
+                }
+                None => {
+                    return Err(Right(BadRequest(new_status(
+                        "No active encounter to abort".to_string(),
+                    ))));
+                }
+            }
+            let payload = crate::library::types::ActionPayload::AbortEncounter;
+            let entry = gs.append_action("EncounterAbort", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
     }

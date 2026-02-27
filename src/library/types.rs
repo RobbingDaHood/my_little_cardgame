@@ -420,6 +420,7 @@ pub enum ActionPayload {
     DrawEncounter { encounter_id: String },
     PlayCard { card_id: usize },
     ApplyScouting { card_ids: Vec<usize> },
+    AbortEncounter,
 }
 
 /// Stored action entry in the append-only action log.

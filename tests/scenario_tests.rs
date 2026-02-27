@@ -725,6 +725,65 @@ fn scenario_mining_encounter_full_loop() {
 }
 
 #[test]
+fn scenario_abort_mining_encounter() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // 1. Start a new game
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created);
+
+    // 2. Pick a mining encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // 3. Verify mining encounter is active
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Mining")
+    );
+
+    // 4. Abort the encounter
+    let (status, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+    assert_eq!(status, Status::Created, "Abort should succeed");
+
+    // 5. Verify encounter result is PlayerLost
+    let result = combat_result(&client);
+    assert_eq!(result, Some("PlayerLost".to_string()));
+
+    // 6. Verify can scout after abort
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(
+        status,
+        Status::Created,
+        "Should be able to scout after abort"
+    );
+
+    // 7. Verify aborting combat is rejected
+    let (status2, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status2, Status::Created);
+    let (status2, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    );
+    assert_eq!(status2, Status::Created);
+    let (status2, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+    assert_eq!(
+        status2,
+        Status::BadRequest,
+        "Should not be able to abort combat"
+    );
+}
+
+#[test]
 fn scenario_mining_then_combat_coexist() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 

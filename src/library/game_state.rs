@@ -965,6 +965,14 @@ impl GameState {
         self.encounter_phase = super::types::EncounterPhase::Scouting;
     }
 
+    /// Abort a non-combat encounter: mark as lost, transition to Scouting.
+    pub fn abort_encounter(&mut self) {
+        self.last_encounter_result = Some(EncounterOutcome::PlayerLost);
+        self.encounter_results.push(EncounterOutcome::PlayerLost);
+        self.current_encounter = None;
+        self.encounter_phase = super::types::EncounterPhase::Scouting;
+    }
+
     /// Draw one player mining card from deck to hand, recycling discard if needed.
     fn draw_player_mining_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
         self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Mining { .. }), rng);
@@ -1089,6 +1097,9 @@ impl GameState {
                         .unwrap_or(3) as usize;
                     gs.library.encounter_draw_to_hand(foresight);
                     gs.encounter_phase = super::types::EncounterPhase::NoEncounter;
+                }
+                ActionPayload::AbortEncounter => {
+                    gs.abort_encounter();
                 }
             }
             match gs.action_log.entries.lock() {
