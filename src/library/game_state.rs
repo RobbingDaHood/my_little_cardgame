@@ -296,7 +296,10 @@ fn initialize_library() -> Library {
         CardKind::Encounter {
             encounter_kind: super::types::EncounterKind::Mining {
                 mining_def: super::types::MiningDef {
-                    ore_hp: 15,
+                    initial_tokens: HashMap::from([(
+                        super::types::Token::persistent(super::types::TokenType::OreHealth),
+                        15,
+                    )]),
                     ore_deck: vec![
                         super::types::OreCard {
                             durability_damage: 0,
@@ -569,8 +572,7 @@ impl GameState {
             round: 1,
             encounter_card_id,
             outcome: EncounterOutcome::Undecided,
-            ore_hp: mining_def.ore_hp as i64,
-            ore_max_hp: mining_def.ore_hp as i64,
+            ore_tokens: mining_def.initial_tokens,
             ore_deck,
             rewards: mining_def.rewards,
             failure_penalties: mining_def.failure_penalties,
@@ -853,8 +855,11 @@ impl GameState {
                 Some(EncounterState::Mining(m)) => m,
                 _ => return Err("No active mining encounter".to_string()),
             };
-            mining.ore_hp = (mining.ore_hp - mining_effect.ore_damage).max(0);
-            mining.ore_hp <= 0
+            let ore_health_key =
+                super::types::Token::persistent(super::types::TokenType::OreHealth);
+            let ore_hp = mining.ore_tokens.entry(ore_health_key).or_insert(0);
+            *ore_hp = (*ore_hp - mining_effect.ore_damage).max(0);
+            *ore_hp <= 0
         };
 
         if ore_defeated {

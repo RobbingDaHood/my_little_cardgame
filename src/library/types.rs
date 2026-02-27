@@ -26,6 +26,8 @@ pub enum TokenType {
     Durability,
     // Material tokens (produced by gathering)
     Ore,
+    // Encounter-scoped tokens
+    OreHealth,
 }
 
 /// All known token types.
@@ -48,6 +50,7 @@ impl TokenType {
             TokenType::Exhaustion,
             TokenType::Durability,
             TokenType::Ore,
+            TokenType::OreHealth,
         ]
     }
 }
@@ -160,7 +163,9 @@ pub enum EncounterKind {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct MiningDef {
-    pub ore_hp: u64,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub initial_tokens: HashMap<Token, i64>,
     pub ore_deck: Vec<OreCard>,
     pub rewards: HashMap<TokenType, i64>,
     pub failure_penalties: HashMap<TokenType, i64>,
@@ -492,8 +497,9 @@ pub struct MiningEncounterState {
     pub round: u64,
     pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
-    pub ore_hp: i64,
-    pub ore_max_hp: i64,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub ore_tokens: HashMap<Token, i64>,
     pub ore_deck: Vec<OreCard>,
     pub rewards: HashMap<TokenType, i64>,
     pub failure_penalties: HashMap<TokenType, i64>,

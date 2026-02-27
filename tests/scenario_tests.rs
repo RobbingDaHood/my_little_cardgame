@@ -624,9 +624,12 @@ fn scenario_mining_encounter_full_loop() {
         "Mining should be active"
     );
     assert_eq!(
-        encounter.get("ore_hp").and_then(|v| v.as_i64()),
+        encounter
+            .get("ore_tokens")
+            .and_then(|v| v.get("OreHealth"))
+            .and_then(|v| v.as_i64()),
         Some(15),
-        "Ore HP should start at 15"
+        "Ore Health should start at 15"
     );
 
     // 5. Verify player has Durability token
