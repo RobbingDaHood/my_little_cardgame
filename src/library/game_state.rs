@@ -574,7 +574,6 @@ impl GameState {
             ore_deck,
             rewards: mining_def.rewards,
             failure_penalties: mining_def.failure_penalties,
-            last_durability_prevent: 0,
         };
         self.current_encounter = Some(EncounterState::Mining(state));
         self.encounter_phase = super::types::EncounterPhase::InEncounter;
@@ -848,14 +847,13 @@ impl GameState {
             _ => return Err("Cannot play a non-mining card in mining encounter".to_string()),
         };
 
-        // Apply player mining card: damage ore and store prevent
+        // Apply player mining card: damage ore
         let ore_defeated = {
             let mining = match &mut self.current_encounter {
                 Some(EncounterState::Mining(m)) => m,
                 _ => return Err("No active mining encounter".to_string()),
             };
             mining.ore_hp = (mining.ore_hp - mining_effect.ore_damage).max(0);
-            mining.last_durability_prevent = mining_effect.durability_prevent;
             mining.ore_hp <= 0
         };
 
@@ -864,8 +862,8 @@ impl GameState {
             return Ok(());
         }
 
-        // Auto-resolve ore play
-        self.resolve_ore_play(rng);
+        // Auto-resolve ore play with the prevent value from the card just played
+        self.resolve_ore_play(rng, mining_effect.durability_prevent);
 
         // Player draws a mining card
         self.draw_player_mining_card(rng);
@@ -875,7 +873,7 @@ impl GameState {
 
     /// Ore plays a random card from hand, dealing durability damage minus prevent.
     /// Then draws a card from deck to hand.
-    fn resolve_ore_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
+    fn resolve_ore_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32, durability_prevent: i64) {
         use rand::RngCore;
 
         // Play ore card and extract damage info
@@ -899,8 +897,7 @@ impl GameState {
             mining.ore_deck[card_idx].counts.hand -= 1;
             mining.ore_deck[card_idx].counts.discard += 1;
             let raw_damage = mining.ore_deck[card_idx].durability_damage;
-            let effective = (raw_damage - mining.last_durability_prevent).max(0);
-            mining.last_durability_prevent = 0;
+            let effective = (raw_damage - durability_prevent).max(0);
             mining.round += 1;
             (effective, true)
         };

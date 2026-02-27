@@ -497,7 +497,6 @@ pub struct MiningEncounterState {
     pub ore_deck: Vec<OreCard>,
     pub rewards: HashMap<TokenType, i64>,
     pub failure_penalties: HashMap<TokenType, i64>,
-    pub last_durability_prevent: i64,
 }
 
 /// Active encounter state, dispatched by encounter type.
