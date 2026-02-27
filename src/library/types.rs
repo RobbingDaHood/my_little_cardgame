@@ -167,8 +167,12 @@ pub struct MiningDef {
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub initial_tokens: HashMap<Token, i64>,
     pub ore_deck: Vec<OreCard>,
-    pub rewards: HashMap<TokenType, i64>,
-    pub failure_penalties: HashMap<TokenType, i64>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub failure_penalties: HashMap<Token, i64>,
 }
 
 /// A card in the ore deck. Each card deals a fixed amount of durability damage.
@@ -501,8 +505,12 @@ pub struct MiningEncounterState {
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub ore_tokens: HashMap<Token, i64>,
     pub ore_deck: Vec<OreCard>,
-    pub rewards: HashMap<TokenType, i64>,
-    pub failure_penalties: HashMap<TokenType, i64>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub failure_penalties: HashMap<Token, i64>,
 }
 
 /// Active encounter state, dispatched by encounter type.
