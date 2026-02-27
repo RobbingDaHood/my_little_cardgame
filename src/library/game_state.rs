@@ -467,6 +467,11 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::Foresight),
             3,
         );
+        // MiningDurability starts at 100; lost during mining, not regained until crafting
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::MiningDurability),
+            100,
+        );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -1043,14 +1048,6 @@ impl GameState {
                                 CardKind::Encounter {
                                     encounter_kind: EncounterKind::Mining { .. },
                                 } => {
-                                    let durability_key = super::types::Token::persistent(
-                                        super::types::TokenType::MiningDurability,
-                                    );
-                                    if gs.token_balances.get(&durability_key).copied().unwrap_or(0)
-                                        == 0
-                                    {
-                                        gs.token_balances.insert(durability_key, 15);
-                                    }
                                     let _ = gs.start_mining_encounter(card_id, &mut rng);
                                 }
                                 _ => {

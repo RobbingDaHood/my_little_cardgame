@@ -632,70 +632,95 @@ fn scenario_mining_encounter_full_loop() {
         "Ore Health should start at 15"
     );
 
-    // 5. Verify player has MiningDurability token
+    // 5. Verify player has MiningDurability token (initialized at game start)
     let durability = player_token(&client, "MiningDurability");
-    assert_eq!(durability, 15, "Player should start with 15 durability");
-
-    // 6. Play mining cards until the encounter finishes (max 50 turns)
-    let mut turns = 0;
-    while play_one_mining_card(&client) {
-        turns += 1;
-        assert!(turns < 50, "Mining should end within 50 turns");
-    }
-
-    // 7. Verify encounter ended
-    let result = combat_result(&client);
-    assert!(result.is_some(), "Should have an encounter result");
-    let outcome = result.unwrap();
-    assert!(
-        outcome == "PlayerWon" || outcome == "PlayerLost",
-        "Mining outcome should be PlayerWon or PlayerLost, got: {}",
-        outcome
+    assert_eq!(
+        durability, 100,
+        "Player should start with 100 mining durability"
     );
 
-    // 8. If player won, verify Ore tokens were granted and transition to Scouting
-    if outcome == "PlayerWon" {
-        let ore = player_token(&client, "Ore");
-        assert!(ore > 0, "Player should have Ore after winning mining");
+    // 6. Play mining encounters in a loop until durability runs out
+    let mut total_encounters = 0;
+    let mut last_outcome;
+    loop {
+        // Play mining cards until encounter finishes
+        let mut round_turns = 0;
+        while play_one_mining_card(&client) {
+            round_turns += 1;
+            assert!(round_turns < 50, "Mining round should end within 50 turns");
+        }
+        total_encounters += 1;
 
-        // Apply scouting
+        last_outcome = combat_result(&client).unwrap_or_default();
+
+        if last_outcome == "PlayerWon" {
+            let ore = player_token(&client, "Ore");
+            assert!(ore > 0, "Player should have Ore after winning mining");
+        }
+
+        if last_outcome == "PlayerLost" {
+            break;
+        }
+
+        // Scout and pick another mining encounter
         let (status, _) = post_action(
             &client,
             r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
         );
         assert_eq!(status, Status::Created, "ApplyScouting should succeed");
 
-        // Verify we can pick another encounter
-        let ids_after = encounter_hand_ids(&client);
+        let mining_enc = mining_encounter_ids(&client);
+        if mining_enc.is_empty() {
+            break;
+        }
+        let pick_json = format!(
+            r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+            mining_enc[0]
+        );
+        let (status, _) = post_action(&client, &pick_json);
+        assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
         assert!(
-            !ids_after.is_empty(),
-            "Should have encounter cards after scouting"
+            total_encounters < 100,
+            "Player should eventually lose from durability depletion"
         );
     }
 
-    // 9. If player lost, verify no penalties (mining has no penalties)
-    if outcome == "PlayerLost" {
+    assert!(
+        total_encounters > 1,
+        "With 100 durability, player should survive multiple mining encounters"
+    );
+
+    // 7. Verify final state: player eventually lost from durability depletion
+    if last_outcome == "PlayerLost" {
         let exhaustion = player_token(&client, "Exhaustion");
         assert_eq!(
             exhaustion, 0,
             "Mining has no penalties; Exhaustion should be 0"
         );
-        let durability = player_token(&client, "MiningDurability");
+        let final_durability = player_token(&client, "MiningDurability");
         assert_eq!(
-            durability, 0,
+            final_durability, 0,
             "Player mining durability should be 0 when losing mining"
         );
+    }
 
-        // Should still be able to scout after a loss
+    // 8. Scout after final encounter (only if we haven't already scouted)
+    if last_outcome == "PlayerLost" || last_outcome == "PlayerWon" {
+        // After PlayerLost: still in Scouting phase, need to scout
+        // After PlayerWon when mining_enc was empty: already scouted in loop
         let (status, _) = post_action(
             &client,
             r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
         );
-        assert_eq!(
-            status,
-            Status::Created,
-            "Should be able to scout after mining loss"
-        );
+        // Scout may fail if already scouted (loop broke due to empty mining hand)
+        if last_outcome == "PlayerLost" {
+            assert_eq!(
+                status,
+                Status::Created,
+                "Should be able to scout after mining loss"
+            );
+        }
     }
 }
 

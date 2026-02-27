@@ -124,23 +124,6 @@ pub async fn play(
                     }
                 }
                 crate::library::types::EncounterKind::Mining { .. } => {
-                    // Initialize player durability if not set
-                    if gs
-                        .token_balances
-                        .get(&crate::library::types::Token::persistent(
-                            crate::library::types::TokenType::MiningDurability,
-                        ))
-                        .copied()
-                        .unwrap_or(0)
-                        == 0
-                    {
-                        gs.token_balances.insert(
-                            crate::library::types::Token::persistent(
-                                crate::library::types::TokenType::MiningDurability,
-                            ),
-                            15,
-                        );
-                    }
                     match gs.start_mining_encounter(card_id, &mut rng) {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
