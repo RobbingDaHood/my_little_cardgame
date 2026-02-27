@@ -102,7 +102,7 @@ fn play_one_round(client: &Client) -> bool {
         }
         // Check if combat ended
         let combat = combat_state(client);
-        if combat.get("is_finished").and_then(|v| v.as_bool()) == Some(true) {
+        if combat.get("outcome").and_then(|v| v.as_str()) != Some("Undecided") {
             return false;
         }
     }
@@ -134,8 +134,8 @@ fn scenario_player_wins_combat_then_picks_next_encounter() {
     // 4. Verify combat started
     let combat = combat_state(&client);
     assert_eq!(
-        combat.get("is_finished").and_then(|v| v.as_bool()),
-        Some(false),
+        combat.get("outcome").and_then(|v| v.as_str()),
+        Some("Undecided"),
         "Combat should be active"
     );
     assert!(player_health(&client) > 0, "Player should have health");
@@ -234,8 +234,8 @@ fn scenario_full_loop_new_game_combat_scout_combat() {
         // Verify new combat started
         let combat = combat_state(&client);
         assert_eq!(
-            combat.get("is_finished").and_then(|v| v.as_bool()),
-            Some(false),
+            combat.get("outcome").and_then(|v| v.as_str()),
+            Some("Undecided"),
             "Second combat should be active"
         );
 
@@ -577,7 +577,7 @@ fn play_one_mining_card(client: &Client) -> bool {
         return false;
     }
     let encounter = combat_state(client);
-    encounter.get("is_finished").and_then(|v| v.as_bool()) != Some(true)
+    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
 }
 
 /// Find mining encounter card IDs in the encounter hand.
@@ -619,8 +619,8 @@ fn scenario_mining_encounter_full_loop() {
         "Encounter should be Mining type"
     );
     assert_eq!(
-        encounter.get("is_finished").and_then(|v| v.as_bool()),
-        Some(false),
+        encounter.get("outcome").and_then(|v| v.as_str()),
+        Some("Undecided"),
         "Mining should be active"
     );
     assert_eq!(

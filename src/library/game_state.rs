@@ -429,7 +429,6 @@ fn check_combat_end(
         .unwrap_or(0);
 
     if enemy_health <= 0 || player_health <= 0 {
-        combat.is_finished = true;
         combat.outcome = if enemy_health <= 0 && player_health > 0 {
             EncounterOutcome::PlayerWon
         } else if player_health <= 0 && enemy_health > 0 {
@@ -532,7 +531,6 @@ impl GameState {
                 .map(|(k, v)| (k.clone(), *v as i64))
                 .collect(),
             encounter_card_id: Some(encounter_card_id),
-            is_finished: false,
             outcome: EncounterOutcome::Undecided,
             enemy_attack_deck,
             enemy_defence_deck,
@@ -570,7 +568,6 @@ impl GameState {
         let state = MiningEncounterState {
             round: 1,
             encounter_card_id: Some(encounter_card_id),
-            is_finished: false,
             outcome: EncounterOutcome::Undecided,
             ore_hp: mining_def.ore_hp as i64,
             ore_max_hp: mining_def.ore_hp as i64,
@@ -626,7 +623,7 @@ impl GameState {
             &self.library,
         );
         check_combat_end(&self.token_balances, combat);
-        if combat.is_finished {
+        if combat.outcome != EncounterOutcome::Undecided {
             self.last_encounter_result = Some(combat.outcome.clone());
             self.encounter_results.push(combat.outcome.clone());
             self.current_encounter = None;
@@ -754,13 +751,13 @@ impl GameState {
             check_combat_end(&self.token_balances, combat);
 
             // Handle enemy draws per deck type
-            if !combat.is_finished {
+            if combat.outcome == EncounterOutcome::Undecided {
                 Self::enemy_draw_n(rng, &mut combat.enemy_attack_deck, atk_draws);
                 Self::enemy_draw_n(rng, &mut combat.enemy_defence_deck, def_draws);
                 Self::enemy_draw_n(rng, &mut combat.enemy_resource_deck, res_draws);
             }
 
-            if combat.is_finished {
+            if combat.outcome != EncounterOutcome::Undecided {
                 self.last_encounter_result = Some(combat.outcome.clone());
                 self.encounter_results.push(combat.outcome.clone());
                 self.current_encounter = None;

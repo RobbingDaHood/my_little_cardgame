@@ -479,7 +479,6 @@ pub struct CombatEncounterState {
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub enemy_tokens: HashMap<Token, i64>,
     pub encounter_card_id: Option<usize>,
-    pub is_finished: bool,
     pub outcome: EncounterOutcome,
     pub enemy_attack_deck: Vec<EnemyCardDef>,
     pub enemy_defence_deck: Vec<EnemyCardDef>,
@@ -492,7 +491,6 @@ pub struct CombatEncounterState {
 pub struct MiningEncounterState {
     pub round: u64,
     pub encounter_card_id: Option<usize>,
-    pub is_finished: bool,
     pub outcome: EncounterOutcome,
     pub ore_hp: i64,
     pub ore_max_hp: i64,
@@ -519,10 +517,7 @@ impl EncounterState {
     }
 
     pub fn is_finished(&self) -> bool {
-        match self {
-            EncounterState::Combat(c) => c.is_finished,
-            EncounterState::Mining(m) => m.is_finished,
-        }
+        *self.outcome() != EncounterOutcome::Undecided
     }
 
     pub fn outcome(&self) -> &EncounterOutcome {
