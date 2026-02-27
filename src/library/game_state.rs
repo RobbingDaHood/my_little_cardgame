@@ -338,10 +338,6 @@ fn initialize_library() -> Library {
                         super::types::Token::persistent(super::types::TokenType::Ore),
                         10,
                     )]),
-                    failure_penalties: HashMap::from([(
-                        super::types::Token::persistent(super::types::TokenType::Exhaustion),
-                        2,
-                    )]),
                 },
             },
         },
@@ -581,7 +577,6 @@ impl GameState {
             ore_tokens: mining_def.initial_tokens,
             ore_deck,
             rewards: mining_def.rewards,
-            failure_penalties: mining_def.failure_penalties,
         };
         self.current_encounter = Some(EncounterState::Mining(state));
         self.encounter_phase = super::types::EncounterPhase::InEncounter;
@@ -943,19 +938,15 @@ impl GameState {
 
     /// Finalize a mining encounter: grant rewards (win) or apply penalties (loss).
     fn finish_mining_encounter(&mut self, is_win: bool) {
-        let token_changes = match &self.current_encounter {
-            Some(EncounterState::Mining(m)) => {
-                if is_win {
-                    m.rewards.clone()
-                } else {
-                    m.failure_penalties.clone()
-                }
+        if is_win {
+            let rewards = match &self.current_encounter {
+                Some(EncounterState::Mining(m)) => m.rewards.clone(),
+                _ => return,
+            };
+            for (token, amount) in &rewards {
+                let entry = self.token_balances.entry(token.clone()).or_insert(0);
+                *entry += amount;
             }
-            _ => return,
-        };
-        for (token, amount) in &token_changes {
-            let entry = self.token_balances.entry(token.clone()).or_insert(0);
-            *entry += amount;
         }
         let outcome = if is_win {
             EncounterOutcome::PlayerWon

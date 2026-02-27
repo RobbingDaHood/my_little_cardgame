@@ -673,12 +673,12 @@ fn scenario_mining_encounter_full_loop() {
         );
     }
 
-    // 9. If player lost, verify Exhaustion penalty
+    // 9. If player lost, verify no penalties (mining has no penalties)
     if outcome == "PlayerLost" {
         let exhaustion = player_token(&client, "Exhaustion");
-        assert!(
-            exhaustion > 0,
-            "Player should have Exhaustion after losing mining"
+        assert_eq!(
+            exhaustion, 0,
+            "Mining has no penalties; Exhaustion should be 0"
         );
         let durability = player_token(&client, "Durability");
         assert_eq!(
