@@ -208,7 +208,7 @@ fn initialize_library() -> Library {
                     ]),
                     attack_deck: vec![super::types::EnemyCardDef {
                         effect_ids: vec![4],
-                        counts: super::types::EnemyCardCounts {
+                        counts: super::types::DeckCounts {
                             deck: 0,
                             hand: 10,
                             discard: 0,
@@ -216,7 +216,7 @@ fn initialize_library() -> Library {
                     }],
                     defence_deck: vec![super::types::EnemyCardDef {
                         effect_ids: vec![5],
-                        counts: super::types::EnemyCardCounts {
+                        counts: super::types::DeckCounts {
                             deck: 0,
                             hand: 10,
                             discard: 0,
@@ -224,7 +224,7 @@ fn initialize_library() -> Library {
                     }],
                     resource_deck: vec![super::types::EnemyCardDef {
                         effect_ids: vec![6, 7],
-                        counts: super::types::EnemyCardCounts {
+                        counts: super::types::DeckCounts {
                             deck: 0,
                             hand: 10,
                             discard: 0,
@@ -300,7 +300,7 @@ fn initialize_library() -> Library {
                     ore_deck: vec![
                         super::types::OreCard {
                             durability_damage: 0,
-                            counts: super::types::OreCardCounts {
+                            counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 6,
                                 discard: 0,
@@ -308,7 +308,7 @@ fn initialize_library() -> Library {
                         },
                         super::types::OreCard {
                             durability_damage: 1,
-                            counts: super::types::OreCardCounts {
+                            counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 8,
                                 discard: 0,
@@ -316,7 +316,7 @@ fn initialize_library() -> Library {
                         },
                         super::types::OreCard {
                             durability_damage: 2,
-                            counts: super::types::OreCardCounts {
+                            counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 4,
                                 discard: 0,
@@ -324,7 +324,7 @@ fn initialize_library() -> Library {
                         },
                         super::types::OreCard {
                             durability_damage: 3,
-                            counts: super::types::OreCardCounts {
+                            counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 2,
                                 discard: 0,

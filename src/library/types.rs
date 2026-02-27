@@ -171,13 +171,13 @@ pub struct MiningDef {
 #[serde(crate = "rocket::serde")]
 pub struct OreCard {
     pub durability_damage: i64,
-    pub counts: OreCardCounts,
+    pub counts: DeckCounts,
 }
 
-/// Copy counts for ore cards: deck, hand, discard.
+/// Copy counts for non-library cards (enemy, ore, etc.): deck, hand, discard.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
-pub struct OreCardCounts {
+pub struct DeckCounts {
     pub deck: u32,
     pub hand: u32,
     pub discard: u32,
@@ -196,21 +196,12 @@ pub struct CombatantDef {
     pub resource_deck: Vec<EnemyCardDef>,
 }
 
-/// Copy counts for enemy cards: deck, hand, discard.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct EnemyCardCounts {
-    pub deck: u32,
-    pub hand: u32,
-    pub discard: u32,
-}
-
 /// A simple inline card definition for enemy decks.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCardDef {
     pub effect_ids: Vec<usize>,
-    pub counts: EnemyCardCounts,
+    pub counts: DeckCounts,
 }
 
 /// A single entry in the Library. Index in the Vec = card ID.
