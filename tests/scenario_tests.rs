@@ -632,8 +632,8 @@ fn scenario_mining_encounter_full_loop() {
         "Ore Health should start at 15"
     );
 
-    // 5. Verify player has Durability token
-    let durability = player_token(&client, "Durability");
+    // 5. Verify player has MiningDurability token
+    let durability = player_token(&client, "MiningDurability");
     assert_eq!(durability, 15, "Player should start with 15 durability");
 
     // 6. Play mining cards until the encounter finishes (max 50 turns)
@@ -680,10 +680,10 @@ fn scenario_mining_encounter_full_loop() {
             exhaustion, 0,
             "Mining has no penalties; Exhaustion should be 0"
         );
-        let durability = player_token(&client, "Durability");
+        let durability = player_token(&client, "MiningDurability");
         assert_eq!(
             durability, 0,
-            "Player durability should be 0 when losing mining"
+            "Player mining durability should be 0 when losing mining"
         );
 
         // Should still be able to scout after a loss

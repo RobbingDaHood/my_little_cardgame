@@ -128,7 +128,7 @@ pub async fn play(
                     if gs
                         .token_balances
                         .get(&crate::library::types::Token::persistent(
-                            crate::library::types::TokenType::Durability,
+                            crate::library::types::TokenType::MiningDurability,
                         ))
                         .copied()
                         .unwrap_or(0)
@@ -136,7 +136,7 @@ pub async fn play(
                     {
                         gs.token_balances.insert(
                             crate::library::types::Token::persistent(
-                                crate::library::types::TokenType::Durability,
+                                crate::library::types::TokenType::MiningDurability,
                             ),
                             15,
                         );

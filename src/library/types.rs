@@ -23,7 +23,7 @@ pub enum TokenType {
     Momentum,
     Corruption,
     Exhaustion,
-    Durability,
+    MiningDurability,
     // Material tokens (produced by gathering)
     Ore,
     // Encounter-scoped tokens
@@ -48,7 +48,7 @@ impl TokenType {
             TokenType::Momentum,
             TokenType::Corruption,
             TokenType::Exhaustion,
-            TokenType::Durability,
+            TokenType::MiningDurability,
             TokenType::Ore,
             TokenType::OreHealth,
         ]

@@ -913,7 +913,8 @@ impl GameState {
         }
 
         // Apply durability damage to player
-        let durability_key = super::types::Token::persistent(super::types::TokenType::Durability);
+        let durability_key =
+            super::types::Token::persistent(super::types::TokenType::MiningDurability);
         let durability = self
             .token_balances
             .entry(durability_key.clone())
@@ -1043,7 +1044,7 @@ impl GameState {
                                     encounter_kind: EncounterKind::Mining { .. },
                                 } => {
                                     let durability_key = super::types::Token::persistent(
-                                        super::types::TokenType::Durability,
+                                        super::types::TokenType::MiningDurability,
                                     );
                                     if gs.token_balances.get(&durability_key).copied().unwrap_or(0)
                                         == 0
