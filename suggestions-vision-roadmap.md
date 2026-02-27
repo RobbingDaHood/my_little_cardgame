@@ -273,9 +273,9 @@ Each encounter type has its own struct because mechanics differ fundamentally. C
 #### 3. Document Mining encounter mechanics
 The vision doc describes gathering disciplines at a high level. Now that Mining is implemented, add concrete mechanics:
 - **Single-deck resolution**: Player Mining deck (cards with `ore_damage` + `durability_prevent` tradeoff). Ore has OreDeck with cards dealing 0-3 durability damage (skewed low: ~30% zero, ~40% one, ~20% two, ~10% three).
-- **Turn flow**: Player plays → ore_damage reduces ore HP, prevent is stored → ore plays random card → effective durability damage = raw - prevent → both draw → check end.
+- **Turn flow**: Player plays → ore_damage reduces ore HP, durability_prevent stored → ore plays random card → effective durability damage = raw - prevent → both draw → check end.
 - **Win**: Ore HP ≤ 0 → grant material tokens (Ore: 10).
-- **Lose**: Player Durability ≤ 0 → Exhaustion penalty (2).
+- **Lose**: Player MiningDurability ≤ 0 → encounter ends as lost, no penalties applied.
 - **No phases**: Unlike combat's Defending → Attacking → Resourcing cycle, mining is one action per turn.
 
 #### 4. Clarify endpoint renaming
@@ -284,22 +284,24 @@ The vision doc describes gathering disciplines at a high level. Now that Mining 
 #### 5. Add Mining to card kind enumeration
 `CardKind::Mining { mining_effect: MiningCardEffect }` is now alongside Attack, Defence, Resource. Mining effects are inline (`ore_damage: i64, durability_prevent: i64`) rather than using effect_id references.
 
-#### 6. Document new token types
+#### 6. Document new token types (UPDATED)
 - `TokenType::Ore`: Persistent material token granted on mining success. First material token; Woodcutting/Herbalism will add their own.
-- `TokenType::Durability`: Initialized to 15 when starting mining encounter (if zero). Functions as mining HP. Persists across encounters.
+- `TokenType::MiningDurability` (renamed from `Durability`): Initialized to 100 at game start via `GameState::new()`. Functions as mining HP. Persists across encounters and decreases over time. When it reaches 0, the player loses the current mining encounter. It is NOT re-initialized per encounter.
+- `TokenType::OreHealth`: Encounter-scoped token tracking ore node HP. Stored in `MiningEncounterState.ore_tokens` (a `HashMap<Token, i64>`). Replaces the old `ore_hp`/`ore_max_hp` fields.
 
-#### 7. Update EncounterPhase
-`EncounterPhase::Gathering` variant added (previously only `NoEncounter`, `Combat`, `Scouting`). Mining encounters use `Gathering` phase.
+#### 7. Update EncounterPhase (UPDATED)
+`EncounterPhase::Combat` and `EncounterPhase::Gathering` have been merged into `EncounterPhase::InEncounter`. The phases are now: `NoEncounter`, `InEncounter`, `Scouting`. Both combat and mining encounters use the `InEncounter` phase.
 
 ### roadmap.md Updates
 
-#### 1. Mark Step 8 as partially complete
+#### 1. Mark Step 8 as partially complete (UPDATED)
 - ✅ Mining gathering discipline: playable end-to-end with 3 card types (Aggressive ore_damage=5/prevent=0, Balanced 3/2, Protective 1/3)
-- ✅ Iron Ore encounter: ore HP 15, 20 ore cards weighted low, rewards Ore:10, failure Exhaustion:2
+- ✅ Iron Ore encounter: ore HP 15, 20 ore cards weighted low, rewards Ore:10 (Token-keyed), no failure penalties
 - ✅ EncounterState enum pattern established as template for future encounter types
 - ✅ BREAKING: `/combat` → `/encounter` endpoint rename, `CombatState` → `EncounterState`
 - ✅ Mining scenario tests demonstrating full gameplay loop
 - ✅ Replay system updated for mining encounters
+- ✅ docs/issues.md cleanup: 10 issues resolved (see below)
 - ⬜ Woodcutting and Herbalism disciplines (follow same pattern)
 - ⬜ Rations/Durability cross-discipline consumption (Step 15)
 
@@ -329,3 +331,122 @@ Current library card ID assignments (for reference in future steps):
 - 11: Combat encounter (Gnome)
 - 12: Mining card (Aggressive), 13: Mining card (Balanced), 14: Mining card (Protective)
 - 15: Mining encounter (Iron Ore)
+
+---
+
+## Step 8 docs/issues.md Cleanup — New Suggestions
+
+These suggestions are based on implementing all 10 issues from docs/issues.md:
+
+### vision.md Updates
+
+#### 1. Generalized deck counts — `DeckCounts` replaces `EnemyCardCounts` and `OreCardCounts`
+**Current vision.md describes:** `EnemyCardCounts { deck, hand, discard }` for enemy card tracking.
+**Actual implementation now:** A single `DeckCounts { deck, hand, discard }` struct is used by both enemy and ore card tracking. The old `EnemyCardCounts` and `OreCardCounts` types have been deleted.
+**Suggested update:** Replace all mentions of `EnemyCardCounts` with `DeckCounts` and note that this is a generic structure used for all encounter-internal deck tracking (enemy decks, ore decks, and any future encounter card pools).
+
+#### 2. `is_finished` removed — use `outcome != Undecided`
+**Current vision.md describes:** Combat/encounter state with an `is_finished` field.
+**Actual implementation now:** The `is_finished` field has been removed from both `CombatEncounterState` and `MiningEncounterState`. Encounter completion is determined solely by `outcome != EncounterOutcome::Undecided`. An `is_finished()` helper method on `EncounterState` provides the check.
+**Suggested update:** Remove any references to `is_finished` as a field. Document that encounter completion is determined by the `EncounterOutcome` enum value.
+
+#### 3. `encounter_card_id` is mandatory
+**Current vision.md describes:** Encounter state with optional encounter card reference.
+**Actual implementation now:** `encounter_card_id` is `usize` (not `Option<usize>`) on both `CombatEncounterState` and `MiningEncounterState`. Every encounter always knows which library card spawned it. The `EncounterState::encounter_card_id()` helper returns `usize` directly.
+**Suggested update:** Document that `encounter_card_id` is always set and mandatory.
+
+#### 4. `EncounterPhase::InEncounter` replaces `Combat` and `Gathering`
+**Current vision.md describes:** Three phases: `NoEncounter`, `Combat`, `Scouting`.
+**Actual implementation now:** `EncounterPhase::Combat` and `EncounterPhase::Gathering` have been merged into `EncounterPhase::InEncounter`. The three phases are now: `NoEncounter`, `InEncounter`, `Scouting`. The encounter type is determined by `EncounterState` variant, not by the phase.
+**Suggested update:** Replace phase documentation with the three new phase names. Clarify that the encounter type (combat vs mining vs future types) is determined by the `EncounterState` enum variant, not by the phase.
+
+#### 5. `last_durability_prevent` removed — prevent passed inline
+**Current vision.md describes:** Mining turn flow where durability_prevent is stored on state.
+**Actual implementation now:** `last_durability_prevent` has been removed from `MiningEncounterState`. The durability prevent value from the player's card is computed inline during `resolve_player_mining_card` and passed directly to `resolve_ore_play` as a parameter. This simplification was possible because the enemy plays immediately after the player, with no intervening state.
+**Suggested update:** Update the mining turn flow description to note that prevent is computed and applied within a single action resolution, not stored between steps.
+
+#### 6. `ore_tokens` replaces `ore_hp`/`ore_max_hp`
+**Current vision.md describes:** Mining encounter with `ore_hp` and `ore_max_hp` integer fields.
+**Actual implementation now:** `MiningEncounterState` uses `ore_tokens: HashMap<Token, i64>` with a `Token::persistent(TokenType::OreHealth)` entry. The old `ore_hp` and `ore_max_hp` fields have been deleted. Ore damage is applied by decrementing the OreHealth token. The ore is defeated when OreHealth ≤ 0.
+**Suggested update:** Document that ore node health uses the token system (consistent with "everything is a token" principle). The serialized JSON shows `"ore_tokens": {"OreHealth": 15}`.
+
+#### 7. Rewards use `Token` keys (not `TokenType`)
+**Current vision.md describes:** Rewards as `HashMap<TokenType, i64>`.
+**Actual implementation now:** `MiningDef.rewards` and `MiningEncounterState.rewards` use `HashMap<Token, i64>` — the full `Token` struct (with `token_type` and `lifecycle`) is the key, not just `TokenType`. This allows rewards to specify the lifecycle of granted tokens (e.g., persistent vs encounter-scoped).
+**Suggested update:** Update reward documentation to use `Token` keys. Note this pattern should be followed by all future encounter types.
+
+#### 8. Mining has no failure penalties
+**Current vision.md describes:** Mining failure applying Exhaustion penalty.
+**Actual implementation now:** `failure_penalties` has been removed from both `MiningDef` and `MiningEncounterState`. When MiningDurability reaches 0, the encounter simply ends as `PlayerLost` with no additional penalties. The rationale: MiningDurability loss IS the penalty — it's a persistent resource that decreases across encounters.
+**Suggested update:** Remove references to mining failure penalties. Clarify that durability loss across encounters is the implicit penalty for mining. Future encounter types may re-introduce failure penalties if their design warrants it.
+
+#### 9. `MiningDurability` renamed from `Durability`
+**Current vision.md describes:** `TokenType::Durability` as a general-purpose durability token.
+**Actual implementation now:** Renamed to `TokenType::MiningDurability` to make it discipline-specific. This supports the vision's plan for discipline-specific durability (each gathering profession has its own durability pool). Woodcutting, Herbalism, etc., would add `WoodcuttingDurability`, `HerbalismDurability`, etc.
+**Suggested update:** Update token type references. Add a note that durability tokens are discipline-specific by naming convention (`{Discipline}Durability`).
+
+#### 10. MiningDurability initialized at game start (100)
+**Current vision.md describes:** Durability initialized to 15 when starting a mining encounter.
+**Actual implementation now:** MiningDurability is initialized to 100 in `GameState::new()` as part of the initial token balances. It is NOT re-initialized per encounter. It persists and decreases across all mining encounters. When it reaches 0, the current encounter is lost. This models long-term profession wear — the player must eventually replenish durability through crafting/rest mechanics.
+**Suggested update:** Update durability documentation to reflect game-start initialization (100) and cross-encounter persistence. Note that the high initial value (100) is a placeholder; balancing will adjust this once repair mechanics exist.
+
+#### 11. `EncounterAbort` player action added
+**Current vision.md describes:** Four player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting).
+**Actual implementation now:** A fifth player action `EncounterAbort` has been added. It allows the player to abort non-combat encounters (currently only Mining). Aborting marks the encounter as `PlayerLost`, grants no rewards, applies no penalties, and transitions to Scouting phase. Attempting to abort a combat encounter returns a 400 error. The action is recorded in the action log and handled by `replay_from_log`.
+**Suggested update:** Update the player actions list to include `EncounterAbort`. Document the restriction that only non-combat encounters can be aborted (combat must be played to completion). Note: the current four-action-only claim in vision.md line 71 is now outdated.
+
+### roadmap.md Updates
+
+#### 1. Step 8 sub-step: docs/issues.md cleanup
+Add a sub-section documenting the 10 issues resolved:
+- **DeckCounts generalization**: `EnemyCardCounts` + `OreCardCounts` → `DeckCounts`
+- **is_finished removal**: Use `outcome != Undecided` instead
+- **Mandatory encounter_card_id**: `Option<usize>` → `usize`
+- **InEncounter phase**: `Combat` + `Gathering` → `InEncounter`
+- **Inline durability prevent**: `last_durability_prevent` removed from state
+- **ore_tokens**: `ore_hp`/`ore_max_hp` → `HashMap<Token, i64>` with OreHealth
+- **Token-keyed rewards**: `HashMap<TokenType, i64>` → `HashMap<Token, i64>`
+- **No mining penalties**: `failure_penalties` removed
+- **MiningDurability rename**: `Durability` → `MiningDurability`
+- **Game-start durability**: Initialize at 100 in `GameState::new()`
+- **EncounterAbort action**: New player action to abort non-combat encounters
+
+#### 2. Update player actions count
+The roadmap and vision reference "four player actions." This is now five: `NewGame`, `EncounterPickEncounter`, `EncounterPlayCard`, `EncounterApplyScouting`, `EncounterAbort`.
+
+#### 3. Replay system extensibility note
+The replay system (`replay_from_log`) now handles 5 action types. Each new action type must extend the replay match arm. The `EncounterAbort` pattern (calling `gs.abort_encounter()` then transitioning phase) is a good template for future encounter-ending actions.
+
+### Contradictions Found
+
+#### 1. vision.md line 67 says "Players cannot abandon combat once started"
+This is still true for combat but needs clarification: non-combat encounters (Mining) CAN be abandoned via `EncounterAbort`. Update to: "Players cannot abandon combat encounters once started. Non-combat encounters may be aborted via EncounterAbort."
+
+#### 2. vision.md line 71 says "Only four player actions exist"
+Now five. Update the list to include `EncounterAbort`.
+
+#### 3. vision.md line 91-94 lists three encounter phases with `Combat` variant
+`EncounterPhase::Combat` has been merged into `EncounterPhase::InEncounter`. Update to: `NoEncounter`, `InEncounter`, `Scouting`.
+
+#### 4. vision.md line 53 mentions `Durability` token type
+Renamed to `MiningDurability`. Update the token type list.
+
+#### 5. vision.md line 60 mentions `EnemyCardCounts`
+Renamed to `DeckCounts`. Update the reference.
+
+#### 6. vision.md describes ore_hp/ore_max_hp but these fields no longer exist
+Ore health is now tracked via the `ore_tokens` HashMap with an OreHealth token entry.
+
+### Copilot Instruction Suggestions
+
+#### 1. Update player action list in copilot instructions
+The instructions mention "Only four player actions exist." Update to five, adding `EncounterAbort`.
+
+#### 2. Document the `DeckCounts` shared type
+When describing enemy or ore deck card tracking, reference the shared `DeckCounts { deck, hand, discard }` struct.
+
+#### 3. Document the Token-keyed reward pattern
+Rewards use `HashMap<Token, i64>` (full Token with lifecycle), not `HashMap<TokenType, i64>`. This should be followed for all future encounter type rewards.
+
+#### 4. Note the inline-computation pattern
+When the enemy/ore plays immediately after the player (no intervening state), intermediate values (like durability_prevent) should be passed as function parameters rather than stored on state. This reduces state complexity.
