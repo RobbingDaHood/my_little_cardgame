@@ -125,6 +125,8 @@ In the "Win / Loss semantics" section, still uses generic "Durability" in the ex
 #### 4. Roadmap 8.3 previously described Woodcutting as "same template as Mining"
 This was corrected in this session. The roadmap and vision now describe Woodcutting as rhythm-based pattern matching. However, vision.md may still have residual references to the old Mining-clone template in other sections — search for "chop_damage" or "splinter_prevent" and remove.
 
+**Update (2026-02-28 — Step 8.3 implementation):** Step 8.3 was implemented using the Mining-clone template (damage-vs-durability loop with chop_damage/splinter_prevent) as described in the original roadmap 8.3 spec. The pattern-matching/rhythm-based Woodcutting variant described in the vision was NOT implemented — that is deferred to Step 8.5 (Refined gathering encounters). The current implementation validates the EncounterState pattern is reusable, which was the stated goal of 8.3.
+
 #### 5. vision.md Encounter templates section numbering
 The encounter templates section numbers Woodcutting as "2)" which was originally "same template as Mining". This has been updated, but the section numbering and flow should be reviewed for consistency after all 4 disciplines are implemented.
 
@@ -149,4 +151,43 @@ Step 9.1 mentions bumping numbers by 100x, but the vision and other roadmap step
 
 #### 5. Insight is mentioned in TokenType but not yet in CardEffectKind
 The Insight token type exists, but there's no CardEffectKind for granting it. Step 8.5 now describes this, but vision.md should document the Insight card effect pattern as a general mechanism (any card can have an effect that grants discipline-specific tokens).
+
+---
+
+## New Suggestions — Step 8.3 Woodcutting Implementation (2026-02-28, corrected)
+
+### roadmap.md Updates
+
+#### 1. Mark Step 8.3 as COMPLETE
+Add implementation notes to the "Step 8 implementation updates" section:
+- Step 8.3 (Woodcutting) implemented with rhythm-based pattern matching as specified in vision/roadmap.
+- New card IDs: 20 (LightChop), 21 (HeavyChop), 22 (MediumChop), 23 (PrecisionChop), 24 (Oak Tree encounter).
+- New types: ChopType enum (5 variants), WoodcuttingCardEffect (chop_types, chop_values, durability_cost), PlayedWoodcuttingCard, WoodcuttingDef, WoodcuttingEncounterState.
+- New tokens: WoodcuttingDurability (persistent, init 100), Lumber (reward material).
+- NO enemy/tree deck — pattern matching mechanic is unique from Mining.
+- Poker-inspired pattern evaluation (13+ patterns, multipliers 1.0x–5.0x).
+- 2 scenario tests added (full loop + abort).
+- Playable acceptance: ✅ Woodcutting end-to-end with pattern evaluation, produces Lumber tokens, EncounterAbort supported.
+
+#### 2. Confirm 3 disciplines now validate EncounterState reusability
+Mining, Herbalism, and Woodcutting all use the same EncounterState enum pattern with discipline-specific state structs. The pattern is confirmed reusable: each discipline adds a new variant to EncounterState, EncounterKind, and CardKind, then plugs into the existing action dispatch and replay infrastructure.
+
+#### 3. Step 8.3 pattern engine could be expanded
+The current pattern engine has 13+ patterns but could grow. Consider adding to roadmap 8.5 notes: "expand woodcutting pattern combinations, add combo multipliers for chaining patterns across encounters, add SplitChop card to starting deck."
+
+### vision.md Updates
+
+#### 1. TreeHealth token type can be removed
+TreeHealth was added for the original Mining-clone woodcutting implementation but is no longer used. The pattern-matching woodcutting has no encounter-scoped tokens (no tree HP). Consider removing TreeHealth from TokenType if no other discipline uses it.
+
+#### 2. Woodcutting implementation now matches vision
+The vision described woodcutting as "rhythm and pattern-building for greater yields" with "no enemy deck" — this is now implemented correctly. The "Current simplified implementation (Step 8.3)" section in vision.md should be updated to reflect the actual implementation: ChopType-based pattern matching with 8-card plays.
+
+#### 3. Only 4 of 5 ChopTypes in starting deck
+The current library only has cards for LightChop, HeavyChop, MediumChop, and PrecisionChop. SplitChop has no cards yet. Consider adding a SplitChop card in a follow-up or noting this as intentional (limited starting deck, SplitChop unlocked through crafting/research).
+
+### Contradictions
+
+#### 4. Previous suggestions items are now outdated
+The previous "Step 8.3 Woodcutting Implementation" suggestions (below the line break above) described the Mining-clone template. Those are now superseded by this corrected section since the implementation was redone with the correct pattern-matching mechanic.
 

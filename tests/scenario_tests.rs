@@ -1031,3 +1031,228 @@ fn scenario_abort_herbalism_encounter() {
     let last_result = combat_result(&client).unwrap_or_default();
     assert_eq!(last_result, "PlayerLost", "Abort should result in loss");
 }
+
+// ---- Woodcutting scenario helpers ----
+
+fn woodcutting_hand_card_ids(client: &Client) -> Vec<usize> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Woodcutting");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
+fn play_one_woodcutting_card(client: &Client) -> bool {
+    let wc_ids = woodcutting_hand_card_ids(client);
+    if wc_ids.is_empty() {
+        return false;
+    }
+    let card_id = wc_ids[0];
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        card_id
+    );
+    let (status, _) = post_action(client, &json);
+    if status != Status::Created {
+        return false;
+    }
+    let encounter = combat_state(client);
+    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+}
+
+fn woodcutting_encounter_ids(client: &Client) -> Vec<usize> {
+    let encounter_ids = encounter_hand_ids(client);
+    // Woodcutting encounter card id is 24
+    encounter_ids.into_iter().filter(|&id| id == 24).collect()
+}
+
+#[test]
+fn scenario_woodcutting_encounter_full_loop() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created, "NewGame should succeed");
+
+    let wc_enc = woodcutting_encounter_ids(&client);
+    assert!(
+        !wc_enc.is_empty(),
+        "Should have woodcutting encounter cards in hand"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":24}"#,
+    );
+    assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Woodcutting"),
+        "Encounter should be Woodcutting type"
+    );
+    assert_eq!(
+        encounter.get("outcome").and_then(|v| v.as_str()),
+        Some("Undecided"),
+        "Woodcutting should be active"
+    );
+    assert_eq!(
+        encounter.get("max_plays").and_then(|v| v.as_u64()),
+        Some(8),
+        "max_plays should be 8"
+    );
+    assert_eq!(
+        encounter
+            .get("played_cards")
+            .and_then(|v| v.as_array())
+            .map(|a| a.len()),
+        Some(0),
+        "No cards played yet"
+    );
+
+    let durability = player_token(&client, "WoodcuttingDurability");
+    assert_eq!(
+        durability, 100,
+        "Player should start with 100 woodcutting durability"
+    );
+
+    // Play 8 cards (the encounter should auto-complete after 8)
+    let mut total_turns = 0;
+    loop {
+        let still_going = play_one_woodcutting_card(&client);
+        total_turns += 1;
+        if !still_going {
+            // Encounter ended (either 8th card was played or durability depleted)
+            break;
+        }
+        assert!(total_turns < 50, "Woodcutting should end within 50 turns");
+    }
+
+    // After 8 cards, should always win
+    let last_outcome = combat_result(&client).unwrap_or_default();
+    assert_eq!(
+        last_outcome, "PlayerWon",
+        "Woodcutting should always win after 8 plays"
+    );
+
+    // Verify pattern was evaluated
+    // (We can't easily check the encounter state after it's cleared, but
+    // we can verify Lumber was awarded)
+    let lumber = player_token(&client, "Lumber");
+    assert!(
+        lumber > 0,
+        "Player should have Lumber after winning woodcutting (got {})",
+        lumber
+    );
+
+    // Verify durability was consumed (8 cards × 1 durability each = 8)
+    let final_durability = player_token(&client, "WoodcuttingDurability");
+    assert!(
+        final_durability < 100,
+        "Durability should decrease after woodcutting (got {})",
+        final_durability
+    );
+
+    // Should be in Scouting phase now; can scout and pick another encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created, "Should be able to scout after win");
+
+    // Play multiple encounters until durability runs out
+    let mut total_encounters = 1; // Already did one
+    loop {
+        let wc_enc = woodcutting_encounter_ids(&client);
+        if wc_enc.is_empty() {
+            break;
+        }
+        let pick_json = format!(
+            r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+            wc_enc[0]
+        );
+        let (status, _) = post_action(&client, &pick_json);
+        assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
+        let mut round_turns = 0;
+        loop {
+            let still_going = play_one_woodcutting_card(&client);
+            round_turns += 1;
+            if !still_going {
+                break;
+            }
+            assert!(round_turns < 50, "Round should end within 50 turns");
+        }
+        total_encounters += 1;
+
+        let outcome = combat_result(&client).unwrap_or_default();
+        if outcome == "PlayerLost" {
+            // Durability depleted
+            let final_durability = player_token(&client, "WoodcuttingDurability");
+            assert_eq!(
+                final_durability, 0,
+                "Durability should be 0 when losing woodcutting"
+            );
+            break;
+        }
+
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+        );
+        assert_eq!(status, Status::Created, "Scouting should succeed");
+
+        assert!(
+            total_encounters < 100,
+            "Should eventually run out of durability"
+        );
+    }
+
+    assert!(
+        total_encounters > 1,
+        "With 100 durability and cost 1 per card, should survive multiple encounters"
+    );
+}
+
+#[test]
+fn scenario_abort_woodcutting_encounter() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created);
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":24}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Woodcutting")
+    );
+
+    let (status, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+    assert_eq!(status, Status::Created, "Abort should succeed");
+
+    let result = combat_result(&client);
+    assert_eq!(result, Some("PlayerLost".to_string()));
+
+    // Should be able to scout after abort
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(
+        status,
+        Status::Created,
+        "Should be able to scout after abort"
+    );
+}

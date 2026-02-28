@@ -99,6 +99,10 @@ Branches and pull request
 
 Always ask if the work should be done on a new branch or the current branch. 
 
+When creating a new branch, always branch from the latest main branch (fetch and checkout main first).
+
 Always commit small isolated commits, but each commit should pass the tests and other checks. 
+
+Always rebase on main before finishing work on a branch.
 
 Never push and never create a pull request. I will do that manually. 
