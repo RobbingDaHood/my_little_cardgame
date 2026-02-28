@@ -25,9 +25,11 @@ pub enum TokenType {
     Exhaustion,
     MiningDurability,
     HerbalismDurability,
+    WoodcuttingDurability,
     // Material tokens (produced by gathering)
     Ore,
     Plant,
+    Lumber,
     // Encounter-scoped tokens
     OreHealth,
 }
@@ -52,8 +54,10 @@ impl TokenType {
             TokenType::Exhaustion,
             TokenType::MiningDurability,
             TokenType::HerbalismDurability,
+            TokenType::WoodcuttingDurability,
             TokenType::Ore,
             TokenType::Plant,
+            TokenType::Lumber,
             TokenType::OreHealth,
         ]
     }
@@ -152,6 +156,9 @@ pub enum CardKind {
     Herbalism {
         herbalism_effect: HerbalismCardEffect,
     },
+    Woodcutting {
+        woodcutting_effect: WoodcuttingCardEffect,
+    },
     Encounter {
         encounter_kind: EncounterKind,
     },
@@ -210,6 +217,46 @@ pub struct HerbalismDef {
     pub rewards: HashMap<Token, i64>,
 }
 
+/// Chop types for Woodcutting discipline cards.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum ChopType {
+    LightChop,
+    HeavyChop,
+    MediumChop,
+    PrecisionChop,
+    SplitChop,
+}
+
+/// Inline effect for Woodcutting discipline cards.
+/// Cards have chop types, chop values (for pattern building), and a durability cost.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct WoodcuttingCardEffect {
+    pub chop_types: Vec<ChopType>,
+    pub chop_values: Vec<u32>,
+    pub durability_cost: i64,
+}
+
+/// Snapshot of a played woodcutting card for pattern evaluation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct PlayedWoodcuttingCard {
+    pub card_id: usize,
+    pub chop_types: Vec<ChopType>,
+    pub chop_values: Vec<u32>,
+}
+
+/// Definition of a woodcutting encounter (no enemy deck).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct WoodcuttingDef {
+    pub max_plays: u32,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub base_rewards: HashMap<Token, i64>,
+}
+
 /// Sub-type of encounter cards.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_type")]
@@ -217,6 +264,7 @@ pub enum EncounterKind {
     Combat { combatant_def: CombatantDef },
     Mining { mining_def: MiningDef },
     Herbalism { herbalism_def: HerbalismDef },
+    Woodcutting { woodcutting_def: WoodcuttingDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -581,6 +629,22 @@ pub struct HerbalismEncounterState {
     pub rewards: HashMap<Token, i64>,
 }
 
+/// Runtime state for a woodcutting gathering encounter (pattern-matching).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct WoodcuttingEncounterState {
+    pub round: u64,
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    pub played_cards: Vec<PlayedWoodcuttingCard>,
+    pub max_plays: u32,
+    pub pattern_name: Option<String>,
+    pub pattern_multiplier: Option<f64>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub base_rewards: HashMap<Token, i64>,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
@@ -588,6 +652,7 @@ pub enum EncounterState {
     Combat(CombatEncounterState),
     Mining(MiningEncounterState),
     Herbalism(HerbalismEncounterState),
+    Woodcutting(WoodcuttingEncounterState),
 }
 
 impl EncounterState {
@@ -596,6 +661,7 @@ impl EncounterState {
             EncounterState::Combat(c) => c.encounter_card_id,
             EncounterState::Mining(m) => m.encounter_card_id,
             EncounterState::Herbalism(h) => h.encounter_card_id,
+            EncounterState::Woodcutting(w) => w.encounter_card_id,
         }
     }
 
@@ -608,6 +674,7 @@ impl EncounterState {
             EncounterState::Combat(c) => &c.outcome,
             EncounterState::Mining(m) => &m.outcome,
             EncounterState::Herbalism(h) => &h.outcome,
+            EncounterState::Woodcutting(w) => &w.outcome,
         }
     }
 }
