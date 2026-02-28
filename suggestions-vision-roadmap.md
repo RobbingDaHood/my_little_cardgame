@@ -154,7 +154,60 @@ The Insight token type exists, but there's no CardEffectKind for granting it. St
 
 ---
 
-## New Suggestions — Step 8.3 Woodcutting Implementation (2026-02-28, corrected)
+## New Suggestions — Step 8.4 Fishing Implementation (2026-07-03)
+
+### roadmap.md Updates
+
+#### 1. Mark Step 8.4 as COMPLETE
+Add implementation notes:
+- Step 8.4 (Fishing) implemented with card-subtraction mechanic as specified in revised roadmap/vision.
+- New card IDs: 25 (Low Fishing, value 2), 26 (Medium Fishing, value 4), 27 (High Fishing, value 7), 28 (River Spot encounter).
+- New types: FishingCardEffect (value, durability_cost), FishCard (value, counts), FishingDef (valid_range_min/max, max_turns, win_turns_needed, fish_deck, rewards), FishingEncounterState.
+- New tokens: FishingDurability (persistent, init 100), Fish (reward material).
+- Enemy fish deck with 4 card variants (values 1, 3, 5, 7) — shuffled at encounter start.
+- Two loss conditions: max_turns exhausted without enough wins, OR FishingDurability ≤ 0.
+- 2 scenario tests added (full loop + abort).
+- Playable acceptance: ✅ Fishing end-to-end with card-subtraction, produces Fish tokens, EncounterAbort supported.
+
+#### 2. All 4 gathering disciplines now implemented
+Mining (8.1), Herbalism (8.2), Woodcutting (8.3), and Fishing (8.4) all follow the same EncounterState pattern with discipline-specific state structs and unique gameplay mechanics. Step 8.5 (Refined gathering encounters) can now proceed with all 4 disciplines as a foundation.
+
+#### 3. Fishing adds a 4th distinct mechanical template
+- **Card-subtraction with valid-range check** (Fishing): player and enemy both play numeric cards, result must land within a target range. Distinct from damage-vs-durability (Mining), card-narrowing (Herbalism), and pattern-building (Woodcutting).
+
+### vision.md Updates
+
+#### 1. Patience token reference should be removed
+The old fishing design used a Patience token. This was removed in the issues.md fixes but any remaining references to Patience in vision.md or TokenType should be cleaned up. Currently TokenType does NOT have Patience (correct).
+
+#### 2. Fishing "Distinct encounter playstyles" bullet is now outdated
+The suggestions file previously described Fishing as "patience/timing with seeded probability rolls". This has been replaced with "card-subtraction with valid-range targeting" in both vision and roadmap.
+
+#### 3. Fish deck behavior pattern
+Fishing introduces a new enemy behavior: enemy has a fixed hand of cards, plays one randomly each turn (like Herbalism's fixed hand, but the enemy card is consumed after play). This is a distinct pattern from combat (draw + play), mining (draw + play), and woodcutting (no enemy deck).
+
+### Copilot Instruction Suggestions
+
+#### 1. Update gathering encounter implementation checklist
+The checklist (suggestion #5 above) is confirmed working for all 4 disciplines. Consider promoting it to the main copilot instructions file.
+
+#### 2. Note the fish_play_random pattern
+Fishing uses `fish_play_random` to select a random enemy card from the fish deck hand. This is similar to `ore_play_random` in mining. Consider noting this as a standard enemy-play pattern.
+
+### Contradictions
+
+#### 1. Suggestions item "3. Add new token types for remaining gathering disciplines"
+This item mentioned `Patience` as a fishing token type. Patience was removed in the fishing redesign. The correct fishing tokens are: FishingDurability and Fish only.
+
+#### 2. Suggestions item "4. Note the three mechanical templates emerging"
+Template #4 was described as "patience/probability (Fishing)". This is now "card-subtraction with valid-range check (Fishing)". The four templates should be:
+1. Damage-vs-durability loop (Mining)
+2. Card-characteristic matching (Herbalism)
+3. Poker-like pattern building (Woodcutting)
+4. Card-subtraction with valid-range targeting (Fishing)
+
+#### 3. Suggestions item "1. No documentation of the 4 encounter win/loss patterns"
+Pattern #4 was described as "Probability/patience (Fishing: seeded roll or patience expiry)". This is now "Card-subtraction with valid-range (Fishing: win enough rounds within max_turns)".
 
 ### roadmap.md Updates
 
