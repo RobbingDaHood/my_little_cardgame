@@ -284,8 +284,13 @@ Roadmap steps
      - Combo multipliers (Momentum token for sequential successful plays)
      - Entry costs (tokens/resources required to attempt certain encounters)
      - Tool cards and special extraction moves
+     - **Insight card effect**: Add a new CardEffectKind variant that grants discipline-specific Insight tokens.
+       - Usable on all card types (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, etc.).
+       - When triggered, grants an Insight token scoped to the discipline in which the card was played.
+       - Insight is consumed later by the Research discipline (Step 10) to fuel research projects.
+       - For every discipline, add card variants that have a weaker primary effect but also grant Insight. These "insight cards" create a strategic trade-off: sacrifice immediate power for long-term research progress.
    - This step bridges the gap between the simple playable versions and the rich encounter templates in the vision.
-   - Playable acceptance: At least one gathering discipline demonstrates multi-phase resolution, affix-modified encounters, and yield-quality tiering. Scenario tests verify the expanded mechanics.
+   - Playable acceptance: At least one gathering discipline demonstrates multi-phase resolution, affix-modified encounters, and yield-quality tiering. Insight cards are present in at least two disciplines and grant tokens correctly. Scenario tests verify the expanded mechanics.
 
 9) Add basic crafting as discipline encounters and respect Library semantics
    - Goal: Implement crafting as discipline-specific encounters (Fabrication, Provisioning, etc.) that use discipline decks, consume materials, and create Library card copies when finalized.
