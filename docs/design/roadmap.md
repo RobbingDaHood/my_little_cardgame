@@ -233,22 +233,42 @@ Roadmap steps
    - Playable acceptance: Herbalism encounter playable end-to-end with characteristic matching, produces Plant tokens, scenario test passes.
 
 8.3) Woodcutting (gathering)
-   - Goal: Second gathering discipline, following the same mechanical template as Mining to validate the EncounterState pattern is reusable.
-   - Description: Same single-deck template as Mining. Player Woodcutting deck with cards trading off chop_damage (damage to tree) vs splinter_prevent (reduce incoming stamina damage). Tree node has TreeHealth token (encounter-scoped) tracked in tree_tokens HashMap. Tree deck deals 0-3 stamina damage (similar distribution to mining ore deck). Player draws 1 card per play.
-   - Tokens: WoodcuttingDurability (persistent, init 100 at game start), TreeHealth (encounter-scoped), Lumber (reward material token).
-   - Win: TreeHealth ≤ 0 → grant Lumber tokens. Loss: WoodcuttingDurability ≤ 0 → PlayerLost, no failure penalties.
+   - Goal: Second gathering discipline with a UNIQUE mechanic (rhythm-based pattern matching) that differentiates it from Mining's damage-vs-durability template.
+   - Description: Woodcutting is about hitting a rhythm for greater yields. There is NO enemy deck in this discipline.
+     - Player Woodcutting cards have:
+       - A `chop_type`: one of 5 types (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop).
+       - A `chop_value`: a number between 1-10.
+       - Cards can have multiple types and multiple values, but initial cards have 1 of each.
+       - A `durability_cost`: a fixed small cost (like herbalism, around 1). Durability depletion is a loss condition.
+     - Turn flow: Player starts with hand size 5 and plays 8 cards total. Each time a card is played, 1 new Woodcutting card is drawn. All 8 played cards are tracked.
+     - After 8 cards are played: evaluate the played cards for the best matching pattern and reward Lumber tokens accordingly.
+     - Patterns (poker-inspired but for 8 cards):
+       - Implement many patterns at various reward tiers. Get inspired by poker hands but adapted for 8 cards instead of 5.
+       - Examples: all same type (flush), sequential values (straight), pairs/triples/quads of values, full house combinations, etc.
+       - Only the single best pattern is used for reward calculation.
+       - There should always be some reward — even the worst hand matches a simple pattern (e.g., "high card" equivalent).
+     - Win: Always wins after 8 cards are played (the pattern just determines reward amount).
+     - Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost, no rewards granted.
+   - Tokens: WoodcuttingDurability (persistent, init 100 at game start), Lumber (reward material token).
    - EncounterAbort: available.
+   - Key design notes:
+     - The strategic tension is between playing cards that build toward better patterns vs. conserving durability.
+     - No enemy deck means the player is solely focused on pattern construction from their hand.
+     - The 8-card format (vs poker's 5) allows for richer pattern combinations.
    - Implementation checklist:
-     1. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_damage/splinter_prevent
-     2. Add EncounterState::Woodcutting(WoodcuttingEncounterState) + state struct
-     3. Add TokenType::WoodcuttingDurability, TreeHealth, Lumber
-     4. Add Woodcutting cards and encounter to initialize_library()
-     5. Init WoodcuttingDurability to 100 in GameState::new()
-     6. Dispatch in action handler and game_state resolution
-     7. Update /library/cards?card_kind= filter for Woodcutting
-     8. Update replay_from_log
-     9. Add scenario test
-   - Playable acceptance: Woodcutting encounter playable end-to-end, produces Lumber tokens, scenario test passes.
+     1. Add ChopType enum (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop)
+     2. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_types: Vec<ChopType>, chop_values: Vec<u32>, durability_cost: i64
+     3. Add WoodcuttingEncounterState with played_cards: Vec tracking the 8 played cards, max_plays: 8
+     4. Add EncounterState::Woodcutting(WoodcuttingEncounterState)
+     5. Add TokenType::WoodcuttingDurability, Lumber
+     6. Implement pattern evaluation engine (many patterns, poker-inspired, best-pattern-wins)
+     7. Add Woodcutting cards and encounter to initialize_library()
+     8. Init WoodcuttingDurability to 100 in GameState::new()
+     9. Dispatch in action handler and game_state resolution
+     10. Update /library/cards?card_kind= filter for Woodcutting
+     11. Update replay_from_log
+     12. Add scenario test
+   - Playable acceptance: Woodcutting encounter playable end-to-end with pattern evaluation, produces Lumber tokens, scenario test passes.
 
 8.4) Fishing (gathering)
    - Goal: Fourth gathering discipline with a patience/timing mechanic that differentiates it from other gathering types.
