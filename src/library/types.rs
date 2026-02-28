@@ -26,10 +26,12 @@ pub enum TokenType {
     MiningDurability,
     HerbalismDurability,
     WoodcuttingDurability,
+    FishingDurability,
     // Material tokens (produced by gathering)
     Ore,
     Plant,
     Lumber,
+    Fish,
     // Encounter-scoped tokens
     OreHealth,
 }
@@ -55,9 +57,11 @@ impl TokenType {
             TokenType::MiningDurability,
             TokenType::HerbalismDurability,
             TokenType::WoodcuttingDurability,
+            TokenType::FishingDurability,
             TokenType::Ore,
             TokenType::Plant,
             TokenType::Lumber,
+            TokenType::Fish,
             TokenType::OreHealth,
         ]
     }
@@ -159,6 +163,9 @@ pub enum CardKind {
     Woodcutting {
         woodcutting_effect: WoodcuttingCardEffect,
     },
+    Fishing {
+        fishing_effect: FishingCardEffect,
+    },
     Encounter {
         encounter_kind: EncounterKind,
     },
@@ -257,6 +264,37 @@ pub struct WoodcuttingDef {
     pub base_rewards: HashMap<Token, i64>,
 }
 
+/// Inline effect for Fishing discipline cards.
+/// Cards have a numeric value and a durability cost.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct FishingCardEffect {
+    pub value: i64,
+    pub durability_cost: i64,
+}
+
+/// A card in the fish (enemy) deck. Each card has a numeric value.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct FishCard {
+    pub value: i64,
+    pub counts: DeckCounts,
+}
+
+/// Definition of a fishing encounter.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct FishingDef {
+    pub valid_range_min: i64,
+    pub valid_range_max: i64,
+    pub max_turns: u32,
+    pub win_turns_needed: u32,
+    pub fish_deck: Vec<FishCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+}
+
 /// Sub-type of encounter cards.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_type")]
@@ -265,6 +303,7 @@ pub enum EncounterKind {
     Mining { mining_def: MiningDef },
     Herbalism { herbalism_def: HerbalismDef },
     Woodcutting { woodcutting_def: WoodcuttingDef },
+    Fishing { fishing_def: FishingDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -645,6 +684,24 @@ pub struct WoodcuttingEncounterState {
     pub base_rewards: HashMap<Token, i64>,
 }
 
+/// Runtime state for a fishing gathering encounter (card-subtraction).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct FishingEncounterState {
+    pub round: u64,
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    pub turns_won: u32,
+    pub max_turns: u32,
+    pub win_turns_needed: u32,
+    pub valid_range_min: i64,
+    pub valid_range_max: i64,
+    pub fish_deck: Vec<FishCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
@@ -653,6 +710,7 @@ pub enum EncounterState {
     Mining(MiningEncounterState),
     Herbalism(HerbalismEncounterState),
     Woodcutting(WoodcuttingEncounterState),
+    Fishing(FishingEncounterState),
 }
 
 impl EncounterState {
@@ -662,6 +720,7 @@ impl EncounterState {
             EncounterState::Mining(m) => m.encounter_card_id,
             EncounterState::Herbalism(h) => h.encounter_card_id,
             EncounterState::Woodcutting(w) => w.encounter_card_id,
+            EncounterState::Fishing(f) => f.encounter_card_id,
         }
     }
 
@@ -675,6 +734,7 @@ impl EncounterState {
             EncounterState::Mining(m) => &m.outcome,
             EncounterState::Herbalism(h) => &h.outcome,
             EncounterState::Woodcutting(w) => &w.outcome,
+            EncounterState::Fishing(f) => &f.outcome,
         }
     }
 }

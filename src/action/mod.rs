@@ -142,6 +142,12 @@ pub async fn play(
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
                 }
+                crate::library::types::EncounterKind::Fishing { .. } => {
+                    match gs.start_fishing_encounter(card_id, &mut rng) {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
             }
             let payload = crate::library::types::ActionPayload::DrawEncounter {
                 encounter_id: card_id.to_string(),
@@ -257,6 +263,24 @@ pub async fn play(
                         Ok(()) => {
                             let mut rng = player_data.random_generator_state.lock().await;
                             let _ = gs.resolve_player_woodcutting_card(card_id as usize, &mut rng);
+                        }
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(crate::library::types::EncounterState::Fishing(_)) => {
+                    if !matches!(
+                        lib_card.kind,
+                        crate::library::types::CardKind::Fishing { .. }
+                    ) {
+                        return Err(Right(BadRequest(new_status(format!(
+                            "Card {} is not a Fishing card (required for fishing encounter)",
+                            card_id
+                        )))));
+                    }
+                    match gs.library.play(card_id as usize) {
+                        Ok(()) => {
+                            let mut rng = player_data.random_generator_state.lock().await;
+                            let _ = gs.resolve_player_fishing_card(card_id as usize, &mut rng);
                         }
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }

@@ -569,6 +569,111 @@ fn initialize_library() -> Library {
         },
     );
 
+    // ---- Fishing player cards ----
+    // Card id 25: Low value fishing card (value: 2, durability_cost: 1) — 15 in deck, 5 on hand
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                value: 2,
+                durability_cost: 1,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+    // Card id 26: Medium value fishing card (value: 4, durability_cost: 1) — 15 in deck, 5 on hand
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                value: 4,
+                durability_cost: 1,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+    // Card id 27: High value fishing card (value: 7, durability_cost: 1) — 10 in deck, 5 on hand
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                value: 7,
+                durability_cost: 1,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 10,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Fishing encounter: River Spot (id 28)
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: super::types::EncounterKind::Fishing {
+                fishing_def: super::types::FishingDef {
+                    valid_range_min: 1,
+                    valid_range_max: 3,
+                    max_turns: 8,
+                    win_turns_needed: 4,
+                    fish_deck: vec![
+                        super::types::FishCard {
+                            value: 1,
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 6,
+                                discard: 0,
+                            },
+                        },
+                        super::types::FishCard {
+                            value: 3,
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 6,
+                                discard: 0,
+                            },
+                        },
+                        super::types::FishCard {
+                            value: 5,
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 4,
+                                discard: 0,
+                            },
+                        },
+                        super::types::FishCard {
+                            value: 7,
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 2,
+                                discard: 0,
+                            },
+                        },
+                    ],
+                    rewards: HashMap::from([(
+                        super::types::Token::persistent(super::types::TokenType::Fish),
+                        10,
+                    )]),
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
     }
@@ -828,6 +933,11 @@ impl GameState {
         // WoodcuttingDurability starts at 100; lost during woodcutting, not regained until crafting
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::WoodcuttingDurability),
+            100,
+        );
+        // FishingDurability starts at 100; lost during fishing, not regained until crafting
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::FishingDurability),
             100,
         );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
@@ -1694,6 +1804,218 @@ impl GameState {
         }
     }
 
+    /// Initialize a fishing gathering encounter from a Library Encounter card.
+    pub fn start_fishing_encounter(
+        &mut self,
+        encounter_card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(encounter_card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
+            .clone();
+        let fishing_def = match &lib_card.kind {
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Fishing { fishing_def },
+            } => fishing_def.clone(),
+            _ => {
+                return Err(format!(
+                    "Card {} is not a fishing encounter",
+                    encounter_card_id
+                ))
+            }
+        };
+        let mut fish_deck = fishing_def.fish_deck;
+        Self::fish_shuffle_hand(rng, &mut fish_deck);
+        let state = super::types::FishingEncounterState {
+            round: 1,
+            encounter_card_id,
+            outcome: EncounterOutcome::Undecided,
+            turns_won: 0,
+            max_turns: fishing_def.max_turns,
+            win_turns_needed: fishing_def.win_turns_needed,
+            valid_range_min: fishing_def.valid_range_min,
+            valid_range_max: fishing_def.valid_range_max,
+            fish_deck,
+            rewards: fishing_def.rewards,
+        };
+        self.current_encounter = Some(EncounterState::Fishing(state));
+        self.encounter_phase = super::types::EncounterPhase::InEncounter;
+        Ok(())
+    }
+
+    /// Resolve a player fishing card play: subtract values, range check, track wins, apply durability.
+    pub fn resolve_player_fishing_card(
+        &mut self,
+        card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", card_id))?
+            .clone();
+        let fishing_effect = match &lib_card.kind {
+            CardKind::Fishing { fishing_effect } => fishing_effect.clone(),
+            _ => return Err("Cannot play a non-fishing card in fishing encounter".to_string()),
+        };
+
+        // Deduct durability cost
+        let durability_key =
+            super::types::Token::persistent(super::types::TokenType::FishingDurability);
+        let durability = self.token_balances.entry(durability_key).or_insert(0);
+        *durability = (*durability - fishing_effect.durability_cost).max(0);
+        let durability_depleted = *durability <= 0;
+
+        if durability_depleted {
+            self.finish_fishing_encounter(false);
+            return Ok(());
+        }
+
+        // Auto-resolve fish play: pick random fish card from hand
+        let fish_value = Self::fish_play_random(rng, &mut self.current_encounter);
+
+        // Calculate result: (player_value - fish_value).max(0)
+        let result = (fishing_effect.value - fish_value).max(0);
+
+        // Check if result is within valid range
+        let (valid_min, valid_max, win_turns_needed) = match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) => {
+                (f.valid_range_min, f.valid_range_max, f.win_turns_needed)
+            }
+            _ => return Err("No active fishing encounter".to_string()),
+        };
+        let turn_won = result >= valid_min && result <= valid_max;
+
+        // Update encounter state
+        let (all_turns_used, enough_wins) = {
+            let fishing = match &mut self.current_encounter {
+                Some(EncounterState::Fishing(f)) => f,
+                _ => return Err("No active fishing encounter".to_string()),
+            };
+            if turn_won {
+                fishing.turns_won += 1;
+            }
+            fishing.round += 1;
+            let enough_wins = fishing.turns_won >= win_turns_needed;
+            let all_turns_used = (fishing.round - 1) as u32 >= fishing.max_turns;
+            (all_turns_used, enough_wins)
+        };
+
+        if enough_wins {
+            self.finish_fishing_encounter(true);
+        } else if all_turns_used {
+            self.finish_fishing_encounter(false);
+        } else {
+            self.draw_player_fishing_card(rng);
+        }
+
+        Ok(())
+    }
+
+    fn fish_play_random(
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        encounter: &mut Option<EncounterState>,
+    ) -> i64 {
+        use rand::RngCore;
+        let fish_deck = match encounter {
+            Some(EncounterState::Fishing(f)) => &mut f.fish_deck,
+            _ => return 0,
+        };
+        let total_hand: u32 = fish_deck.iter().map(|c| c.counts.hand).sum();
+        if total_hand == 0 {
+            // Recycle discard to hand
+            let total_discard: u32 = fish_deck.iter().map(|c| c.counts.discard).sum();
+            if total_discard == 0 {
+                return 0;
+            }
+            for card in fish_deck.iter_mut() {
+                card.counts.hand += card.counts.discard;
+                card.counts.discard = 0;
+            }
+        }
+        let total_hand: u32 = fish_deck.iter().map(|c| c.counts.hand).sum();
+        if total_hand == 0 {
+            return 0;
+        }
+        let mut pick = (rng.next_u64() as u32) % total_hand;
+        for card in fish_deck.iter_mut() {
+            if pick < card.counts.hand {
+                card.counts.hand -= 1;
+                card.counts.discard += 1;
+                return card.value;
+            }
+            pick -= card.counts.hand;
+        }
+        0
+    }
+
+    fn finish_fishing_encounter(&mut self, is_win: bool) {
+        if is_win {
+            let rewards = match &self.current_encounter {
+                Some(EncounterState::Fishing(f)) => f.rewards.clone(),
+                _ => return,
+            };
+            for (token, amount) in &rewards {
+                let entry = self.token_balances.entry(token.clone()).or_insert(0);
+                *entry += amount;
+            }
+        }
+        let outcome = if is_win {
+            EncounterOutcome::PlayerWon
+        } else {
+            EncounterOutcome::PlayerLost
+        };
+        self.last_encounter_result = Some(outcome.clone());
+        self.encounter_results.push(outcome);
+        self.current_encounter = None;
+        self.encounter_phase = super::types::EncounterPhase::Scouting;
+    }
+
+    fn draw_player_fishing_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
+        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Fishing { .. }), rng);
+    }
+
+    fn fish_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::FishCard]) {
+        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
+        for card in deck.iter_mut() {
+            card.counts.deck += card.counts.hand;
+            card.counts.hand = 0;
+        }
+        for _ in 0..target_hand {
+            Self::fish_draw_random(rng, deck);
+        }
+    }
+
+    fn fish_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::FishCard]) {
+        use rand::RngCore;
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        if total_deck == 0 {
+            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
+            if total_discard == 0 {
+                return;
+            }
+            for card in deck.iter_mut() {
+                card.counts.deck += card.counts.discard;
+                card.counts.discard = 0;
+            }
+        }
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        if total_deck == 0 {
+            return;
+        }
+        let mut pick = (rng.next_u64() as u32) % total_deck;
+        for card in deck.iter_mut() {
+            if pick < card.counts.deck {
+                card.counts.deck -= 1;
+                card.counts.hand += 1;
+                return;
+            }
+            pick -= card.counts.deck;
+        }
+    }
+
     /// Reconstruct state from an existing action log.
     /// The RNG is initialized from the first `SetSeed` entry in the log.
     pub fn replay_from_log(log: &ActionLog) -> Self {
@@ -1743,6 +2065,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_woodcutting_encounter(card_id, &mut rng);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Fishing { .. },
+                                } => {
+                                    let _ = gs.start_fishing_encounter(card_id, &mut rng);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -1770,6 +2097,9 @@ impl GameState {
                         }
                         Some(EncounterState::Woodcutting(_)) => {
                             let _ = gs.resolve_player_woodcutting_card(*card_id, &mut rng);
+                        }
+                        Some(EncounterState::Fishing(_)) => {
+                            let _ = gs.resolve_player_fishing_card(*card_id, &mut rng);
                         }
                         None => {}
                     }
