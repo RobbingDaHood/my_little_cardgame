@@ -1303,7 +1303,24 @@ impl GameState {
         effects: &[ConcreteEffect],
         token_balances: &mut HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
-        // First pass: calculate total costs
+        Self::preview_costs(effects, token_balances)?;
+        // Deduct costs (we know they're affordable from preview)
+        for effect in effects {
+            for cost in &effect.rolled_costs {
+                let cost_amount =
+                    (effect.rolled_value.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
+                let entry = super::types::token_entry_by_type(token_balances, &cost.cost_type);
+                *entry -= cost_amount;
+            }
+        }
+        Ok(())
+    }
+
+    /// Check if player can afford all costs without deducting. Used for pre-validation.
+    pub fn preview_costs(
+        effects: &[ConcreteEffect],
+        token_balances: &HashMap<super::types::Token, i64>,
+    ) -> Result<(), String> {
         let mut total_costs: HashMap<super::types::TokenType, i64> = HashMap::new();
         for effect in effects {
             for cost in &effect.rolled_costs {
@@ -1312,7 +1329,6 @@ impl GameState {
                 *total_costs.entry(cost.cost_type.clone()).or_insert(0) += cost_amount;
             }
         }
-        // Second pass: check affordability
         for (cost_type, cost_amount) in &total_costs {
             let balance = super::types::token_balance_by_type(token_balances, cost_type);
             if balance < *cost_amount {
@@ -1322,11 +1338,6 @@ impl GameState {
                 ));
             }
         }
-        // Third pass: deduct costs
-        for (cost_type, cost_amount) in &total_costs {
-            let entry = super::types::token_entry_by_type(token_balances, cost_type);
-            *entry -= cost_amount;
-        }
         Ok(())
     }
 
@@ -1334,6 +1345,22 @@ impl GameState {
     fn check_and_deduct_stamina_cost(
         stamina_cost: i64,
         token_balances: &mut HashMap<super::types::Token, i64>,
+    ) -> Result<(), String> {
+        Self::preview_stamina_cost(stamina_cost, token_balances)?;
+        if stamina_cost > 0 {
+            let entry = super::types::token_entry_by_type(
+                token_balances,
+                &super::types::TokenType::Stamina,
+            );
+            *entry -= stamina_cost;
+        }
+        Ok(())
+    }
+
+    /// Check if player can afford stamina cost without deducting. Used for pre-validation.
+    pub fn preview_stamina_cost(
+        stamina_cost: i64,
+        token_balances: &HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
         if stamina_cost <= 0 {
             return Ok(());
@@ -1346,9 +1373,6 @@ impl GameState {
                 stamina_cost, balance
             ));
         }
-        let entry =
-            super::types::token_entry_by_type(token_balances, &super::types::TokenType::Stamina);
-        *entry -= stamina_cost;
         Ok(())
     }
 
