@@ -233,22 +233,42 @@ Roadmap steps
    - Playable acceptance: Herbalism encounter playable end-to-end with characteristic matching, produces Plant tokens, scenario test passes.
 
 8.3) Woodcutting (gathering)
-   - Goal: Second gathering discipline, following the same mechanical template as Mining to validate the EncounterState pattern is reusable.
-   - Description: Same single-deck template as Mining. Player Woodcutting deck with cards trading off chop_damage (damage to tree) vs splinter_prevent (reduce incoming stamina damage). Tree node has TreeHealth token (encounter-scoped) tracked in tree_tokens HashMap. Tree deck deals 0-3 stamina damage (similar distribution to mining ore deck). Player draws 1 card per play.
-   - Tokens: WoodcuttingDurability (persistent, init 100 at game start), TreeHealth (encounter-scoped), Lumber (reward material token).
-   - Win: TreeHealth ≤ 0 → grant Lumber tokens. Loss: WoodcuttingDurability ≤ 0 → PlayerLost, no failure penalties.
+   - Goal: Second gathering discipline with a UNIQUE mechanic (rhythm-based pattern matching) that differentiates it from Mining's damage-vs-durability template.
+   - Description: Woodcutting is about hitting a rhythm for greater yields. There is NO enemy deck in this discipline.
+     - Player Woodcutting cards have:
+       - A `chop_type`: one of 5 types (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop).
+       - A `chop_value`: a number between 1-10.
+       - Cards can have multiple types and multiple values, but initial cards have 1 of each.
+       - A `durability_cost`: a fixed small cost (like herbalism, around 1). Durability depletion is a loss condition.
+     - Turn flow: Player starts with hand size 5 and plays 8 cards total. Each time a card is played, 1 new Woodcutting card is drawn. All 8 played cards are tracked.
+     - After 8 cards are played: evaluate the played cards for the best matching pattern and reward Lumber tokens accordingly.
+     - Patterns (poker-inspired but for 8 cards):
+       - Implement many patterns at various reward tiers. Get inspired by poker hands but adapted for 8 cards instead of 5.
+       - Examples: all same type (flush), sequential values (straight), pairs/triples/quads of values, full house combinations, etc.
+       - Only the single best pattern is used for reward calculation.
+       - There should always be some reward — even the worst hand matches a simple pattern (e.g., "high card" equivalent).
+     - Win: Always wins after 8 cards are played (the pattern just determines reward amount).
+     - Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost, no rewards granted.
+   - Tokens: WoodcuttingDurability (persistent, init 100 at game start), Lumber (reward material token).
    - EncounterAbort: available.
+   - Key design notes:
+     - The strategic tension is between playing cards that build toward better patterns vs. conserving durability.
+     - No enemy deck means the player is solely focused on pattern construction from their hand.
+     - The 8-card format (vs poker's 5) allows for richer pattern combinations.
    - Implementation checklist:
-     1. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_damage/splinter_prevent
-     2. Add EncounterState::Woodcutting(WoodcuttingEncounterState) + state struct
-     3. Add TokenType::WoodcuttingDurability, TreeHealth, Lumber
-     4. Add Woodcutting cards and encounter to initialize_library()
-     5. Init WoodcuttingDurability to 100 in GameState::new()
-     6. Dispatch in action handler and game_state resolution
-     7. Update /library/cards?card_kind= filter for Woodcutting
-     8. Update replay_from_log
-     9. Add scenario test
-   - Playable acceptance: Woodcutting encounter playable end-to-end, produces Lumber tokens, scenario test passes.
+     1. Add ChopType enum (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop)
+     2. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_types: Vec<ChopType>, chop_values: Vec<u32>, durability_cost: i64
+     3. Add WoodcuttingEncounterState with played_cards: Vec tracking the 8 played cards, max_plays: 8
+     4. Add EncounterState::Woodcutting(WoodcuttingEncounterState)
+     5. Add TokenType::WoodcuttingDurability, Lumber
+     6. Implement pattern evaluation engine (many patterns, poker-inspired, best-pattern-wins)
+     7. Add Woodcutting cards and encounter to initialize_library()
+     8. Init WoodcuttingDurability to 100 in GameState::new()
+     9. Dispatch in action handler and game_state resolution
+     10. Update /library/cards?card_kind= filter for Woodcutting
+     11. Update replay_from_log
+     12. Add scenario test
+   - Playable acceptance: Woodcutting encounter playable end-to-end with pattern evaluation, produces Lumber tokens, scenario test passes.
 
 8.4) Fishing (gathering)
    - Goal: Fourth gathering discipline with a patience/timing mechanic that differentiates it from other gathering types.
@@ -284,8 +304,67 @@ Roadmap steps
      - Combo multipliers (Momentum token for sequential successful plays)
      - Entry costs (tokens/resources required to attempt certain encounters)
      - Tool cards and special extraction moves
+     - **Insight card effect**: Add a new CardEffectKind variant that grants discipline-specific Insight tokens.
+       - Usable on all card types (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, etc.).
+       - When triggered, grants an Insight token scoped to the discipline in which the card was played.
+       - Insight is consumed later by the Research discipline (Step 10) to fuel research projects.
+       - For every discipline, add card variants that have a weaker primary effect but also grant Insight. These "insight cards" create a strategic trade-off: sacrifice immediate power for long-term research progress.
    - This step bridges the gap between the simple playable versions and the rich encounter templates in the vision.
-   - Playable acceptance: At least one gathering discipline demonstrates multi-phase resolution, affix-modified encounters, and yield-quality tiering. Scenario tests verify the expanded mechanics.
+   - Playable acceptance: At least one gathering discipline demonstrates multi-phase resolution, affix-modified encounters, and yield-quality tiering. Insight cards are present in at least two disciplines and grant tokens correctly. Scenario tests verify the expanded mechanics.
+
+9.1) Major refactor: CardEffects range system
+   - Goal: Replace fixed numeric values on CardEffects with a range-of-ranges system that allows card variation and makes future research/crafting systems meaningful.
+   - Description: CardEffects now define four values for each numeric parameter:
+     - min_min: The minimum value of the min value.
+     - max_min: The maximum value of the min value.
+     - min_max: The minimum value of the max value.
+     - max_max: The maximum value of the max value.
+     Each CardEffect defines a range of possible ranges. Concrete cards (which reference a CardEffect) get a rolled min and max when created:
+     - min is rolled between min_min and max_min.
+     - max is rolled between min_max and max_max.
+     When a card is played, its actual value is rolled between the card's concrete min and max.
+   - Key constraints:
+     - All rolls use the game seed for full reproducibility.
+     - Concrete cards keep their reference to the CardEffect but also store their own min and max.
+     - Overlapping CardEffects can be consolidated since the range system naturally covers variations.
+     - Bump most numbers on cards, tokens, and encounters by a factor of ~100 (e.g., 1 → 100) to create interesting ranges. A value of 1 doesn't allow meaningful ranges (1-10 is too volatile), but 80-120 is fine.
+   - This step is placed before Research and Crafting because those systems will add more CardEffects and concrete cards that benefit from the range system.
+   - Playable acceptance: All existing cards use the range system. CardEffects define ranges, concrete cards have rolled min/max, and played values are rolled between them. All rolls are deterministic via the game seed. Scenario tests verify reproducibility.
+
+9.2) CardEffects cost system
+   - Goal: Add an optional stamina cost to CardEffects, creating a strategic cost-benefit dimension.
+   - Description: Some CardEffects have a cost defined as a percentage range:
+     - Cost is defined as a min-max percentage multiplier on the CardEffect.
+     - When a concrete card is created, its cost percentage is rolled from the CardEffect's cost range.
+     - When played, the cost is calculated: rolled_effect_value × cost_percentage = stamina_cost.
+     - Example: Attack card with health effect range (10-20)-(40-50) and stamina cost 20-40%. Concrete card rolls 13-45 with 25% cost. When played, rolls 20 damage → 25% of 20 = 5 stamina cost.
+   - Design rules:
+     - Cards with a cost must be significantly better than non-cost equivalents.
+     - In combat: at least one cost variation for each non-cost variation of attack and defence cards.
+     - Stamina is the initial cost type and is shared across all disciplines.
+     - Woodcutting and Mining cards can also have stamina costs (with a non-cost alternative for each).
+     - Starting decks should mainly contain non-cost cards for ease of initial play.
+   - Playable acceptance: Cost cards exist for combat, mining, and woodcutting. Cost calculations are deterministic. Starting decks are weighted toward non-cost cards. Scenario tests verify cost mechanics.
+
+9.3) Rest encounter
+   - Goal: Add a rest encounter type that allows stamina recovery and creates a meaningful pacing mechanic.
+   - Description: A new encounter type where the player picks a rest benefit card.
+     - The starting encounter deck should have ~20% rest encounters.
+     - A rest card effect is defined with a wide range (min_min-max_min)-(min_max-max_max) using the Step 9.1 range system.
+     - 5 different rest cards are rolled from this effect at game initialization.
+     - Each of those 5 cards has 5 copies in the rest deck (25 total cards).
+     - When the encounter starts: draw 5 rest cards from the deck and present them as choices.
+     - The player picks 1 card. That card's effect (e.g., stamina recovery) takes effect immediately and the encounter is won.
+     - To start, rest cards only provide stamina recovery. Future iterations may add health recovery, durability repair, or other benefits.
+   - Implementation checklist:
+     1. Add EncounterKind::Rest { rest_def: RestDef } with rest deck and rewards.
+     2. Add RestCardEffect with stamina_recovery (using range system from 9.1, or fixed values if 9.1 is not yet implemented).
+     3. Add CardKind::Rest { rest_effect: RestCardEffect } for rest action cards.
+     4. Add EncounterState::Rest(RestEncounterState) with drawn hand of 5 cards.
+     5. Implement EncounterPlayCard for rest: apply chosen card's effect, mark encounter as won.
+     6. Add rest encounters to initialize_library() (~20% of encounter deck).
+     7. Add scenario test.
+   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, stamina is recovered, encounter completes as PlayerWon. Scenario test passes.
 
 9) Add basic crafting as discipline encounters and respect Library semantics
    - Goal: Implement crafting as discipline-specific encounters (Fabrication, Provisioning, etc.) that use discipline decks, consume materials, and create Library card copies when finalized.

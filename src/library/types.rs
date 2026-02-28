@@ -24,8 +24,10 @@ pub enum TokenType {
     Corruption,
     Exhaustion,
     MiningDurability,
+    HerbalismDurability,
     // Material tokens (produced by gathering)
     Ore,
+    Plant,
     // Encounter-scoped tokens
     OreHealth,
 }
@@ -49,7 +51,9 @@ impl TokenType {
             TokenType::Corruption,
             TokenType::Exhaustion,
             TokenType::MiningDurability,
+            TokenType::HerbalismDurability,
             TokenType::Ore,
+            TokenType::Plant,
             TokenType::OreHealth,
         ]
     }
@@ -133,13 +137,30 @@ impl CardCounts {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "card_kind")]
 pub enum CardKind {
-    Attack { effect_ids: Vec<usize> },
-    Defence { effect_ids: Vec<usize> },
-    Resource { effect_ids: Vec<usize> },
-    Mining { mining_effect: MiningCardEffect },
-    Encounter { encounter_kind: EncounterKind },
-    PlayerCardEffect { kind: CardEffectKind },
-    EnemyCardEffect { kind: CardEffectKind },
+    Attack {
+        effect_ids: Vec<usize>,
+    },
+    Defence {
+        effect_ids: Vec<usize>,
+    },
+    Resource {
+        effect_ids: Vec<usize>,
+    },
+    Mining {
+        mining_effect: MiningCardEffect,
+    },
+    Herbalism {
+        herbalism_effect: HerbalismCardEffect,
+    },
+    Encounter {
+        encounter_kind: EncounterKind,
+    },
+    PlayerCardEffect {
+        kind: CardEffectKind,
+    },
+    EnemyCardEffect {
+        kind: CardEffectKind,
+    },
 }
 
 /// Inline effect for Mining discipline cards.
@@ -151,12 +172,51 @@ pub struct MiningCardEffect {
     pub durability_prevent: i64,
 }
 
+/// Plant characteristics used by Herbalism encounters.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum PlantCharacteristic {
+    Fragile,
+    Thorny,
+    Aromatic,
+    Bitter,
+    Luminous,
+}
+
+/// Inline effect for Herbalism discipline cards.
+/// Targets characteristics to remove matching plant cards; broader cards are riskier.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct HerbalismCardEffect {
+    pub target_characteristics: Vec<PlantCharacteristic>,
+    pub durability_cost: i64,
+}
+
+/// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct PlantCard {
+    pub characteristics: Vec<PlantCharacteristic>,
+    pub counts: DeckCounts,
+}
+
+/// Definition of a plant node for an herbalism gathering encounter.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct HerbalismDef {
+    pub plant_hand: Vec<PlantCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+}
+
 /// Sub-type of encounter cards.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_type")]
 pub enum EncounterKind {
     Combat { combatant_def: CombatantDef },
     Mining { mining_def: MiningDef },
+    Herbalism { herbalism_def: HerbalismDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -508,12 +568,26 @@ pub struct MiningEncounterState {
     pub rewards: HashMap<Token, i64>,
 }
 
+/// Runtime state for an herbalism gathering encounter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct HerbalismEncounterState {
+    pub round: u64,
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    pub plant_hand: Vec<PlantCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
 pub enum EncounterState {
     Combat(CombatEncounterState),
     Mining(MiningEncounterState),
+    Herbalism(HerbalismEncounterState),
 }
 
 impl EncounterState {
@@ -521,6 +595,7 @@ impl EncounterState {
         match self {
             EncounterState::Combat(c) => c.encounter_card_id,
             EncounterState::Mining(m) => m.encounter_card_id,
+            EncounterState::Herbalism(h) => h.encounter_card_id,
         }
     }
 
@@ -532,6 +607,7 @@ impl EncounterState {
         match self {
             EncounterState::Combat(c) => &c.outcome,
             EncounterState::Mining(m) => &m.outcome,
+            EncounterState::Herbalism(h) => &h.outcome,
         }
     }
 }

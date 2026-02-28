@@ -323,7 +323,8 @@ Research cards, modifier deck, and variant creation
 
   This system reuses the research/replacement workflow and makes area evolution an explicit part of every encounter's lifecycle.
 
-- Mining / Woodcutting (gathering subtypes): focus on discipline wear and extraction. In the current simplified implementation, Mining uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. Future refined versions (Step 8.5) will add layering, combo extraction, yield-quality trade-offs, and multiple phases as described in the Encounter templates section.
+- Mining (gathering subtype): focuses on discipline wear and extraction. Uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. Future refined versions (Step 8.5) will add layering, combo extraction, yield-quality trade-offs, and multiple phases as described in the Encounter templates section.
+- Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After 8 plays, the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Each card also costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
 
 Design consequences and examples:
 - Different card pools: each subtype has bespoke card families (Knowledge cards, Tool cards, Time cards, Recon cards) so card synergies are meaningful and specific to the activity.
@@ -503,26 +504,23 @@ Concrete examples
 
 2) Woodcutting (gathering)
 
-- Current simplified implementation (Step 8.2):
-  - Same mechanical template as Mining: single Woodcutting deck vs tree node.
-  - Cards have chop_damage (damage to tree) and splinter_prevent (reduce incoming stamina damage).
-  - Tree node has TreeHealth token (encounter-scoped). Tree deck deals 0-3 stamina damage (similar distribution to mining ore deck).
-  - Win: TreeHealth ≤ 0 → grant Lumber tokens. Loss: WoodcuttingDurability ≤ 0.
-  - WoodcuttingDurability initialized at game start (100), persists across encounters. No failure penalties. Player draws 1 card per play.
-  - EncounterAbort available.
+- Current simplified implementation (Step 8.3):
+  - Unique mechanic: rhythm-based pattern matching for greater yields. NO enemy deck.
+  - Player Woodcutting cards have: a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop), a numeric chop_value (1-10), and a durability_cost (fixed small cost ~1).
+  - Cards can have multiple types and values, but initial cards have 1 of each.
+  - Player starts with hand size 5 and plays 8 cards total. Drawing 1 new card per play.
+  - After 8 plays: evaluate the 8 played cards for the best matching pattern (poker-inspired: flushes of same type, straights of sequential values, pairs/triples/quads, full houses, etc.) and reward Lumber tokens accordingly.
+  - Only the best pattern is used. There are always some simple patterns that match, so the player always gets some reward.
+  - Win: always wins after 8 cards played (pattern determines reward amount). Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost.
+  - WoodcuttingDurability initialized at game start (100), persists across encounters. EncounterAbort available.
 
 - Future refined version (Step 8.5 — end-state vision):
-  - Encounter card fields: knotting_value, trunk_size, rot_chance, modifier_tags.
-  - Pre-start: visible trunk_size and known hazards/tags.
-  - Phases: Setup → Chop Rounds → Branch Processing → Resolution → Post-resolution area-update/scouting.
-  - Player actions: Play Chop, Wedge, Tend cards; use tools/discipline abilities to target weak points; use Foresight to preview better cut lines.
-  - Decks: Woodcutting deck, Resource deck, Area deck, Reward deck.
-  - Tokens: WoodcuttingDurability, Momentum, Rations optional for boosts.
-  - Difficulty progression: larger trunks, rare knotting modifiers, increased rot/infestation chances.
-  - Distinctive features: multi-stage processing (chop then process branches), higher emphasis on sequencing and conserving WoodcuttingDurability.
+  - More complex patterns, combo multipliers, tool cards that modify chop types or values.
+  - Difficulty progression: encounter modifiers that restrict playable types or increase durability costs.
+  - Tokens: WoodcuttingDurability, Momentum for chaining patterns, Rations optional for boosts.
   - Rewards: Lumber, Planks, occasional special wood components.
-  - Failure: WoodcuttingDurability loss, broken tools (modeled as extra durability loss or temporary discipline penalties), reduced yield.
-  - Win/Lose: win by extracting required yield; lose if WoodcuttingDurability drops to 0 or rounds elapse.
+  - Failure: WoodcuttingDurability loss, reduced yield.
+  - Win/Lose: pattern-based reward scaling; lose if WoodcuttingDurability drops to 0.
 
 3) Herbalism (gathering)
 
