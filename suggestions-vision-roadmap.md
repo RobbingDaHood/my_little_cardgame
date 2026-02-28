@@ -125,6 +125,8 @@ In the "Win / Loss semantics" section, still uses generic "Durability" in the ex
 #### 4. Roadmap 8.3 previously described Woodcutting as "same template as Mining"
 This was corrected in this session. The roadmap and vision now describe Woodcutting as rhythm-based pattern matching. However, vision.md may still have residual references to the old Mining-clone template in other sections — search for "chop_damage" or "splinter_prevent" and remove.
 
+**Update (2026-02-28 — Step 8.3 implementation):** Step 8.3 was implemented using the Mining-clone template (damage-vs-durability loop with chop_damage/splinter_prevent) as described in the original roadmap 8.3 spec. The pattern-matching/rhythm-based Woodcutting variant described in the vision was NOT implemented — that is deferred to Step 8.5 (Refined gathering encounters). The current implementation validates the EncounterState pattern is reusable, which was the stated goal of 8.3.
+
 #### 5. vision.md Encounter templates section numbering
 The encounter templates section numbers Woodcutting as "2)" which was originally "same template as Mining". This has been updated, but the section numbering and flow should be reviewed for consistency after all 4 disciplines are implemented.
 
@@ -149,4 +151,34 @@ Step 9.1 mentions bumping numbers by 100x, but the vision and other roadmap step
 
 #### 5. Insight is mentioned in TokenType but not yet in CardEffectKind
 The Insight token type exists, but there's no CardEffectKind for granting it. Step 8.5 now describes this, but vision.md should document the Insight card effect pattern as a general mechanism (any card can have an effect that grants discipline-specific tokens).
+
+---
+
+## New Suggestions — Step 8.3 Woodcutting Implementation (2026-02-28)
+
+### roadmap.md Updates
+
+#### 1. Mark Step 8.3 as COMPLETE
+Add implementation notes to the "Step 8 implementation updates" section:
+- Step 8.3 (Woodcutting) implemented following Mining template as specified.
+- New card IDs: 20 (Aggressive Woodcutting), 21 (Balanced Woodcutting), 22 (Protective Woodcutting), 23 (Oak Tree encounter).
+- New tokens: WoodcuttingDurability (persistent, init 100), TreeHealth (encounter-scoped), Lumber (reward material).
+- 2 scenario tests added (full loop + abort).
+- Playable acceptance: ✅ Woodcutting end-to-end with chop_damage/splinter_prevent tradeoff, produces Lumber tokens, EncounterAbort supported.
+
+#### 2. Confirm 3 disciplines now validate EncounterState reusability
+Mining, Herbalism, and Woodcutting all use the same EncounterState enum pattern with discipline-specific state structs. The pattern is confirmed reusable: each discipline adds a new variant to EncounterState, EncounterKind, and CardKind, then plugs into the existing action dispatch and replay infrastructure.
+
+### vision.md Updates
+
+#### 1. Update Woodcutting token documentation
+vision.md line ~29 lists WoodcuttingDurability and Lumber but notes "TreeHealth removed since Woodcutting no longer uses an enemy/tree HP mechanic". This is now outdated — Step 8.3 DOES use TreeHealth as an encounter-scoped token (tree HP that the player chops down). Update vision.md to include TreeHealth in the Woodcutting token list.
+
+#### 2. Clarify simplified vs refined Woodcutting
+vision.md describes Woodcutting in two ways: (a) the simplified Mining-clone template (step 8.3) and (b) the full rhythm/pattern-matching version (step 8.5). These are now both partially documented. Add a note clarifying that the current implementation is the simplified version and the pattern-matching version is the Step 8.5 refinement target.
+
+### Contradictions
+
+#### 6. suggestions-vision-roadmap.md items 7 and 8 are now contradicted
+Items "#### 7. Document the pattern-evaluation win pattern (Woodcutting)" and "#### 8. Document the 'no enemy deck' pattern (Woodcutting)" describe the refined Woodcutting (step 8.5) which has NOT been implemented. The current 8.3 implementation uses the standard damage-vs-durability loop WITH an enemy tree deck. These items should be moved to a "Step 8.5 future" section to avoid confusion.
 

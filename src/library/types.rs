@@ -210,7 +210,6 @@ pub struct WoodcuttingCardEffect {
     pub splinter_prevent: i64,
 }
 
-
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
@@ -637,7 +636,6 @@ pub struct WoodcuttingEncounterState {
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub rewards: HashMap<Token, i64>,
 }
-
 
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
