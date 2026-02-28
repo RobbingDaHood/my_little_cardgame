@@ -323,12 +323,13 @@ Research cards, modifier deck, and variant creation
 
   This system reuses the research/replacement workflow and makes area evolution an explicit part of every encounter's lifecycle.
 
-- Mining (gathering subtype): focuses on discipline wear and extraction. Uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. Future refined versions (Step 8.5) will add layering, combo extraction, yield-quality trade-offs, and multiple phases as described in the Encounter templates section.
-- Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After 8 plays, the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Each card also costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
+- Mining (gathering subtype): focuses on discipline wear and extraction. Uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. Future refined versions (Step 8.5) will add tiered rewards, tier-increasing card effects, and insight token generation.
+- Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays up to 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After all plays (or the player chooses to stop early), the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Pattern rarity has significant multiplier impact to reward playing more cards. Each card costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
+- Fishing (gathering subtype): focuses on numeric precision. Each encounter defines a valid_range, max_turns, and win_turns_needed. Each round the player and enemy (fish) play numeric cards; the difference (clamped ≥ 0) must fall within the valid_range to count as a "won" turn. Win enough turns before max_turns to win. Every card costs durability; FishingDurability depletion is a second loss condition.
 
 Design consequences and examples:
 - Different card pools: each subtype has bespoke card families (Knowledge cards, Tool cards, Time cards, Recon cards) so card synergies are meaningful and specific to the activity.
-- Different token uses: tokens serve different roles per subtype (Rations as stamina in combat/Provisioning, Insight in learning, Durability as a discipline HP pool), keeping economies distinct while interoperable when appropriate.
+- Different token uses: tokens serve different roles per subtype (Stamina as cross-discipline cost currency, Insight in learning, Durability as a discipline HP pool), keeping economies distinct while interoperable when appropriate.
 - Different victory metrics: combat uses HP/objective removal; crafting/gathering use quality, yield, or connection strength; learning and the scouting system prioritize gathered information, unlocked library cards, and improved future encounter options.
 - All interactions remain deterministic/replayable via seeds: shuffles and deterministic resolutions preserve reproducibility while enabling diverse mechanical flavors.
 
@@ -491,16 +492,15 @@ Concrete examples
   - EncounterAbort available (marks as PlayerLost, no rewards/penalties).
 
 - Future refined version (Step 8.5 — end-state vision):
-  - Encounter card fields: hardness, vein_quality, embedded_modifiers (e.g., Encrusted, ElementalCore), expected_yield_distribution.
-  - Phases: Setup → Extraction Rounds (repeating) → Evaluation → Resolution → Post-resolution area-update/scouting.
-  - Player actions: Play Mining action cards (Swing, Chip, Prise), spend Rations to temporarily boost extraction power, spend Momentum-like tokens for combos, use special cards to change node state.
-  - Decks involved: Player Mining deck, Resource/Hand, Area node deck, Reward/Treasure deck.
-  - Tokens involved: MiningDurability, Rations (if boosting), Momentum, Foresight (if present), Refinement rarely for special node rerolls.
-  - Difficulty progression: successive nodes in the same area increase base hardness and chance of affixes; variant modifiers increase with area level.
-  - Distinctive features: Mining emphasizes repeated extraction rounds, tool/discipline wear, and yield-quality trade-offs rather than a single-turn burst damage.
-  - Success rewards: specific material tokens (Ore, Gems), potential recipe fragments, increased local Variant-Choice chance on rare success.
-  - Failure consequences: reduced MiningDurability, resource loss, Exhaustion gain, or forced retreat with no yield.
-  - Win/Lose: win by depleting node HP or completing required extraction sequence; lose if MiningDurability depletes or time/round limits expire.
+  - Tiered rewards: Ore T1, T2, T3. Player card effects increase encounter tier (harder gameplay, higher reward tier).
+  - Tier 2: moderately hard. Tier 3: very hard. Difficulty increases via gameplay involvement, not just durability removal.
+  - Insight tokens: T1, T2, T3 — generated by discipline-specific insight card effects.
+  - Stamina replaces Rations as the cost currency for boosts.
+  - Difficulty progression: successive nodes in the same area increase base hardness; variant modifiers increase with area level.
+  - Distinctive features: Mining emphasizes repeated extraction rounds, discipline wear, and yield-quality trade-offs.
+  - Rewards: Ore (tiered), Gems, potential recipe fragments.
+  - Failure consequences: reduced MiningDurability, resource loss, Exhaustion gain.
+  - Win/Lose: win by depleting node HP or completing required extraction; lose if MiningDurability depletes.
 
 2) Woodcutting (gathering)
 
@@ -508,17 +508,19 @@ Concrete examples
   - Unique mechanic: rhythm-based pattern matching for greater yields. NO enemy deck.
   - Player Woodcutting cards have: a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop), a numeric chop_value (1-10), and a durability_cost (fixed small cost ~1).
   - Cards can have multiple types and values, but initial cards have 1 of each.
-  - Player starts with hand size 5 and plays 8 cards total. Drawing 1 new card per play.
-  - After 8 plays: evaluate the 8 played cards for the best matching pattern (poker-inspired: flushes of same type, straights of sequential values, pairs/triples/quads, full houses, etc.) and reward Lumber tokens accordingly.
-  - Only the best pattern is used. There are always some simple patterns that match, so the player always gets some reward.
-  - Win: always wins after 8 cards played (pattern determines reward amount). Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost.
+  - Player starts with hand size 5 and plays up to 8 cards total. Drawing 1 new card per play.
+  - After all plays (or the player chooses to stop early): evaluate the played cards for the best matching pattern (poker-inspired: flushes of same type, straights of sequential values, pairs/triples/quads, full houses, etc.) and reward Lumber tokens accordingly. Early stop is NOT an abort — the pattern of all cards played so far is still evaluated and rewards granted. Durability cost is only paid for cards actually played.
+  - Only the best pattern is used. There are always some simple patterns that match, so the player always gets some reward. Pattern rarity has significant impact on multiplier to reward playing more cards.
+  - Win: always wins after all cards are played or player stops early (pattern determines reward amount). Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost.
   - WoodcuttingDurability initialized at game start (100), persists across encounters. EncounterAbort available.
 
 - Future refined version (Step 8.5 — end-state vision):
-  - More complex patterns, combo multipliers, tool cards that modify chop types or values.
+  - Tiered rewards: Lumber T1, T2, T3. Player card effects increase encounter tier (harder gameplay, higher reward tier).
+  - Tier 2: moderately hard. Tier 3: very hard. Difficulty increases via gameplay involvement, not just durability removal.
+  - Insight tokens: T1, T2, T3 — generated by discipline-specific insight card effects.
+  - Stamina replaces Rations as the cost currency for boosts.
   - Difficulty progression: encounter modifiers that restrict playable types or increase durability costs.
-  - Tokens: WoodcuttingDurability, Momentum for chaining patterns, Rations optional for boosts.
-  - Rewards: Lumber, Planks, occasional special wood components.
+  - Rewards: Lumber (tiered), occasional special wood components.
   - Failure: WoodcuttingDurability loss, reduced yield.
   - Win/Lose: pattern-based reward scaling; lose if WoodcuttingDurability drops to 0.
 
@@ -535,40 +537,36 @@ Concrete examples
   - Tokens: HerbalismDurability (persistent), Plant (reward material token).
 
 - Future refined version (Step 8.5 — end-state vision):
-  - Encounter fields: fragility, potency, required_extraction_sequence, contamination_risk.
-  - Pre-start: visible plant type and basic potency hint.
-  - Phases: Setup → Extraction Sequence → Stabilization → Resolution → Post-resolution area-update/scouting.
-  - Actions: Play Knowledge, Microscope, Distillation cards; sequencing and protection moves to avoid loss of potency.
-  - Decks: Herbalism deck, Resource deck, Reward deck.
-  - Tokens: Reagent tokens, Insight (for research-like grabs), HerbalismDurability (toolless but can exhaust the gatherer). Rations follow canonical token rules and may be consumed by discipline cards for targeted boosts.
+  - Tiered rewards: Plant T1, T2, T3. Player card effects increase encounter tier.
+  - Tier 2: moderately hard. Tier 3: very hard. Difficulty increases via gameplay involvement, not just durability removal.
+  - Insight tokens: T1, T2, T3 — generated by discipline-specific insight card effects.
+  - Stamina replaces Rations as the cost currency for boosts.
   - Difficulty progression: rarer plants require longer sequences and have higher contamination risk.
   - Distinctive features: precision and sequence matching; failures often reduce potency rather than causing total loss.
-  - Rewards: Reagent, Tinctures, recipe unlocks.
+  - Rewards: Plant (tiered), Reagent, Tinctures, recipe unlocks.
   - Failure: lower potency yield, chance of harmful contamination token, small Exhaustion.
   - Win/Lose: win by completing sequence with sufficient potency; lose if contamination exceeds threshold or sequence breaks irreparably.
 
 4) Fishing / Foraging (gathering)
 
 - Current simplified implementation (Step 8.4):
-  - Patient timing mechanic: fish has a Patience token that decreases each turn automatically.
-  - Player plays Fishing cards with lure_power. Each turn the system rolls (seeded) whether the fish bites based on lure_power vs remaining patience.
-  - Win: fish bites → grant Fish tokens. Loss: Patience reaches 0 (fish escapes).
-  - FishingDurability initialized at game start (100). Fish deck deals 0-2 durability damage per turn. Player draws 1 card per play.
+  - Numeric card-subtraction mechanic: Each fishing encounter defines a valid_range (min, max), max_turns, and win_turns_needed.
+  - Each round the player plays a numeric card first, then the enemy (fish) plays a numeric card. The two values are subtracted: result = (player_value - fish_value).max(0). If the result falls within the valid_range (inclusive), the turn counts as "won".
+  - Win: player wins win_turns_needed rounds before max_turns are exhausted → grant Fish tokens. Loss: max_turns exhausted without enough wins → PlayerLost. OR FishingDurability ≤ 0 → PlayerLost.
+  - FishingDurability initialized at game start (100). Every card played has a small durability_cost. Player draws 1 card per play.
   - EncounterAbort available.
-  - Tokens: FishingDurability (persistent), Fish (reward material token), Patience (encounter-scoped).
+  - Tokens: FishingDurability (persistent), Fish (reward material token).
 
 - Future refined version (Step 8.5 — end-state vision):
-  - Encounter fields: season, spawn_density, stealth_requirement.
-  - Pre-start: visible environment type and rough spawn hints.
-  - Phases: Setup → Attempt Rounds → Net/Harvest → Resolution → Post-resolution area-update/scouting.
-  - Actions: Play Stealth, Cast, Lure, Snare cards; time-sensitive plays and equipment choices.
-  - Decks: Foraging/Fishing deck, Resource deck, Reward deck.
-  - Tokens: Rations (food), Momentum for combo catches, FishingDurability minimal.
-  - Difficulty progression: rarer spawns and seasonal modifiers.
-  - Distinctive features: stealth and timing mechanics, rewards often consumables or provisioning ingredients.
-  - Rewards: Foodstuffs, Ingredients, occasional rare items.
-  - Failure: no yield and small Exhaustion or Ration loss if bait consumed.
-  - Win/Lose: win by meeting yield threshold within rounds; lose if rounds exhausted.
+  - Tiered rewards: Fish T1, T2, T3. Player card effects increase encounter tier.
+  - Tier 2: moderately hard. Tier 3: very hard. Difficulty increases via gameplay involvement, not just durability removal.
+  - Insight tokens: T1, T2, T3 — generated by discipline-specific insight card effects.
+  - Stamina replaces Rations as the cost currency for boosts.
+  - Difficulty progression: rarer spawns and harder fish decks with higher numeric values.
+  - Distinctive features: numeric precision and timing mechanics; rewards often consumables or provisioning ingredients.
+  - Rewards: Fish (tiered), Foodstuffs, Ingredients, occasional rare items.
+  - Failure: no yield and small Exhaustion.
+  - Win/Lose: win by meeting win_turns_needed within max_turns; lose if turns exhausted or durability depleted.
 
 5) Combat (enemy encounter)
 
