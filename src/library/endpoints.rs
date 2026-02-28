@@ -44,6 +44,7 @@ pub async fn list_library_cards(
             Some("Mining") => matches!(c.kind, CardKind::Mining { .. }),
             Some("Herbalism") => matches!(c.kind, CardKind::Herbalism { .. }),
             Some("Woodcutting") => matches!(c.kind, CardKind::Woodcutting { .. }),
+            Some("Fishing") => matches!(c.kind, CardKind::Fishing { .. }),
             Some("Encounter") => matches!(c.kind, CardKind::Encounter { .. }),
             Some("PlayerCardEffect") => matches!(c.kind, CardKind::PlayerCardEffect { .. }),
             Some("EnemyCardEffect") => matches!(c.kind, CardKind::EnemyCardEffect { .. }),
