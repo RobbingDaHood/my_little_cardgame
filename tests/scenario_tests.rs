@@ -567,17 +567,18 @@ fn play_one_mining_card(client: &Client) -> bool {
     if mining_ids.is_empty() {
         return false;
     }
-    let card_id = mining_ids[0];
-    let json = format!(
-        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-        card_id
-    );
-    let (status, _) = post_action(client, &json);
-    if status != Status::Created {
-        return false;
+    for card_id in mining_ids {
+        let json = format!(
+            r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+            card_id
+        );
+        let (status, _) = post_action(client, &json);
+        if status == Status::Created {
+            let encounter = combat_state(client);
+            return encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided");
+        }
     }
-    let encounter = combat_state(client);
-    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+    false
 }
 
 /// Find mining encounter card IDs in the encounter hand.
@@ -1049,17 +1050,18 @@ fn play_one_woodcutting_card(client: &Client) -> bool {
     if wc_ids.is_empty() {
         return false;
     }
-    let card_id = wc_ids[0];
-    let json = format!(
-        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-        card_id
-    );
-    let (status, _) = post_action(client, &json);
-    if status != Status::Created {
-        return false;
+    for card_id in wc_ids {
+        let json = format!(
+            r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+            card_id
+        );
+        let (status, _) = post_action(client, &json);
+        if status == Status::Created {
+            let encounter = combat_state(client);
+            return encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided");
+        }
     }
-    let encounter = combat_state(client);
-    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+    false
 }
 
 fn woodcutting_encounter_ids(client: &Client) -> Vec<usize> {
@@ -1198,6 +1200,13 @@ fn scenario_woodcutting_encounter_full_loop() {
                 "Durability should be 0 when losing woodcutting"
             );
             break;
+        }
+
+        // If encounter is still active (stuck on unplayable cost cards), abort it
+        let encounter = combat_state(&client);
+        if encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+            let (status, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+            assert_eq!(status, Status::Created, "Abort should succeed when stuck");
         }
 
         let (status, _) = post_action(

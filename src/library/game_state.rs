@@ -748,6 +748,118 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         },
     );
 
+    // ---- Cost card effect templates and variants (Step 9.2) ----
+
+    // id 29: Powerful "deal damage" effect with Stamina cost (range: 700-900, cost: 30-50%)
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: super::types::CardEffectKind::ChangeTokens {
+                target: super::types::EffectTarget::OnOpponent,
+                token_type: super::types::TokenType::Health,
+                min: -900,
+                max: -700,
+                costs: vec![super::types::CardEffectCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    min_percent: 30,
+                    max_percent: 50,
+                }],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 30: Powerful "grant shield" effect with Stamina cost (range: 350-550, cost: 30-50%)
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: super::types::CardEffectKind::ChangeTokens {
+                target: super::types::EffectTarget::OnSelf,
+                token_type: super::types::TokenType::Shield,
+                min: 350,
+                max: 550,
+                costs: vec![super::types::CardEffectCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    min_percent: 30,
+                    max_percent: 50,
+                }],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost Attack card (id 31): more powerful but costs Stamina
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![roll_concrete_effect(rng, 29, &lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // Cost Defence card (id 32): more powerful but costs Stamina
+    lib.add_card(
+        CardKind::Defence {
+            effects: vec![roll_concrete_effect(rng, 30, &lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // Cost Mining card (id 33): high ore damage, costs stamina
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 800,
+                durability_prevent: 0,
+                stamina_cost: 100,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // Cost Woodcutting card (id 34): HeavyChop+LightChop combo, costs stamina
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: super::types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    super::types::ChopType::HeavyChop,
+                    super::types::ChopType::LightChop,
+                ],
+                chop_values: vec![5, 3],
+                durability_cost: 100,
+                stamina_cost: 100,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
     }
