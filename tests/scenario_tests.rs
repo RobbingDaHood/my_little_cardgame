@@ -628,15 +628,15 @@ fn scenario_mining_encounter_full_loop() {
             .get("ore_tokens")
             .and_then(|v| v.get("OreHealth"))
             .and_then(|v| v.as_i64()),
-        Some(15),
-        "Ore Health should start at 15"
+        Some(1500),
+        "Ore Health should start at 1500"
     );
 
     // 5. Verify player has MiningDurability token (initialized at game start)
     let durability = player_token(&client, "MiningDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 mining durability"
+        durability, 10000,
+        "Player should start with 10000 mining durability"
     );
 
     // 6. Play mining encounters in a loop until durability runs out
@@ -688,7 +688,7 @@ fn scenario_mining_encounter_full_loop() {
 
     assert!(
         total_encounters > 1,
-        "With 100 durability, player should survive multiple mining encounters"
+        "With 10000 durability, player should survive multiple mining encounters"
     );
 
     // 7. Verify final state: player eventually lost from durability depletion
@@ -928,8 +928,8 @@ fn scenario_herbalism_encounter_full_loop() {
     // 6. Verify player has HerbalismDurability token
     let durability = player_token(&client, "HerbalismDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 herbalism durability"
+        durability, 10000,
+        "Player should start with 10000 herbalism durability"
     );
 
     // 7. Play herbalism encounters in a loop until durability runs out
@@ -1116,8 +1116,8 @@ fn scenario_woodcutting_encounter_full_loop() {
 
     let durability = player_token(&client, "WoodcuttingDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 woodcutting durability"
+        durability, 10000,
+        "Player should start with 10000 woodcutting durability"
     );
 
     // Play 8 cards (the encounter should auto-complete after 8)
@@ -1152,7 +1152,7 @@ fn scenario_woodcutting_encounter_full_loop() {
     // Verify durability was consumed (8 cards × 1 durability each = 8)
     let final_durability = player_token(&client, "WoodcuttingDurability");
     assert!(
-        final_durability < 100,
+        final_durability < 10000,
         "Durability should decrease after woodcutting (got {})",
         final_durability
     );
@@ -1214,7 +1214,7 @@ fn scenario_woodcutting_encounter_full_loop() {
 
     assert!(
         total_encounters > 1,
-        "With 100 durability and cost 1 per card, should survive multiple encounters"
+        "With 10000 durability and cost 100 per card, should survive multiple encounters"
     );
 }
 
@@ -1343,8 +1343,8 @@ fn scenario_fishing_encounter_full_loop() {
 
     let durability = player_token(&client, "FishingDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 fishing durability"
+        durability, 10000,
+        "Player should start with 10000 fishing durability"
     );
 
     // Play cards until the encounter ends
@@ -1376,7 +1376,7 @@ fn scenario_fishing_encounter_full_loop() {
 
     let final_durability = player_token(&client, "FishingDurability");
     assert!(
-        final_durability < 100,
+        final_durability < 10000,
         "Durability should decrease after fishing (got {})",
         final_durability
     );
@@ -1436,7 +1436,7 @@ fn scenario_fishing_encounter_full_loop() {
 
     assert!(
         total_encounters > 1,
-        "With 100 durability and cost 1 per card, should survive multiple encounters"
+        "With 10000 durability and cost 100 per card, should survive multiple encounters"
     );
 }
 

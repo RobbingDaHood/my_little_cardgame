@@ -201,8 +201,11 @@ fn test_enemy_play_applies_effects() {
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
     let shield_after = token_value(&combat_after["enemy_tokens"], "Shield");
 
-    // Enemy defence card grants 2 shield
-    assert_eq!(shield_after, shield_before + 2);
+    // Enemy defence card grants shield (scaled ~100x, rolled from range)
+    assert!(
+        shield_after > shield_before,
+        "Enemy should have gained shield from defence card, before={shield_before} after={shield_after}"
+    );
 }
 
 #[test]

@@ -51,12 +51,12 @@ pub async fn play(
             seed_bytes[0..8].copy_from_slice(&s.to_le_bytes());
             seed_bytes[8..16].copy_from_slice(&s.to_le_bytes());
             *player_data.seed.lock().await = seed_bytes;
-            let new_rng = Lcg64Xsh32::from_seed(seed_bytes);
-            *player_data.random_generator_state.lock().await = new_rng;
+            let mut new_rng = Lcg64Xsh32::from_seed(seed_bytes);
 
-            // Reset game state (library is re-initialized with encounter cards in hand)
+            // Reset game state using seeded RNG for deterministic library initialization
             let mut gs = game_state.lock().await;
-            let new_gs = crate::library::GameState::new();
+            let new_gs = crate::library::GameState::new_with_rng(&mut new_rng);
+            *player_data.random_generator_state.lock().await = new_rng;
             gs.library = new_gs.library;
             gs.token_balances = new_gs.token_balances;
             gs.current_encounter = None;
@@ -116,7 +116,7 @@ pub async fn play(
                             crate::library::types::Token::persistent(
                                 crate::library::types::TokenType::Health,
                             ),
-                            20,
+                            2000,
                         );
                     }
                     match gs.start_combat(card_id, &mut rng) {

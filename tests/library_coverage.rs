@@ -1,6 +1,6 @@
 use my_little_cardgame::library::types::{
-    token_balance_by_type, ActionPayload, CardCounts, CardEffectKind, CardKind, EffectTarget,
-    Token, TokenType,
+    token_balance_by_type, ActionPayload, CardCounts, CardEffectKind, CardKind, ConcreteEffect,
+    EffectTarget, Token, TokenType,
 };
 use my_little_cardgame::library::{GameState, Library};
 
@@ -24,7 +24,9 @@ fn library_draw_and_play_and_return() {
             kind: CardEffectKind::ChangeTokens {
                 target: EffectTarget::OnOpponent,
                 token_type: TokenType::Health,
-                amount: -5,
+                min: -500,
+                max: -500,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -36,7 +38,11 @@ fn library_draw_and_play_and_return() {
     );
     let id = lib.add_card(
         CardKind::Attack {
-            effect_ids: vec![0],
+            effects: vec![ConcreteEffect {
+                effect_id: 0,
+                rolled_value: -500,
+                rolled_costs: vec![],
+            }],
         },
         CardCounts {
             library: 0,
@@ -71,7 +77,7 @@ fn library_draw_and_play_and_return() {
 fn library_draw_error_when_deck_empty() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effect_ids: vec![] },
+        CardKind::Attack { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -86,7 +92,7 @@ fn library_draw_error_when_deck_empty() {
 fn library_play_error_when_hand_empty() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effect_ids: vec![] },
+        CardKind::Attack { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -101,7 +107,7 @@ fn library_play_error_when_hand_empty() {
 fn library_return_to_library_error_when_discard_empty() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effect_ids: vec![] },
+        CardKind::Attack { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -116,7 +122,7 @@ fn library_return_to_library_error_when_discard_empty() {
 fn library_add_to_deck_error_when_library_insufficient() {
     let mut lib = Library::new();
     let id = lib.add_card(
-        CardKind::Attack { effect_ids: vec![] },
+        CardKind::Attack { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -131,7 +137,7 @@ fn library_add_to_deck_error_when_library_insufficient() {
 fn library_hand_cards_returns_cards_in_hand() {
     let mut lib = Library::new();
     lib.add_card(
-        CardKind::Attack { effect_ids: vec![] },
+        CardKind::Attack { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 0,
@@ -140,7 +146,7 @@ fn library_hand_cards_returns_cards_in_hand() {
         },
     );
     lib.add_card(
-        CardKind::Defence { effect_ids: vec![] },
+        CardKind::Defence { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 5,
@@ -157,7 +163,7 @@ fn library_hand_cards_returns_cards_in_hand() {
 fn library_cards_matching_filters_by_predicate() {
     let mut lib = Library::new();
     lib.add_card(
-        CardKind::Attack { effect_ids: vec![] },
+        CardKind::Attack { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 1,
@@ -166,7 +172,7 @@ fn library_cards_matching_filters_by_predicate() {
         },
     );
     lib.add_card(
-        CardKind::Defence { effect_ids: vec![] },
+        CardKind::Defence { effects: vec![] },
         CardCounts {
             library: 0,
             deck: 1,
@@ -194,7 +200,7 @@ fn game_state_draw_random_cards() {
     // draw_random_cards is private, but we can test it via resolve_player_card
     // playing a resource card (id 10) triggers draw_count=1
     gs.token_balances
-        .insert(Token::persistent(TokenType::Health), 20);
+        .insert(Token::persistent(TokenType::Health), 2000);
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let _ = gs.start_combat(11, &mut rng);
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
@@ -236,7 +242,7 @@ fn game_state_default() {
 fn start_combat_with_non_encounter_card() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(Token::persistent(TokenType::Health), 20);
+        .insert(Token::persistent(TokenType::Health), 2000);
     let result = gs.start_combat(0, &mut rand_pcg::Lcg64Xsh32::from_seed([0u8; 16])); // card 0 is PlayerCardEffect, not CombatEncounter
     assert!(result.is_err());
 }
@@ -245,7 +251,7 @@ fn start_combat_with_non_encounter_card() {
 fn resolve_player_card_non_action_card() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(Token::persistent(TokenType::Health), 20);
+        .insert(Token::persistent(TokenType::Health), 2000);
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let _ = gs.start_combat(11, &mut rng);
     // Try to play Encounter card (id 11) as a player card
@@ -257,7 +263,7 @@ fn resolve_player_card_non_action_card() {
 fn resolve_enemy_play_with_non_encounter() {
     let mut gs = GameState::new();
     gs.token_balances
-        .insert(Token::persistent(TokenType::Health), 20);
+        .insert(Token::persistent(TokenType::Health), 2000);
     // No combat started, should return error
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let result = gs.resolve_enemy_play(&mut rng);

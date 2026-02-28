@@ -62,19 +62,19 @@ fn hello_world() {
         my_little_cardgame::library::types::CombatPhase::Defending
     );
     assert_eq!(actual_combat.round, 1);
-    // Enemy should have initial tokens (health=20, max_health=20 from gnome combatant_def)
+    // Enemy should have initial tokens (health=2000, max_health=2000 from gnome combatant_def)
     assert_eq!(
         token_balance_by_type(&actual_combat.enemy_tokens, &TokenType::Health),
-        20
+        2000
     );
-    // Player should have health token from token_balances (initialized to 20)
+    // Player should have health token from token_balances (initialized to 2000)
     let token_resp = client.get("/player/tokens").dispatch();
     assert_eq!(token_resp.status(), Status::Ok);
     let tokens: Vec<my_little_cardgame::player_tokens::TokenBalance> =
         serde_json::from_str(&token_resp.into_string().unwrap()).unwrap();
     assert!(tokens
         .iter()
-        .any(|t| t.token.token_type == TokenType::Health && t.value == 20));
+        .any(|t| t.token.token_type == TokenType::Health && t.value == 2000));
 }
 
 fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {
