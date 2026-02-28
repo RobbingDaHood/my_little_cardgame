@@ -116,7 +116,7 @@ Roadmap steps
    - Notes: Make the library the only place that mutates authoritative game state; surface a small, well-documented API and enforce "everything is deck/token" at type level.
 
 2) Implement global seeded RNG and deterministic execution primitives
-   - Goal: Add a single-game RNG and a deterministic scheduler that all systems use (deck shuffles, encounter generation, affix rolls, combat decisions where non-deterministic choices exist).
+   - Goal: Add a single-game RNG and a deterministic scheduler that all systems use (deck shuffles, encounter generation, CardEffect rolls, combat decisions where non-deterministic choices exist).
    - Description: Provide RNG seeding at game/session creation, utility methods to derive deterministic sub-seeds, and deterministic replay helpers (serialize/deserialize seeds and RNG state). Integrate RNG into the ActionLog to record key random draws.
    - Playable acceptance: Starting a session with a seed and replaying the run reproduces identical outcomes for a seeded test scenario.
    - Notes: Make it trivial to replay a logged run by restoring seed + action sequence.
@@ -138,10 +138,10 @@ Roadmap steps
 
 5) Encounter replacement and scouting hooks (formerly "Add Area Decks")
    - Note: The structural AreaDeck work has been superseded by Library card location tracking (CardLocation enum with Deck/Hand/Discard). Encounter cards now use the same CardCounts as all other card types. This step focuses on the replacement-generation and scouting mechanics.
-   - Goal: Implement the vision's replace-on-resolve behavior: resolved encounter cards are removed and replaced by freshly generated encounters with affixes; scouting biases replacement generation.
-   - Description: Implement encounter consumption, replacement-generation (base type + affixes), and a simple affix pipeline. Implement binding of encounter decks to the encounter instance (encounter deck, reward deck, modifier pulls) and ensure any entry_cost for attempting an encounter is consumed/locked at start. All deck-bound draws, entry_cost consumes, and replacement-generation steps are recorded in the ActionLog.
+   - Goal: Implement the vision's replace-on-resolve behavior: resolved encounter cards are removed and replaced by freshly generated encounters with CardEffects; scouting biases replacement generation.
+   - Description: Implement encounter consumption, replacement-generation (base type + CardEffects), and a simple CardEffect selection pipeline. Implement binding of encounter decks to the encounter instance (encounter deck, reward deck, CardEffect draws) and ensure any entry_cost for attempting an encounter is consumed/locked at start. All deck-bound draws, entry_cost consumes, and replacement-generation steps are recorded in the ActionLog.
    - Playable acceptance: Drawing and resolving an area encounter removes it from the Library hand and immediately creates a replacement entry; scouting-related parameters can bias replacement generation in deterministic tests.
-   - Notes: Start with small affix sets and deterministic replacement rules. ScoutingParams was deleted during cleanup and will need to be re-implemented here as part of the Library/GameState system rather than as a separate module.
+   - Notes: Start with small CardEffect sets and deterministic replacement rules. ScoutingParams was deleted during cleanup and will need to be re-implemented here as part of the Library/GameState system rather than as a separate module.
 
 6) Refactor combat into the library core (deterministic, logged) — COMPLETE
 
@@ -158,7 +158,7 @@ Roadmap steps
         - Remember that the action endpoint is the only endpoint allowed to change state. When the player plays an action (examples: pick an encounter, play a card, etc.), the game evaluates whether that changes any state (for example: move the combat one phase forward, conclude the combat, and go to the post-encounter scouting step, etc.). 
    - Playable acceptance: API user can draw an encounter, resolve combat to conclusion, perform a scouting post-resolution step that biases replacement, and the encounter Library cards update accordingly.
    - Notes: Ensure session can be replayed from seed + action log.
-    - - Scouting parameters (preview count, affix bias, pool modifier) are internal mechanics that influence encounter-generation deterministically during the scouting post-encounter step. They are not user-facing API endpoints but are controlled by the player's scouting action choices and token expenditures (Foresight, etc.).
+    - - Scouting parameters (preview count, CardEffect bias, pool modifier) are internal mechanics that influence encounter-generation deterministically during the scouting post-encounter step. They are not user-facing API endpoints but are controlled by the player's scouting action choices and token expenditures (Foresight, etc.).
 
 7.5) Unify combat systems and remove old deck types — COMPLETE
    - Goal: Unify the two combat implementations so a single authoritative combat system resolves card effects and token lifecycles.
@@ -321,19 +321,9 @@ Roadmap steps
    - Playable acceptance: ✅ Fishing end-to-end with card-subtraction, produces Fish tokens, EncounterAbort supported.
 
 8.5) Refined gathering encounters
-   - Goal: Evolve all simplified gathering disciplines (8.1-8.4) toward richer gameplay with tiered rewards, difficulty scaling, and strategic card choices.
+   - Goal: Evolve all simplified gathering disciplines (8.1-8.4) toward richer gameplay with difficulty scaling and strategic card choices.
    - Description: Add the features that differentiate the vision's end-state from the current simple implementations:
-     - Tiered reward tokens: Each gathering discipline produces tiered rewards (e.g., Lumber T1, Lumber T2, Lumber T3; Ore T1, Ore T2, Ore T3; etc.). Tier 1 is the default reward from the base encounter.
-     - Tier-increasing player card effects: Add card effects that increase the encounter's reward tier when played. These cards make the encounter more difficult through gameplay-involved mechanics (NOT simply by removing durability). Tier 2 should be moderately hard to achieve; Tier 3 should be very hard. The difficulty increase should be organic to each discipline's mechanics.
-     - Insight tokens with three tiers: Insight T1, T2, T3 — generated by discipline-specific insight card effects. Higher tiers require harder gameplay to earn.
-     - Initial decks have very few cards with tier-increase effects. Players acquire more through crafting/research later.
      - Stamina replaces Rations as the cost currency for encounter boosts and card costs across all disciplines.
-     - Tiers could be expanded beyond 3 later, but initially just three.
-   - Deferred to later (milestone step or beyond):
-     - Combos and Momentum mechanics.
-     - Affix modifiers on encounter cards (deferred from scouting step as well).
-   - Additional notes from implementation experience:
-     - Woodcutting pattern engine could be expanded: add combo multipliers for chaining patterns across encounters, add SplitChop card to starting deck.
      - All 4 gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) are now implemented with the same EncounterState enum pattern. The pattern is confirmed reusable: each discipline adds a new variant to EncounterState, EncounterKind, and CardKind, then plugs into the existing action dispatch and replay infrastructure.
      - Four distinct mechanical templates exist:
        1. Damage-vs-durability loop (Mining): player deals damage to node HP while node deals durability damage; mutual draw each turn.
@@ -341,17 +331,6 @@ Roadmap steps
        3. Poker-like pattern building (Woodcutting): play cards to build patterns; no enemy deck; degree-of-success rather than binary win/lose.
        4. Card-subtraction with valid-range targeting (Fishing): player and enemy both play numeric cards; result must land within target range.
      - Consider whether any of these can share infrastructure or whether each discipline's resolution should remain fully independent.
-   - This step bridges the gap between the simple playable versions and the richer encounter experience.
-   - Playable acceptance: At least one gathering discipline demonstrates tiered rewards (T1/T2/T3), tier-increasing card effects with gameplay-involved difficulty increase, and insight token generation across tiers. Initial decks have limited tier-increase cards. Scenario tests verify the tiered mechanics.
-
-8.6) Gathering balance pass
-   - Goal: After all 4 gathering disciplines are implemented (8.1-8.4), perform a dedicated balance and tuning pass.
-   - Description:
-     - Normalize durability init values (all currently 100 — may need differentiation per discipline).
-     - Balance reward token amounts across disciplines (Ore, Plant, Lumber, Fish should have comparable value-per-encounter).
-     - Tune encounter card counts and difficulty distributions.
-     - Add cross-discipline scenario tests (e.g., mine then herbalism then combat in sequence).
-   - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs.
 
 9.1) Major refactor: CardEffects range system
    - Goal: Replace fixed numeric values on CardEffects with a min-max range system that allows card variation and makes future research/crafting systems meaningful.
@@ -422,18 +401,58 @@ Roadmap steps
    - Playable acceptance: Can resolve a craft encounter, produces a Library card copy (visible via GET /library), and demonstrates cost evaluation based on card effects; crafted cards are never directly inserted into player decks.
    - Notes: Start with a single crafting encounter type to prove the flow; ensure crafting is the primary economy sink and costs scale with card quality.
 
-10) Add Research/Learning and Modifier-Deck pipeline
-   - Goal: Implement Research/Learning as first-class encounters that produce Insight, Variant-Choice, and Affix-Picks and generate Library variants via a Modifier Deck workflow.
-   - Description: Add a ResearchDeck and ModifierDeck types; support presenting X research candidates (driven by tokens like "max research choice"), selecting one to start, and resolving research by drawing modifier cards and attaching up to Y affixes (Y from Affix-Picks). Random draws and affix numeric rolls use the global seed and all steps are recorded in the ActionLog. Completed variants are added to the Library (never directly to player decks).
-   - Playable acceptance: A Research flow endpoint presents candidates, accepts a selection, resolves modifier draws deterministically using the session seed, produces a Library variant, and logs every decision/draw.
-   - Notes: Start with a small ResearchDeck and ModifierDeck; ensure variant generation and replay are deterministic and auditable. ModifierDeck entries come primarily from Milestones/Challenge rewards and unique modifier acquisition; implement rules to replenish ResearchDeck candidates after resolution so research remains a continuous pipeline.
+10) Research encounters and card discovery
+   - Goal: Implement Research as a first-class encounter type where players invest Insight tokens to discover and create new cards for their library.
+   - Description:
+     - **CardEffect discipline tags**: Every CardEffect has a set of discipline tags (e.g., Combat, Mining, Herbalism, Woodcutting, Fishing) that determine which card types can use that effect. This enables effects to be shared across disciplines when appropriate.
+       - Generalize the "Durability" card effects so they can be used across all gathering mechanics. When a durability card effect is played, the discipline context of the encounter determines which durability pool (MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability) is affected.
+       - Review other CardEffects for similar generalization opportunities.
+     - **Insight card effect**: Add a CardEffectKind::Insight variant that grants discipline-specific Insight tokens.
+       - Can be added to every player card type (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, Fishing, etc.).
+       - Grants between 1-5 Insight tokens when the card is played.
+       - Each player deck starts with a couple of cards that have an Insight effect granting 3 Insight.
+       - The trade-off: playing an Insight card gives no other benefit in the encounter — it sacrifices immediate encounter power for long-term research progress.
+     - **Research state**: The current research project and its progress are stored in GameState (persisted across encounters).
+     - **Research encounters**: At a research encounter, the player can perform the following actions:
+       1. **Choose new research or swap the current one** (single player action):
+          - Choose which discipline to research.
+          - Choose the number of tiers (card effects) on each candidate card.
+          - Pay an Insight cost to get started: exponential based on the number of tiers, starting at 10.
+          - The game instantly generates three possible cards to research from that discipline:
+            - For each candidate card:
+              - Select from all CardEffects whose discipline tags match the chosen discipline.
+              - For each CardEffect, roll a value between its min and max (using the range system from Step 9.1).
+              - The same CardEffect can appear multiple times on a card, each with a new independent roll.
+              - Add one CardEffect per chosen tier.
+            - Present all three candidates to the player (both in the API response and persisted on the research encounter state).
+          - The player then chooses one of the three candidates, or keeps their current research (if any).
+       2. **Progress on the current research** (player action):
+          - The max cost is exponential with the number of tiers, starting at 20.
+          - The player can pay up to 33% of the total research cost per action (using Insight tokens). Later this payment mechanic will become its own discipline.
+          - Payment is added to the research progress.
+          - If this completes the research:
+            - A new card is added to the Library with no counts (0 copies in any zone), of the researched card type.
+            - The current research and its progress are cleared.
+   - Playable acceptance: Research encounters are playable end-to-end. Players can choose a discipline, generate candidates, select a research project, make progress payments, and complete research to produce new Library cards. All rolls are deterministic via the game seed. Scenario tests verify the full research flow.
+   - Notes: CardEffect discipline tags and the Insight card effect are prerequisites that should be implemented early in this step. The research encounter builds on these foundations and on the range system from Step 9.1.
 
 11) Add post-encounter scouting choices (vision-driven)
-   - Goal: Present scouting choices as a post-resolution step that influence replacement-generation parameters (preview counts, affix biases, candidate pools) and grant Foresight/related tokens.
+   - Goal: Present scouting choices as a post-resolution step that influence replacement-generation parameters (preview counts, CardEffect biases, candidate pools) and grant Foresight/related tokens.
    - Description: Implement ScoutChoice objects and a deterministic application that updates replacement parameters for encounter generation (using Library CardCounts). Record scouting decisions and effects in the ActionLog.
+     - Scouting choices can increase the tier of replacement encounters, which in turn increases the tier of rewards from those encounters (e.g., higher-tier gathering yields or tougher combat for better loot).
    - Playable acceptance: After an encounter, API returns scouting choices; making a choice updates the replacement-generation seed/parameters and is reflected in the next replacement card deterministically.
-   - Notes: Keep initial choices small and data-driven (e.g., +1 Foresight, increase affix-pool size).
+   - Notes: Keep initial choices small and data-driven (e.g., +1 Foresight, increase CardEffect-pool size).
     - Up to this point then all encounters just added the same encounter back into the encounter Library: no changes. 
+
+11.5) Gathering balance pass
+   - Goal: After all gathering disciplines, research, and post-encounter scouting are implemented, perform a dedicated balance and tuning pass.
+   - Description:
+     - Normalize durability init values (all currently 100 — may need differentiation per discipline).
+     - Balance reward token amounts across disciplines (Ore, Plant, Lumber, Fish should have comparable value-per-encounter).
+     - Tune encounter card counts and difficulty distributions.
+     - Balance Insight generation rates and research costs across disciplines.
+     - Add cross-discipline scenario tests (e.g., mine then herbalism then combat then research in sequence).
+   - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs. Research costs are proportional to card power.
 
 12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
    - Goal: Model merchants as decks (MerchantOffers, Barter) and deterministic merchant interactions that mirror vision.md's barter mechanics.
@@ -467,14 +486,14 @@ Roadmap steps
    - Notes: Keep scripting sandboxed and composable.
 
 17) Introduce persistent world/meta-progression and milestone systems
-   - Goal: Track area clears, milestones, and unlocks; implement milestone rewards that grant Variant-Choice/Affix-Picks and long-lived tokens.
+   - Goal: Track area clears, milestones, and unlocks; implement milestone rewards that grant CardEffect-Choice/CardEffect-Picks and long-lived tokens.
    - Description: Persist campaign state, add milestone flows, and ensure progression tokens are granted and recorded in the ActionLog.
    - Playable acceptance: A simple campaign unlock path is playable and tokens/unlocks persist across sessions.
    - Notes: Provide tools for resetting campaigns for testing.
 
 18) UX polish, documentation, tools for designers, and release
    - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors.
-   - Description: Add designer tooling for encounter/affix creation, telemetry for balancing, and example playthroughs demonstrating reproducibility from seed+action-log.
+   - Description: Add designer tooling for encounter/CardEffect creation, telemetry for balancing, and example playthroughs demonstrating reproducibility from seed+action-log.
    - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
    - Notes: Tag a release and include release notes linking vision to implemented features.
 
@@ -483,7 +502,7 @@ Implementation guidelines and priorities
 - Validate alignment with docs/vision.md for every milestone; require one explicit mapping note in PRs describing which lines in vision.md the work satisfies.
 - Keep core logic pure and testable; make side effects pluggable and thin wrappers to the ActionLog.
 - Prioritize deterministic behavior and reproducibility from the start.
-- Prefer data-driven content formats (deck files, affix tables) so designers can author content without code changes.
+- Prefer data-driven content formats (deck files, CardEffect tables) so designers can author content without code changes.
 - Try to migrate tests away from test endpoints and use only public endpoints. Only use test endpoints temporarily if it is not possible to run the test without them; the expectation is that a later point in the roadmap will make any test endpoint redundant. 
 - Test migration status: `tests/scenario_tests.rs` uses only production endpoints and serves as the model for new tests. Track which test files still depend on /tests/* endpoints and target full migration as features make test endpoints redundant.
 
@@ -498,9 +517,9 @@ Appendix: Minimum ticket examples for the first 8 steps
 - Refactor library: Extract Card/Hand/Token/Library into lib crate, add unit tests for move/draw/reshuffle, and implement TokenType enum for token definitions.
 - RNG: Add seeded RNG, deterministic derive API, and replay helper for restoring runs.
 - Token lifecycles: Implement Insight/Foresight/Renown/Refinement/Stability and action-log recording for lifecycle events.
-- Encounter tracking: Track encounter cards via Library CardCounts (deck/hand/discard), implement draw/resolve/replace and affix replacement pipeline.
+- Encounter tracking: Track encounter cards via Library CardCounts (deck/hand/discard), implement draw/resolve/replace and CardEffect replacement pipeline.
 - Combat refactor: Implement CombatState and resolution using seeded RNG and output deterministic logs recorded to the ActionLog.
 - Encounter loop: Implement the encounter loop via POST /action (pick encounter, play cards, advance phases, scouting), include replacement and scouting as part of the lifecycle.
-- Research: Implement ResearchDeck + ModifierDeck pipeline and deterministic variant generation recorded to the ActionLog.
+- Research: Implement CardEffect discipline tags, Insight card effect, research encounter with choose/progress actions, and deterministic card generation recorded to the ActionLog.
 - Merchants: Implement MerchantOffers and Barter decks, deterministic visits, and barter flows recorded to the ActionLog.
 
