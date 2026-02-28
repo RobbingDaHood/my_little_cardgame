@@ -320,18 +320,6 @@ Roadmap steps
    - 2 scenario tests added (full loop + abort).
    - Playable acceptance: ✅ Fishing end-to-end with card-subtraction, produces Fish tokens, EncounterAbort supported.
 
-8.5) Refined gathering encounters
-   - Goal: Evolve all simplified gathering disciplines (8.1-8.4) toward richer gameplay with difficulty scaling and strategic card choices.
-   - Description: Add the features that differentiate the vision's end-state from the current simple implementations:
-     - Stamina replaces Rations as the cost currency for encounter boosts and card costs across all disciplines.
-     - All 4 gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) are now implemented with the same EncounterState enum pattern. The pattern is confirmed reusable: each discipline adds a new variant to EncounterState, EncounterKind, and CardKind, then plugs into the existing action dispatch and replay infrastructure.
-     - Four distinct mechanical templates exist:
-       1. Damage-vs-durability loop (Mining): player deals damage to node HP while node deals durability damage; mutual draw each turn.
-       2. Card-characteristic matching (Herbalism): card matching to narrow the enemy hand; no enemy draws.
-       3. Poker-like pattern building (Woodcutting): play cards to build patterns; no enemy deck; degree-of-success rather than binary win/lose.
-       4. Card-subtraction with valid-range targeting (Fishing): player and enemy both play numeric cards; result must land within target range.
-     - Consider whether any of these can share infrastructure or whether each discipline's resolution should remain fully independent.
-
 9.1) Major refactor: CardEffects range system
    - Goal: Replace fixed numeric values on CardEffects with a min-max range system that allows card variation and makes future research/crafting systems meaningful.
    - Description: CardEffects define two values for each numeric parameter:
