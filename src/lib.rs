@@ -54,10 +54,10 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::action::play;
     use crate::actions_log::list_actions_log;
     use crate::actions_log::okapi_add_operation_for_list_actions_log_;
-    use crate::combat::okapi_add_operation_for_get_combat_;
-    use crate::combat::okapi_add_operation_for_get_combat_results_;
+    use crate::combat::okapi_add_operation_for_get_encounter_;
+    use crate::combat::okapi_add_operation_for_get_encounter_results_;
     use crate::combat::okapi_add_operation_for_initialize_combat_;
-    use crate::combat::{get_combat, get_combat_results, initialize_combat};
+    use crate::combat::{get_encounter, get_encounter_results, initialize_combat};
     use crate::library::add_test_library_card;
     use crate::library::list_card_effects;
     use crate::library::list_library_cards;
@@ -76,11 +76,11 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
         .mount(
             "/",
             openapi_get_routes![
-                get_combat,
+                get_encounter,
                 initialize_combat,
                 play,
                 get_player_tokens,
-                get_combat_results,
+                get_encounter_results,
                 list_card_effects,
                 list_actions_log,
             ],

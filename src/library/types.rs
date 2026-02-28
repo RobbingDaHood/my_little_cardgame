@@ -23,7 +23,11 @@ pub enum TokenType {
     Momentum,
     Corruption,
     Exhaustion,
-    Durability,
+    MiningDurability,
+    // Material tokens (produced by gathering)
+    Ore,
+    // Encounter-scoped tokens
+    OreHealth,
 }
 
 /// All known token types.
@@ -44,7 +48,9 @@ impl TokenType {
             TokenType::Momentum,
             TokenType::Corruption,
             TokenType::Exhaustion,
-            TokenType::Durability,
+            TokenType::MiningDurability,
+            TokenType::Ore,
+            TokenType::OreHealth,
         ]
     }
 }
@@ -130,9 +136,19 @@ pub enum CardKind {
     Attack { effect_ids: Vec<usize> },
     Defence { effect_ids: Vec<usize> },
     Resource { effect_ids: Vec<usize> },
+    Mining { mining_effect: MiningCardEffect },
     Encounter { encounter_kind: EncounterKind },
     PlayerCardEffect { kind: CardEffectKind },
     EnemyCardEffect { kind: CardEffectKind },
+}
+
+/// Inline effect for Mining discipline cards.
+/// High ore_damage cards have low durability_prevent and vice versa.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct MiningCardEffect {
+    pub ore_damage: i64,
+    pub durability_prevent: i64,
 }
 
 /// Sub-type of encounter cards.
@@ -140,6 +156,37 @@ pub enum CardKind {
 #[serde(crate = "rocket::serde", tag = "encounter_type")]
 pub enum EncounterKind {
     Combat { combatant_def: CombatantDef },
+    Mining { mining_def: MiningDef },
+}
+
+/// Definition of a mining node for a gathering encounter.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct MiningDef {
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub initial_tokens: HashMap<Token, i64>,
+    pub ore_deck: Vec<OreCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+}
+
+/// A card in the ore deck. Each card deals a fixed amount of durability damage.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct OreCard {
+    pub durability_damage: i64,
+    pub counts: DeckCounts,
+}
+
+/// Copy counts for non-library cards (enemy, ore, etc.): deck, hand, discard.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct DeckCounts {
+    pub deck: u32,
+    pub hand: u32,
+    pub discard: u32,
 }
 
 /// Definition of an enemy combatant for a combat encounter card.
@@ -155,21 +202,12 @@ pub struct CombatantDef {
     pub resource_deck: Vec<EnemyCardDef>,
 }
 
-/// Copy counts for enemy cards: deck, hand, discard.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct EnemyCardCounts {
-    pub deck: u32,
-    pub hand: u32,
-    pub discard: u32,
-}
-
 /// A simple inline card definition for enemy decks.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCardDef {
     pub effect_ids: Vec<usize>,
-    pub counts: EnemyCardCounts,
+    pub counts: DeckCounts,
 }
 
 /// A single entry in the Library. Index in the Vec = card ID.
@@ -382,6 +420,7 @@ pub enum ActionPayload {
     DrawEncounter { encounter_id: String },
     PlayCard { card_id: usize },
     ApplyScouting { card_ids: Vec<usize> },
+    AbortEncounter,
 }
 
 /// Stored action entry in the append-only action log.
@@ -440,27 +479,70 @@ impl CombatPhase {
 /// Snapshot of combat state for deterministic simulation. Pure data.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
-pub struct CombatState {
+pub struct CombatEncounterState {
     pub round: u64,
     pub phase: CombatPhase,
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub enemy_tokens: HashMap<Token, i64>,
-    pub encounter_card_id: Option<usize>,
-    pub is_finished: bool,
-    pub outcome: CombatOutcome,
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
     pub enemy_attack_deck: Vec<EnemyCardDef>,
     pub enemy_defence_deck: Vec<EnemyCardDef>,
     pub enemy_resource_deck: Vec<EnemyCardDef>,
 }
 
-/// Outcome of a combat encounter.
+/// Runtime state for a mining gathering encounter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct MiningEncounterState {
+    pub round: u64,
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub ore_tokens: HashMap<Token, i64>,
+    pub ore_deck: Vec<OreCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub rewards: HashMap<Token, i64>,
+}
+
+/// Active encounter state, dispatched by encounter type.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde", tag = "encounter_state_type")]
+pub enum EncounterState {
+    Combat(CombatEncounterState),
+    Mining(MiningEncounterState),
+}
+
+impl EncounterState {
+    pub fn encounter_card_id(&self) -> usize {
+        match self {
+            EncounterState::Combat(c) => c.encounter_card_id,
+            EncounterState::Mining(m) => m.encounter_card_id,
+        }
+    }
+
+    pub fn is_finished(&self) -> bool {
+        *self.outcome() != EncounterOutcome::Undecided
+    }
+
+    pub fn outcome(&self) -> &EncounterOutcome {
+        match self {
+            EncounterState::Combat(c) => &c.outcome,
+            EncounterState::Mining(m) => &m.outcome,
+        }
+    }
+}
+
+/// Outcome of an encounter (combat, gathering, etc.).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(crate = "rocket::serde")]
-pub enum CombatOutcome {
+pub enum EncounterOutcome {
     Undecided,
     PlayerWon,
-    EnemyWon,
+    PlayerLost,
 }
 
 // ====== Encounter types for the encounter loop (Step 7) ======
@@ -469,9 +551,9 @@ pub enum CombatOutcome {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq, Hash)]
 #[serde(crate = "rocket::serde")]
 pub enum EncounterPhase {
-    /// Combat is currently active
-    Combat,
-    /// Combat has finished; scouting is available
+    /// An encounter is currently active (combat, mining, etc.)
+    InEncounter,
+    /// Encounter has finished; scouting is available
     Scouting,
     /// No active encounter
     NoEncounter,

@@ -3,21 +3,19 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 
-use crate::library::types::{CombatOutcome, CombatState};
+use crate::library::types::{EncounterOutcome, EncounterState};
 use crate::player_data::RandomGeneratorWrapper;
 use crate::status_messages::{new_status, Status};
 
 #[openapi]
-#[get("/combat")]
-pub async fn get_combat(
+#[get("/encounter")]
+pub async fn get_encounter(
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
-) -> Result<Json<CombatState>, NotFound<Json<Status>>> {
+) -> Result<Json<EncounterState>, NotFound<Json<Status>>> {
     let gs = game_state.lock().await;
-    match &gs.current_combat {
+    match &gs.current_encounter {
         Some(c) => Ok(Json(c.clone())),
-        None => Err(NotFound(new_status(
-            "Combat has not been initialized".to_string(),
-        ))),
+        None => Err(NotFound(new_status("No active encounter".to_string()))),
     }
 }
 
@@ -61,7 +59,7 @@ pub async fn enemy_play(
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
 ) -> Created<&'static str> {
     let mut gs = game_state.lock().await;
-    if gs.current_combat.is_none() {
+    if gs.current_encounter.is_none() {
         return Created::new("/tests/combat/enemy_play");
     }
     let mut rng = player_data.random_generator_state.lock().await;
@@ -82,10 +80,10 @@ pub async fn advance_phase(
 }
 
 #[openapi]
-#[get("/combat/results")]
-pub async fn get_combat_results(
+#[get("/encounter/results")]
+pub async fn get_encounter_results(
     game_state: &State<std::sync::Arc<rocket::futures::lock::Mutex<crate::library::GameState>>>,
-) -> Json<Vec<CombatOutcome>> {
+) -> Json<Vec<EncounterOutcome>> {
     let gs = game_state.lock().await;
-    Json(gs.combat_results.clone())
+    Json(gs.encounter_results.clone())
 }

@@ -229,7 +229,7 @@ fn game_state_shutdown() {
 #[test]
 fn game_state_default() {
     let gs: GameState = Default::default();
-    assert!(gs.current_combat.is_none());
+    assert!(gs.current_encounter.is_none());
 }
 
 #[test]

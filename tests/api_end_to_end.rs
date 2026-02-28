@@ -1,4 +1,4 @@
-use my_little_cardgame::library::types::{token_balance_by_type, CombatState, TokenType};
+use my_little_cardgame::library::types::{token_balance_by_type, EncounterState, TokenType};
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
@@ -27,7 +27,7 @@ fn hello_world() {
 
     // Verify Library cards are initialized (4 PlayerCardEffect + 4 EnemyCardEffect + Attack, Defence, Resource, CombatEncounter)
     let library_cards = get_library_cards(&client);
-    assert_eq!(12, library_cards.len());
+    assert_eq!(16, library_cards.len());
 
     // Verify card counts: attack/defence have deck:15 hand:5, resource has deck:35 hand:5
     for card in &library_cards[8..10] {
@@ -52,7 +52,11 @@ fn hello_world() {
 
     let actual = get_combat(&client);
     assert!(actual.is_some());
-    let actual_combat = actual.expect("combat exists");
+    let actual_enc = actual.expect("combat exists");
+    let actual_combat = match &actual_enc {
+        EncounterState::Combat(c) => c,
+        _ => panic!("Expected combat encounter"),
+    };
     assert_eq!(
         actual_combat.phase,
         my_little_cardgame::library::types::CombatPhase::Defending
@@ -80,13 +84,13 @@ fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {
     serde_json::from_str(string_body.as_str()).expect("Test assertion failed")
 }
 
-fn get_combat(client: &Client) -> Option<CombatState> {
-    let response = client.get("/combat").dispatch();
+fn get_combat(client: &Client) -> Option<EncounterState> {
+    let response = client.get("/encounter").dispatch();
     if response.status().code == 404 {
         None
     } else if response.status().code == 200 {
         let string_body = response.into_string().expect("Test assertion failed");
-        let combat: CombatState =
+        let combat: EncounterState =
             serde_json::from_str(string_body.as_str()).expect("Test assertion failed");
         Some(combat)
     } else {

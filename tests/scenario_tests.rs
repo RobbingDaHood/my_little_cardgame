@@ -39,6 +39,10 @@ fn get_json(client: &Client, uri: &str) -> serde_json::Value {
 }
 
 fn player_health(client: &Client) -> i64 {
+    player_token(client, "Health")
+}
+
+fn player_token(client: &Client, token_type_name: &str) -> i64 {
     let resp = client.get("/player/tokens").dispatch();
     let tokens: serde_json::Value =
         serde_json::from_str(&resp.into_string().unwrap_or_default()).unwrap_or_default();
@@ -47,7 +51,7 @@ fn player_health(client: &Client) -> i64 {
         .and_then(|arr| {
             arr.iter().find_map(|entry| {
                 let tt = entry.get("token")?.get("token_type")?.as_str()?;
-                if tt == "Health" {
+                if tt == token_type_name {
                     entry.get("value")?.as_i64()
                 } else {
                     None
@@ -58,7 +62,7 @@ fn player_health(client: &Client) -> i64 {
 }
 
 fn combat_state(client: &Client) -> serde_json::Value {
-    get_json(client, "/combat")
+    get_json(client, "/encounter")
 }
 
 fn encounter_hand_ids(client: &Client) -> Vec<usize> {
@@ -72,7 +76,7 @@ fn encounter_hand_ids(client: &Client) -> Vec<usize> {
 }
 
 fn combat_result(client: &Client) -> Option<String> {
-    let resp = client.get("/combat/results").dispatch();
+    let resp = client.get("/encounter/results").dispatch();
     if resp.status() == Status::Ok {
         let body: Vec<serde_json::Value> =
             serde_json::from_str(&resp.into_string().unwrap_or_default()).unwrap_or_default();
@@ -98,7 +102,7 @@ fn play_one_round(client: &Client) -> bool {
         }
         // Check if combat ended
         let combat = combat_state(client);
-        if combat.get("is_finished").and_then(|v| v.as_bool()) == Some(true) {
+        if combat.get("outcome").and_then(|v| v.as_str()) != Some("Undecided") {
             return false;
         }
     }
@@ -130,8 +134,8 @@ fn scenario_player_wins_combat_then_picks_next_encounter() {
     // 4. Verify combat started
     let combat = combat_state(&client);
     assert_eq!(
-        combat.get("is_finished").and_then(|v| v.as_bool()),
-        Some(false),
+        combat.get("outcome").and_then(|v| v.as_str()),
+        Some("Undecided"),
         "Combat should be active"
     );
     assert!(player_health(&client) > 0, "Player should have health");
@@ -150,8 +154,8 @@ fn scenario_player_wins_combat_then_picks_next_encounter() {
     // With seed 42, determine who won and assert appropriately
     let outcome = result.unwrap();
     assert!(
-        outcome == "PlayerWon" || outcome == "EnemyWon",
-        "Combat outcome should be PlayerWon or EnemyWon, got: {}",
+        outcome == "PlayerWon" || outcome == "PlayerLost",
+        "Combat outcome should be PlayerWon or PlayerLost, got: {}",
         outcome
     );
 
@@ -230,8 +234,8 @@ fn scenario_full_loop_new_game_combat_scout_combat() {
         // Verify new combat started
         let combat = combat_state(&client);
         assert_eq!(
-            combat.get("is_finished").and_then(|v| v.as_bool()),
-            Some(false),
+            combat.get("outcome").and_then(|v| v.as_str()),
+            Some("Undecided"),
             "Second combat should be active"
         );
 
@@ -244,7 +248,7 @@ fn scenario_full_loop_new_game_combat_scout_combat() {
 
         let result2 = combat_result(&client).expect("Should have second combat result");
         assert!(
-            result2 == "PlayerWon" || result2 == "EnemyWon",
+            result2 == "PlayerWon" || result2 == "PlayerLost",
             "Second combat should have an outcome"
         );
     }
@@ -282,7 +286,7 @@ fn scenario_enemy_wins_combat() {
         }
 
         if let Some(result) = combat_result(&client) {
-            if result == "EnemyWon" {
+            if result == "PlayerLost" {
                 found_enemy_win = true;
 
                 // Verify player health is 0
@@ -514,7 +518,7 @@ fn scenario_enemy_draws_per_type() {
     play_one_round(&client);
 
     // Check if combat is still active (GET /combat returns 404 when finished)
-    let resp = client.get("/combat").dispatch();
+    let resp = client.get("/encounter").dispatch();
     if resp.status() != Status::Ok {
         return;
     }
@@ -542,4 +546,297 @@ fn scenario_enemy_draws_per_type() {
         er_total,
         "Enemy resource cards should be conserved"
     );
+}
+
+// --- Mining helpers ---
+
+/// Find mining card IDs available in the player's hand (card IDs 12, 13, 14).
+fn mining_hand_card_ids(client: &Client) -> Vec<usize> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Mining");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
+/// Play one mining card. Returns true if the mining encounter is still active.
+fn play_one_mining_card(client: &Client) -> bool {
+    let mining_ids = mining_hand_card_ids(client);
+    if mining_ids.is_empty() {
+        return false;
+    }
+    let card_id = mining_ids[0];
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        card_id
+    );
+    let (status, _) = post_action(client, &json);
+    if status != Status::Created {
+        return false;
+    }
+    let encounter = combat_state(client);
+    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+}
+
+/// Find mining encounter card IDs in the encounter hand.
+fn mining_encounter_ids(client: &Client) -> Vec<usize> {
+    let encounter_ids = encounter_hand_ids(client);
+    // ID 15 is the mining encounter; filter for it
+    encounter_ids.into_iter().filter(|&id| id == 15).collect()
+}
+
+#[test]
+fn scenario_mining_encounter_full_loop() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // 1. Start a new game with a fixed seed
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created, "NewGame should succeed");
+
+    // 2. Verify mining encounter cards are in hand
+    let mining_enc = mining_encounter_ids(&client);
+    assert!(
+        !mining_enc.is_empty(),
+        "Should have mining encounter cards in hand"
+    );
+
+    // 3. Pick the mining encounter (card_id 15)
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    );
+    assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
+    // 4. Verify mining encounter started
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Mining"),
+        "Encounter should be Mining type"
+    );
+    assert_eq!(
+        encounter.get("outcome").and_then(|v| v.as_str()),
+        Some("Undecided"),
+        "Mining should be active"
+    );
+    assert_eq!(
+        encounter
+            .get("ore_tokens")
+            .and_then(|v| v.get("OreHealth"))
+            .and_then(|v| v.as_i64()),
+        Some(15),
+        "Ore Health should start at 15"
+    );
+
+    // 5. Verify player has MiningDurability token (initialized at game start)
+    let durability = player_token(&client, "MiningDurability");
+    assert_eq!(
+        durability, 100,
+        "Player should start with 100 mining durability"
+    );
+
+    // 6. Play mining encounters in a loop until durability runs out
+    let mut total_encounters = 0;
+    let mut last_outcome;
+    loop {
+        // Play mining cards until encounter finishes
+        let mut round_turns = 0;
+        while play_one_mining_card(&client) {
+            round_turns += 1;
+            assert!(round_turns < 50, "Mining round should end within 50 turns");
+        }
+        total_encounters += 1;
+
+        last_outcome = combat_result(&client).unwrap_or_default();
+
+        if last_outcome == "PlayerWon" {
+            let ore = player_token(&client, "Ore");
+            assert!(ore > 0, "Player should have Ore after winning mining");
+        }
+
+        if last_outcome == "PlayerLost" {
+            break;
+        }
+
+        // Scout and pick another mining encounter
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+        );
+        assert_eq!(status, Status::Created, "ApplyScouting should succeed");
+
+        let mining_enc = mining_encounter_ids(&client);
+        if mining_enc.is_empty() {
+            break;
+        }
+        let pick_json = format!(
+            r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+            mining_enc[0]
+        );
+        let (status, _) = post_action(&client, &pick_json);
+        assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
+        assert!(
+            total_encounters < 100,
+            "Player should eventually lose from durability depletion"
+        );
+    }
+
+    assert!(
+        total_encounters > 1,
+        "With 100 durability, player should survive multiple mining encounters"
+    );
+
+    // 7. Verify final state: player eventually lost from durability depletion
+    if last_outcome == "PlayerLost" {
+        let exhaustion = player_token(&client, "Exhaustion");
+        assert_eq!(
+            exhaustion, 0,
+            "Mining has no penalties; Exhaustion should be 0"
+        );
+        let final_durability = player_token(&client, "MiningDurability");
+        assert_eq!(
+            final_durability, 0,
+            "Player mining durability should be 0 when losing mining"
+        );
+    }
+
+    // 8. Scout after final encounter (only if we haven't already scouted)
+    if last_outcome == "PlayerLost" || last_outcome == "PlayerWon" {
+        // After PlayerLost: still in Scouting phase, need to scout
+        // After PlayerWon when mining_enc was empty: already scouted in loop
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+        );
+        // Scout may fail if already scouted (loop broke due to empty mining hand)
+        if last_outcome == "PlayerLost" {
+            assert_eq!(
+                status,
+                Status::Created,
+                "Should be able to scout after mining loss"
+            );
+        }
+    }
+}
+
+#[test]
+fn scenario_abort_mining_encounter() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // 1. Start a new game
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created);
+
+    // 2. Pick a mining encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // 3. Verify mining encounter is active
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Mining")
+    );
+
+    // 4. Abort the encounter
+    let (status, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+    assert_eq!(status, Status::Created, "Abort should succeed");
+
+    // 5. Verify encounter result is PlayerLost
+    let result = combat_result(&client);
+    assert_eq!(result, Some("PlayerLost".to_string()));
+
+    // 6. Verify can scout after abort
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(
+        status,
+        Status::Created,
+        "Should be able to scout after abort"
+    );
+
+    // 7. Verify aborting combat is rejected
+    let (status2, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status2, Status::Created);
+    let (status2, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    );
+    assert_eq!(status2, Status::Created);
+    let (status2, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+    assert_eq!(
+        status2,
+        Status::BadRequest,
+        "Should not be able to abort combat"
+    );
+}
+
+#[test]
+fn scenario_mining_then_combat_coexist() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // Start game and verify both combat and mining encounters exist in hand
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":100}"#);
+    assert_eq!(status, Status::Created);
+
+    let all_encounters = encounter_hand_ids(&client);
+    let has_combat = all_encounters.contains(&11);
+    let has_mining = all_encounters.contains(&15);
+    assert!(has_combat, "Should have combat encounter cards (id 11)");
+    assert!(has_mining, "Should have mining encounter cards (id 15)");
+
+    // Do a mining encounter first
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let mut turns = 0;
+    while play_one_mining_card(&client) {
+        turns += 1;
+        if turns >= 50 {
+            break;
+        }
+    }
+
+    // Scout after mining
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // Now do a combat encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    // Verify combat started correctly
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Combat"),
+        "Should now be in a combat encounter"
+    );
+    assert!(player_health(&client) > 0, "Player should have health");
+
+    // Play one round of combat to verify it works after mining
+    play_one_round(&client);
 }

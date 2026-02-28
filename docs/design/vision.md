@@ -50,27 +50,27 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 ## Current combat setup
 
 ### Implementation updates (2026-02-23)
-- Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. PersistentCounter is the default lifecycle for all token types, but any token type can use any lifecycle — for example Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`); the old array-of-entries format is still accepted for backward-compatible deserialization.
+- Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, MiningDurability, Ore, OreHealth. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. PersistentCounter is the default lifecycle for all token types, but any token type can use any lifecycle — for example Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`); the old array-of-entries format is still accepted for backward-compatible deserialization.
 - The ScopedToEncounter lifecycle was replaced by FixedTypeDuration { phases, duration }; references to ScopedToEncounter were removed.
-- Combat state lives in GameState (current_combat: Option<CombatState>, encounter_phase: EncounterPhase) and src/combat/ endpoints delegate to GameState methods (start_combat, resolve_player_card, resolve_enemy_play, advance_combat_phase). CombatState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside CombatState. Turn control is implicit: the player always acts first, then the system auto-resolves enemy play and advances combat phase within the same action.
-- Combat outcome is tracked via a `CombatOutcome` enum on CombatState with variants: Undecided, PlayerWon, EnemyWon. GameState maintains `combat_results: Vec<CombatOutcome>` — each completed combat pushes its outcome to this vector. The `/combat/results` endpoint returns the full history.
+- Encounter state lives in GameState (current_encounter: Option<EncounterState>, encounter_phase: EncounterPhase) and src/combat/ endpoints delegate to GameState methods. EncounterState is an enum with variants Combat(CombatEncounterState) and Mining(MiningEncounterState), each containing encounter-type-specific state. CombatEncounterState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside the encounter state. Turn control is implicit: the player always acts first, then the system auto-resolves enemy play and advances combat phase within the same action.
+- Encounter outcome is tracked via an `EncounterOutcome` enum on each encounter state with variants: Undecided, PlayerWon, PlayerLost. GameState maintains `encounter_results: Vec<EncounterOutcome>` — each completed encounter pushes its outcome to this vector. The `/encounter/results` endpoint returns the full history. Encounter completion is determined solely by `outcome != EncounterOutcome::Undecided` (there is no separate `is_finished` field).
 - Dodge absorption: damage consumes Dodge tokens first before Health is reduced.
 - Drawing additional cards is modelled via the `CardEffectKind::DrawCards { attack, defence, resource }` variant of the `CardEffectKind` enum. `CardEffectKind` has two variants: `ChangeTokens { target, token_type, amount }` for token manipulation, and `DrawCards { attack: u32, defence: u32, resource: u32 }` for per-deck-type card draw. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via ChangeTokens effects. Starting decks draw 1 attack, 1 defence, 2 resource cards per resource play (4 total) for steady pacing. DrawCards is not a token type — it is purely a card effect subtype. Both player and enemy draws happen per deck type with discard recycling per type.
 - CardEffectKind extensibility: new card effect subtypes (e.g., conditional effects, area-of-effect, combo triggers) should be added as new `CardEffectKind` variants rather than overloading `ChangeTokens` with special token types. This keeps each effect kind self-describing and ensures exhaustive match coverage in Rust.
-- Enemy decks use `EnemyCardCounts { deck, hand, discard }` to track card locations. At combat start, enemy hands are shuffled (all cards move to deck, then random cards drawn to restore hand size using the seeded RNG). Enemies play from hand only; played cards go to discard. When a deck is empty and a draw is needed, the discard pile is recycled into the deck. Resource cards draw their DrawCards amounts (via CardEffectKind::DrawCards { attack, defence, resource }) of cards for each of the three enemy deck types, providing the only replenishment mechanism for all enemy decks.
+- Enemy decks use `DeckCounts { deck, hand, discard }` (a generic struct shared by all encounter-internal deck tracking — enemy decks, ore decks, and future encounter card pools) to track card locations. At combat start, enemy hands are shuffled (all cards move to deck, then random cards drawn to restore hand size using the seeded RNG). Enemies play from hand only; played cards go to discard. When a deck is empty and a draw is needed, the discard pile is recycled into the deck. Resource cards draw their DrawCards amounts (via CardEffectKind::DrawCards { attack, defence, resource }) of cards for each of the three enemy deck types, providing the only replenishment mechanism for all enemy decks.
 - After a player plays a card via EncounterPlayCard, the system automatically resolves the enemy's play and advances the combat phase. There are no separate endpoints for enemy play or phase advancement. The exact auto-advance sequence is:
   1. Player plays card → resolve player card effects
   2. Resolve enemy play (one random card matching current CombatPhase from enemy hand)
   3. Advance combat phase (Defending → Attacking → Resourcing → Defending)
   4. Check combat end conditions (either side HP ≤ 0)
-- CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum starting with Combat { combatant_def }, preparing for future non-combat encounter types (Gathering, Puzzle, etc.).
-- Players cannot abandon combat once started. Combat continues until one side is defeated (HP reaches 0). EncounterApplyScouting is the action that transitions from post-combat Scouting phase back to NoEncounter.
+- CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum with variants Combat { combatant_def } and Mining { mining_def }, with future non-combat encounter types to follow (Woodcutting, Herbalism, etc.). CardKind::Mining { mining_effect: MiningCardEffect } is a separate card kind for mining action cards with inline effects (ore_damage: i64, durability_prevent: i64).
+- Players cannot abandon combat encounters once started; combat continues until one side is defeated (HP reaches 0). Non-combat encounters (e.g., Mining) may be aborted via the EncounterAbort action, which marks the encounter as PlayerLost, grants no rewards, applies no penalties, and transitions to Scouting phase. EncounterApplyScouting is the action that transitions from post-encounter Scouting phase back to NoEncounter.
 - Scouting after loss: after combat ends (whether the player wins or loses), the game transitions to the Scouting phase. The player can apply scouting regardless of combat outcome. This is intentional — scouting is a post-encounter lifecycle step, not a victory reward.
 - Health initialization: player Health is set to 20 when picking an encounter only if current Health is 0. Health persists across encounters within a game; it is not reset between encounters.
 - All amounts are positive: attacks have a positive number even though they remove health points, allowing unsigned integers to be used where possible.
-- Only four player actions exist: NewGame { seed: Option<u64> }, EncounterPickEncounter { card_id }, EncounterPlayCard { card_id }, EncounterApplyScouting. All other previously documented actions have been removed.
+- Five player actions exist: NewGame { seed: Option<u64> }, EncounterPickEncounter { card_id }, EncounterPlayCard { card_id }, EncounterApplyScouting, EncounterAbort. EncounterAbort allows aborting non-combat encounters (returns 400 for combat). All other previously documented actions have been removed.
 - NewGame { seed: Option<u64> } initializes a fresh game. If no seed is provided, a random one is generated. The old /player/seed endpoint and SetSeed action have been removed.
-- The action log records only player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). Internal operations (token grants, consumes, card movements) are deterministic consequences of player actions and the seed, so they do not need logging for reproducibility. ActionEntry contains only `seq: usize` (index in the log) and `payload: ActionPayload`. The `/actions/log` endpoint returns chronologically ordered entries.
+- The action log records only player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort). Internal operations (token grants, consumes, card movements) are deterministic consequences of player actions and the seed, so they do not need logging for reproducibility. ActionEntry contains only `seq: usize` (index in the log) and `payload: ActionPayload`. The `/actions/log` endpoint returns chronologically ordered entries.
 - CardLocation enum: `Library`, `Deck`, `Hand`, `Discard`. Used as a query filter on `/library/cards?location=Hand&card_kind=Encounter`. All card types use the same location tracking system via CardCounts. The `/library/cards` endpoint returns `LibraryCardWithId` (includes card ID/index) with optional `?location=` and `?card_kind=` filters.
 - Card draws are random (seeded): `draw_player_cards_of_kind` accepts an RNG parameter and picks a random card from the drawable pool, not the first card sequentially.
 - CombatPhase::allowed_card_kind() returns a type-safe predicate `fn(&CardKind) -> bool` rather than a string comparison.
@@ -80,21 +80,41 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 ## Current combat setup
 
 Combat is modelled as a deterministic, turn-based exchange between decks:
-1. Encounter selection: The player picks an encounter card from the encounter hand (visible Library encounter cards). The handler validates the card is a combat encounter before starting combat.
+1. Encounter selection: The player picks an encounter card from the encounter hand (visible Library encounter cards). The handler dispatches to the appropriate encounter start method based on EncounterKind (Combat or Mining).
 2. Setup: Enemy card exposes stats (HP, Attack, Defence, special effects) via its CombatantDef. Player tokens (Health, Shield, etc.) live on GameState, not inside the combat snapshot.
 3. Player turn: The player plays a card via EncounterPlayCard. The system resolves the card's effects (attack deals damage, defence grants shield, resource triggers draws via DrawCards effects).
 4. Auto-advance: After the player's card, the system automatically resolves the enemy's play (one random card matching the current CombatPhase) and advances the combat phase (Defending → Attacking → Resourcing → Defending).
-5. Resolution: Cards moved to Discard or Deleted. Repeat until one side is defeated (HP reaches 0). Combat outcome is tracked via CombatOutcome enum (Undecided, PlayerWon, EnemyWon) on CombatState.
+5. Resolution: Cards moved to Discard or Deleted. Repeat until one side is defeated (HP reaches 0). Encounter outcome is tracked via EncounterOutcome enum (Undecided, PlayerWon, PlayerLost) on the encounter state. Each encounter state has a mandatory `encounter_card_id: usize` tracking which library card spawned it.
 
 Combat is fully reproducible by recording the game's single initial seed and the player's action log (which card was played each turn).
 
   - Encounter phases: the `EncounterPhase` enum defines the encounter state machine with the following variants:
     - `NoEncounter` — no encounter is active; the player may pick an encounter from the encounter hand
-    - `Combat` — combat is in progress
-    - `Scouting` — post-combat phase where the player applies scouting before returning to NoEncounter
-  - Note: `EncounterPhase` is stored directly on `GameState.encounter_phase` (the `EncounterState` wrapper has been removed).
+    - `InEncounter` — an encounter is in progress (combat, mining, or any future encounter type). The specific encounter type is determined by the `EncounterState` enum variant, not by the phase.
+    - `Scouting` — post-encounter phase where the player applies scouting before returning to NoEncounter
+  - Note: `EncounterPhase` is stored directly on `GameState.encounter_phase`.
 
   - HP as tokens: Hit points are modelled as tokens (e.g., health and max_health in active_tokens) rather than dedicated fields, following the 'everything is a token' principle.
+
+  - EncounterState pattern: `EncounterState` is an enum dispatching encounter-type-specific logic:
+    ```rust
+    pub enum EncounterState {
+        Combat(CombatEncounterState),
+        Mining(MiningEncounterState),
+        // future: Herbalism(HerbalismEncounterState), Woodcutting(...), etc.
+    }
+    ```
+    Each encounter type has its own state struct because mechanics differ fundamentally. Combat uses 3 decks + phases (Defending/Attacking/Resourcing); mining uses a single deck with no phases. The `EncounterState` enum provides helpers like `is_finished()` (checks `outcome != Undecided`) and `encounter_card_id()`.
+
+  - Mining encounter mechanics (implemented):
+    - Single-deck resolution: Player Mining deck contains cards with `ore_damage` (damage to ore node) and `durability_prevent` (reduces incoming durability damage) as a tradeoff. Ore node has an OreDeck with cards dealing 0-3 durability damage (distribution skewed low: ~30% zero, ~40% one, ~20% two, ~10% three).
+    - Turn flow: Player plays mining card → ore_damage reduces OreHealth token → durability_prevent is computed inline → ore plays random card from ore deck → effective durability damage = raw - prevent → both sides draw → check end conditions.
+    - Win: OreHealth ≤ 0 → grant reward tokens (e.g., Ore: 10). Rewards use `HashMap<Token, i64>` keys (full Token with lifecycle, not just TokenType).
+    - Lose: MiningDurability ≤ 0 → encounter ends as PlayerLost with no additional penalties. MiningDurability loss across encounters IS the implicit penalty.
+    - No phases: Unlike combat's Defending → Attacking → Resourcing cycle, mining resolves one action per turn with no phase rotation.
+    - Ore health tracked via `ore_tokens: HashMap<Token, i64>` with OreHealth token (encounter-scoped). Serialized JSON: `"ore_tokens": {"OreHealth": 15}`.
+    - MiningDurability: Initialized to 100 in `GameState::new()` at game start. Persists across all mining encounters and decreases over time. NOT re-initialized per encounter. High initial value (100) is a placeholder pending repair mechanics.
+    - Endpoints: `/encounter` and `/encounter/results` serve all encounter types. Response JSON includes `encounter_state_type` discriminator field (`"Combat"` or `"Mining"`).
 
 
 ## Areas as decks (future vision)
@@ -169,7 +189,7 @@ Canonical token list, generators, and uses
 
 - Exhaustion (negative token): generated by overexertion (failed or costly actions across disciplines). Use: applied as a persistent penalty (reduced hand size, increased costs) until recovered.
 
-- Durability (discipline HP pool): a discipline-level "hp/life" pool used during gathering and crafting encounters (e.g., Mining HP, Woodcutting HP). Decreased by failed or costly actions and by using powerful extraction moves; restored by repairs, rest, or specific cards. Spendable: no. Use: models the condition and operational capacity of a discipline during encounters and enforces maintenance/repair flows.
+- MiningDurability, WoodcuttingDurability, HerbalismDurability, etc. (discipline HP pools): discipline-specific "hp/life" pools used during gathering encounters. Each gathering profession has its own durability pool (named `{Discipline}Durability`). Initialized at game start (e.g., MiningDurability: 100) and persists across encounters. Decreased by encounter actions; restored by repairs, rest, or specific cards. Spendable: no. Use: models the condition and operational capacity of a discipline during encounters and enforces maintenance/repair flows. When a discipline's durability reaches 0 during an encounter, the encounter ends as PlayerLost with no additional penalties (durability loss IS the penalty).
 
 - Thesis (research progression token): generated by completing Learning/Research encounters, milestone rewards, and special events. Spendable: yes. Use: advance or unlock research projects, pay for special experiment options, or enable limited Variant-Choice/Affix-Picks bonuses during research.
 
@@ -303,7 +323,7 @@ Research cards, modifier deck, and variant creation
 
   This system reuses the research/replacement workflow and makes area evolution an explicit part of every encounter's lifecycle.
 
-- Mining / Woodcutting (gathering subtypes): focus on discipline wear, layering, and combo extraction. Resource node cards expose hardness or knotting values; powerful extraction actions decrease the discipline's Durability pool and special action cards grant extraction combos. Multiple successful plays in sequence produce multipliers on quality or yield; failures reduce discipline Durability.
+- Mining / Woodcutting (gathering subtypes): focus on discipline wear and extraction. In the current simplified implementation, Mining uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. Future refined versions (Step 8.5) will add layering, combo extraction, yield-quality trade-offs, and multiple phases as described in the Encounter templates section.
 
 Design consequences and examples:
 - Different card pools: each subtype has bespoke card families (Knowledge cards, Tool cards, Time cards, Recon cards) so card synergies are meaningful and specific to the activity.
@@ -371,9 +391,9 @@ This design lets the game grow from simple beginnings to rich systems while pres
 ## Interface and API
 
 - The game is intentionally pure text-based and exposed entirely via a REST JSON API so it remains playable by humans who can issue and read JSON requests/responses.
-- All mutable interactions are performed through a single actions endpoint (e.g., POST /action) where each operation is a concise JSON object describing the intended action; this endpoint is the canonical way to interact with and mutate game state. The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting.
+- All mutable interactions are performed through a single actions endpoint (e.g., POST /action) where each operation is a concise JSON object describing the intended action; this endpoint is the canonical way to interact with and mutate game state. The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort.
 - An append-only actions log endpoint (for example GET /actions/log) exposes all player actions in chronological order. When paired with the game's initial seed used for RNG, the full chronological action list is sufficient to deterministically reproduce the exact game state at any point. Only player actions are recorded; internal operations (token grants, card movements) are deterministic consequences of the seed and player actions.
-- Other endpoints (for example /library/cards, /combat, /combat/results, /player/tokens, /actions/log) provide read-only JSON access to game data; the actions endpoint is the only endpoint that performs state changes. The /library/cards endpoint supports `?location=` and `?card_kind=` query filters and returns cards with their IDs.
+- Other endpoints (for example /library/cards, /encounter, /encounter/results, /player/tokens, /actions/log) provide read-only JSON access to game data; the actions endpoint is the only endpoint that performs state changes. The /library/cards endpoint supports `?location=` and `?card_kind=` query filters and returns cards with their IDs.
 - The project's OpenAPI specification will include thorough tutorials, documentation, and guided examples (end-to-end flows, example requests/responses, recipe/crafting walkthroughs) so integrators, designers, and QA can learn and exercise the API directly from the spec.
 
 ## Card location model and counts
@@ -458,61 +478,99 @@ Concrete examples
 
 1) Mining (gathering)
 
-- Encounter card fields: hardness, vein_quality, embedded_modifiers (e.g., Encrusted, ElementalCore), expected_yield_distribution.
-- Pre-start: all encounter fields are visible before committing to the encounter.
-- Start: encounter Durability pool set (node HP), player Discipline Durability is checked, optional tool cards may be equipped; random values derive deterministically from the game's single initial seed.
-- Phases: Setup → Extraction Rounds (repeating) → Evaluation → Resolution → Post-resolution area-update/scouting.
-- Player actions: Play Mining action cards (Swing, Chip, Prise), spend Rations to temporarily boost extraction power (if allowed by card), spend Momentum-like tokens for combos, use special cards to change node state (Scouting-derived cards to identify weak points).
-- Decks involved: Player Mining deck, Resource/Hand, Area node deck, Reward/Treasure deck.
-- Tokens involved: Discipline Durability, Rations (if boosting), Momentum, Foresight (if present), Refinement rarely for special node rerolls.
-- Difficulty progression: successive nodes in the same area increase base hardness and chance of affixes; variant modifiers increase with area level.
-- Distinctive features: Mining emphasizes repeated extraction rounds, tool/discipline wear, and yield-quality trade-offs rather than a single-turn burst damage.
-- Success rewards: specific material tokens (Ore, Gems), potential recipe fragments, increased local Variant-Choice chance on rare success.
-- Failure consequences: reduced Discipline Durability, resource loss, Exhaustion gain, or forced retreat with no yield.
-- Win/Lose: win by depleting node HP or completing required extraction sequence; lose if Discipline Durability depletes or time/round limits expire.
+- Current simplified implementation (Step 8.1):
+  - Encounter card fields: OreHealth (via ore_tokens), ore deck (DeckCounts), rewards (HashMap<Token, i64>).
+  - Pre-start: all encounter fields are visible before committing.
+  - Start: OreHealth token set on MiningEncounterState.ore_tokens; MiningDurability checked (persists from game start at 100).
+  - Phases: none — single action per turn, no phase rotation.
+  - Player actions: Play Mining cards (ore_damage + durability_prevent tradeoff). Player draws 1 mining card per play.
+  - Decks: Player Mining deck, Ore deck (encounter-internal, uses DeckCounts).
+  - Tokens: MiningDurability (persistent, game-start init), OreHealth (encounter-scoped), Ore (reward).
+  - Win: OreHealth ≤ 0 → grant reward tokens (Ore: 10). Loss: MiningDurability ≤ 0 → PlayerLost, no penalties.
+  - EncounterAbort available (marks as PlayerLost, no rewards/penalties).
+
+- Future refined version (Step 8.5 — end-state vision):
+  - Encounter card fields: hardness, vein_quality, embedded_modifiers (e.g., Encrusted, ElementalCore), expected_yield_distribution.
+  - Phases: Setup → Extraction Rounds (repeating) → Evaluation → Resolution → Post-resolution area-update/scouting.
+  - Player actions: Play Mining action cards (Swing, Chip, Prise), spend Rations to temporarily boost extraction power, spend Momentum-like tokens for combos, use special cards to change node state.
+  - Decks involved: Player Mining deck, Resource/Hand, Area node deck, Reward/Treasure deck.
+  - Tokens involved: MiningDurability, Rations (if boosting), Momentum, Foresight (if present), Refinement rarely for special node rerolls.
+  - Difficulty progression: successive nodes in the same area increase base hardness and chance of affixes; variant modifiers increase with area level.
+  - Distinctive features: Mining emphasizes repeated extraction rounds, tool/discipline wear, and yield-quality trade-offs rather than a single-turn burst damage.
+  - Success rewards: specific material tokens (Ore, Gems), potential recipe fragments, increased local Variant-Choice chance on rare success.
+  - Failure consequences: reduced MiningDurability, resource loss, Exhaustion gain, or forced retreat with no yield.
+  - Win/Lose: win by depleting node HP or completing required extraction sequence; lose if MiningDurability depletes or time/round limits expire.
 
 2) Woodcutting (gathering)
 
-- Encounter card fields: knotting_value, trunk_size, rot_chance, modifier_tags.
-- Pre-start: visible trunk_size and known hazards/tags.
-- Start: encounter Durability pool set and initialized to represent trunk integrity; random values derive deterministically from the game's single initial seed.
-- Phases: Setup → Chop Rounds → Branch Processing → Resolution → Post-resolution area-update/scouting.
-- Player actions: Play Chop, Wedge, Tend cards; use tools/discipline abilities to target weak points; use Foresight to preview better cut lines.
-- Decks: Woodcutting deck, Resource deck, Area deck, Reward deck.
-- Tokens: Discipline Durability, Momentum, Rations optional for boosts.
-- Difficulty progression: larger trunks, rare knotting modifiers, increased rot/infestation chances.
-- Distinctive features: multi-stage processing (chop then process branches), higher emphasis on sequencing and conserving Durability.
-- Rewards: Lumber, Planks, occasional special wood components.
-- Failure: Durability loss, broken tools (modeled as extra Durability loss or temporary discipline penalties), reduced yield.
-- Win/Lose: win by extracting required yield; lose if Durability drops to 0 or rounds elapse.
+- Current simplified implementation (Step 8.2):
+  - Same mechanical template as Mining: single Woodcutting deck vs tree node.
+  - Cards have chop_damage (damage to tree) and splinter_prevent (reduce incoming stamina damage).
+  - Tree node has TreeHealth token (encounter-scoped). Tree deck deals 0-3 stamina damage (similar distribution to mining ore deck).
+  - Win: TreeHealth ≤ 0 → grant Lumber tokens. Loss: WoodcuttingDurability ≤ 0.
+  - WoodcuttingDurability initialized at game start (100), persists across encounters. No failure penalties. Player draws 1 card per play.
+  - EncounterAbort available.
+
+- Future refined version (Step 8.5 — end-state vision):
+  - Encounter card fields: knotting_value, trunk_size, rot_chance, modifier_tags.
+  - Pre-start: visible trunk_size and known hazards/tags.
+  - Phases: Setup → Chop Rounds → Branch Processing → Resolution → Post-resolution area-update/scouting.
+  - Player actions: Play Chop, Wedge, Tend cards; use tools/discipline abilities to target weak points; use Foresight to preview better cut lines.
+  - Decks: Woodcutting deck, Resource deck, Area deck, Reward deck.
+  - Tokens: WoodcuttingDurability, Momentum, Rations optional for boosts.
+  - Difficulty progression: larger trunks, rare knotting modifiers, increased rot/infestation chances.
+  - Distinctive features: multi-stage processing (chop then process branches), higher emphasis on sequencing and conserving WoodcuttingDurability.
+  - Rewards: Lumber, Planks, occasional special wood components.
+  - Failure: WoodcuttingDurability loss, broken tools (modeled as extra durability loss or temporary discipline penalties), reduced yield.
+  - Win/Lose: win by extracting required yield; lose if WoodcuttingDurability drops to 0 or rounds elapse.
 
 3) Herbalism (gathering)
 
-- Encounter fields: fragility, potency, required_extraction_sequence, contamination_risk.
-- Pre-start: visible plant type and basic potency hint.
-- Phases: Setup → Extraction Sequence → Stabilization → Resolution → Post-resolution area-update/scouting.
-- Actions: Play Knowledge, Microscope, Distillation cards; sequencing and protection moves to avoid loss of potency.
-- Decks: Herbalism deck, Resource deck, Reward deck.
-- Tokens: Reagent tokens, Insight (for research-like grabs), Discipline Durability small (toolless but can exhaust the gatherer). Rations follow canonical token rules and may be consumed by discipline cards for targeted boosts.
-- Difficulty progression: rarer plants require longer sequences and have higher contamination risk.
-- Distinctive features: precision and sequence matching; failures often reduce potency rather than causing total loss.
-- Rewards: Reagent, Tinctures, recipe unlocks.
-- Failure: lower potency yield, chance of harmful contamination token, small Exhaustion.
-- Win/Lose: win by completing sequence with sufficient potency; lose if contamination exceeds threshold or sequence breaks irreparably.
+- Current simplified implementation (Step 8.3):
+  - Mechanic: card-characteristic matching (unique among gathering disciplines).
+  - Enemy (plant) starts with X cards on hand. The plant does NOT draw more cards.
+  - Each enemy card has 1-3 characteristics from a small enum (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous).
+  - Player plays Herbalism cards that target characteristics. Playing a card removes all enemy cards that share at least one characteristic with the player's card.
+  - Win: exactly 1 enemy card remains → that card becomes the reward, plus Plant tokens granted. Loss: 0 enemy cards remain (over-harvested — too aggressive).
+  - HerbalismDurability initialized at game start (100), persists across encounters. Player draws 1 card per play.
+  - EncounterAbort available (marks as PlayerLost, no rewards/penalties).
+  - Tokens: HerbalismDurability (persistent), Plant (reward material token).
+
+- Future refined version (Step 8.5 — end-state vision):
+  - Encounter fields: fragility, potency, required_extraction_sequence, contamination_risk.
+  - Pre-start: visible plant type and basic potency hint.
+  - Phases: Setup → Extraction Sequence → Stabilization → Resolution → Post-resolution area-update/scouting.
+  - Actions: Play Knowledge, Microscope, Distillation cards; sequencing and protection moves to avoid loss of potency.
+  - Decks: Herbalism deck, Resource deck, Reward deck.
+  - Tokens: Reagent tokens, Insight (for research-like grabs), HerbalismDurability (toolless but can exhaust the gatherer). Rations follow canonical token rules and may be consumed by discipline cards for targeted boosts.
+  - Difficulty progression: rarer plants require longer sequences and have higher contamination risk.
+  - Distinctive features: precision and sequence matching; failures often reduce potency rather than causing total loss.
+  - Rewards: Reagent, Tinctures, recipe unlocks.
+  - Failure: lower potency yield, chance of harmful contamination token, small Exhaustion.
+  - Win/Lose: win by completing sequence with sufficient potency; lose if contamination exceeds threshold or sequence breaks irreparably.
 
 4) Fishing / Foraging (gathering)
 
-- Encounter fields: season, spawn_density, stealth_requirement.
-- Pre-start: visible environment type and rough spawn hints.
-- Phases: Setup → Attempt Rounds → Net/Harvest → Resolution → Post-resolution area-update/scouting.
-- Actions: Play Stealth, Cast, Lure, Snare cards; time-sensitive plays and equipment choices.
-- Decks: Foraging/Fishing deck, Resource deck, Reward deck.
-- Tokens: Rations (food), Momentum for combo catches, Discipline Durability minimal.
-- Difficulty progression: rarer spawns and seasonal modifiers.
-- Distinctive features: stealth and timing mechanics, rewards often consumables or provisioning ingredients.
-- Rewards: Foodstuffs, Ingredients, occasional rare items.
-- Failure: no yield and small Exhaustion or Ration loss if bait consumed.
-- Win/Lose: win by meeting yield threshold within rounds; lose if rounds exhausted.
+- Current simplified implementation (Step 8.4):
+  - Patient timing mechanic: fish has a Patience token that decreases each turn automatically.
+  - Player plays Fishing cards with lure_power. Each turn the system rolls (seeded) whether the fish bites based on lure_power vs remaining patience.
+  - Win: fish bites → grant Fish tokens. Loss: Patience reaches 0 (fish escapes).
+  - FishingDurability initialized at game start (100). Fish deck deals 0-2 durability damage per turn. Player draws 1 card per play.
+  - EncounterAbort available.
+  - Tokens: FishingDurability (persistent), Fish (reward material token), Patience (encounter-scoped).
+
+- Future refined version (Step 8.5 — end-state vision):
+  - Encounter fields: season, spawn_density, stealth_requirement.
+  - Pre-start: visible environment type and rough spawn hints.
+  - Phases: Setup → Attempt Rounds → Net/Harvest → Resolution → Post-resolution area-update/scouting.
+  - Actions: Play Stealth, Cast, Lure, Snare cards; time-sensitive plays and equipment choices.
+  - Decks: Foraging/Fishing deck, Resource deck, Reward deck.
+  - Tokens: Rations (food), Momentum for combo catches, FishingDurability minimal.
+  - Difficulty progression: rarer spawns and seasonal modifiers.
+  - Distinctive features: stealth and timing mechanics, rewards often consumables or provisioning ingredients.
+  - Rewards: Foodstuffs, Ingredients, occasional rare items.
+  - Failure: no yield and small Exhaustion or Ration loss if bait consumed.
+  - Win/Lose: win by meeting yield threshold within rounds; lose if rounds exhausted.
 
 5) Combat (enemy encounter)
 
@@ -526,7 +584,7 @@ Concrete examples
 - Distinctive features: adversarial play with reactive scripting and tempo importance.
 - Rewards: Loot, Renown, potential recipe drops.
 - Failure: player defeat (character HP depleted).
-- Win/Lose: win by reducing enemy HP to 0; lose by player HP reaching 0. Players cannot abandon or retreat from combat once started.
+- Win/Lose: win by reducing enemy HP to 0; lose by player HP reaching 0. Players cannot abandon or retreat from combat once started (EncounterAbort returns 400 for combat encounters).
 
 6) Fabrication / Weaponcraft (refining / crafting encounter)
 

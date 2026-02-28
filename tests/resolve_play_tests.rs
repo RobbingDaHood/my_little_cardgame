@@ -76,14 +76,14 @@ fn test_play_attack_card_kills_enemy() {
         if play_response.status() != Status::Created {
             break;
         }
-        let combat_resp = client.get("/combat").dispatch();
+        let combat_resp = client.get("/encounter").dispatch();
         if combat_resp.status() == Status::NotFound {
             break;
         }
     }
 
     // Verify combat results exist
-    let result_resp = client.get("/combat/results").dispatch();
+    let result_resp = client.get("/encounter/results").dispatch();
     assert_eq!(result_resp.status(), Status::Ok);
     let body = result_resp.into_string().unwrap();
     let results: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
