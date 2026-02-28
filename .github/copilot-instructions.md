@@ -64,6 +64,27 @@ Key conventions and repository-specific notes
     - Avoid building JSON strings by hand (RawJson); map domain types to serde-serializable structs instead.
     - For action payloads, prefer structured payloads (typed serde enums) instead of pipe-separated strings; prefer a strongly-typed serde enum (derive Serialize/Deserialize/JsonSchema) and use `serde_json::Value` only as a short-term fallback when necessary.
 
+Player actions and API patterns
+
+- The current player actions are (5 total): NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort. All state mutations go through POST /action.
+- `DeckCounts { deck, hand, discard }` is a shared struct used by all encounter-internal deck tracking — enemy decks, ore decks, fish decks, plant decks, and future encounter card pools.
+- Rewards use `HashMap<Token, i64>` (full Token with lifecycle), not `HashMap<TokenType, i64>`. Follow this pattern for all future encounter type rewards.
+- When the enemy/ore/fish plays immediately after the player (no intervening state), intermediate values (like durability_prevent) should be passed as function parameters rather than stored on state. This reduces state complexity (inline-computation pattern).
+- All encounter types should randomize their internal decks/hands at encounter start using the seeded RNG (shuffle-at-encounter-start pattern). This matches combat (enemy_shuffle_hand), mining (ore_shuffle_hand), herbalism (plant_shuffle_hand), and fishing (fish_shuffle_hand).
+
+Gathering encounter implementation checklist
+
+When adding a new gathering discipline, follow this standard checklist:
+1. Add new CardKind variant with discipline-specific effect struct
+2. Add new EncounterState variant + state struct
+3. Add new TokenType variants (durability, encounter-scoped, reward)
+4. Add cards and encounter to initialize_library()
+5. Init durability in GameState::new()
+6. Dispatch in action handler (src/action/mod.rs) and game_state resolution
+7. Update /library/cards?card_kind= filter (src/library/endpoints.rs)
+8. Update replay_from_log (src/library/game_state.rs)
+9. Add scenario test (tests/scenario_tests.rs)
+
 Files to check for agent config
 
 - Existing repo files inspected: README.md, Cargo.toml, src/.
