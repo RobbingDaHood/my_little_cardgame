@@ -312,6 +312,60 @@ Roadmap steps
    - This step bridges the gap between the simple playable versions and the rich encounter templates in the vision.
    - Playable acceptance: At least one gathering discipline demonstrates multi-phase resolution, affix-modified encounters, and yield-quality tiering. Insight cards are present in at least two disciplines and grant tokens correctly. Scenario tests verify the expanded mechanics.
 
+9.1) Major refactor: CardEffects range system
+   - Goal: Replace fixed numeric values on CardEffects with a range-of-ranges system that allows card variation and makes future research/crafting systems meaningful.
+   - Description: CardEffects now define four values for each numeric parameter:
+     - min_min: The minimum value of the min value.
+     - max_min: The maximum value of the min value.
+     - min_max: The minimum value of the max value.
+     - max_max: The maximum value of the max value.
+     Each CardEffect defines a range of possible ranges. Concrete cards (which reference a CardEffect) get a rolled min and max when created:
+     - min is rolled between min_min and max_min.
+     - max is rolled between min_max and max_max.
+     When a card is played, its actual value is rolled between the card's concrete min and max.
+   - Key constraints:
+     - All rolls use the game seed for full reproducibility.
+     - Concrete cards keep their reference to the CardEffect but also store their own min and max.
+     - Overlapping CardEffects can be consolidated since the range system naturally covers variations.
+     - Bump most numbers on cards, tokens, and encounters by a factor of ~100 (e.g., 1 → 100) to create interesting ranges. A value of 1 doesn't allow meaningful ranges (1-10 is too volatile), but 80-120 is fine.
+   - This step is placed before Research and Crafting because those systems will add more CardEffects and concrete cards that benefit from the range system.
+   - Playable acceptance: All existing cards use the range system. CardEffects define ranges, concrete cards have rolled min/max, and played values are rolled between them. All rolls are deterministic via the game seed. Scenario tests verify reproducibility.
+
+9.2) CardEffects cost system
+   - Goal: Add an optional stamina cost to CardEffects, creating a strategic cost-benefit dimension.
+   - Description: Some CardEffects have a cost defined as a percentage range:
+     - Cost is defined as a min-max percentage multiplier on the CardEffect.
+     - When a concrete card is created, its cost percentage is rolled from the CardEffect's cost range.
+     - When played, the cost is calculated: rolled_effect_value × cost_percentage = stamina_cost.
+     - Example: Attack card with health effect range (10-20)-(40-50) and stamina cost 20-40%. Concrete card rolls 13-45 with 25% cost. When played, rolls 20 damage → 25% of 20 = 5 stamina cost.
+   - Design rules:
+     - Cards with a cost must be significantly better than non-cost equivalents.
+     - In combat: at least one cost variation for each non-cost variation of attack and defence cards.
+     - Stamina is the initial cost type and is shared across all disciplines.
+     - Woodcutting and Mining cards can also have stamina costs (with a non-cost alternative for each).
+     - Starting decks should mainly contain non-cost cards for ease of initial play.
+   - Playable acceptance: Cost cards exist for combat, mining, and woodcutting. Cost calculations are deterministic. Starting decks are weighted toward non-cost cards. Scenario tests verify cost mechanics.
+
+9.3) Rest encounter
+   - Goal: Add a rest encounter type that allows stamina recovery and creates a meaningful pacing mechanic.
+   - Description: A new encounter type where the player picks a rest benefit card.
+     - The starting encounter deck should have ~20% rest encounters.
+     - A rest card effect is defined with a wide range (min_min-max_min)-(min_max-max_max) using the Step 9.1 range system.
+     - 5 different rest cards are rolled from this effect at game initialization.
+     - Each of those 5 cards has 5 copies in the rest deck (25 total cards).
+     - When the encounter starts: draw 5 rest cards from the deck and present them as choices.
+     - The player picks 1 card. That card's effect (e.g., stamina recovery) takes effect immediately and the encounter is won.
+     - To start, rest cards only provide stamina recovery. Future iterations may add health recovery, durability repair, or other benefits.
+   - Implementation checklist:
+     1. Add EncounterKind::Rest { rest_def: RestDef } with rest deck and rewards.
+     2. Add RestCardEffect with stamina_recovery (using range system from 9.1, or fixed values if 9.1 is not yet implemented).
+     3. Add CardKind::Rest { rest_effect: RestCardEffect } for rest action cards.
+     4. Add EncounterState::Rest(RestEncounterState) with drawn hand of 5 cards.
+     5. Implement EncounterPlayCard for rest: apply chosen card's effect, mark encounter as won.
+     6. Add rest encounters to initialize_library() (~20% of encounter deck).
+     7. Add scenario test.
+   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, stamina is recovered, encounter completes as PlayerWon. Scenario test passes.
+
 9) Add basic crafting as discipline encounters and respect Library semantics
    - Goal: Implement crafting as discipline-specific encounters (Fabrication, Provisioning, etc.) that use discipline decks, consume materials, and create Library card copies when finalized.
    - Description: Model craft encounters with discipline decks that supply action cards; deterministic craft resolution produces Library card copies with rolled affixes and logs all material/token spends. Enforce affix constraints (affix types are fixed once attached by the Modifier pipeline) and make Refinement/Stability tokens affect numeric roll bias/variance.
