@@ -477,114 +477,6 @@ fn initialize_library() -> Library {
         },
     );
 
-    // ---- Woodcutting player cards ----
-
-    // Aggressive woodcutting card (id 20): high chop damage, no protection
-    lib.add_card(
-        CardKind::Woodcutting {
-            woodcutting_effect: super::types::WoodcuttingCardEffect {
-                chop_damage: 5,
-                splinter_prevent: 0,
-            },
-        },
-        CardCounts {
-            library: 0,
-            deck: 15,
-            hand: 5,
-            discard: 0,
-        },
-    );
-
-    // Balanced woodcutting card (id 21): moderate chop damage and protection
-    lib.add_card(
-        CardKind::Woodcutting {
-            woodcutting_effect: super::types::WoodcuttingCardEffect {
-                chop_damage: 3,
-                splinter_prevent: 2,
-            },
-        },
-        CardCounts {
-            library: 0,
-            deck: 15,
-            hand: 5,
-            discard: 0,
-        },
-    );
-
-    // Protective woodcutting card (id 22): low chop damage, high protection
-    lib.add_card(
-        CardKind::Woodcutting {
-            woodcutting_effect: super::types::WoodcuttingCardEffect {
-                chop_damage: 1,
-                splinter_prevent: 3,
-            },
-        },
-        CardCounts {
-            library: 0,
-            deck: 15,
-            hand: 5,
-            discard: 0,
-        },
-    );
-
-    // Woodcutting encounter: Oak Tree (id 23)
-    lib.add_card(
-        CardKind::Encounter {
-            encounter_kind: super::types::EncounterKind::Woodcutting {
-                woodcutting_def: super::types::WoodcuttingDef {
-                    initial_tokens: HashMap::from([(
-                        super::types::Token::persistent(super::types::TokenType::TreeHealth),
-                        15,
-                    )]),
-                    tree_deck: vec![
-                        super::types::TreeCard {
-                            stamina_damage: 0,
-                            counts: super::types::DeckCounts {
-                                deck: 0,
-                                hand: 6,
-                                discard: 0,
-                            },
-                        },
-                        super::types::TreeCard {
-                            stamina_damage: 1,
-                            counts: super::types::DeckCounts {
-                                deck: 0,
-                                hand: 8,
-                                discard: 0,
-                            },
-                        },
-                        super::types::TreeCard {
-                            stamina_damage: 2,
-                            counts: super::types::DeckCounts {
-                                deck: 0,
-                                hand: 4,
-                                discard: 0,
-                            },
-                        },
-                        super::types::TreeCard {
-                            stamina_damage: 3,
-                            counts: super::types::DeckCounts {
-                                deck: 0,
-                                hand: 2,
-                                discard: 0,
-                            },
-                        },
-                    ],
-                    rewards: HashMap::from([(
-                        super::types::Token::persistent(super::types::TokenType::Lumber),
-                        10,
-                    )]),
-                },
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 3,
-            discard: 0,
-        },
-    );
-
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
     }
@@ -711,11 +603,6 @@ impl GameState {
         // HerbalismDurability starts at 100; lost during herbalism, not regained until crafting
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::HerbalismDurability),
-            100,
-        );
-        // WoodcuttingDurability starts at 100; lost during woodcutting, not regained until crafting
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::WoodcuttingDurability),
             100,
         );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
@@ -1219,165 +1106,6 @@ impl GameState {
         self.encounter_phase = super::types::EncounterPhase::Scouting;
     }
 
-    /// Initialize a woodcutting gathering encounter from a Library Encounter card.
-    pub fn start_woodcutting_encounter(
-        &mut self,
-        encounter_card_id: usize,
-        rng: &mut rand_pcg::Lcg64Xsh32,
-    ) -> Result<(), String> {
-        let lib_card = self
-            .library
-            .get(encounter_card_id)
-            .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
-            .clone();
-        let woodcutting_def = match &lib_card.kind {
-            CardKind::Encounter {
-                encounter_kind: EncounterKind::Woodcutting { woodcutting_def },
-            } => woodcutting_def.clone(),
-            _ => {
-                return Err(format!(
-                    "Card {} is not a woodcutting encounter",
-                    encounter_card_id
-                ))
-            }
-        };
-        let mut tree_deck = woodcutting_def.tree_deck.clone();
-        Self::tree_shuffle_hand(rng, &mut tree_deck);
-        let state = super::types::WoodcuttingEncounterState {
-            round: 1,
-            encounter_card_id,
-            outcome: EncounterOutcome::Undecided,
-            tree_tokens: woodcutting_def.initial_tokens,
-            tree_deck,
-            rewards: woodcutting_def.rewards,
-        };
-        self.current_encounter = Some(EncounterState::Woodcutting(state));
-        self.encounter_phase = super::types::EncounterPhase::InEncounter;
-        Ok(())
-    }
-
-    /// Resolve a player woodcutting card play against the current woodcutting encounter.
-    pub fn resolve_player_woodcutting_card(
-        &mut self,
-        card_id: usize,
-        rng: &mut rand_pcg::Lcg64Xsh32,
-    ) -> Result<(), String> {
-        let lib_card = self
-            .library
-            .get(card_id)
-            .ok_or_else(|| format!("Card {} not found in Library", card_id))?
-            .clone();
-        let woodcutting_effect = match &lib_card.kind {
-            CardKind::Woodcutting { woodcutting_effect } => woodcutting_effect.clone(),
-            _ => {
-                return Err(
-                    "Cannot play a non-woodcutting card in woodcutting encounter".to_string(),
-                )
-            }
-        };
-
-        let tree_defeated = {
-            let woodcutting = match &mut self.current_encounter {
-                Some(EncounterState::Woodcutting(w)) => w,
-                _ => return Err("No active woodcutting encounter".to_string()),
-            };
-            let tree_health_key =
-                super::types::Token::persistent(super::types::TokenType::TreeHealth);
-            let tree_hp = woodcutting.tree_tokens.entry(tree_health_key).or_insert(0);
-            *tree_hp = (*tree_hp - woodcutting_effect.chop_damage).max(0);
-            *tree_hp <= 0
-        };
-
-        if tree_defeated {
-            self.finish_woodcutting_encounter(true);
-            return Ok(());
-        }
-
-        self.resolve_tree_play(rng, woodcutting_effect.splinter_prevent);
-
-        self.draw_player_woodcutting_card(rng);
-
-        Ok(())
-    }
-
-    /// Tree plays a random card from hand, dealing stamina damage minus splinter_prevent.
-    fn resolve_tree_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32, splinter_prevent: i64) {
-        use rand::RngCore;
-
-        let (effective_damage, played) = {
-            let woodcutting = match &mut self.current_encounter {
-                Some(EncounterState::Woodcutting(w)) => w,
-                _ => return,
-            };
-            let hand_indices: Vec<usize> = woodcutting
-                .tree_deck
-                .iter()
-                .enumerate()
-                .filter(|(_, c)| c.counts.hand > 0)
-                .map(|(i, _)| i)
-                .collect();
-            if hand_indices.is_empty() {
-                return;
-            }
-            let pick_idx = (rng.next_u64() as usize) % hand_indices.len();
-            let card_idx = hand_indices[pick_idx];
-            woodcutting.tree_deck[card_idx].counts.hand -= 1;
-            woodcutting.tree_deck[card_idx].counts.discard += 1;
-            let raw_damage = woodcutting.tree_deck[card_idx].stamina_damage;
-            let effective = (raw_damage - splinter_prevent).max(0);
-            woodcutting.round += 1;
-            (effective, true)
-        };
-
-        if !played {
-            return;
-        }
-
-        let durability_key =
-            super::types::Token::persistent(super::types::TokenType::WoodcuttingDurability);
-        let durability = self
-            .token_balances
-            .entry(durability_key.clone())
-            .or_insert(0);
-        *durability = (*durability - effective_damage).max(0);
-
-        if let Some(EncounterState::Woodcutting(woodcutting)) = &mut self.current_encounter {
-            Self::tree_draw_random(rng, &mut woodcutting.tree_deck);
-        }
-
-        let durability = self
-            .token_balances
-            .get(&durability_key)
-            .copied()
-            .unwrap_or(0);
-        if durability <= 0 {
-            self.finish_woodcutting_encounter(false);
-        }
-    }
-
-    /// Finalize a woodcutting encounter: grant rewards on win.
-    fn finish_woodcutting_encounter(&mut self, is_win: bool) {
-        if is_win {
-            let rewards = match &self.current_encounter {
-                Some(EncounterState::Woodcutting(w)) => w.rewards.clone(),
-                _ => return,
-            };
-            for (token, amount) in &rewards {
-                let entry = self.token_balances.entry(token.clone()).or_insert(0);
-                *entry += amount;
-            }
-        }
-        let outcome = if is_win {
-            EncounterOutcome::PlayerWon
-        } else {
-            EncounterOutcome::PlayerLost
-        };
-        self.last_encounter_result = Some(outcome.clone());
-        self.encounter_results.push(outcome);
-        self.current_encounter = None;
-        self.encounter_phase = super::types::EncounterPhase::Scouting;
-    }
-
     /// Initialize an herbalism gathering encounter from a Library Encounter card.
     pub fn start_herbalism_encounter(
         &mut self,
@@ -1521,11 +1249,6 @@ impl GameState {
         self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Mining { .. }), rng);
     }
 
-    /// Draw one player woodcutting card from deck to hand, recycling discard if needed.
-    fn draw_player_woodcutting_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Woodcutting { .. }), rng);
-    }
-
     /// Shuffle ore hand: move all to deck, redraw to original hand size.
     fn ore_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::OreCard]) {
         let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
@@ -1540,47 +1263,6 @@ impl GameState {
 
     /// Draw one random ore card from deck to hand, recycling discard if needed.
     fn ore_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::OreCard]) {
-        use rand::RngCore;
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        if total_deck == 0 {
-            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
-            if total_discard == 0 {
-                return;
-            }
-            for card in deck.iter_mut() {
-                card.counts.deck += card.counts.discard;
-                card.counts.discard = 0;
-            }
-        }
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        if total_deck == 0 {
-            return;
-        }
-        let mut pick = (rng.next_u64() as u32) % total_deck;
-        for card in deck.iter_mut() {
-            if pick < card.counts.deck {
-                card.counts.deck -= 1;
-                card.counts.hand += 1;
-                return;
-            }
-            pick -= card.counts.deck;
-        }
-    }
-
-    /// Shuffle tree hand: move all to deck, redraw to original hand size.
-    fn tree_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::TreeCard]) {
-        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
-        for card in deck.iter_mut() {
-            card.counts.deck += card.counts.hand;
-            card.counts.hand = 0;
-        }
-        for _ in 0..target_hand {
-            Self::tree_draw_random(rng, deck);
-        }
-    }
-
-    /// Draw one random tree card from deck to hand, recycling discard if needed.
-    fn tree_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::TreeCard]) {
         use rand::RngCore;
         let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
         if total_deck == 0 {
@@ -1693,11 +1375,6 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_herbalism_encounter(card_id, &mut rng);
                                 }
-                                CardKind::Encounter {
-                                    encounter_kind: EncounterKind::Woodcutting { .. },
-                                } => {
-                                    let _ = gs.start_woodcutting_encounter(card_id, &mut rng);
-                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -1722,9 +1399,6 @@ impl GameState {
                         }
                         Some(EncounterState::Herbalism(_)) => {
                             let _ = gs.resolve_player_herbalism_card(*card_id, &mut rng);
-                        }
-                        Some(EncounterState::Woodcutting(_)) => {
-                            let _ = gs.resolve_player_woodcutting_card(*card_id, &mut rng);
                         }
                         None => {}
                     }
