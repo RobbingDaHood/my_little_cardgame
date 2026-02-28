@@ -367,7 +367,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Medium herbalism card (id 17): targets 2 characteristics, medium durability cost
+    // Medium herbalism card (id 17): targets 2 characteristics
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
@@ -375,7 +375,7 @@ fn initialize_library() -> Library {
                     super::types::PlantCharacteristic::Thorny,
                     super::types::PlantCharacteristic::Aromatic,
                 ],
-                durability_cost: 2,
+                durability_cost: 1,
             },
         },
         CardCounts {
@@ -386,7 +386,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Broad herbalism card (id 18): targets 3 characteristics, high durability cost
+    // Broad herbalism card (id 18): targets 3 characteristics
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
@@ -395,7 +395,7 @@ fn initialize_library() -> Library {
                     super::types::PlantCharacteristic::Luminous,
                     super::types::PlantCharacteristic::Fragile,
                 ],
-                durability_cost: 3,
+                durability_cost: 1,
             },
         },
         CardCounts {
