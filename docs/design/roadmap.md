@@ -23,7 +23,7 @@ Roadmap steps
 - CI coverage target (≥85%) achieved: 85.86% after adding integration and unit tests.
 
 ### Post-7.6 cleanup (2026-02-23)
-- Removed 8 dead/redundant player actions: AbandonCombat, FinishScouting, ApplyScouting, DrawEncounter, ReplaceEncounter, GrantToken, PlayCard, SetSeed. Only four player actions remain: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting.
+- Removed 8 dead/redundant player actions: AbandonCombat, FinishScouting, ApplyScouting, DrawEncounter, ReplaceEncounter, GrantToken, PlayCard, SetSeed. Four player actions remained: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting (EncounterAbort was added later in Step 8.1).
 - Consolidated combat endpoints: /combat/enemy_play and /combat/advance moved to test-only (/tests/* prefix); auto-advance added to EncounterPlayCard so the system resolves enemy play and advances the combat phase automatically.
 - Replaced SetSeed with NewGame { seed: Option<u64> }; removed /player/seed endpoint and player_seed.rs module entirely.
 - Removed explicit AreaDeck struct; encounter cards now use Library CardCounts (library/deck/hand/discard) like all other card types, with helper methods (encounter_hand, encounter_contains, encounter_draw_to_hand) on Library.
@@ -34,7 +34,7 @@ Roadmap steps
 - Enemy now plays one card matching the current CombatPhase (not one from each deck).
 - Player tokens (Health, Shield, etc.) moved out of CombatSnapshot to GameState.token_balances.
 - Action log audited: only player actions are logged. Internal operations (token grants, consumes, card movements) are deterministic from player actions + seed.
-- Replay system note: replay_from_log now replays player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). Combined with the initial seed, the action log is sufficient to reconstruct the full game state for the core loop.
+- Replay system note: replay_from_log now replays player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort). Combined with the initial seed, the action log is sufficient to reconstruct the full game state for the core loop.
 
 ### Post-7.7 implementation (2026-02-23)
 - All issues from docs/issues.md resolved:
@@ -101,6 +101,10 @@ Steps 7, 7.5, 7.6, and 7.7 are fully implemented and cleaned up. The core encoun
   - Game-start durability (initialize at 100 in GameState::new())
 - replay_from_log handles 5 action types. Each new action type must extend the replay match arm.
 - Mining scenario tests added (full loop + abort test).
+- Step 8.2 (Herbalism) implemented: card-characteristic matching with no enemy draws. New card IDs: 16-19. HerbalismDurability depletion added as second loss condition. 2 scenario tests.
+- Step 8.3 (Woodcutting) implemented: rhythm-based pattern matching, no enemy deck. New card IDs: 20-24. Poker-inspired pattern evaluation (13+ patterns). 2 scenario tests.
+- Step 8.4 (Fishing) implemented: card-subtraction with valid-range targeting. New card IDs: 25-28. Enemy fish deck with 4 card variants. 2 scenario tests.
+- All 4 gathering disciplines now share the same EncounterState enum pattern, confirming it is reusable for future encounter types.
 
 Roadmap steps
 --------------
@@ -207,11 +211,11 @@ Roadmap steps
    - Cleanup (docs/issues.md): is_finished removed, encounter_card_id mandatory, ore_tokens replaces ore_hp, Durability → MiningDurability, game-start durability init.
    - Playable acceptance: ✅ Mining end-to-end with 3 card types (Aggressive 5/0, Balanced 3/2, Protective 1/3), scenario tests, replay support.
 
-8.2) Herbalism (gathering)
+8.2) Herbalism (gathering) — COMPLETE
    - Goal: Third gathering discipline with a UNIQUE mechanic (card-characteristic matching) that differentiates it from Mining/Woodcutting's damage-vs-durability template.
    - Description: The plant (enemy) starts with X cards on hand and does NOT draw more cards. Each enemy card has 1-3 characteristics from a small enum (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous). Player plays Herbalism cards that target characteristics; playing a card removes all enemy cards that share at least one characteristic with the player's card. Player draws 1 Herbalism card per play.
    - Win condition: exactly 1 enemy card remains → that card is the reward, plus Plant tokens are granted.
-   - Loss condition: 0 enemy cards remain (over-harvested — player was too aggressive with broad-matching cards).
+   - Loss conditions: 0 enemy cards remain (over-harvested — player was too aggressive with broad-matching cards), OR HerbalismDurability ≤ 0 (durability depleted — each player card has a durability_cost applied immediately on play).
    - Tokens: HerbalismDurability (persistent, init 100 at game start), Plant (reward material token).
    - Key design notes:
      - The strategic tension is between playing narrow cards (remove fewer enemy cards, safer) vs broad cards (remove more, risk over-harvesting).
@@ -219,7 +223,7 @@ Roadmap steps
      - This is fundamentally different from Mining/Woodcutting (no HP-vs-durability loop) and creates the "knowledge and precision" feel from the vision.
    - Implementation checklist:
      1. Add PlantCharacteristic enum (Fragile, Thorny, Aromatic, Bitter, Luminous)
-     2. Add CardKind::Herbalism { herbalism_effect: HerbalismCardEffect } with target_characteristics: Vec<PlantCharacteristic>
+     2. Add CardKind::Herbalism { herbalism_effect: HerbalismCardEffect } with target_characteristics: Vec<PlantCharacteristic>, durability_cost: i64
      3. Add HerbalismEncounterState with plant_hand (cards with characteristics), plant_deck (DeckCounts or direct Vec)
      4. Add EncounterState::Herbalism(HerbalismEncounterState)
      5. Add TokenType::HerbalismDurability, Plant
@@ -230,9 +234,11 @@ Roadmap steps
      10. Update /library/cards?card_kind= filter for Herbalism
      11. Update replay_from_log
      12. Add scenario test
-   - Playable acceptance: Herbalism encounter playable end-to-end with characteristic matching, produces Plant tokens, scenario test passes.
+   - BREAKING changes: none (additive only).
+   - New card IDs: 16 (Narrow Herbalism), 17 (Medium Herbalism), 18 (Broad Herbalism), 19 (Meadow Herb encounter).
+   - Playable acceptance: ✅ Herbalism end-to-end with 3 card types (narrow/medium/broad characteristic targeting), 2 scenario tests (full loop + abort), replay support. All herbalism cards cost 1 durability. Plant hand randomized at encounter start using seeded RNG.
 
-8.3) Woodcutting (gathering)
+8.3) Woodcutting (gathering) — COMPLETE
    - Goal: Second gathering discipline with a UNIQUE mechanic (rhythm-based pattern matching) that differentiates it from Mining's damage-vs-durability template.
    - Description: Woodcutting is about hitting a rhythm for greater yields. There is NO enemy deck in this discipline.
      - Player Woodcutting cards have:
@@ -271,8 +277,16 @@ Roadmap steps
      11. Update replay_from_log
      12. Add scenario test
    - Playable acceptance: Woodcutting encounter playable end-to-end with pattern evaluation, produces Lumber tokens, scenario test passes.
+   - BREAKING changes: none (additive only).
+   - New card IDs: 20 (LightChop), 21 (HeavyChop), 22 (MediumChop), 23 (PrecisionChop), 24 (Oak Tree encounter).
+   - New types: ChopType enum (5 variants), WoodcuttingCardEffect (chop_types, chop_values, durability_cost), PlayedWoodcuttingCard, WoodcuttingDef, WoodcuttingEncounterState.
+   - New tokens: WoodcuttingDurability (persistent, init 100), Lumber (reward material).
+   - NO enemy/tree deck — pattern matching mechanic is unique from Mining.
+   - Poker-inspired pattern evaluation (13+ patterns, multipliers 1.0x–5.0x).
+   - 2 scenario tests added (full loop + abort).
+   - Playable acceptance: ✅ Woodcutting end-to-end with pattern evaluation, produces Lumber tokens, EncounterAbort supported.
 
-8.4) Fishing (gathering)
+8.4) Fishing (gathering) — COMPLETE
    - Goal: Fourth gathering discipline with a numeric card-subtraction mechanic that differentiates it from other gathering types.
    - Description: Each fishing encounter defines a `valid_range` (min, max), `max_turns`, and `win_turns_needed`. Each round the player plays a numeric card first, then the enemy (fish) plays a numeric card. The two values are subtracted: `result = (player_value - fish_value).max(0)`. If the result falls within the `valid_range` (inclusive), the turn counts as "won". Player draws 1 Fishing card per play. Every card played has a small `durability_cost` applied to FishingDurability.
    - Win: player wins `win_turns_needed` rounds before `max_turns` are exhausted → grant Fish tokens.
@@ -297,7 +311,14 @@ Roadmap steps
      11. Update /library/cards?card_kind= filter for Fishing
      12. Update replay_from_log
      13. Add scenario test
-   - Playable acceptance: Fishing encounter playable end-to-end, produces Fish tokens, scenario test passes.
+   - BREAKING changes: none (additive only).
+   - New card IDs: 25 (Low Fishing, value 2), 26 (Medium Fishing, value 4), 27 (High Fishing, value 7), 28 (River Spot encounter).
+   - New types: FishingCardEffect (value, durability_cost), FishCard (value, counts), FishingDef (valid_range_min/max, max_turns, win_turns_needed, fish_deck, rewards), FishingEncounterState.
+   - New tokens: FishingDurability (persistent, init 100), Fish (reward material).
+   - Enemy fish deck with 4 card variants (values 1, 3, 5, 7) — shuffled at encounter start.
+   - Two loss conditions: max_turns exhausted without enough wins, OR FishingDurability ≤ 0.
+   - 2 scenario tests added (full loop + abort).
+   - Playable acceptance: ✅ Fishing end-to-end with card-subtraction, produces Fish tokens, EncounterAbort supported.
 
 8.5) Refined gathering encounters
    - Goal: Evolve all simplified gathering disciplines (8.1-8.4) toward richer gameplay with tiered rewards, difficulty scaling, and strategic card choices.
@@ -311,8 +332,26 @@ Roadmap steps
    - Deferred to later (milestone step or beyond):
      - Combos and Momentum mechanics.
      - Affix modifiers on encounter cards (deferred from scouting step as well).
+   - Additional notes from implementation experience:
+     - Woodcutting pattern engine could be expanded: add combo multipliers for chaining patterns across encounters, add SplitChop card to starting deck.
+     - All 4 gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) are now implemented with the same EncounterState enum pattern. The pattern is confirmed reusable: each discipline adds a new variant to EncounterState, EncounterKind, and CardKind, then plugs into the existing action dispatch and replay infrastructure.
+     - Four distinct mechanical templates exist:
+       1. Damage-vs-durability loop (Mining): player deals damage to node HP while node deals durability damage; mutual draw each turn.
+       2. Card-characteristic matching (Herbalism): card matching to narrow the enemy hand; no enemy draws.
+       3. Poker-like pattern building (Woodcutting): play cards to build patterns; no enemy deck; degree-of-success rather than binary win/lose.
+       4. Card-subtraction with valid-range targeting (Fishing): player and enemy both play numeric cards; result must land within target range.
+     - Consider whether any of these can share infrastructure or whether each discipline's resolution should remain fully independent.
    - This step bridges the gap between the simple playable versions and the richer encounter experience.
    - Playable acceptance: At least one gathering discipline demonstrates tiered rewards (T1/T2/T3), tier-increasing card effects with gameplay-involved difficulty increase, and insight token generation across tiers. Initial decks have limited tier-increase cards. Scenario tests verify the tiered mechanics.
+
+8.6) Gathering balance pass
+   - Goal: After all 4 gathering disciplines are implemented (8.1-8.4), perform a dedicated balance and tuning pass.
+   - Description:
+     - Normalize durability init values (all currently 100 — may need differentiation per discipline).
+     - Balance reward token amounts across disciplines (Ore, Plant, Lumber, Fish should have comparable value-per-encounter).
+     - Tune encounter card counts and difficulty distributions.
+     - Add cross-discipline scenario tests (e.g., mine then herbalism then combat in sequence).
+   - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs.
 
 9.1) Major refactor: CardEffects range system
    - Goal: Replace fixed numeric values on CardEffects with a min-max range system that allows card variation and makes future research/crafting systems meaningful.
