@@ -11,7 +11,7 @@ Alignment requirements (inherited from vision.md)
 - Single-seed reproducibility: New games are created with a single explicit seed; all random operations (shuffles, rolls, selection) are derived from that seed and are replayable.
 - Canonical Library semantics: The Library is the authoritative catalog of card definitions. Crafted card copies are created in the Library and never directly injected into player decks; players add Library cards into decks via deck-management flows subject to deck-type constraints.
 - Token lifecycle & actions log: The action log records only player actions (not internal token operations). Combined with the initial seed, the player action log is sufficient to reproduce all game state including token lifecycles. Token definitions live in the `TokenType` enum and `Token` struct; lifecycle is declared on the Token directly (not in a separate registry).
-- Single mutator endpoint: All state mutations must be performed via a single POST /action endpoint (the "action" endpoint) which accepts structured action payloads; other endpoints are read-only. The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting.
+- Single mutator endpoint: All state mutations must be performed via a single POST /action endpoint (the "action" endpoint) which accepts structured action payloads; other endpoints are read-only. The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort.
 - All gameplay state mutations must be performed via POST /action. Testing and debugging endpoints under /tests/* are exceptions and should be documented as temporary testing utilities.
 
 Roadmap steps
@@ -82,6 +82,25 @@ Roadmap steps
 
 ### Step 7 COMPLETE
 Steps 7, 7.5, 7.6, and 7.7 are fully implemented and cleaned up. The core encounter loop (pick → fight → scouting → pick) is operational with resource-card driven draws, Foresight-controlled encounter hands, enemy random play, CardEffect decks, and a single unified combat system. All legacy code (CardDef, old combat simulation, EncounterAction state machine, TokenRegistry, AreaDeck) has been removed.
+
+### Step 8 implementation updates (2026-02-28)
+- Step 8.1 (Mining) implemented: first gathering discipline, establishing EncounterState enum pattern.
+- BREAKING: /combat → /encounter, CombatState → EncounterState, CombatOutcome → EncounterOutcome, EnemyCardCounts → DeckCounts.
+- BREAKING: EncounterPhase::Combat + Gathering merged into EncounterPhase::InEncounter.
+- EncounterAbort player action added (fifth action). Non-combat encounters can be aborted; combat returns 400.
+- docs/issues.md cleanup (10 issues resolved):
+  - DeckCounts generalization (EnemyCardCounts + OreCardCounts → DeckCounts)
+  - is_finished removal (use outcome != Undecided)
+  - Mandatory encounter_card_id (Option<usize> → usize)
+  - InEncounter phase (Combat + Gathering → InEncounter)
+  - Inline durability prevent (last_durability_prevent removed from state)
+  - ore_tokens (ore_hp/ore_max_hp → HashMap<Token, i64> with OreHealth)
+  - Token-keyed rewards (HashMap<TokenType, i64> → HashMap<Token, i64>)
+  - No mining penalties (failure_penalties removed)
+  - MiningDurability rename (Durability → MiningDurability)
+  - Game-start durability (initialize at 100 in GameState::new())
+- replay_from_log handles 5 action types. Each new action type must extend the replay match arm.
+- Mining scenario tests added (full loop + abort test).
 
 Roadmap steps
 --------------
@@ -164,13 +183,109 @@ Roadmap steps
     - Playable acceptance: Library contains both player and enemy CardEffect decks; all card effects on player/enemy cards reference valid CardEffect deck entries (validated at initialization); GET /library/card-effects returns both decks.
 
 8) Expand encounter variety (non-combat and hybrid encounters) — gathering first
-   - Goal: Add gathering (Mining, Woodcutting, Herbalism) and other encounter types that reuse the cards-and-tokens model and add discipline decks, and produce raw materials required for crafting.
-   - Description: Implement node-based gathering encounters where discipline decks resolve the node (e.g., Mining uses Mining deck vs IronOre card) and produce raw/refined material tokens. Ensure Discipline Durability and Rations semantics are enforced; failures produce Exhaustion or Durability loss. Record material token grants in the ActionLog so crafting has a provable input history.
-   - Player actions: All gameplay flows must use the four canonical player actions (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). New encounter types (gathering, crafting) will need to either extend these actions or add new well-defined variants to PlayerActions.
-   - Replay: The replay system (replay_from_log) already supports the core game loop (NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting). New encounter types will need to extend the replay handler accordingly.
+   - Goal: Add gathering (Mining, Woodcutting, Herbalism, Fishing) and other encounter types that reuse the cards-and-tokens model and add discipline decks, and produce raw materials required for crafting.
+   - Description: Implement node-based gathering encounters where discipline decks resolve the node (e.g., Mining uses Mining deck vs IronOre card) and produce raw/refined material tokens. Each discipline has its own durability pool ({Discipline}Durability) initialized at game start. Gathering encounters use EncounterPhase::InEncounter (same as combat) and the EncounterState enum dispatches to discipline-specific logic. Record material token grants in the ActionLog so crafting has a provable input history.
+   - Player actions: Five canonical player actions: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort. EncounterAbort allows aborting non-combat encounters.
+   - Replay: The replay system (replay_from_log) handles all 5 action types. Each new encounter type must extend the replay match arm. The EncounterAbort pattern (calling gs.abort_encounter() then transitioning phase) is a good template for future encounter-ending actions.
    - Playable acceptance: At least one gathering discipline is playable end-to-end, produces material tokens consumed by craft flows, and actions are routed via POST /action.
-   - Notes: Ensure node encounter resolution follows the same remove-and-replace lifecycl: In this simple setup the just finished encounter is just added back to the deck again with no changes.
+   - Notes: Ensure node encounter resolution follows the same remove-and-replace lifecycle: in this simple setup the just finished encounter is just added back to the deck again with no changes. The `/library/cards?card_kind=` endpoint must be extended for each new card kind. Consider auto-deriving from the CardKind enum in a future cleanup.
    - Scenario tests: update or add scenario tests in `tests/scenario_tests.rs` demonstrating the full gameplay loop with the new encounter type. Each new encounter type or gameplay feature from step 8 onwards should have at least one scenario test.
+   - Current library card IDs (for reference in substeps):
+     - 0-3: PlayerCardEffect entries (damage, shield, stamina, draw)
+     - 4-7: EnemyCardEffect entries
+     - 8: Attack card, 9: Defence card, 10: Resource card
+     - 11: Combat encounter (Gnome)
+     - 12: Mining card (Aggressive), 13: Mining card (Balanced), 14: Mining card (Protective)
+     - 15: Mining encounter (Iron Ore)
+
+8.1) Mining (gathering) — COMPLETE
+   - Goal: First gathering discipline, establishing the EncounterState enum pattern for all future encounter types.
+   - Description: Single-deck resolution. Player Mining deck with cards trading off ore_damage vs durability_prevent. Ore node has OreDeck with cards dealing 0-3 durability damage (skewed low). OreHealth tracked as encounter-scoped token in ore_tokens HashMap. MiningDurability initialized to 100 at game start, persists across encounters (NOT re-initialized per encounter).
+   - Win: OreHealth ≤ 0 → grant rewards (Ore: 10, Token-keyed HashMap<Token, i64>). Loss: MiningDurability ≤ 0 → PlayerLost, no failure penalties (durability loss IS the penalty).
+   - EncounterAbort: available for mining (marks as PlayerLost, no rewards/penalties).
+   - BREAKING changes: /combat → /encounter, CombatState → EncounterState, CombatOutcome → EncounterOutcome, EnemyCardCounts → DeckCounts, EncounterPhase::Combat+Gathering → InEncounter.
+   - Cleanup (docs/issues.md): is_finished removed, encounter_card_id mandatory, ore_tokens replaces ore_hp, Durability → MiningDurability, game-start durability init.
+   - Playable acceptance: ✅ Mining end-to-end with 3 card types (Aggressive 5/0, Balanced 3/2, Protective 1/3), scenario tests, replay support.
+
+8.2) Woodcutting (gathering)
+   - Goal: Second gathering discipline, following the same mechanical template as Mining to validate the EncounterState pattern is reusable.
+   - Description: Same single-deck template as Mining. Player Woodcutting deck with cards trading off chop_damage (damage to tree) vs splinter_prevent (reduce incoming stamina damage). Tree node has TreeHealth token (encounter-scoped) tracked in tree_tokens HashMap. Tree deck deals 0-3 stamina damage (similar distribution to mining ore deck). Player draws 1 card per play.
+   - Tokens: WoodcuttingDurability (persistent, init 100 at game start), TreeHealth (encounter-scoped), Lumber (reward material token).
+   - Win: TreeHealth ≤ 0 → grant Lumber tokens. Loss: WoodcuttingDurability ≤ 0 → PlayerLost, no failure penalties.
+   - EncounterAbort: available.
+   - Implementation checklist:
+     1. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_damage/splinter_prevent
+     2. Add EncounterState::Woodcutting(WoodcuttingEncounterState) + state struct
+     3. Add TokenType::WoodcuttingDurability, TreeHealth, Lumber
+     4. Add Woodcutting cards and encounter to initialize_library()
+     5. Init WoodcuttingDurability to 100 in GameState::new()
+     6. Dispatch in action handler and game_state resolution
+     7. Update /library/cards?card_kind= filter for Woodcutting
+     8. Update replay_from_log
+     9. Add scenario test
+   - Playable acceptance: Woodcutting encounter playable end-to-end, produces Lumber tokens, scenario test passes.
+
+8.3) Herbalism (gathering)
+   - Goal: Third gathering discipline with a UNIQUE mechanic (card-characteristic matching) that differentiates it from Mining/Woodcutting's damage-vs-durability template.
+   - Description: The plant (enemy) starts with X cards on hand and does NOT draw more cards. Each enemy card has 1-3 characteristics from a small enum (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous). Player plays Herbalism cards that target characteristics; playing a card removes all enemy cards that share at least one characteristic with the player's card. Player draws 1 Herbalism card per play.
+   - Win condition: exactly 1 enemy card remains → that card is the reward, plus Plant tokens are granted.
+   - Loss condition: 0 enemy cards remain (over-harvested — player was too aggressive with broad-matching cards).
+   - Tokens: HerbalismDurability (persistent, init 100 at game start), Plant (reward material token).
+   - Key design notes:
+     - The strategic tension is between playing narrow cards (remove fewer enemy cards, safer) vs broad cards (remove more, risk over-harvesting).
+     - Enemy card characteristics create a puzzle: the player must read the remaining cards and choose which characteristics to target.
+     - This is fundamentally different from Mining/Woodcutting (no HP-vs-durability loop) and creates the "knowledge and precision" feel from the vision.
+   - Implementation checklist:
+     1. Add PlantCharacteristic enum (Fragile, Thorny, Aromatic, Bitter, Luminous)
+     2. Add CardKind::Herbalism { herbalism_effect: HerbalismCardEffect } with target_characteristics: Vec<PlantCharacteristic>
+     3. Add HerbalismEncounterState with plant_hand (cards with characteristics), plant_deck (DeckCounts or direct Vec)
+     4. Add EncounterState::Herbalism(HerbalismEncounterState)
+     5. Add TokenType::HerbalismDurability, Plant
+     6. Add Herbalism cards and encounter to initialize_library()
+     7. Init HerbalismDurability to 100 in GameState::new()
+     8. Implement resolve_player_herbalism_card (match characteristics, remove matching enemy cards, check win/loss)
+     9. Dispatch in action handler and game_state resolution
+     10. Update /library/cards?card_kind= filter for Herbalism
+     11. Update replay_from_log
+     12. Add scenario test
+   - Playable acceptance: Herbalism encounter playable end-to-end with characteristic matching, produces Plant tokens, scenario test passes.
+
+8.4) Fishing (gathering)
+   - Goal: Fourth gathering discipline with a patience/timing mechanic that differentiates it from other gathering types.
+   - Description: Fish has a Patience token that decreases each turn automatically. Player plays Fishing cards with lure_power. Each turn the system rolls (seeded) whether the fish bites based on lure_power vs remaining patience. Fish deck deals 0-2 FishingDurability damage per turn. Player draws 1 card per play.
+   - Win: fish bites (seeded roll succeeds based on lure_power) → grant Fish tokens.
+   - Loss: Patience reaches 0 (fish escapes) OR FishingDurability ≤ 0.
+   - Tokens: FishingDurability (persistent, init 100 at game start), Fish (reward material token), Patience (encounter-scoped, decreases each turn).
+   - EncounterAbort: available.
+   - Key design notes:
+     - The tension is between playing high lure_power cards (better bite chance but may deal more durability damage) vs conservative cards (lower chance but preserve durability).
+     - Patience creates urgency — the player has limited turns before the fish escapes.
+   - Implementation checklist:
+     1. Add CardKind::Fishing { fishing_effect: FishingCardEffect } with lure_power
+     2. Add FishingEncounterState with patience, fish_deck (DeckCounts)
+     3. Add EncounterState::Fishing(FishingEncounterState)
+     4. Add TokenType::FishingDurability, Fish, Patience
+     5. Add Fishing cards and encounter to initialize_library()
+     6. Init FishingDurability to 100 in GameState::new()
+     7. Implement resolve_player_fishing_card (roll bite check, apply durability damage, decrement patience)
+     8. Dispatch in action handler and game_state resolution
+     9. Update /library/cards?card_kind= filter for Fishing
+     10. Update replay_from_log
+     11. Add scenario test
+   - Playable acceptance: Fishing encounter playable end-to-end, produces Fish tokens, scenario test passes.
+
+8.5) Refined gathering encounters
+   - Goal: Evolve all simplified gathering disciplines (8.1-8.4) toward the full vision described in "Encounter templates by discipline → Concrete examples" in vision.md.
+   - Description: Add the features that differentiate the vision's end-state from the current simple implementations:
+     - Multiple phases (Setup → Extraction Rounds → Evaluation → Resolution → Post-resolution scouting)
+     - Affix modifiers on encounter cards (difficulty scaling via area progression)
+     - Rations consumption for temporary boosts (via discipline card effects)
+     - Yield-quality tiers (degree of success matters: better performance → higher quality/quantity rewards)
+     - Combo multipliers (Momentum token for sequential successful plays)
+     - Entry costs (tokens/resources required to attempt certain encounters)
+     - Tool cards and special extraction moves
+   - This step bridges the gap between the simple playable versions and the rich encounter templates in the vision.
+   - Playable acceptance: At least one gathering discipline demonstrates multi-phase resolution, affix-modified encounters, and yield-quality tiering. Scenario tests verify the expanded mechanics.
 
 9) Add basic crafting as discipline encounters and respect Library semantics
    - Goal: Implement crafting as discipline-specific encounters (Fabrication, Provisioning, etc.) that use discipline decks, consume materials, and create Library card copies when finalized.
