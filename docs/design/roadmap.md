@@ -207,25 +207,7 @@ Roadmap steps
    - Cleanup (docs/issues.md): is_finished removed, encounter_card_id mandatory, ore_tokens replaces ore_hp, Durability → MiningDurability, game-start durability init.
    - Playable acceptance: ✅ Mining end-to-end with 3 card types (Aggressive 5/0, Balanced 3/2, Protective 1/3), scenario tests, replay support.
 
-8.2) Woodcutting (gathering)
-   - Goal: Second gathering discipline, following the same mechanical template as Mining to validate the EncounterState pattern is reusable.
-   - Description: Same single-deck template as Mining. Player Woodcutting deck with cards trading off chop_damage (damage to tree) vs splinter_prevent (reduce incoming stamina damage). Tree node has TreeHealth token (encounter-scoped) tracked in tree_tokens HashMap. Tree deck deals 0-3 stamina damage (similar distribution to mining ore deck). Player draws 1 card per play.
-   - Tokens: WoodcuttingDurability (persistent, init 100 at game start), TreeHealth (encounter-scoped), Lumber (reward material token).
-   - Win: TreeHealth ≤ 0 → grant Lumber tokens. Loss: WoodcuttingDurability ≤ 0 → PlayerLost, no failure penalties.
-   - EncounterAbort: available.
-   - Implementation checklist:
-     1. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_damage/splinter_prevent
-     2. Add EncounterState::Woodcutting(WoodcuttingEncounterState) + state struct
-     3. Add TokenType::WoodcuttingDurability, TreeHealth, Lumber
-     4. Add Woodcutting cards and encounter to initialize_library()
-     5. Init WoodcuttingDurability to 100 in GameState::new()
-     6. Dispatch in action handler and game_state resolution
-     7. Update /library/cards?card_kind= filter for Woodcutting
-     8. Update replay_from_log
-     9. Add scenario test
-   - Playable acceptance: Woodcutting encounter playable end-to-end, produces Lumber tokens, scenario test passes.
-
-8.3) Herbalism (gathering)
+8.2) Herbalism (gathering)
    - Goal: Third gathering discipline with a UNIQUE mechanic (card-characteristic matching) that differentiates it from Mining/Woodcutting's damage-vs-durability template.
    - Description: The plant (enemy) starts with X cards on hand and does NOT draw more cards. Each enemy card has 1-3 characteristics from a small enum (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous). Player plays Herbalism cards that target characteristics; playing a card removes all enemy cards that share at least one characteristic with the player's card. Player draws 1 Herbalism card per play.
    - Win condition: exactly 1 enemy card remains → that card is the reward, plus Plant tokens are granted.
@@ -249,6 +231,24 @@ Roadmap steps
      11. Update replay_from_log
      12. Add scenario test
    - Playable acceptance: Herbalism encounter playable end-to-end with characteristic matching, produces Plant tokens, scenario test passes.
+
+8.3) Woodcutting (gathering)
+   - Goal: Second gathering discipline, following the same mechanical template as Mining to validate the EncounterState pattern is reusable.
+   - Description: Same single-deck template as Mining. Player Woodcutting deck with cards trading off chop_damage (damage to tree) vs splinter_prevent (reduce incoming stamina damage). Tree node has TreeHealth token (encounter-scoped) tracked in tree_tokens HashMap. Tree deck deals 0-3 stamina damage (similar distribution to mining ore deck). Player draws 1 card per play.
+   - Tokens: WoodcuttingDurability (persistent, init 100 at game start), TreeHealth (encounter-scoped), Lumber (reward material token).
+   - Win: TreeHealth ≤ 0 → grant Lumber tokens. Loss: WoodcuttingDurability ≤ 0 → PlayerLost, no failure penalties.
+   - EncounterAbort: available.
+   - Implementation checklist:
+     1. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_damage/splinter_prevent
+     2. Add EncounterState::Woodcutting(WoodcuttingEncounterState) + state struct
+     3. Add TokenType::WoodcuttingDurability, TreeHealth, Lumber
+     4. Add Woodcutting cards and encounter to initialize_library()
+     5. Init WoodcuttingDurability to 100 in GameState::new()
+     6. Dispatch in action handler and game_state resolution
+     7. Update /library/cards?card_kind= filter for Woodcutting
+     8. Update replay_from_log
+     9. Add scenario test
+   - Playable acceptance: Woodcutting encounter playable end-to-end, produces Lumber tokens, scenario test passes.
 
 8.4) Fishing (gathering)
    - Goal: Fourth gathering discipline with a patience/timing mechanic that differentiates it from other gathering types.
