@@ -1,7 +1,7 @@
 use super::action_log::ActionLog;
 use super::types::{
     ActionEntry, ActionPayload, CardCounts, CardKind, CombatEncounterState, EncounterKind,
-    EncounterOutcome, EncounterState, MiningEncounterState,
+    EncounterOutcome, EncounterState, HerbalismEncounterState, MiningEncounterState,
 };
 use super::Library;
 use std::collections::HashMap;
@@ -349,6 +349,134 @@ fn initialize_library() -> Library {
         },
     );
 
+    // ---- Herbalism player cards ----
+
+    // Narrow herbalism card (id 16): targets 1 characteristic, low durability cost
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: super::types::HerbalismCardEffect {
+                target_characteristics: vec![super::types::PlantCharacteristic::Fragile],
+                durability_cost: 1,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Medium herbalism card (id 17): targets 2 characteristics, medium durability cost
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: super::types::HerbalismCardEffect {
+                target_characteristics: vec![
+                    super::types::PlantCharacteristic::Thorny,
+                    super::types::PlantCharacteristic::Aromatic,
+                ],
+                durability_cost: 2,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Broad herbalism card (id 18): targets 3 characteristics, high durability cost
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: super::types::HerbalismCardEffect {
+                target_characteristics: vec![
+                    super::types::PlantCharacteristic::Bitter,
+                    super::types::PlantCharacteristic::Luminous,
+                    super::types::PlantCharacteristic::Fragile,
+                ],
+                durability_cost: 3,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Herbalism encounter: Meadow Herb (id 19)
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: super::types::EncounterKind::Herbalism {
+                herbalism_def: super::types::HerbalismDef {
+                    plant_hand: vec![
+                        super::types::PlantCard {
+                            characteristics: vec![super::types::PlantCharacteristic::Fragile],
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        super::types::PlantCard {
+                            characteristics: vec![
+                                super::types::PlantCharacteristic::Thorny,
+                                super::types::PlantCharacteristic::Aromatic,
+                            ],
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        super::types::PlantCard {
+                            characteristics: vec![
+                                super::types::PlantCharacteristic::Bitter,
+                                super::types::PlantCharacteristic::Luminous,
+                            ],
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        super::types::PlantCard {
+                            characteristics: vec![
+                                super::types::PlantCharacteristic::Fragile,
+                                super::types::PlantCharacteristic::Thorny,
+                            ],
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        super::types::PlantCard {
+                            characteristics: vec![super::types::PlantCharacteristic::Luminous],
+                            counts: super::types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                    ],
+                    rewards: HashMap::from([(
+                        super::types::Token::persistent(super::types::TokenType::Plant),
+                        5,
+                    )]),
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
     }
@@ -470,6 +598,11 @@ impl GameState {
         // MiningDurability starts at 100; lost during mining, not regained until crafting
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::MiningDurability),
+            100,
+        );
+        // HerbalismDurability starts at 100; lost during herbalism, not regained until crafting
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::HerbalismDurability),
             100,
         );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
@@ -973,6 +1106,142 @@ impl GameState {
         self.encounter_phase = super::types::EncounterPhase::Scouting;
     }
 
+    /// Initialize an herbalism gathering encounter from a Library Encounter card.
+    pub fn start_herbalism_encounter(
+        &mut self,
+        encounter_card_id: usize,
+        _rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(encounter_card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
+            .clone();
+        let herbalism_def = match &lib_card.kind {
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Herbalism { herbalism_def },
+            } => herbalism_def.clone(),
+            _ => {
+                return Err(format!(
+                    "Card {} is not an herbalism encounter",
+                    encounter_card_id
+                ))
+            }
+        };
+        let state = HerbalismEncounterState {
+            round: 1,
+            encounter_card_id,
+            outcome: EncounterOutcome::Undecided,
+            plant_hand: herbalism_def.plant_hand,
+            rewards: herbalism_def.rewards,
+        };
+        self.current_encounter = Some(EncounterState::Herbalism(state));
+        self.encounter_phase = super::types::EncounterPhase::InEncounter;
+        Ok(())
+    }
+
+    /// Resolve a player herbalism card play against the current herbalism encounter.
+    /// Applies durability cost, removes plant cards sharing ≥1 characteristic,
+    /// checks win (exactly 1 remaining) / loss (0 remaining or durability depleted).
+    pub fn resolve_player_herbalism_card(
+        &mut self,
+        card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", card_id))?
+            .clone();
+        let herbalism_effect = match &lib_card.kind {
+            CardKind::Herbalism { herbalism_effect } => herbalism_effect.clone(),
+            _ => return Err("Cannot play a non-herbalism card in herbalism encounter".to_string()),
+        };
+
+        // Apply durability cost
+        let durability_key =
+            super::types::Token::persistent(super::types::TokenType::HerbalismDurability);
+        let durability = self
+            .token_balances
+            .entry(durability_key.clone())
+            .or_insert(0);
+        *durability = (*durability - herbalism_effect.durability_cost).max(0);
+        let durability_depleted = *durability <= 0;
+
+        if durability_depleted {
+            self.finish_herbalism_encounter(false);
+            return Ok(());
+        }
+
+        // Remove plant cards sharing ≥1 characteristic with the player's card
+        {
+            let herbalism = match &mut self.current_encounter {
+                Some(EncounterState::Herbalism(h)) => h,
+                _ => return Err("No active herbalism encounter".to_string()),
+            };
+            for plant_card in &mut herbalism.plant_hand {
+                if plant_card.counts.hand == 0 {
+                    continue;
+                }
+                let shares_characteristic = plant_card
+                    .characteristics
+                    .iter()
+                    .any(|c| herbalism_effect.target_characteristics.contains(c));
+                if shares_characteristic {
+                    plant_card.counts.hand = 0;
+                }
+            }
+            herbalism.round += 1;
+        }
+
+        // Check win/loss based on remaining plant cards
+        let remaining = match &self.current_encounter {
+            Some(EncounterState::Herbalism(h)) => {
+                h.plant_hand.iter().filter(|c| c.counts.hand > 0).count()
+            }
+            _ => return Err("No active herbalism encounter".to_string()),
+        };
+
+        if remaining == 1 {
+            self.finish_herbalism_encounter(true);
+        } else if remaining == 0 {
+            self.finish_herbalism_encounter(false);
+        } else {
+            // Draw 1 herbalism card for player
+            self.draw_player_herbalism_card(rng);
+        }
+
+        Ok(())
+    }
+
+    /// Finalize an herbalism encounter: grant rewards (win) or apply penalties (loss).
+    fn finish_herbalism_encounter(&mut self, is_win: bool) {
+        if is_win {
+            let rewards = match &self.current_encounter {
+                Some(EncounterState::Herbalism(h)) => h.rewards.clone(),
+                _ => return,
+            };
+            for (token, amount) in &rewards {
+                let entry = self.token_balances.entry(token.clone()).or_insert(0);
+                *entry += amount;
+            }
+        }
+        let outcome = if is_win {
+            EncounterOutcome::PlayerWon
+        } else {
+            EncounterOutcome::PlayerLost
+        };
+        self.last_encounter_result = Some(outcome.clone());
+        self.encounter_results.push(outcome);
+        self.current_encounter = None;
+        self.encounter_phase = super::types::EncounterPhase::Scouting;
+    }
+
+    /// Draw one player herbalism card from deck to hand, recycling discard if needed.
+    fn draw_player_herbalism_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
+        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Herbalism { .. }), rng);
+    }
+
     /// Draw one player mining card from deck to hand, recycling discard if needed.
     fn draw_player_mining_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
         self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Mining { .. }), rng);
@@ -1058,6 +1327,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_mining_encounter(card_id, &mut rng);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Herbalism { .. },
+                                } => {
+                                    let _ = gs.start_herbalism_encounter(card_id, &mut rng);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -1079,6 +1353,9 @@ impl GameState {
                         }
                         Some(EncounterState::Mining(_)) => {
                             let _ = gs.resolve_player_mining_card(*card_id, &mut rng);
+                        }
+                        Some(EncounterState::Herbalism(_)) => {
+                            let _ = gs.resolve_player_herbalism_card(*card_id, &mut rng);
                         }
                         None => {}
                     }
