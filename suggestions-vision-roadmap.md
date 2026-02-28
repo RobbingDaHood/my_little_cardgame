@@ -10,44 +10,57 @@ These suggestions are based on planning and designing Steps 8.2-8.5 (gathering d
 
 ### vision.md Updates
 
-#### 1. Add Herbalism characteristic system to token/type definitions
-When Step 8.3 (Herbalism) is implemented, add `PlantCharacteristic` enum (Fragile, Thorny, Aromatic, Bitter, Luminous) to the types documentation. This is a new pattern: enemy cards with typed characteristics rather than HP/damage mechanics. Document how characteristic matching works (player card targets characteristics, removes all enemy cards sharing at least one match).
+#### 1. PlantCharacteristic and Herbalism types are now implemented
+Step 8.2 (Herbalism) has been implemented. The following types now exist in `src/library/types.rs`:
+- `PlantCharacteristic` enum: Fragile, Thorny, Aromatic, Bitter, Luminous
+- `HerbalismCardEffect { target_characteristics, durability_cost }` — player cards target characteristics and cost durability
+- `PlantCard { characteristics, counts }` — enemy cards with typed characteristics
+- `HerbalismDef { plant_hand, rewards }` — encounter definition
+- `HerbalismEncounterState { round, encounter_card_id, outcome, plant_hand, rewards }`
+- `EncounterState::Herbalism(HerbalismEncounterState)`
+- `TokenType::HerbalismDurability` (persistent, init 100) and `TokenType::Plant` (reward material)
+Update vision.md to reflect these as implemented, not future.
 
-#### 2. Add new token types for gathering disciplines
+#### 2. Herbalism has two loss conditions (update vision.md)
+Vision.md currently describes Herbalism's loss condition as only "0 enemy cards remain (over-harvested)". The implementation adds a second loss condition: HerbalismDurability depletion (each player card has a durability_cost applied immediately on play). Update vision.md to mention both loss conditions.
+
+#### 3. Add new token types for remaining gathering disciplines
 When each discipline is implemented, add to the TokenType enum documentation:
-- `WoodcuttingDurability`, `TreeHealth`, `Lumber` (Step 8.2)
-- `HerbalismDurability`, `Plant` (Step 8.3)
+- `WoodcuttingDurability`, `TreeHealth`, `Lumber` (Step 8.3)
 - `FishingDurability`, `Fish`, `Patience` (Step 8.4)
 
-#### 3. Update "Distinct encounter playstyles" section
+#### 4. Update "Distinct encounter playstyles" section
 The Mining/Woodcutting bullet currently says "focus on discipline wear and extraction" with a note about simplified implementation. As each discipline is built, update this bullet to describe the actual distinct playstyles:
 - Mining: damage-vs-durability tradeoff (ore_damage vs durability_prevent)
-- Woodcutting: same template, validates pattern reuse
-- Herbalism: card-characteristic matching (precision/knowledge)
+- Herbalism: card-characteristic matching with durability cost (precision/knowledge)
+- Woodcutting: same template as Mining, validates pattern reuse
 - Fishing: patience/timing with seeded probability rolls
 
-#### 4. Document the "no draw" enemy pattern (Herbalism)
+#### 5. Document the "no draw" enemy pattern (Herbalism)
 Herbalism introduces a new enemy behavior: enemy starts with a fixed hand and never draws. This is a meaningful departure from combat (enemy plays and draws) and mining (ore deck draws). Document this as a recognized encounter sub-pattern that future encounter types may reuse.
 
-#### 5. Document the win-by-narrowing pattern (Herbalism)
+#### 6. Document the win-by-narrowing pattern (Herbalism)
 Herbalism's "win when exactly 1 card left, lose when 0 left" is a new win/loss pattern distinct from HP-depletion (combat/mining) and round-exhaustion (fishing). Vision should acknowledge this pattern as a valid win/loss design.
 
 ### roadmap.md Updates
 
-#### 1. Consider a Step 8.6 for gathering balance pass
+#### 1. Mark Step 8.2 as COMPLETE
+Update step 8.2 to include a "— COMPLETE" marker (matching the pattern of step 8.1). Add a summary:
+- BREAKING changes: none (additive only)
+- New card IDs: 16 (Narrow Herbalism), 17 (Medium Herbalism), 18 (Broad Herbalism), 19 (Meadow Herb encounter)
+- Playable acceptance: ✅ Herbalism end-to-end with 3 card types (narrow/medium/broad characteristic targeting), 2 scenario tests (full loop + abort), replay support.
+
+#### 2. Update implementation checklist to include durability_cost
+The roadmap 8.2 checklist item for HerbalismCardEffect should note `durability_cost` field (not in original roadmap). Each player card has an immediate durability cost, making durability depletion a second loss condition.
+
+#### 3. Consider a Step 8.6 for gathering balance pass
 After all 4 disciplines are implemented (8.1-8.4), a dedicated balance/tuning step could:
 - Normalize durability init values (all currently 100 — may need differentiation)
 - Balance reward token amounts across disciplines
 - Tune encounter card counts and difficulty distributions
-- Add cross-discipline scenario tests (e.g., mine then woodcut then combat in sequence)
+- Add cross-discipline scenario tests (e.g., mine then herbalism then combat in sequence)
 
-#### 2. Track new CardKind variants needed
-Each discipline adds a new CardKind variant. The roadmap should note the growing pattern:
-- Attack, Defence, Resource, Mining (existing)
-- Woodcutting (8.2), Herbalism (8.3), Fishing (8.4)
-This affects the card_kind filter endpoint, replay_from_log dispatch, and encounter start dispatch. A checklist pattern has been established in the substeps.
-
-#### 3. Note the two mechanical templates emerging
+#### 4. Note the two mechanical templates emerging
 Two distinct patterns are forming for gathering encounters:
 1. **Damage-vs-durability loop** (Mining, Woodcutting): player deals damage to node HP while node deals durability damage; mutual draw each turn.
 2. **Unique mechanic** (Herbalism card-matching, Fishing patience-roll): fundamentally different resolution requiring bespoke logic.
@@ -56,7 +69,7 @@ Step 8.5 should consider whether the damage-vs-durability template can be genera
 ### Copilot Instruction Suggestions
 
 #### 1. Update player action list
-The copilot instructions reference "Only four player actions exist." Update to five, adding `EncounterAbort`.
+The copilot instructions reference "Only four player actions exist." The actual list is five: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort.
 
 #### 2. Document the `DeckCounts` shared type
 When describing enemy or ore deck card tracking, reference the shared `DeckCounts { deck, hand, discard }` struct.
