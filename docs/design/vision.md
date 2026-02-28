@@ -128,7 +128,7 @@ Combat is fully reproducible by recording the game's single initial seed and the
 Example - Iron Ore node:
 - Player visits a mine node: a card is drawn from the ore deck.
 - The drawn card might be `SmallIronVein`, `EncrustedIron`, or `ElementalCore` with varying difficulty and loot.
-- Some treasure spots explicitly allow alternate interactions such as "learning" or scouting-related actions: learning can grant recipes, lore, or crafting shortcuts; scouting is not a standalone encounter but a post-resolution step that changes the area deck and hand. After any encounter resolves (win or loss) the resolved card is removed from the Area deck and immediately replaced by a new encounter of the same base type with affix modifiers; scouting controls how those replacement encounters are generated (see Scouting mechanics below).
+- Some treasure spots explicitly allow alternate interactions such as "learning" or scouting-related actions: learning can grant recipes, lore, or crafting shortcuts; scouting is not a standalone encounter but a post-resolution step that changes the area deck and hand. After any encounter resolves (win or loss) the resolved card is removed from the Area deck and immediately replaced by a new encounter of the same base type with additional CardEffects as modifiers; scouting controls how those replacement encounters are generated (see Scouting mechanics below).
 - A special "combat" starts where the player's `Mining` deck is used to interact with the ore card: mining cards represent mining tools/techniques, resource cards provide stamina/endurance, and failure/success is resolved as if the ore were an enemy with HP and resistances.
 - Success yields one or more specific treasure cards (iron ingot tokens, rare gems), moved into the player's Loot/Inventory deck.
 
@@ -140,17 +140,17 @@ Other gathering professions follow the same model: lumber nodes draw from a `Lum
 
 - Library-only placement: crafted card copies are always placed into the Library when completed; crafting never inserts cards directly into player decks. Players add Library cards into decks later via normal deck-management flows and subject to deck-type constraints.
 
-- Crafting cost and scaling: every card has an intrinsic crafting cost that scales with the number and rarity of attached affixes and with how favorable the affix numeric rolls were (higher-quality variants cost more to reproduce). Consumable resources are drawn from inventory decks to pay base costs.
+- Crafting cost and scaling: every card has an intrinsic crafting cost that scales with the number and rarity of attached CardEffects and with how favorable the CardEffect numeric rolls were (higher-quality variants cost more to reproduce). Consumable resources are drawn from inventory decks to pay base costs.
 
-- Affix constraints: affix types are fixed once created by the Modifier Deck process; crafting cannot change affix types or categories. Crafting can, however, reroll or refine numeric values of affixes (at resource/token cost and risk) and improve or reduce variance using dedicated tokens.
+- CardEffect constraints: CardEffect types are fixed once created; crafting cannot change CardEffect types or categories. Crafting can, however, reroll or refine numeric values of CardEffects (at resource/token cost and risk) and improve or reduce variance using dedicated tokens.
 
 - Tokens and trade-offs: Renown and Insight are earned via risky or showy plays; they are spendable across systems (merchants, research boosts) and may be used in specialized crafting flows as designer intent requires. Refinement and Stability tokens are the primary currencies for improving craft rolls (Refinement raises expected values, Stability reduces variance). There are also discipline cards and cost-reduction cards that can lower resource/token costs when played during the craft encounter.
 
 - Craft encounter choices: while resolving a craft the player may spend Refinement/Stability to reroll or bias numeric values, push for higher quality (increasing cost), or accept penalties (which can grant discipline-specific tokens or short-term benefits). Failures can consume extra resources, add Exhaustion, or introduce Corruption as designed trade-offs.
 
-- Finalization and reproducibility: a successful craft creates a new Library card copy with its rolled values and affixes; all draws and random rolls are deterministically derived from the game's single initial seed and recorded so outcomes are reproducible. Crafted cards join the Library catalog and are available for future deck composition or as targets of further research/crafting cycles.
+- Finalization and reproducibility: a successful craft creates a new Library card copy with its rolled values and CardEffects; all draws and random rolls are deterministically derived from the game's single initial seed and recorded so outcomes are reproducible. Crafted cards join the Library catalog and are available for future deck composition or as targets of further research/crafting cycles.
 
-- Design note: keeping crafting focused on value refinement (not affix-type mutation) creates a clear, discipline-centred refinement loop that uses the same cards-and-tokens language as other systems while preserving predictable upgrade paths and reproducibility.
+- Design note: keeping crafting focused on value refinement (not CardEffect-type mutation) creates a clear, discipline-centred refinement loop that uses the same cards-and-tokens language as other systems while preserving predictable upgrade paths and reproducibility.
 
 ### Crafting overview: disciplines, material flows, and token mapping
 
@@ -161,7 +161,7 @@ High-level flow
 - Gathering disciplines (Mining, Woodcutting, Herbalism, Fishing, etc.) generate raw material tokens (Ore, Lumber, Herbs, Fish, etc.).
 - Refining crafting disciplines (Fabrication, Provisioning, etc.) consume raw materials and produce refined material tokens (IronBar, Plank, Reagent, Tincture) that other crafting disciplines can use as inputs to craft final card definitions.
 - Crafting encounters consume refined materials, discipline-specific action cards, and craft tokens (Refinement/Stability) to produce new Library card copies or modified variants.
-- Research/Learning, Milestones, and scouting-related systems supply higher-level tokens (Variant-Choice, Affix-Picks, Insight, Foresight) that influence variant generation, choice breadth, and unlock paths.
+- Research/Learning, Milestones, and scouting-related systems supply higher-level tokens (CardEffect-Choice, CardEffect-Picks, Insight, Foresight) that influence variant generation, choice breadth, and unlock paths.
 
 Canonical token list, generators, and uses
 
@@ -171,29 +171,27 @@ Canonical token list, generators, and uses
 
 - Renown (per-discipline): generated by showy or taunting plays across combat/gathering/crafting and some milestone rewards. Spendable: yes. Use: spend at merchants or for special reputation-based offers and discounts.
 
-- Variant-Choice (numeric): generated rarely via Milestone rewards or special progression sources. Spendable: yes. Use: controls how many modifier cards are drawn when generating research replacement variants.
+- CardEffect-Choice (numeric): generated rarely via Milestone rewards or special progression sources. Spendable: yes. Use: controls how many CardEffects are drawn from the Library when generating scouting replacement encounters.
 
-- Affix-Picks (numeric): generated via deep progression (milestones, rare rewards). Spendable: yes. Use: controls how many modifiers may be attached during variant creation.
+- CardEffect-Picks (numeric): generated via deep progression (milestones, rare rewards). Spendable: yes. Use: controls how many CardEffects may be attached to replacement encounters during scouting.
 
-- Refinement (numeric): generated by milestone rewards, some crafting outcomes, and possibly purchasable via merchants or special encounters. Spendable: yes. Use: bias or reroll numeric affix values during Craft encounters to increase expected quality.
+- Refinement (numeric): generated by milestone rewards, some crafting outcomes, and possibly purchasable via merchants or special encounters. Spendable: yes. Use: bias or reroll numeric CardEffect values during Craft encounters to increase expected quality.
 
-- Stability (numeric): generated similarly to Refinement (progression rewards, milestones). Spendable: yes. Use: reduce variance on affix rolls during Craft encounters.
+- Stability (numeric): generated similarly to Refinement (progression rewards, milestones). Spendable: yes. Use: reduce variance on CardEffect rolls during Craft encounters.
 
 - Momentum (combat token): generated by chaining offensive plays or foregoing defence. Spendable: yes. Use: trigger follow-up/combo effects in combat and some discipline synergies.
 
 - Foresight (scouting token): earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: Decides the max hand size of the area "deck": After an encounter have been resolved then draw area cards until Foresight amount of cards were drawn. 
 
-- Scouting candidate pool: earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: During the scouting post-encounter step, then this decides how many "affixes" are drawn to "build" the next encounter. 
+- Scouting candidate pool: earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: During the scouting post-encounter step, this decides how many CardEffects are drawn to build the next encounter. 
 
-- Scouting pick count: earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: During the scouting post-encounter step, then this decides how many "affixes" that maximum can be choosen to "build" the next encounter. 
+- Scouting pick count: earned via scouting actions and reconnaissance-related rewards. Spendable: yes. Use: During the scouting post-encounter step, this decides how many CardEffects can be chosen to build the next encounter. 
 
 - Corruption / Purity (moral tokens): Corruption is generated by forbidden or tainted actions and is reduced or transformed via specific purge mechanics or Purity spends; Purity is earned by restraint and quests and is spendable to purge Corruption or unlock purity-locked content. Spendable: Purity yes; Corruption not a normal currency but can be altered by specified actions. Use: Corruption modifies world responses and content gating; Purity can be spent to purge Corruption.
 
 - Exhaustion (negative token): generated by overexertion (failed or costly actions across disciplines). Use: applied as a persistent penalty (reduced hand size, increased costs) until recovered.
 
 - MiningDurability, WoodcuttingDurability, HerbalismDurability, FishingDurability (discipline HP pools): discipline-specific "hp/life" pools used during gathering encounters. Each gathering profession has its own durability pool (named `{Discipline}Durability`). Initialized at game start (e.g., MiningDurability: 100) and persists across encounters. Decreased by encounter actions; restored by repairs, rest, or specific cards. Spendable: no. Use: models the condition and operational capacity of a discipline during encounters and enforces maintenance/repair flows. When a discipline's durability reaches 0 during an encounter, the encounter ends as PlayerLost with no additional penalties (durability loss IS the penalty).
-
-- Thesis (research progression token): generated by completing Learning/Research encounters, milestone rewards, and special events. Spendable: yes. Use: advance or unlock research projects, pay for special experiment options, or enable limited Variant-Choice/Affix-Picks bonuses during research.
 
 - Key tokens / Special-purpose tokens: generated by Milestone chains and unique challenges. Spendable: yes (on specified unlocks). Use: carry metadata (key_id) and unlock elite or special challenges; often singular/rare.
 
@@ -239,7 +237,7 @@ Discipline → primary tokens/materials produced (summary)
 - Research / Learning: consumes Insight to start and complete research; produces new card definitions in the Library. CardEffect discipline tags determine which effects are available for each discipline's research.
 - Scouting / Recon (system): generates Foresight and other reconnaissance benefits, and can affect resource yields; scouting is a post-resolution/area-update subsystem applied as part of an encounter's lifecycle rather than a standalone encounter type. Scouting preview count = 1 + Foresight token count. Additional scouting parameters (pool modifier) may be derived from other tokens.
 
-- Milestones / Challenge systems: primary source for Variant-Choice, Affix-Picks, rare Refinement/Stability, and Key tokens.
+- Milestones / Challenge systems: primary source for CardEffect-Choice, CardEffect-Picks, rare Refinement/Stability, and Key tokens.
 
 Design implications and notes
 
@@ -254,10 +252,10 @@ Design implications and notes
 
 Layered balancing approach:
 
-- Resource sinks: ensure crafting new Library cards is the dominant resource sink; require scaled inputs (materials + tokens) that grow superlinearly with affix count and quality.
+- Resource sinks: ensure crafting new Library cards is the dominant resource sink; require scaled inputs (materials + tokens) that grow superlinearly with CardEffect count and quality.
 - Token caps and decay: use caps, soft caps, and decay mechanics to prevent runaway accumulation; apply diminishing returns to token utility at high quantities.
-- Rarity and availability tuning: tune drop tables and modifier rarities so progression requires deliberate investment; make certain rare tokens gated behind milestones or unique challenges.
-- Cost-scaling: scale crafting costs with affix count, affix quality, and Variant-Choice/Affix-Picks usage so stronger outputs require disproportionate inputs.
+- Rarity and availability tuning: tune drop tables and CardEffect rarities so progression requires deliberate investment; make certain rare tokens gated behind milestones or unique challenges.
+- Cost-scaling: scale crafting costs with CardEffect count, CardEffect quality, and CardEffect-Choice/CardEffect-Picks usage so stronger outputs require disproportionate inputs.
 
 Tuning pipeline and instrumentation:
 
@@ -267,7 +265,7 @@ Tuning pipeline and instrumentation:
 
 Operational controls & feedback:
 
-- Designer knobs: surface parameters like drop rates, Variant-Choice/Affix-Picks frequency, Refinement/Stability supply, and cost multipliers for live tuning.
+- Designer knobs: surface parameters like drop rates, CardEffect-Choice/CardEffect-Picks frequency, Refinement/Stability supply, and cost multipliers for live tuning.
 - A/B and sandbox playtests: perform controlled experiments with telemetry to narrow down balance changes before wide rollout.
 - Targeted sinks and throttles: introduce repair/maintenance costs, upkeep, or one-time unlock expenses when telemetry shows runaway accumulation.
 
@@ -314,12 +312,12 @@ Research candidate generation and card creation
 - Scouting (system / reconnaissance): Scouting is not an independent encounter type; it is the post-resolution step of every encounter lifecycle. After an encounter resolves (win or loss), scouting-related effects may be applied to update the Area deck and future draws: scouting cards, actions, or tokens influence how replacement encounters are generated and how future encounter choices are presented.
 
   Mechanics and flow:
-  - Replacement pipeline: immediately after any encounter resolves it is removed from its Area deck and replaced by a new encounter of the same base type with affix modifiers; this replacement is part of the encounter lifecycle and occurs regardless of outcome.
-  - Affix generation: to build the replacement encounter, draw X affix-candidate cards from the Modifier Deck and choose up to Y of them to attach as affixes. The scouting-candidate-pool size X and scouting-pick-count Y are influenced by scouting-related tokens (they use the Variant-Choice / Affix-Picks semantics as research flows, and scouting bonuses may temporarily increase these values). The Modifier Deck here is the same shared Modifier Deck used by research replacement workflows.
+  - Replacement pipeline: immediately after any encounter resolves it is removed from its Area deck and replaced by a new encounter of the same base type with additional CardEffects as modifiers; this replacement is part of the encounter lifecycle and occurs regardless of outcome.
+  - CardEffect selection for replacement: to build the replacement encounter, draw X CardEffects from the Library's CardEffect pool and choose up to Y of them to attach. The scouting-candidate-pool size X and scouting-pick-count Y are influenced by scouting-related tokens (CardEffect-Choice / CardEffect-Picks, and scouting bonuses may temporarily increase these values).
   - Replacement choices and preview: when deciding which encounter to attempt next, a scouting-related token (for example Foresight) controls how many encounter options a player may draw/preview from the Area deck; scouting can therefore both influence replacement creation and encounter selection scope.
   - Risk and cost management: scouting effects are modulated by spends (Rations, stealth-like tokens, or scouting-specific tokens) to bias draws toward higher-risk/higher-reward variants or to enable parameter upgrades. Scouting choices can increase the tier of replacement encounters, which in turn increases the tier of rewards from those encounters (e.g., higher-tier gathering yields or tougher combat for better loot). All draws and choices in this pipeline are deterministic and recorded (derived from the game's single initial seed).
 
-  This system reuses the research/replacement workflow and makes area evolution an explicit part of every encounter's lifecycle.
+  This system uses the Library's CardEffect pool and makes area evolution an explicit part of every encounter's lifecycle.
 
 - Mining (gathering subtype): focuses on discipline wear and extraction. Uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. Future refined versions (Step 8.5) will add multi-phase resolution, stamina costs, and entry costs.
 - Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays up to 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After all plays (or the player chooses to stop early), the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Pattern rarity has significant multiplier impact to reward playing more cards. Each card costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
@@ -364,13 +362,13 @@ This subsection is the authoritative token reference. Each token type below list
 
 
 
-- Variant-Choice: controls X (how many modifier cards are drawn when generating research replacements); earned rarely via milestones or special rewards; numeric.
+- CardEffect-Choice: controls X (how many CardEffects are drawn from the Library when generating scouting replacement encounters); earned rarely via milestones or special rewards; numeric.
 
-- Affix-Picks: controls Y (how many modifiers may be chosen); very expensive to increase and earned via deep progression; numeric.
+- CardEffect-Picks: controls Y (how many CardEffects may be chosen to attach); very expensive to increase and earned via deep progression; numeric.
 
-- Refinement: crafting token used to bias or re-roll numeric affix values; numeric and spent during Craft encounters.
+- Refinement: crafting token used to bias or re-roll numeric CardEffect values; numeric and spent during Craft encounters.
 
-- Stability: crafting token that reduces variance on affix rolls; numeric and spent during Craft encounters.
+- Stability: crafting token that reduces variance on CardEffect rolls; numeric and spent during Craft encounters.
 
 - Momentum: combat token gained by chaining offensive plays or foregoing defence; spent to trigger follow-up or combo effects.
 
@@ -421,18 +419,18 @@ This design lets the game grow from simple beginnings to rich systems while pres
 
 ## Card location model and counts
 
-- Canonical Library entry: each Library entry is a single authoritative object combining the immutable card definition (id, type, base properties, affix definitions, and metadata) with the player's exclusive copy counts. The Library entry therefore represents both the card's definition and how many copies the player currently owns in each location.
+- Canonical Library entry: each Library entry is a single authoritative object combining the immutable card definition (id, type, base properties, CardEffect definitions, and metadata) with the player's exclusive copy counts. The Library entry therefore represents both the card's definition and how many copies the player currently owns in each location.
 
-  - definition: immutable card identity and properties (card_id, type, base stats, list of affix descriptors, rarity, tags).
+  - definition: immutable card identity and properties (card_id, type, base stats, list of CardEffect descriptors, rarity, tags).
   - counts: an exclusive counts tuple describing where player copies reside.
 
 - Single deck per type: each card type maps to exactly one deck-type (Attack cards belong to the Attack deck, Defence cards to the Defence deck, etc.). For each deck type there is only one player-owned deck instance. Deck-type constraints determine which Library cards may be added to which deck.
 
 - Exclusive counts and compact representation: the Library entry's counts tuple is ordered as [library_count, deck_count, hand_count, discard_count] (this list may be expanded later to include deleted, equipped, or other locations). Counts are exclusive — a single physical card instance is represented in exactly one location and contributes to exactly one count.
 
-- New-definition uniqueness: when a crafted or researched outcome changes the card definition (for example different affix numeric values produce a distinct card definition), a new Library entry must be created for that distinct definition with its own counts. Library entry identity is therefore based on the card definition rather than a human-visible name.
+- New-definition uniqueness: when a crafted or researched outcome changes the card definition (for example different CardEffect numeric values produce a distinct card definition), a new Library entry must be created for that distinct definition with its own counts. Library entry identity is therefore based on the card definition rather than a human-visible name.
 
-- Research cards in the Library: Research-card candidates are present in the Library catalog and have counts like any other entry; while a research card carries the temporary type "research" it remains a Library entry and thus contributes to counts. When the research is completed the Library entry is updated to the final type and its definition is frozen.
+- Research cards in the Library: Completed research adds a new card definition to the Library with 0 copies in any zone. The card's CardEffects are drawn from the Library's CardEffect pool (filtered by discipline tags) with values rolled from each CardEffect's min-max range. The new Library entry is available for future deck composition, crafting, or further research cycles.
 
 - Example: a count vector of [4,2,1,1] on the Library entry for "Basic Axe (v2)" means the player has 8 copies total: 4 are stored in the Library inventory, 2 are currently in the Attack deck, 1 is in the player's hand, and 1 is in the discard pile.
 
@@ -442,17 +440,17 @@ This design lets the game grow from simple beginnings to rich systems while pres
 
 - Trackable goals: every mutating operation increments counters so players can aim to hit milestones within a fixed number of operations. A Milestones deck contains hardcoded challenge cards (structured similarly to Area encounters) that pose focused challenges and require spending discipline-specific Insight to attempt.
 
-- Unique modifier and card acquisition: completing milestone challenges is the primary (and exclusive) source of new Modifier cards for the Modifier Deck; challenges can also reward unique cards that cannot be crafted or researched elsewhere (once obtained they become Library items that can be targeted by later crafting or research flows).
+- Unique CardEffect and card acquisition: completing milestone challenges is the primary (and exclusive) source of new CardEffect entries for the Library's CardEffect pool; challenges can also reward unique cards that cannot be crafted or researched elsewhere (once obtained they become Library items that can be targeted by later crafting or research flows).
 
 - Challenge life cycle and escalation: when a challenge is defeated it is replaced by a new, tougher challenge with greater reward. Toughness should evolve not merely by numeric scaling but by introducing new mechanics, constraints, and required playstyles — for example forcing limited hand size, changing turn order, applying persistent mutators, or requiring cross-discipline synergies.
 
 - Ideas for meaningful continuous progression (non-exhaustive):
   - Rule mutators: new challenges introduce unique rule changes (e.g., reversed initiative, delayed resource refresh, limited card types allowed) that require players to adapt their decks and tactics.
   - Cross-discipline requirements: some milestones require using two or more discipline decks in sequence (e.g., scout an area then perform a specialized craft under time pressure) to reward broader investment.
-  - Branching challenge trees: completing certain challenges unlocks branches of related challenges that grant access to new affix families or modifier categories.
+  - Branching challenge trees: completing certain challenges unlocks branches of related challenges that grant access to new CardEffect families or categories.
   - Rotating modifiers and seasonal variants: periodically rotate challenge modifiers so the same challenge can demand different approaches over time.
-  - Reward choice and meaningful trade-offs: offer multiple reward options (choose one) such as a rare affix, a unique card, or an increase in Variant-Choice/Affix-Picks caps, forcing players to decide between immediate power or long-term progression.
-  - Meta and chain challenges: chains that require a series of wins to unlock an elite modifier or an otherwise unobtainable affix; failing mid-chain increases future costs or changes the chain path.
+  - Reward choice and meaningful trade-offs: offer multiple reward options (choose one) such as a rare CardEffect, a unique card, or an increase in CardEffect-Choice/CardEffect-Picks caps, forcing players to decide between immediate power or long-term progression.
+  - Meta and chain challenges: chains that require a series of wins to unlock an elite CardEffect or an otherwise unobtainable effect; failing mid-chain increases future costs or changes the chain path.
   - Persistent world effects: some challenges unlock global changes (new area decks, merchant inventory updates) that alter future encounter composition.
   - Milestones designed for single-player progression: operation-limited challenges track personal performance for local goals or seasonal single-player modes; multiplayer or leaderboard features are out of scope.
 
@@ -469,9 +467,9 @@ Encounter template (fields every encounter card provides)
 
 
 - stats / parameters: discipline-specific numeric values (HP/resilience, hardness, freshness, complexity, time-to-complete)
-- modifiers: list of applied affixes or environmental modifiers
+- modifiers: list of applied CardEffects or environmental modifiers
 - entry_cost: tokens or resources required to attempt (optional)
-- rewards: reward pool specification (materials, tokens, Variant-Choice chances, recipes)
+- rewards: reward pool specification (materials, tokens, CardEffect-Choice chances, recipes)
 - failure_consequences: canonical list of consequences and tokens applied on failure
 
 
@@ -481,7 +479,7 @@ Encounter lifecycle (includes post-resolution scouting/area-update step)
 - Start: decks are bound to the encounter (encounter deck, reward deck, modifier pulls), and any entry_cost is consumed/locked; random draws and rolls derive deterministically from the game's single initial seed.
 - Phases: encounters are resolved in named phases; a common minimal set: Setup → Player Phase(s) → Encounter Phase(s) → Resolution → Post-resolution area-update/scouting. Discipline-specific phases add nuance (for example, a "Preparation" phase for Provisioning or "Extraction" rounds for Mining).
 - Actions: players take structured actions by playing discipline-specific action cards from their hand/decks, spending tokens, or triggering reactions. Each action maps to deterministic outcomes recorded in the actions log.
-- Resolution: encounter finishes when win or loss conditions are met; rewards and post-encounter transitions (move to Discard, Deleted, Library additions) are applied and recorded. Immediately after resolution a post-resolution area-update/scouting step occurs as part of the encounter lifecycle: replacement encounters are generated (affix candidate draws and pick attachments), Foresight effects are applied, and any preview/selection options for the next encounter are computed and recorded.
+- Resolution: encounter finishes when win or loss conditions are met; rewards and post-encounter transitions (move to Discard, Deleted, Library additions) are applied and recorded. Immediately after resolution a post-resolution area-update/scouting step occurs as part of the encounter lifecycle: replacement encounters are generated (CardEffect candidate draws and pick attachments), Foresight effects are applied, and any preview/selection options for the next encounter are computed and recorded.
 
 Win / Loss semantics
 
@@ -490,7 +488,7 @@ Win / Loss semantics
 
 Difficulty progression between encounters
 
-- Encounters of the same type scale difficulty using area/zone progression and probability distributions tuned by Variant-Choice, affix rarities, and designer-set difficulty curves. Difficulty may increase via: higher base stats, more modifiers, and harsher failure penalties.
+- Encounters of the same type scale difficulty using area/zone progression and probability distributions tuned by CardEffect-Choice, CardEffect rarities, and designer-set difficulty curves. Difficulty may increase via: higher base stats, more modifiers, and harsher failure penalties.
 - Procedural patterns: area decks can be composed with weighted tiers so later draws increase expected difficulty while still allowing occasional low-difficulty encounters for variance and pacing.
 
 How the encounter differs from others
@@ -610,12 +608,12 @@ Concrete examples
 - Encounter fields: recipe_requirements (materials and token costs), required_sequence_steps, quality_thresholds.
 - Pre-start: visible recipe name, base cost, visible optional modifiers that can be attempted.
 - Phases: Setup → Work Rounds (apply hammering, tempering, quenching actions) → Quality Rolls → Resolution → Post-resolution area-update/scouting.
-- Actions: Play Discipline cards (Hammer, Temper, Anneal), spend Refinement/Stability to bias rolls or reroll affix values, spend refined materials and Thesis/Insight if used for special options.
+- Actions: Play Discipline cards (Hammer, Temper, Anneal), spend Refinement/Stability to bias rolls or reroll CardEffect values, spend refined materials and Insight if used for special options.
 - Decks: Fabrication deck, Inventory/Material decks, Library recipe reference, Reward deck for outcomes.
 - Tokens: Refinement, Stability, Rations optional as stamina, Discipline Durability (heavy work can deplete fabrication durability pool).
 - Difficulty progression: higher-tier recipes require more refined inputs, higher Refinement/Stability investment, and longer action sequences.
 - Distinctive features: deterministic quality roll pipeline with seeded RNG; crafting produces new Library card definitions and is the main economy sink.
-- Rewards: new Library card copies, possible bonus affixes, and recipe improvements.
+- Rewards: new Library card copies, possible bonus CardEffects, and recipe improvements.
 - Failure: resource loss, Exhaustion, possible tool/discipline Durability reduction, lower quality or outright failed craft.
 - Win/Lose: success if final quality meets recipe threshold; fail otherwise.
 
@@ -624,9 +622,9 @@ Concrete examples
 - Encounter fields: reagent_requirements, ingredient_list, volatility/freshness, stabilization_difficulty, temperature_profile.
 - Pre-start: all encounter fields are visible.
 - Phases: Setup → Mix/Prep/Heat/Distill/Cook Rounds → Stabilization/Plating → Resolution → Post-resolution area-update/scouting.
-- Actions: Play Mix, Heat, Distill, Stir, Rest, Season cards; spend Refinement/Stability and Thesis for special experiments; timing and sequencing are important.
+- Actions: Play Mix, Heat, Distill, Stir, Rest, Season cards; spend Refinement/Stability for special experiments; timing and sequencing are important.
 - Decks: Provisioning deck, Inventory/Ingredient decks, Library.
-- Tokens: Reagent/Tincture, Ingredients, Rations, Refinement/Stability, Insight/Thesis for research synergies.
+- Tokens: Reagent/Tincture, Ingredients, Rations, Refinement/Stability, Insight for research synergies.
 - Difficulty progression: rarer or exotic recipes require tighter stabilization windows and more precise timing.
 - Distinctive features: volatile processes and time/temperature sequencing where sequencing and timing heavily matter; produces consumables and reagents rather than durable Library entries (though recipes can be unlocked).
 - Rewards: reagents, consumable cards, new recipes.
@@ -653,7 +651,7 @@ Concrete examples
 11) Scouting / Recon (system)
 
 - Lifecycle placement: scouting is applied as the post-resolution area-update step of the encounter lifecycle (Setup → Player Phase(s) → Encounter Phase(s) → Resolution → Post-resolution scouting/update).
-- Decks involved: Area deck and Modifier Deck (scouting reuses these decks; there is no separate persistent 'Scouting' deck).
+- Decks involved: Area deck and Library CardEffect pool (scouting draws from the Library's CardEffects; there is no separate persistent 'Scouting' deck).
 - Tokens: Foresight, Scouting candidate pool size, Scouting canditate pick size, Rations, Stealth-like tokens.
 
 12) Merchant / Trading interactions
