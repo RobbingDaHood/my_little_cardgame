@@ -55,6 +55,14 @@ When the below point states "Roadmap" it means edit the roadmap.md.
     1. Adjust the "Playable acceptance" to fit the above.
 
 
+1. It should be possible to stop the woodcutting encounter after every play of a card. 
+    1. This is not aborting the encounter. 
+    1. The current pattern is still evaluated. 
+    1. The durability cost is only paid for the cards played. 
+    1. The multipliers for a better pattern need to be a bit bigger: to justify player more cards to get there. 
+        1. Also the rarity of the pattern should also have a bigger impact on the multipler. 
+
+
 # When done with all of this then update the subbestions-vision-roadmap.md 
 
 It represents suggested changes to vision.md and roadmap.md that would clarify them for the future. 
