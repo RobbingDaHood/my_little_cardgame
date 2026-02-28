@@ -1110,7 +1110,7 @@ impl GameState {
     pub fn start_herbalism_encounter(
         &mut self,
         encounter_card_id: usize,
-        _rng: &mut rand_pcg::Lcg64Xsh32,
+        rng: &mut rand_pcg::Lcg64Xsh32,
     ) -> Result<(), String> {
         let lib_card = self
             .library
@@ -1128,11 +1128,13 @@ impl GameState {
                 ))
             }
         };
+        let mut plant_hand = herbalism_def.plant_hand;
+        Self::plant_shuffle_hand(rng, &mut plant_hand);
         let state = HerbalismEncounterState {
             round: 1,
             encounter_card_id,
             outcome: EncounterOutcome::Undecided,
-            plant_hand: herbalism_def.plant_hand,
+            plant_hand,
             rewards: herbalism_def.rewards,
         };
         self.current_encounter = Some(EncounterState::Herbalism(state));
@@ -1261,6 +1263,47 @@ impl GameState {
 
     /// Draw one random ore card from deck to hand, recycling discard if needed.
     fn ore_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::OreCard]) {
+        use rand::RngCore;
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        if total_deck == 0 {
+            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
+            if total_discard == 0 {
+                return;
+            }
+            for card in deck.iter_mut() {
+                card.counts.deck += card.counts.discard;
+                card.counts.discard = 0;
+            }
+        }
+        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
+        if total_deck == 0 {
+            return;
+        }
+        let mut pick = (rng.next_u64() as u32) % total_deck;
+        for card in deck.iter_mut() {
+            if pick < card.counts.deck {
+                card.counts.deck -= 1;
+                card.counts.hand += 1;
+                return;
+            }
+            pick -= card.counts.deck;
+        }
+    }
+
+    /// Shuffle plant hand: move all to deck, redraw to original hand size.
+    fn plant_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::PlantCard]) {
+        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
+        for card in deck.iter_mut() {
+            card.counts.deck += card.counts.hand;
+            card.counts.hand = 0;
+        }
+        for _ in 0..target_hand {
+            Self::plant_draw_random(rng, deck);
+        }
+    }
+
+    /// Draw one random plant card from deck to hand, recycling discard if needed.
+    fn plant_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::PlantCard]) {
         use rand::RngCore;
         let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
         if total_deck == 0 {
