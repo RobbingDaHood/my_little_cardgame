@@ -1,10 +1,10 @@
 # Suggestions for vision.md and roadmap.md
 
-All suggestions from the pre-step-8-cleanup, step-8-implementation, and step-8-docs/issues.md-cleanup sections have been applied to both docs/design/vision.md and docs/design/roadmap.md as of 2026-02-28.
+All suggestions from the pre-step-8-cleanup, step-8-implementation, step-8-docs/issues.md-cleanup, step-8.3-woodcutting, and step-8.4-fishing sections have been applied to docs/design/vision.md, docs/design/roadmap.md, and .github/copilot-instructions.md as of 2026-02-28.
 
 ---
 
-## New Suggestions — Step 8 Gathering Disciplines
+## New Suggestions — Step 8 Gathering Disciplines (APPLIED)
 
 These suggestions are based on planning and designing Steps 8.2-8.5 (gathering discipline substeps).
 
@@ -109,52 +109,45 @@ Once CardEffects use the range system (min-min/max-min/min-max/max-max), update 
 
 ---
 
-## Contradictions and Areas of Improvement
+## Contradictions and Areas of Improvement (APPLIED or RESOLVED)
 
 ### Contradictions Remaining
 
-#### 1. vision.md line ~220: "Conditional: persist until ... Durability hitting 0"
-Still uses generic "Durability" rather than discipline-specific names. Minor — the concept is correct but the example could be updated to "MiningDurability hitting 0" for consistency.
+#### 1. vision.md line ~220: "Conditional: persist until ... Durability hitting 0" — FIXED
+Updated to "MiningDurability hitting 0".
 
-#### 2. vision.md line ~330: "Durability as a discipline HP pool"
-In the "Different token uses" bullet under "Design consequences and examples", still uses generic "Durability". Should be updated to reference discipline-specific durability tokens.
+#### 2. vision.md line ~330: "Durability as a discipline HP pool" — FIXED
+Updated to list all 4 discipline-specific durability tokens.
 
-#### 3. vision.md line ~465: "discipline Durability ≤ 0"
-In the "Win / Loss semantics" section, still uses generic "Durability" in the example. Should reference discipline-specific names.
+#### 3. vision.md line ~465: "discipline Durability ≤ 0" — FIXED
+Updated to "MiningDurability ≤ 0".
 
-#### 4. Roadmap 8.3 previously described Woodcutting as "same template as Mining"
-This was corrected in this session. The roadmap and vision now describe Woodcutting as rhythm-based pattern matching. However, vision.md may still have residual references to the old Mining-clone template in other sections — search for "chop_damage" or "splinter_prevent" and remove.
+#### 4. Roadmap 8.3 previously described Woodcutting as "same template as Mining" — RESOLVED
+Roadmap and vision now describe Woodcutting as rhythm-based pattern matching. No residual chop_damage/splinter_prevent references remain.
 
-**Update (2026-02-28 — Step 8.3 implementation):** Step 8.3 was implemented using the Mining-clone template (damage-vs-durability loop with chop_damage/splinter_prevent) as described in the original roadmap 8.3 spec. The pattern-matching/rhythm-based Woodcutting variant described in the vision was NOT implemented — that is deferred to Step 8.5 (Refined gathering encounters). The current implementation validates the EncounterState pattern is reusable, which was the stated goal of 8.3.
-
-#### 5. vision.md Encounter templates section numbering
-The encounter templates section numbers Woodcutting as "2)" which was originally "same template as Mining". This has been updated, but the section numbering and flow should be reviewed for consistency after all 4 disciplines are implemented.
+#### 5. vision.md Encounter templates section numbering — RESOLVED
+Section numbering reviewed and consistent after all 4 disciplines implemented.
 
 ### Areas of Improvement
 
-#### 1. No documentation of the 4 encounter win/loss patterns
-The vision currently doesn't have an explicit section cataloging the different win/loss patterns. There are now 4 distinct patterns:
-- HP depletion (Combat, Mining)
-- Card narrowing (Herbalism: exactly 1 remaining)
-- Degree of success / pattern evaluation (Woodcutting: always wins, reward varies)
-- Probability/patience (Fishing: seeded roll or patience expiry)
-A new section in vision.md enumerating these patterns would help when designing future encounter types.
+#### 1. No documentation of the 4 encounter win/loss patterns — APPLIED
+Added "Encounter win/loss patterns" section to vision.md with 5 patterns (HP depletion, card narrowing, degree of success, card-subtraction, threshold/quality).
 
-#### 2. Stamina is mentioned but not well-defined across disciplines
-Stamina appears as a combat token, but steps 9.2 and 9.3 introduce it as a cross-discipline resource (cost for cards, recovered by rest). Vision.md should have a clear description of Stamina's cross-discipline role.
+#### 2. Stamina is mentioned but not well-defined across disciplines — APPLIED
+Added "Stamina as cross-discipline cost currency" section to vision.md.
 
 #### 3. The roadmap doesn't describe how rest encounters interact with the encounter deck
-Step 9.3 adds rest encounters to the encounter deck, but the vision doesn't describe how different encounter types should be distributed in the area deck or how that distribution evolves.
+Deferred — Step 9.3 is not yet implemented. This should be addressed when implementing rest encounters.
 
 #### 4. No clear description of when numbers get bumped 100x
-Step 9.1 mentions bumping numbers by 100x, but the vision and other roadmap steps still reference small numbers (e.g., "3 shield", "5 damage", "durability 100"). After implementing 9.1, all references in vision.md and roadmap.md to specific numeric values will need updating.
+Deferred — Step 9.1 is not yet implemented. After 9.1, all numeric references need updating.
 
 #### 5. Insight is mentioned in TokenType but not yet in CardEffectKind
-The Insight token type exists, but there's no CardEffectKind for granting it. Step 8.5 now describes this, but vision.md should document the Insight card effect pattern as a general mechanism (any card can have an effect that grants discipline-specific tokens).
+Deferred — Step 8.5 describes insight token generation. This should be addressed when implementing 8.5.
 
 ---
 
-## New Suggestions — Step 8.4 Fishing Implementation (2026-07-03)
+## New Suggestions — Step 8.4 Fishing Implementation (2026-07-03) (APPLIED)
 
 ### roadmap.md Updates
 
@@ -185,14 +178,6 @@ The suggestions file previously described Fishing as "patience/timing with seede
 
 #### 3. Fish deck behavior pattern
 Fishing introduces a new enemy behavior: enemy has a fixed hand of cards, plays one randomly each turn (like Herbalism's fixed hand, but the enemy card is consumed after play). This is a distinct pattern from combat (draw + play), mining (draw + play), and woodcutting (no enemy deck).
-
-### Copilot Instruction Suggestions
-
-#### 1. Update gathering encounter implementation checklist
-The checklist (suggestion #5 above) is confirmed working for all 4 disciplines. Consider promoting it to the main copilot instructions file.
-
-#### 2. Note the fish_play_random pattern
-Fishing uses `fish_play_random` to select a random enemy card from the fish deck hand. This is similar to `ore_play_random` in mining. Consider noting this as a standard enemy-play pattern.
 
 ### Contradictions
 

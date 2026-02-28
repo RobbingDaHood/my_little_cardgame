@@ -72,3 +72,5 @@ If I instructed you to do something that you could not read from those two files
 Also give me a list of contradictions and areas of improvements. 
 
 Also, add a section about the copilot instruction file: for more code style kind of instructions suggestions. 
+
+The last instruction in the suggestion file should be to delete all the content of the suggestion file. 
