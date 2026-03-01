@@ -490,13 +490,26 @@ Roadmap steps
    - Playable acceptance: Research encounters are playable end-to-end. Players can choose a discipline, generate candidates, select a research project, make progress payments, and complete research to produce new Library cards. All rolls are deterministic via the game seed. Scenario tests verify the full research flow.
    - Notes: CardEffect discipline tags and the Insight card effect are prerequisites that should be implemented early in this step. The research encounter builds on these foundations and on the range system from Step 9.1.
 
-11) Add post-encounter scouting choices (vision-driven)
-   - Goal: Present scouting choices as a post-resolution step that influence replacement-generation parameters (preview counts, CardEffect biases, candidate pools) and grant Foresight/related tokens.
-   - Description: Implement ScoutChoice objects and a deterministic application that updates replacement parameters for encounter generation (using Library CardCounts). Record scouting decisions and effects in the ActionLog.
-     - Scouting choices can increase the tier of replacement encounters, which in turn increases the tier of rewards from those encounters (e.g., higher-tier gathering yields or tougher combat for better loot).
-   - Playable acceptance: After an encounter, API returns scouting choices; making a choice updates the replacement-generation seed/parameters and is reflected in the next replacement card deterministically.
-   - Notes: Keep initial choices small and data-driven (e.g., +1 Foresight, increase CardEffect-pool size).
-    - Up to this point then all encounters just added the same encounter back into the encounter Library: no changes. 
+11) Simple post-encounter scouting
+   - Goal: Replace the current no-op scouting with a simple encounter-modification step that always happens after an encounter is concluded.
+   - Description:
+     - Always happens after an encounter is concluded. It always modifies the encounter card just concluded.
+     - Any mention of tiers is postponed to the milestone step.
+     - The player is presented with X options: generate X new encounters of the same type as the encounter just played.
+     - Generate one encounter by:
+       - For every encounter where one or more enemy decks are involved on the enemy side:
+         - Keep the number of cards and card counts for each card.
+         - Pick one card and reroll that card where "affix-pool size" is "CardEffect pool size" — each card has that amount of CardEffects.
+         - Do not change the card type. Respect the CardEffect tags relative to the card type.
+         - This is very similar to the player crafting step: just done repeatedly and with no player interaction.
+         - If the deck had three cards and each card had 5 copies in total: only one of the three cards changes and it still has 5 copies.
+         - It is okay to give the enemy CardEffects for a resource they cannot regain, because the enemy will always start with an initial amount of that resource.
+       - If there are any numerical values (mainly initial tokens of the encounter): random change them in the range of -5% to +10%, so a good chance it will be tougher next time. Min should still be ≤ max if a min-max range exists.
+     - Let the player choose which of the X encounters to replace the just-played encounter.
+     - The player has to choose and cannot keep the just-played encounter.
+     - When the player has chosen: replace the current player encounter card with the new encounter card and move to the next phase in the encounter.
+   - Playable acceptance: After an encounter, X scouting options are generated and presented. Player must choose one. The selected encounter replaces the original in the Library. Scenario tests verify the scouting flow.
+   - Notes: Keep initial choices small and data-driven. Up to this point all encounters just added the same encounter back into the encounter Library with no changes.
 
 11.5) Gathering balance pass
    - Goal: After all gathering disciplines, research, and post-encounter scouting are implemented, perform a dedicated balance and tuning pass.
