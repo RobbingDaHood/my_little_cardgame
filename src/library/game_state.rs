@@ -701,9 +701,13 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
-                value: 200,
+                values: vec![200],
                 durability_cost: 100,
                 costs: vec![],
+                modify_range_min: 0,
+                modify_range_max: 0,
+                modify_fish_amount: 0,
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -717,9 +721,13 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
-                value: 400,
+                values: vec![400],
                 durability_cost: 100,
                 costs: vec![],
+                modify_range_min: 0,
+                modify_range_max: 0,
+                modify_fish_amount: 0,
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -733,9 +741,13 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
-                value: 700,
+                values: vec![700],
                 durability_cost: 100,
                 costs: vec![],
+                modify_range_min: 0,
+                modify_range_max: 0,
+                modify_fish_amount: 0,
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -924,6 +936,164 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             library: 0,
             deck: 5,
             hand: 1,
+            discard: 0,
+        },
+    );
+
+    // ---- New fishing expansion cards ----
+
+    // Card id 35: Widen range — reduces min value token (makes winning easier)
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                values: vec![],
+                durability_cost: 100,
+                costs: vec![],
+                modify_range_min: -150,
+                modify_range_max: 0,
+                modify_fish_amount: 0,
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Card id 36: Widen range — increases max value token (makes winning easier)
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                values: vec![],
+                durability_cost: 100,
+                costs: vec![],
+                modify_range_min: 0,
+                modify_range_max: 150,
+                modify_fish_amount: 0,
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Card id 37: Cost card — narrows range but has multiple values (3 values)
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                values: vec![100, 350, 600],
+                durability_cost: 100,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 150,
+                }],
+                modify_range_min: 50,
+                modify_range_max: -50,
+                modify_fish_amount: 0,
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Card id 38: Increase fish amount
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                values: vec![],
+                durability_cost: 100,
+                costs: vec![],
+                modify_range_min: 0,
+                modify_range_max: 0,
+                modify_fish_amount: 1,
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Card id 39: Multi-value but decreases fish amount (cost based on spread)
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                values: vec![150, 400, 650],
+                durability_cost: 100,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 100,
+                }],
+                modify_range_min: 0,
+                modify_range_max: 0,
+                modify_fish_amount: -1,
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Card id 40: Rest card — grants stamina, no values (pure rest action)
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                values: vec![],
+                durability_cost: 50,
+                costs: vec![],
+                modify_range_min: 0,
+                modify_range_max: 0,
+                modify_fish_amount: 0,
+                stamina_grant: 200,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Card id 41: Stamina cost card with multiple values
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: super::types::FishingCardEffect {
+                values: vec![50, 250, 500, 750],
+                durability_cost: 100,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 200,
+                }],
+                modify_range_min: 0,
+                modify_range_max: 0,
+                modify_fish_amount: 0,
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
             discard: 0,
         },
     );
@@ -2383,6 +2553,19 @@ impl GameState {
         };
         let mut fish_deck = fishing_def.fish_deck;
         Self::fish_shuffle_hand(rng, &mut fish_deck);
+        // Initialize fishing tokens (encounter-scoped, stored in player token_balances)
+        self.token_balances.insert(
+            super::types::Token::persistent(super::types::TokenType::FishingRangeMin),
+            fishing_def.valid_range_min,
+        );
+        self.token_balances.insert(
+            super::types::Token::persistent(super::types::TokenType::FishingRangeMax),
+            fishing_def.valid_range_max,
+        );
+        self.token_balances.insert(
+            super::types::Token::persistent(super::types::TokenType::FishAmount),
+            1,
+        );
         let state = super::types::FishingEncounterState {
             round: 1,
             encounter_card_id,
@@ -2400,7 +2583,7 @@ impl GameState {
         Ok(())
     }
 
-    /// Resolve a player fishing card play: subtract values, range check, track wins, apply durability.
+    /// Resolve a player fishing card play: apply effects, check range, track wins.
     pub fn resolve_player_fishing_card(
         &mut self,
         card_id: usize,
@@ -2436,17 +2619,108 @@ impl GameState {
             return Ok(());
         }
 
+        // Apply range modifications
+        if fishing_effect.modify_range_min != 0 {
+            let entry = self
+                .token_balances
+                .entry(super::types::Token::persistent(
+                    super::types::TokenType::FishingRangeMin,
+                ))
+                .or_insert(0);
+            *entry = (*entry + fishing_effect.modify_range_min).max(0);
+        }
+        if fishing_effect.modify_range_max != 0 {
+            let entry = self
+                .token_balances
+                .entry(super::types::Token::persistent(
+                    super::types::TokenType::FishingRangeMax,
+                ))
+                .or_insert(0);
+            *entry += fishing_effect.modify_range_max;
+        }
+
+        // Apply fish amount modification
+        if fishing_effect.modify_fish_amount != 0 {
+            let entry = self
+                .token_balances
+                .entry(super::types::Token::persistent(
+                    super::types::TokenType::FishAmount,
+                ))
+                .or_insert(1);
+            *entry = (*entry + fishing_effect.modify_fish_amount).max(0);
+        }
+
+        // Apply stamina grant
+        if fishing_effect.stamina_grant > 0 {
+            let entry = super::types::token_entry_by_type(
+                &mut self.token_balances,
+                &super::types::TokenType::Stamina,
+            );
+            *entry += fishing_effect.stamina_grant;
+        }
+
+        // If card has no values, skip the fishing duel (utility-only card)
+        if fishing_effect.values.is_empty() {
+            // Still advance the round
+            let (all_turns_used, enough_wins) = {
+                let fishing = match &mut self.current_encounter {
+                    Some(EncounterState::Fishing(f)) => f,
+                    _ => return Err("No active fishing encounter".to_string()),
+                };
+                fishing.round += 1;
+                let enough_wins = fishing.turns_won >= fishing.win_turns_needed;
+                let all_turns_used = (fishing.round - 1) as u32 >= fishing.max_turns;
+                (all_turns_used, enough_wins)
+            };
+            if enough_wins {
+                self.finish_fishing_encounter(true);
+            } else if all_turns_used {
+                self.finish_fishing_encounter(false);
+            } else {
+                self.draw_player_fishing_card(rng);
+            }
+            return Ok(());
+        }
+
+        // Read current range from tokens
+        let valid_min = super::types::token_balance_by_type(
+            &self.token_balances,
+            &super::types::TokenType::FishingRangeMin,
+        );
+        let valid_max = super::types::token_balance_by_type(
+            &self.token_balances,
+            &super::types::TokenType::FishingRangeMax,
+        );
+
+        // Determine fish amount for this turn
+        let fish_amount = super::types::token_balance_by_type(
+            &self.token_balances,
+            &super::types::TokenType::FishAmount,
+        )
+        .max(1);
+
         // Auto-resolve fish play: pick random fish card from hand
         let fish_value = Self::fish_play_random(rng, &mut self.current_encounter);
 
-        // Calculate result: (player_value - fish_value).max(0)
-        let result = (fishing_effect.value - fish_value).max(0);
+        // Choose the best player value (the one that wins if possible)
+        let best_value = fishing_effect
+            .values
+            .iter()
+            .filter_map(|&v| {
+                let result = (v - fish_value).max(0);
+                if result >= valid_min && result <= valid_max {
+                    Some((v, result))
+                } else {
+                    None
+                }
+            })
+            .min_by_key(|&(_, result)| (result - valid_min).abs())
+            .map(|(v, _)| v)
+            .unwrap_or(fishing_effect.values[0]);
 
-        // Check if result is within valid range
-        let (valid_min, valid_max, win_turns_needed) = match &self.current_encounter {
-            Some(EncounterState::Fishing(f)) => {
-                (f.valid_range_min, f.valid_range_max, f.win_turns_needed)
-            }
+        let result = (best_value - fish_value).max(0);
+        let win_turns_needed = match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) => f.win_turns_needed,
             _ => return Err("No active fishing encounter".to_string()),
         };
         let turn_won = result >= valid_min && result <= valid_max;
@@ -2458,9 +2732,12 @@ impl GameState {
                 _ => return Err("No active fishing encounter".to_string()),
             };
             if turn_won {
-                fishing.turns_won += 1;
+                fishing.turns_won += fish_amount as u32;
             }
             fishing.round += 1;
+            // Sync range fields from tokens for display
+            fishing.valid_range_min = valid_min;
+            fishing.valid_range_max = valid_max;
             let enough_wins = fishing.turns_won >= win_turns_needed;
             let all_turns_used = (fishing.round - 1) as u32 >= fishing.max_turns;
             (all_turns_used, enough_wins)

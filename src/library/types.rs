@@ -52,6 +52,10 @@ pub enum TokenType {
     EnemyResourceMaxHand,
     // Milestone/reward tokens
     MilestoneInsight,
+    // Fishing encounter-scoped tokens
+    FishingRangeMin,
+    FishingRangeMax,
+    FishAmount,
 }
 
 /// All known token types.
@@ -92,6 +96,9 @@ impl TokenType {
             TokenType::EnemyDefenceMaxHand,
             TokenType::EnemyResourceMaxHand,
             TokenType::MilestoneInsight,
+            TokenType::FishingRangeMin,
+            TokenType::FishingRangeMax,
+            TokenType::FishAmount,
         ]
     }
 }
@@ -364,14 +371,22 @@ pub struct WoodcuttingDef {
 }
 
 /// Inline effect for Fishing discipline cards.
-/// Cards have a numeric value and a durability cost.
+/// Cards can have multiple values; the best value for winning is chosen.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct FishingCardEffect {
-    pub value: i64,
+    pub values: Vec<i64>,
     pub durability_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
+    #[serde(default)]
+    pub modify_range_min: i64,
+    #[serde(default)]
+    pub modify_range_max: i64,
+    #[serde(default)]
+    pub modify_fish_amount: i64,
+    #[serde(default)]
+    pub stamina_grant: i64,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.
