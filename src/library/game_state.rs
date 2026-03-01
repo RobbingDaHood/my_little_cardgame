@@ -1138,6 +1138,11 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::FishingDurability),
             10000,
         );
+        // Starting stamina
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::Stamina),
+            1000,
+        );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]

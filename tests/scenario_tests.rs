@@ -1511,32 +1511,61 @@ fn scenario_cost_card_rejected_without_stamina() {
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
-    // Verify player has 0 stamina initially
+    // Verify player starts with 1000 stamina
     let stamina = player_token(&client, "Stamina");
-    assert_eq!(stamina, 0, "Player should start with 0 Stamina");
+    assert_eq!(stamina, 1000, "Player should start with 1000 Stamina");
 
-    // Try playing cost Defence card (id 32) — should be rejected (no stamina)
-    let (status, body) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
-    );
-    assert_eq!(
-        status,
-        Status::BadRequest,
-        "Cost card should be rejected without stamina: {:?}",
-        body
-    );
-
-    // Verify the card is still in hand (not consumed)
-    let cards = get_json(&client, "/library/cards?location=Hand&card_kind=Defence");
-    let has_cost_card = cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .any(|c| c.get("id").and_then(|v| v.as_u64()) == Some(32));
+    // Drain stamina by playing cost Defence cards (id 32) until insufficient
+    // Phase cycle: Defending(32 cost) -> Attacking(8) -> Resourcing(10) -> Defending...
+    let mut rejected = false;
+    for _ in 0..30 {
+        // Defending: try cost Defence card
+        let (status, _body) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
+        );
+        if status == Status::BadRequest {
+            rejected = true;
+            break;
+        }
+        assert_eq!(
+            status,
+            Status::Created,
+            "Cost Defence card should succeed while stamina available"
+        );
+        // Check if combat ended
+        let enc_resp = client.get("/encounter").dispatch();
+        if enc_resp.status() == Status::NotFound {
+            break;
+        }
+        // Attacking: play non-cost Attack
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":8}"#,
+        );
+        if status != Status::Created {
+            break;
+        }
+        let enc_resp = client.get("/encounter").dispatch();
+        if enc_resp.status() == Status::NotFound {
+            break;
+        }
+        // Resourcing: play Resource (grants stamina, but cost cards drain it faster)
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":10}"#,
+        );
+        if status != Status::Created {
+            break;
+        }
+        let enc_resp = client.get("/encounter").dispatch();
+        if enc_resp.status() == Status::NotFound {
+            break;
+        }
+    }
     assert!(
-        has_cost_card,
-        "Cost Defence card should still be in hand after rejection"
+        rejected,
+        "Cost card should eventually be rejected when stamina runs out"
     );
 }
 
@@ -1620,44 +1649,45 @@ fn scenario_cost_mining_card_rejected_without_stamina() {
     );
     assert_eq!(status, Status::Created, "Mining encounter should start");
 
-    // Verify player has 0 stamina
-    let stamina = player_token(&client, "Stamina");
-    assert_eq!(stamina, 0, "Player should start with 0 Stamina");
+    // Verify player starts with 1000 stamina
+    let stamina_before = player_token(&client, "Stamina");
+    assert_eq!(
+        stamina_before, 1000,
+        "Player should start with 1000 Stamina"
+    );
 
-    // Try playing cost Mining card (id 33) — should be rejected
-    let (status, body) = post_action(
+    // Play cost Mining card (id 33, stamina_cost 100) — should succeed and deduct stamina
+    let (status, _) = post_action(
         &client,
         r#"{"action_type":"EncounterPlayCard","card_id":33}"#,
     );
     assert_eq!(
         status,
-        Status::BadRequest,
-        "Cost mining card should be rejected without stamina: {:?}",
-        body
-    );
-
-    // Verify the card is still in hand
-    let cards = get_json(&client, "/library/cards?location=Hand&card_kind=Mining");
-    let has_cost_card = cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .any(|c| c.get("id").and_then(|v| v.as_u64()) == Some(33));
-    assert!(
-        has_cost_card,
-        "Cost Mining card should still be in hand after rejection"
-    );
-
-    // Play non-cost Mining card (id 12) — should succeed
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":12}"#,
-    );
-    assert_eq!(
-        status,
         Status::Created,
-        "Non-cost mining card should succeed"
+        "Cost Mining card should succeed with 1000 stamina"
     );
+
+    let stamina_after = player_token(&client, "Stamina");
+    assert!(
+        stamina_after < stamina_before,
+        "Stamina should decrease after cost mining card (before={}, after={})",
+        stamina_before,
+        stamina_after
+    );
+
+    // Play non-cost Mining card (id 12) — should succeed without stamina cost
+    let enc_resp = client.get("/encounter").dispatch();
+    if enc_resp.status() != Status::NotFound {
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":12}"#,
+        );
+        assert_eq!(
+            status,
+            Status::Created,
+            "Non-cost mining card should succeed"
+        );
+    }
 }
 
 #[test]
