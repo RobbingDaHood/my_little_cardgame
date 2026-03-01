@@ -38,6 +38,20 @@ pub enum TokenType {
     Fish,
     // Encounter-scoped tokens
     OreHealth,
+    // Max handsize tokens (player decks)
+    AttackMaxHand,
+    DefenceMaxHand,
+    ResourceMaxHand,
+    MiningMaxHand,
+    HerbalismMaxHand,
+    WoodcuttingMaxHand,
+    FishingMaxHand,
+    // Max handsize tokens (enemy decks, encounter-scoped)
+    EnemyAttackMaxHand,
+    EnemyDefenceMaxHand,
+    EnemyResourceMaxHand,
+    // Milestone/reward tokens
+    MilestoneInsight,
 }
 
 /// All known token types.
@@ -67,6 +81,17 @@ impl TokenType {
             TokenType::Lumber,
             TokenType::Fish,
             TokenType::OreHealth,
+            TokenType::AttackMaxHand,
+            TokenType::DefenceMaxHand,
+            TokenType::ResourceMaxHand,
+            TokenType::MiningMaxHand,
+            TokenType::HerbalismMaxHand,
+            TokenType::WoodcuttingMaxHand,
+            TokenType::FishingMaxHand,
+            TokenType::EnemyAttackMaxHand,
+            TokenType::EnemyDefenceMaxHand,
+            TokenType::EnemyResourceMaxHand,
+            TokenType::MilestoneInsight,
         ]
     }
 }

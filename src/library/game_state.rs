@@ -1207,6 +1207,35 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::Stamina),
             1000,
         );
+        // Max handsize tokens (player decks)
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::AttackMaxHand),
+            10,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::DefenceMaxHand),
+            10,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::ResourceMaxHand),
+            10,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::MiningMaxHand),
+            10,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::HerbalismMaxHand),
+            10,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::WoodcuttingMaxHand),
+            10,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::FishingMaxHand),
+            10,
+        );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -1463,18 +1492,35 @@ impl GameState {
         resource: u32,
         rng: &mut rand_pcg::Lcg64Xsh32,
     ) {
-        self.draw_player_cards_of_kind(attack, |k| matches!(k, CardKind::Attack { .. }), rng);
-        self.draw_player_cards_of_kind(defence, |k| matches!(k, CardKind::Defence { .. }), rng);
-        self.draw_player_cards_of_kind(resource, |k| matches!(k, CardKind::Resource { .. }), rng);
+        self.draw_player_cards_of_kind(
+            attack,
+            |k| matches!(k, CardKind::Attack { .. }),
+            rng,
+            Some(super::types::TokenType::AttackMaxHand),
+        );
+        self.draw_player_cards_of_kind(
+            defence,
+            |k| matches!(k, CardKind::Defence { .. }),
+            rng,
+            Some(super::types::TokenType::DefenceMaxHand),
+        );
+        self.draw_player_cards_of_kind(
+            resource,
+            |k| matches!(k, CardKind::Resource { .. }),
+            rng,
+            Some(super::types::TokenType::ResourceMaxHand),
+        );
     }
 
     /// Draw `count` player cards of a specific kind from deck to hand.
     /// Recycles discard→deck for cards matching `kind_filter` when deck is empty.
+    /// Respects max handsize token if provided.
     fn draw_player_cards_of_kind(
         &mut self,
         count: u32,
         kind_filter: fn(&CardKind) -> bool,
         rng: &mut rand_pcg::Lcg64Xsh32,
+        max_hand_token: Option<super::types::TokenType>,
     ) {
         use rand::RngCore;
         for _ in 0..count {
@@ -1506,11 +1552,37 @@ impl GameState {
                     return;
                 }
                 let pick = (rng.next_u64() as usize) % drawable.len();
+                if self.handsize_reached(&kind_filter, &max_hand_token) {
+                    continue;
+                }
                 let _ = self.library.draw(drawable[pick]);
             } else {
                 let pick = (rng.next_u64() as usize) % drawable.len();
+                if self.handsize_reached(&kind_filter, &max_hand_token) {
+                    continue;
+                }
                 let _ = self.library.draw(drawable[pick]);
             }
+        }
+    }
+
+    fn handsize_reached(
+        &self,
+        kind_filter: &fn(&CardKind) -> bool,
+        max_hand_token: &Option<super::types::TokenType>,
+    ) -> bool {
+        if let Some(ref token) = max_hand_token {
+            let max_hand = super::types::token_balance_by_type(&self.token_balances, token);
+            let current_hand: u32 = self
+                .library
+                .cards
+                .iter()
+                .filter(|c| kind_filter(&c.kind))
+                .map(|c| c.counts.hand)
+                .sum();
+            current_hand as i64 >= max_hand
+        } else {
+            false
         }
     }
 
@@ -1926,12 +1998,22 @@ impl GameState {
 
     /// Draw one player herbalism card from deck to hand, recycling discard if needed.
     fn draw_player_herbalism_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Herbalism { .. }), rng);
+        self.draw_player_cards_of_kind(
+            1,
+            |k| matches!(k, CardKind::Herbalism { .. }),
+            rng,
+            Some(super::types::TokenType::HerbalismMaxHand),
+        );
     }
 
     /// Draw one player woodcutting card from deck to hand, recycling discard if needed.
     fn draw_player_woodcutting_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Woodcutting { .. }), rng);
+        self.draw_player_cards_of_kind(
+            1,
+            |k| matches!(k, CardKind::Woodcutting { .. }),
+            rng,
+            Some(super::types::TokenType::WoodcuttingMaxHand),
+        );
     }
 
     /// Initialize a woodcutting pattern-matching encounter (no enemy deck).
@@ -2075,7 +2157,12 @@ impl GameState {
 
     /// Draw one player mining card from deck to hand, recycling discard if needed.
     fn draw_player_mining_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Mining { .. }), rng);
+        self.draw_player_cards_of_kind(
+            1,
+            |k| matches!(k, CardKind::Mining { .. }),
+            rng,
+            Some(super::types::TokenType::MiningMaxHand),
+        );
     }
 
     /// Shuffle ore hand: move all to deck, redraw to original hand size.
@@ -2330,7 +2417,12 @@ impl GameState {
     }
 
     fn draw_player_fishing_card(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        self.draw_player_cards_of_kind(1, |k| matches!(k, CardKind::Fishing { .. }), rng);
+        self.draw_player_cards_of_kind(
+            1,
+            |k| matches!(k, CardKind::Fishing { .. }),
+            rng,
+            Some(super::types::TokenType::FishingMaxHand),
+        );
     }
 
     fn fish_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [super::types::FishCard]) {
