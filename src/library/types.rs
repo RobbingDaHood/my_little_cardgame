@@ -185,6 +185,14 @@ pub struct ConcreteEffectCost {
     pub rolled_percent: u32,
 }
 
+/// Fixed-amount cost used by gathering discipline cards.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct GatheringCost {
+    pub cost_type: TokenType,
+    pub amount: i64,
+}
+
 /// Who a card effect targets.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(crate = "rocket::serde")]
@@ -267,6 +275,8 @@ pub struct MiningCardEffect {
     pub durability_prevent: i64,
     #[serde(default)]
     pub stamina_cost: i64,
+    #[serde(default)]
+    pub costs: Vec<GatheringCost>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -287,6 +297,8 @@ pub enum PlantCharacteristic {
 pub struct HerbalismCardEffect {
     pub target_characteristics: Vec<PlantCharacteristic>,
     pub durability_cost: i64,
+    #[serde(default)]
+    pub costs: Vec<GatheringCost>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
@@ -328,6 +340,8 @@ pub struct WoodcuttingCardEffect {
     pub durability_cost: i64,
     #[serde(default)]
     pub stamina_cost: i64,
+    #[serde(default)]
+    pub costs: Vec<GatheringCost>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -356,6 +370,8 @@ pub struct WoodcuttingDef {
 pub struct FishingCardEffect {
     pub value: i64,
     pub durability_cost: i64,
+    #[serde(default)]
+    pub costs: Vec<GatheringCost>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.

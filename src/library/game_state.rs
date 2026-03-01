@@ -361,6 +361,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 ore_damage: 500,
                 durability_prevent: 0,
                 stamina_cost: 0,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -378,6 +379,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 ore_damage: 300,
                 durability_prevent: 200,
                 stamina_cost: 0,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -395,6 +397,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 ore_damage: 100,
                 durability_prevent: 300,
                 stamina_cost: 0,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -471,6 +474,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             herbalism_effect: super::types::HerbalismCardEffect {
                 target_characteristics: vec![super::types::PlantCharacteristic::Fragile],
                 durability_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -490,6 +494,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     super::types::PlantCharacteristic::Aromatic,
                 ],
                 durability_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -510,6 +515,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     super::types::PlantCharacteristic::Fragile,
                 ],
                 durability_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -601,6 +607,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 chop_values: vec![2],
                 durability_cost: 100,
                 stamina_cost: 0,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -619,6 +626,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 chop_values: vec![5],
                 durability_cost: 100,
                 stamina_cost: 0,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -637,6 +645,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 chop_values: vec![3],
                 durability_cost: 100,
                 stamina_cost: 0,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -655,6 +664,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 chop_values: vec![7],
                 durability_cost: 100,
                 stamina_cost: 0,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -693,6 +703,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             fishing_effect: super::types::FishingCardEffect {
                 value: 200,
                 durability_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -708,6 +719,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             fishing_effect: super::types::FishingCardEffect {
                 value: 400,
                 durability_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -723,6 +735,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             fishing_effect: super::types::FishingCardEffect {
                 value: 700,
                 durability_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -882,6 +895,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 ore_damage: 800,
                 durability_prevent: 0,
                 stamina_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -903,6 +917,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 chop_values: vec![5, 3],
                 durability_cost: 100,
                 stamina_cost: 100,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -1456,39 +1471,58 @@ impl GameState {
         Ok(())
     }
 
-    /// Check if player can pay stamina cost for a gathering card. Deducts if affordable.
-    fn check_and_deduct_stamina_cost(
-        stamina_cost: i64,
+    /// Check and deduct a list of gathering costs. All costs must be affordable.
+    fn check_and_deduct_gathering_costs(
+        costs: &[super::types::GatheringCost],
         token_balances: &mut HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
-        Self::preview_stamina_cost(stamina_cost, token_balances)?;
-        if stamina_cost > 0 {
-            let entry = super::types::token_entry_by_type(
-                token_balances,
-                &super::types::TokenType::Stamina,
-            );
-            *entry -= stamina_cost;
+        Self::preview_gathering_costs(costs, token_balances)?;
+        for cost in costs {
+            if cost.amount > 0 {
+                let entry = super::types::token_entry_by_type(token_balances, &cost.cost_type);
+                *entry -= cost.amount;
+            }
         }
         Ok(())
     }
 
-    /// Check if player can afford stamina cost without deducting. Used for pre-validation.
-    pub fn preview_stamina_cost(
-        stamina_cost: i64,
+    /// Check if player can afford gathering costs without deducting.
+    pub fn preview_gathering_costs(
+        costs: &[super::types::GatheringCost],
         token_balances: &HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
-        if stamina_cost <= 0 {
-            return Ok(());
-        }
-        let balance =
-            super::types::token_balance_by_type(token_balances, &super::types::TokenType::Stamina);
-        if balance < stamina_cost {
-            return Err(format!(
-                "Insufficient Stamina: need {} but have {}",
-                stamina_cost, balance
-            ));
+        for cost in costs {
+            if cost.amount <= 0 {
+                continue;
+            }
+            let balance = super::types::token_balance_by_type(token_balances, &cost.cost_type);
+            if balance < cost.amount {
+                return Err(format!(
+                    "Insufficient {:?}: need {} but have {}",
+                    cost.cost_type, cost.amount, balance
+                ));
+            }
         }
         Ok(())
+    }
+
+    /// Merge explicit gathering costs with legacy inline cost fields.
+    /// Legacy costs are only included if their amount > 0 and the same TokenType
+    /// is not already present in the explicit costs vec.
+    pub fn merge_gathering_costs(
+        costs: &[super::types::GatheringCost],
+        legacy: &[(super::types::TokenType, i64)],
+    ) -> Vec<super::types::GatheringCost> {
+        let mut merged: Vec<super::types::GatheringCost> = costs.to_vec();
+        for (token_type, amount) in legacy {
+            if *amount > 0 && !merged.iter().any(|c| c.cost_type == *token_type) {
+                merged.push(super::types::GatheringCost {
+                    cost_type: token_type.clone(),
+                    amount: *amount,
+                });
+            }
+        }
+        merged
     }
 
     /// Draw player cards from deck to hand per card type, recycling discard if needed.
@@ -1749,8 +1783,12 @@ impl GameState {
             _ => return Err("Cannot play a non-mining card in mining encounter".to_string()),
         };
 
-        // Check and deduct stamina cost before playing
-        Self::check_and_deduct_stamina_cost(mining_effect.stamina_cost, &mut self.token_balances)?;
+        // Check and deduct costs (generalized costs first, then legacy stamina_cost)
+        let all_costs = Self::merge_gathering_costs(
+            &mining_effect.costs,
+            &[(super::types::TokenType::Stamina, mining_effect.stamina_cost)],
+        );
+        Self::check_and_deduct_gathering_costs(&all_costs, &mut self.token_balances)?;
 
         // Apply player mining card: damage ore
         let ore_defeated = {
@@ -1924,7 +1962,15 @@ impl GameState {
             _ => return Err("Cannot play a non-herbalism card in herbalism encounter".to_string()),
         };
 
-        // Apply durability cost
+        // Check and deduct generalized costs (excluding legacy durability which is handled below)
+        if !herbalism_effect.costs.is_empty() {
+            Self::check_and_deduct_gathering_costs(
+                &herbalism_effect.costs,
+                &mut self.token_balances,
+            )?;
+        }
+
+        // Apply legacy durability cost (depletes encounter, doesn't reject card)
         let durability_key =
             super::types::Token::persistent(super::types::TokenType::HerbalismDurability);
         let durability = self
@@ -2080,13 +2126,17 @@ impl GameState {
             }
         };
 
-        // Check and deduct stamina cost before playing
-        Self::check_and_deduct_stamina_cost(
-            woodcutting_effect.stamina_cost,
-            &mut self.token_balances,
-        )?;
+        // Check and deduct costs (generalized + legacy stamina cost)
+        let all_costs = Self::merge_gathering_costs(
+            &woodcutting_effect.costs,
+            &[(
+                super::types::TokenType::Stamina,
+                woodcutting_effect.stamina_cost,
+            )],
+        );
+        Self::check_and_deduct_gathering_costs(&all_costs, &mut self.token_balances)?;
 
-        // Deduct durability cost
+        // Deduct legacy durability cost (depletes encounter, doesn't reject card)
         let durability_key =
             super::types::Token::persistent(super::types::TokenType::WoodcuttingDurability);
         let durability = self.token_balances.entry(durability_key).or_insert(0);
@@ -2311,7 +2361,15 @@ impl GameState {
             _ => return Err("Cannot play a non-fishing card in fishing encounter".to_string()),
         };
 
-        // Deduct durability cost
+        // Check and deduct generalized costs (excluding legacy durability which is handled below)
+        if !fishing_effect.costs.is_empty() {
+            Self::check_and_deduct_gathering_costs(
+                &fishing_effect.costs,
+                &mut self.token_balances,
+            )?;
+        }
+
+        // Deduct legacy durability cost (depletes encounter, doesn't reject card)
         let durability_key =
             super::types::Token::persistent(super::types::TokenType::FishingDurability);
         let durability = self.token_balances.entry(durability_key).or_insert(0);
