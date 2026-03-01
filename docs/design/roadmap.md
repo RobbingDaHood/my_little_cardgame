@@ -320,19 +320,7 @@ Roadmap steps
    - 2 scenario tests added (full loop + abort).
    - Playable acceptance: ✅ Fishing end-to-end with card-subtraction, produces Fish tokens, EncounterAbort supported.
 
-8.5) Refined gathering encounters
-   - Goal: Evolve all simplified gathering disciplines (8.1-8.4) toward richer gameplay with difficulty scaling and strategic card choices.
-   - Description: Add the features that differentiate the vision's end-state from the current simple implementations:
-     - Stamina replaces Rations as the cost currency for encounter boosts and card costs across all disciplines.
-     - All 4 gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) are now implemented with the same EncounterState enum pattern. The pattern is confirmed reusable: each discipline adds a new variant to EncounterState, EncounterKind, and CardKind, then plugs into the existing action dispatch and replay infrastructure.
-     - Four distinct mechanical templates exist:
-       1. Damage-vs-durability loop (Mining): player deals damage to node HP while node deals durability damage; mutual draw each turn.
-       2. Card-characteristic matching (Herbalism): card matching to narrow the enemy hand; no enemy draws.
-       3. Poker-like pattern building (Woodcutting): play cards to build patterns; no enemy deck; degree-of-success rather than binary win/lose.
-       4. Card-subtraction with valid-range targeting (Fishing): player and enemy both play numeric cards; result must land within target range.
-     - Consider whether any of these can share infrastructure or whether each discipline's resolution should remain fully independent.
-
-9.1) Major refactor: CardEffects range system
+9.1) Major refactor: CardEffects range system ✅ Completed
    - Goal: Replace fixed numeric values on CardEffects with a min-max range system that allows card variation and makes future research/crafting systems meaningful.
    - Description: CardEffects define two values for each numeric parameter:
      - min: The minimum possible value for this effect.
@@ -346,8 +334,14 @@ Roadmap steps
      - Bump most numbers on cards, tokens, and encounters by a factor of ~100 (e.g., 1 → 100) to create interesting ranges. A value of 1 doesn't allow meaningful ranges (1-10 is too volatile), but 80-120 is fine.
    - This step is placed before Research and Crafting because those systems will add more CardEffects and concrete cards that benefit from the range system.
    - Playable acceptance: All existing cards use the range system. CardEffects define min/max ranges, concrete cards have a single rolled fixed value. All rolls are deterministic via the game seed. Scenario tests verify reproducibility.
+   - Implementation results:
+     - All cards use ConcreteEffect with rolled values from min-max ranges
+     - All numeric values scaled ~100x (Health 2000, Durabilities 10000, etc.)
+     - Deterministic rolling via game seed RNG
+     - 35 cards total in library (was 29)
+     - All scenario tests pass with scaled values
 
-9.2) CardEffects cost system
+9.2) CardEffects cost system ✅ Completed
    - Goal: Add an optional cost to CardEffects, creating a strategic cost-benefit dimension. The system must support multiple cost types and multiple costs per card from the start.
    - Description: Some CardEffects have one or more costs, each defined as a percentage range of the effect value:
      - Each cost entry specifies: a cost_type (e.g., Stamina) and a min-max percentage multiplier.
@@ -362,26 +356,105 @@ Roadmap steps
      - Woodcutting and Mining cards can also have stamina costs (with a non-cost alternative for each).
      - Starting decks should mainly contain non-cost cards for ease of initial play.
    - Playable acceptance: Cost cards exist for combat, mining, and woodcutting. Cost calculations are deterministic. Starting decks are weighted toward non-cost cards. Scenario tests verify cost mechanics.
+   - Implementation results:
+     - Cost cards for Attack (id 31), Defence (id 32), Mining (id 33), Woodcutting (id 34)
+     - Cost PlayerCardEffects (ids 29-30) with 30-50% Stamina cost ranges
+     - Pre-validation prevents card consumption on insufficient resources
+     - 4 new scenario tests verify cost mechanics
+     - Starting decks: cost cards at deck:5 vs non-cost at deck:15
+     - 1 cost Attack variant (vs 1 non-cost), 1 cost Defence variant (vs 1 non-cost), 1 cost Mining variant (vs 3 non-cost), 1 cost Woodcutting variant (vs 4 non-cost)
+     - No cost Herbalism or Fishing variants (as per spec)
+   - Known edge case — stuck encounter: When all remaining hand cards are cost cards and the player has no stamina (or other required resource), the encounter gets stuck (can't play any cards but encounter is still Undecided). Current workaround: player uses EncounterAbort. Future improvement: auto-detect when no playable cards remain and offer a forced pass or auto-loss. Affects both combat and gathering encounters.
 
-9.3) Rest encounter
-   - Goal: Add a rest encounter type that allows stamina recovery and creates a meaningful pacing mechanic.
+9.3) MORE TOKENS and card variations
+   - Goal: Expand the range of good and bad cards by adding tokens, CardEffects, caps, and handsize management across all disciplines. This is the beginning of a greater work with adjustments expected in future steps.
+   - Description:
+     **Max handsize tokens:**
+     - Every player deck that uses a hand (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, Fishing) has a deck-specific token controlling max handsize (e.g., AttackMaxHand, DefenceMaxHand, MiningMaxHand, etc.). These tokens are respected during draws — no draw exceeds the handsize limit.
+     - Every encounter that has an enemy hand size also has a token controlling that max handsize. In the future the player could have effects that impact enemy max handsize.
+     - Initial handsize tokens should be set to reasonable defaults at game start.
+
+     **Token caps (max thresholds):**
+     - All CardEffects that grant a resource back (e.g., Stamina, Shield, Dodge, etc.) have a `cap` field (min/max range on the template, rolled to a concrete value). If adding the granted amount would exceed the cap, the value is clamped.
+     - At least two types of resourcing cards in the player deck: one with a high cap (grants less resource) and one with a low cap (grants more resource). They can both reference the same CardEffect template with a range. This creates a strategic choice.
+
+     **Multi-effect evaluation:**
+     - If a card has multiple CardEffects, they are evaluated in isolation, first to last. This is relevant across many disciplines.
+     - If a later CardEffect cannot pay its cost, the previous CardEffects still applied and the card play did not fail. A previous effect could grant the resource a later effect needs for its cost.
+
+     **Generalized cost structure:**
+     - All cards (except CardEffect templates) that have a cost store costs as `Vec<(TokenType, amount)>` so cost logic can be generalized.
+     - Any card that cannot pay its cost cannot be played.
+     - If the enemy picks a random card from hand, it should only try from cards where it can pay the cost. If it cannot pay the cost on any hand card, pick at random and pay as much as possible (even zero).
+     - A future roadmap step will expand enemy AI and fix cost handling more thoroughly.
+
+     **Fishing discipline expansions:**
+     - Fishing player cards can have multiple CardEffects with multiple values (Vec<i64>); whichever value would "win the round" is chosen when the card is played. Initial deck cards have one CardEffect with one value each.
+     - The fishing encounter state struct moves more fields to token-based setup.
+     - New player fishing CardEffect: remove a "min value" token from the fish encounter (not below zero), affecting current and future turn win evaluation. Similar effect for increasing "max value" tokens. Both affect between 50-250 tokens (min/max range). Add a couple of cards with these effects to the player deck.
+     - New player fishing CardEffect with a "cost" that does the reverse (narrows the valid range by increasing min or decreasing max). These cards have 3-5 values on a single CardEffect. Cost is determined by: (a) sum distance between the values (wider range = more options = higher cost), and (b) number of values (less impact than distance). Cost is defined as a range percentage — a very good card costs 200-350 stamina and a bad card 50-150. Calculate min-max percentage on the CardEffect to achieve this. Add one card to the player deck.
+     - Add a "fish amount" token to the fish encounter.
+     - Add a player CardEffect that increases the fish amount.
+     - Add a player CardEffect with multiple values but decreases the fish amount (similar cost calculation as above).
+     - Add a player CardEffect that gives significant stamina but has no values (a rest action while fishing).
+     - If not already present, add a fishing action that costs stamina and has multiple values (similar cost calculation).
+
+     **Herbalism discipline expansions:**
+     - New player CardEffects:
+       - A CardEffect that costs either Stamina or "reward amount" can have higher amounts on the effects below. The cost is a percentage range based on the benefit of the card.
+       - A CardEffect that removes the plant type present on the most cards (limited to X plant types). Ties broken at random. More types removed is better.
+       - A CardEffect that removes the plant type present on the least cards (limited to X plant types). Ties broken at random. More types removed is better.
+       - A CardEffect with multiple types where only cards matching ALL types are removed ("and" based). At least 2 and at most all-minus-one plant types. More types is worse (2 types is best).
+       - A similar CardEffect but "or" based (same costs).
+     - Simple single-type CardEffect cards remain dominant in the initial deck. One of each special CardEffect on different cards in moderate versions.
+
+     **Woodcutting expansions:**
+     - Good/bad is straightforward: more numbers and patterns on a card = better. Sum of different numbers and patterns is the total "benefit."
+     - CardEffect costs can be stamina and reward amount.
+     - No-cost CardEffects have a card benefit between 1-4.
+     - Cost CardEffects have a total card benefit of 5-15.
+     - Initial deck is mainly no-cost cards with a couple of moderate cost/benefit cards.
+
+     **Mining expansions:**
+     - Good/bad is clear: high damage is always good, high defence is usually good.
+     - Add cost-based CardEffects for stamina and rewards. Same mix as other disciplines.
+     - Initial deck is mainly no-cost with some cost cards.
+     - Note: A future roadmap step should improve mining gameplay since it currently is a simpler combat variant, which is a bit boring. But it is fine for now.
+
+     **Combat expansions:**
+     - Add a "milestone insight" reward token to all combat encounters. Add to the milestone roadmap step that starting a milestone encounter costs "milestone insight" tokens. Milestone insight (like all other rewards) is a token accumulated by the player.
+     - Add CardEffects like all other disciplines: costs of stamina and rewards for greater effect. Deck is mainly non-cost cards.
+
+   - Playable acceptance: All disciplines have expanded CardEffects with caps, costs, and handsize tokens. Multi-effect evaluation works correctly (first-to-last, partial success). Enemy AI respects cost affordability. Scenario tests cover new mechanics.
+
+9.4) Rest encounter
+   - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic.
    - Description: A new encounter type where the player picks a rest benefit card.
      - The starting encounter deck should have ~20% rest encounters.
-     - A rest card effect is defined with a wide range (min-max) using the Step 9.1 range system.
-     - 5 different rest cards are rolled from this effect at game initialization.
+     - Rest cards cost a mix of herbs and fish tokens.
+     - Three CardEffect variants:
+       1. Great amount of Stamina recovery — costs both fish and herbs tokens, each with its own cost percentage min/max range.
+       2. Health recovery — similar cost structure with fish and herbs.
+       3. Mixed Stamina + Health recovery — each has a min-max range but generally gives less total than the two specialized variants, providing a benefit to specialization.
+     - All rest CardEffects give great amounts of tokens but have a cap. All CardEffects that grant tokens should have a cap.
+     - 5 different rest cards are rolled from these effects at game initialization.
      - Each of those 5 cards has 5 copies in the rest deck (25 total cards).
      - When the encounter starts: draw 5 rest cards from the deck and present them as choices.
-     - The player picks 1 card. That card's effect (e.g., stamina recovery) takes effect immediately and the encounter is won.
-     - To start, rest cards only provide stamina recovery. Future iterations may add health recovery, durability repair, or other benefits.
+     - The player picks 1 card. That card's effect takes effect immediately and the encounter is won.
+     - The rest deck should contrary to all other decks be mainly filled with cards that have a cost, and only a few without cost.
    - Implementation checklist:
      1. Add EncounterKind::Rest { rest_def: RestDef } with rest deck and rewards.
-     2. Add RestCardEffect with stamina_recovery (using range system from 9.1, or fixed values if 9.1 is not yet implemented).
+     2. Add RestCardEffect with recovery values and costs (using range system from 9.1).
      3. Add CardKind::Rest { rest_effect: RestCardEffect } for rest action cards.
      4. Add EncounterState::Rest(RestEncounterState) with drawn hand of 5 cards.
      5. Implement EncounterPlayCard for rest: apply chosen card's effect, mark encounter as won.
      6. Add rest encounters to initialize_library() (~20% of encounter deck).
      7. Add scenario test.
-   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, stamina is recovered, encounter completes as PlayerWon. Scenario test passes.
+   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, recovery is applied (respecting caps), encounter completes as PlayerWon. Scenario test passes.
+   - Implementation insights from 9.1/9.2:
+     - The ConcreteEffect model is already in place — rest cards should use the same pattern with rolled values from min-max ranges.
+     - Stamina token is already functional and tested as a cost currency (player starts with 1000 Stamina).
+     - The cost pre-validation pattern (preview_costs/preview_stamina_cost) is established and should be reused for rest card costs.
 
 9) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
@@ -400,6 +473,7 @@ Roadmap steps
    - The player can abort a crafting encounter at any point.
    - Playable acceptance: Can resolve a craft encounter, produces a Library card copy (visible via GET /library), and demonstrates cost evaluation based on card effects; crafted cards are never directly inserted into player decks.
    - Notes: Start with a single crafting encounter type to prove the flow; ensure crafting is the primary economy sink and costs scale with card quality.
+   - Stamina and Health tokens should be usable in CardEffects with costs within the crafting discipline, same deck mix as other discipline cards (mostly no-cost, some cost cards) in the initial deck.
 
 10) Research encounters and card discovery
    - Goal: Implement Research as a first-class encounter type where players invest Insight tokens to discover and create new cards for their library.
@@ -436,13 +510,26 @@ Roadmap steps
    - Playable acceptance: Research encounters are playable end-to-end. Players can choose a discipline, generate candidates, select a research project, make progress payments, and complete research to produce new Library cards. All rolls are deterministic via the game seed. Scenario tests verify the full research flow.
    - Notes: CardEffect discipline tags and the Insight card effect are prerequisites that should be implemented early in this step. The research encounter builds on these foundations and on the range system from Step 9.1.
 
-11) Add post-encounter scouting choices (vision-driven)
-   - Goal: Present scouting choices as a post-resolution step that influence replacement-generation parameters (preview counts, CardEffect biases, candidate pools) and grant Foresight/related tokens.
-   - Description: Implement ScoutChoice objects and a deterministic application that updates replacement parameters for encounter generation (using Library CardCounts). Record scouting decisions and effects in the ActionLog.
-     - Scouting choices can increase the tier of replacement encounters, which in turn increases the tier of rewards from those encounters (e.g., higher-tier gathering yields or tougher combat for better loot).
-   - Playable acceptance: After an encounter, API returns scouting choices; making a choice updates the replacement-generation seed/parameters and is reflected in the next replacement card deterministically.
-   - Notes: Keep initial choices small and data-driven (e.g., +1 Foresight, increase CardEffect-pool size).
-    - Up to this point then all encounters just added the same encounter back into the encounter Library: no changes. 
+11) Simple post-encounter scouting
+   - Goal: Replace the current no-op scouting with a simple encounter-modification step that always happens after an encounter is concluded.
+   - Description:
+     - Always happens after an encounter is concluded. It always modifies the encounter card just concluded.
+     - Any mention of tiers is postponed to the milestone step.
+     - The player is presented with X options: generate X new encounters of the same type as the encounter just played.
+     - Generate one encounter by:
+       - For every encounter where one or more enemy decks are involved on the enemy side:
+         - Keep the number of cards and card counts for each card.
+         - Pick one card and reroll that card where "affix-pool size" is "CardEffect pool size" — each card has that amount of CardEffects.
+         - Do not change the card type. Respect the CardEffect tags relative to the card type.
+         - This is very similar to the player crafting step: just done repeatedly and with no player interaction.
+         - If the deck had three cards and each card had 5 copies in total: only one of the three cards changes and it still has 5 copies.
+         - It is okay to give the enemy CardEffects for a resource they cannot regain, because the enemy will always start with an initial amount of that resource.
+       - If there are any numerical values (mainly initial tokens of the encounter): random change them in the range of -5% to +10%, so a good chance it will be tougher next time. Min should still be ≤ max if a min-max range exists.
+     - Let the player choose which of the X encounters to replace the just-played encounter.
+     - The player has to choose and cannot keep the just-played encounter.
+     - When the player has chosen: replace the current player encounter card with the new encounter card and move to the next phase in the encounter.
+   - Playable acceptance: After an encounter, X scouting options are generated and presented. Player must choose one. The selected encounter replaces the original in the Library. Scenario tests verify the scouting flow.
+   - Notes: Keep initial choices small and data-driven. Up to this point all encounters just added the same encounter back into the encounter Library with no changes.
 
 11.5) Gathering balance pass
    - Goal: After all gathering disciplines, research, and post-encounter scouting are implemented, perform a dedicated balance and tuning pass.
@@ -522,4 +609,18 @@ Appendix: Minimum ticket examples for the first 8 steps
 - Encounter loop: Implement the encounter loop via POST /action (pick encounter, play cards, advance phases, scouting), include replacement and scouting as part of the lifecycle.
 - Research: Implement CardEffect discipline tags, Insight card effect, research encounter with choose/progress actions, and deterministic card generation recorded to the ActionLog.
 - Merchants: Implement MerchantOffers and Barter decks, deterministic visits, and barter flows recorded to the ActionLog.
+
+CardEffect ideas (future)
+-------------------------
+A lot of these could be introduced with a Milestone boss encounter or as progression rewards.
+
+- **Life steal:** All disciplines could have a "life steal" CardEffect that converts a portion of the effect's value into health or resource recovery.
+- **Max handsize milestones:** Some milestones can increase the max handsize in a specific discipline, providing a permanent progression reward.
+- **Merchant rare deals:** Some merchants can offer rare interesting deals where permanent tokens can be exchanged for other permanent tokens (e.g., trade max handsize in woodcutting for max handsize in crafting).
+- **Herbalism guard token:** A "guard" token that protects plant cards in some way but only exists for a very short period. Not a guaranteed win condition — for example, the next card play leaves half of the cards that would have been removed, chosen at random.
+- **Card forgetting:** A CardEffect that lets the player forget (permanently remove) a full card including all copies, as long as all copies are in the library and not in deck/hand/discard. More powerful effect the more cards are crafted; still a good effect even without crafted cards. This is a way to clean up the library of old unused cards. Requires implementing empty entries in the library vector with ID reuse — critical that existing cards keep their IDs.
+- **Magic CardEffects:** Add magic-themed CardEffects for all disciplines, potentially gated behind research or milestones.
+- **Cooking mechanic:** Expand the rest encounter with a cooking sub-system to make rest more interesting and create demand for Fish and Herbs.
+- **Faction expansion of milestones:** Expand milestones into a faction mechanic with more sense of player choices and possibly a faction discipline deck.
+- **Scouting expansion:** Expand the scouting step to give the user more choice rather than deterministic difficulty increases. It should be possible to shape the difficulty (and rewards) of an encounter and leave the nature of the enemy somewhat random. Maybe choosing 1 out of 3 options. Adding a Scouting discipline deck when a good mechanic is figured out.
 

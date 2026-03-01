@@ -42,7 +42,7 @@ pub async fn initialize_combat(
     {
         gs.token_balances.insert(
             crate::library::types::Token::persistent(crate::library::types::TokenType::Health),
-            20,
+            2000,
         );
     }
     let mut rng = player_data.random_generator_state.lock().await;

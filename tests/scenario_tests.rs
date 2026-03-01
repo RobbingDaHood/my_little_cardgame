@@ -567,17 +567,18 @@ fn play_one_mining_card(client: &Client) -> bool {
     if mining_ids.is_empty() {
         return false;
     }
-    let card_id = mining_ids[0];
-    let json = format!(
-        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-        card_id
-    );
-    let (status, _) = post_action(client, &json);
-    if status != Status::Created {
-        return false;
+    for card_id in mining_ids {
+        let json = format!(
+            r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+            card_id
+        );
+        let (status, _) = post_action(client, &json);
+        if status == Status::Created {
+            let encounter = combat_state(client);
+            return encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided");
+        }
     }
-    let encounter = combat_state(client);
-    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+    false
 }
 
 /// Find mining encounter card IDs in the encounter hand.
@@ -628,15 +629,15 @@ fn scenario_mining_encounter_full_loop() {
             .get("ore_tokens")
             .and_then(|v| v.get("OreHealth"))
             .and_then(|v| v.as_i64()),
-        Some(15),
-        "Ore Health should start at 15"
+        Some(1500),
+        "Ore Health should start at 1500"
     );
 
     // 5. Verify player has MiningDurability token (initialized at game start)
     let durability = player_token(&client, "MiningDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 mining durability"
+        durability, 10000,
+        "Player should start with 10000 mining durability"
     );
 
     // 6. Play mining encounters in a loop until durability runs out
@@ -688,7 +689,7 @@ fn scenario_mining_encounter_full_loop() {
 
     assert!(
         total_encounters > 1,
-        "With 100 durability, player should survive multiple mining encounters"
+        "With 10000 durability, player should survive multiple mining encounters"
     );
 
     // 7. Verify final state: player eventually lost from durability depletion
@@ -928,8 +929,8 @@ fn scenario_herbalism_encounter_full_loop() {
     // 6. Verify player has HerbalismDurability token
     let durability = player_token(&client, "HerbalismDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 herbalism durability"
+        durability, 10000,
+        "Player should start with 10000 herbalism durability"
     );
 
     // 7. Play herbalism encounters in a loop until durability runs out
@@ -1049,17 +1050,18 @@ fn play_one_woodcutting_card(client: &Client) -> bool {
     if wc_ids.is_empty() {
         return false;
     }
-    let card_id = wc_ids[0];
-    let json = format!(
-        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-        card_id
-    );
-    let (status, _) = post_action(client, &json);
-    if status != Status::Created {
-        return false;
+    for card_id in wc_ids {
+        let json = format!(
+            r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+            card_id
+        );
+        let (status, _) = post_action(client, &json);
+        if status == Status::Created {
+            let encounter = combat_state(client);
+            return encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided");
+        }
     }
-    let encounter = combat_state(client);
-    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+    false
 }
 
 fn woodcutting_encounter_ids(client: &Client) -> Vec<usize> {
@@ -1116,8 +1118,8 @@ fn scenario_woodcutting_encounter_full_loop() {
 
     let durability = player_token(&client, "WoodcuttingDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 woodcutting durability"
+        durability, 10000,
+        "Player should start with 10000 woodcutting durability"
     );
 
     // Play 8 cards (the encounter should auto-complete after 8)
@@ -1152,7 +1154,7 @@ fn scenario_woodcutting_encounter_full_loop() {
     // Verify durability was consumed (8 cards × 1 durability each = 8)
     let final_durability = player_token(&client, "WoodcuttingDurability");
     assert!(
-        final_durability < 100,
+        final_durability < 10000,
         "Durability should decrease after woodcutting (got {})",
         final_durability
     );
@@ -1200,6 +1202,13 @@ fn scenario_woodcutting_encounter_full_loop() {
             break;
         }
 
+        // If encounter is still active (stuck on unplayable cost cards), abort it
+        let encounter = combat_state(&client);
+        if encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+            let (status, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+            assert_eq!(status, Status::Created, "Abort should succeed when stuck");
+        }
+
         let (status, _) = post_action(
             &client,
             r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
@@ -1214,7 +1223,7 @@ fn scenario_woodcutting_encounter_full_loop() {
 
     assert!(
         total_encounters > 1,
-        "With 100 durability and cost 1 per card, should survive multiple encounters"
+        "With 10000 durability and cost 100 per card, should survive multiple encounters"
     );
 }
 
@@ -1343,8 +1352,8 @@ fn scenario_fishing_encounter_full_loop() {
 
     let durability = player_token(&client, "FishingDurability");
     assert_eq!(
-        durability, 100,
-        "Player should start with 100 fishing durability"
+        durability, 10000,
+        "Player should start with 10000 fishing durability"
     );
 
     // Play cards until the encounter ends
@@ -1376,7 +1385,7 @@ fn scenario_fishing_encounter_full_loop() {
 
     let final_durability = player_token(&client, "FishingDurability");
     assert!(
-        final_durability < 100,
+        final_durability < 10000,
         "Durability should decrease after fishing (got {})",
         final_durability
     );
@@ -1436,7 +1445,7 @@ fn scenario_fishing_encounter_full_loop() {
 
     assert!(
         total_encounters > 1,
-        "With 100 durability and cost 1 per card, should survive multiple encounters"
+        "With 10000 durability and cost 100 per card, should survive multiple encounters"
     );
 }
 
@@ -1476,5 +1485,289 @@ fn scenario_abort_fishing_encounter() {
         status,
         Status::Created,
         "Should be able to scout after abort"
+    );
+}
+
+// ---- Step 9.2: Cost system tests ----
+
+#[test]
+fn scenario_cost_card_rejected_without_stamina() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created, "NewGame should succeed");
+
+    // Pick combat encounter
+    let enc_ids = encounter_hand_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have encounter cards");
+    let combat_id = enc_ids
+        .iter()
+        .find(|&&id| id == 11)
+        .expect("Combat encounter card 11 should be in hand");
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_id
+    );
+    let (status, _) = post_action(&client, &pick_json);
+    assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
+    // Verify player starts with 1000 stamina
+    let stamina = player_token(&client, "Stamina");
+    assert_eq!(stamina, 1000, "Player should start with 1000 Stamina");
+
+    // Drain stamina by playing cost Defence cards (id 32) until insufficient
+    // Phase cycle: Defending(32 cost) -> Attacking(8) -> Resourcing(10) -> Defending...
+    let mut rejected = false;
+    for _ in 0..30 {
+        // Defending: try cost Defence card
+        let (status, _body) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
+        );
+        if status == Status::BadRequest {
+            rejected = true;
+            break;
+        }
+        assert_eq!(
+            status,
+            Status::Created,
+            "Cost Defence card should succeed while stamina available"
+        );
+        // Check if combat ended
+        let enc_resp = client.get("/encounter").dispatch();
+        if enc_resp.status() == Status::NotFound {
+            break;
+        }
+        // Attacking: play non-cost Attack
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":8}"#,
+        );
+        if status != Status::Created {
+            break;
+        }
+        let enc_resp = client.get("/encounter").dispatch();
+        if enc_resp.status() == Status::NotFound {
+            break;
+        }
+        // Resourcing: play Resource (grants stamina, but cost cards drain it faster)
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":10}"#,
+        );
+        if status != Status::Created {
+            break;
+        }
+        let enc_resp = client.get("/encounter").dispatch();
+        if enc_resp.status() == Status::NotFound {
+            break;
+        }
+    }
+    assert!(
+        rejected,
+        "Cost card should eventually be rejected when stamina runs out"
+    );
+}
+
+#[test]
+fn scenario_cost_card_deducts_stamina() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created, "NewGame should succeed");
+
+    // Pick combat encounter
+    let pick_json = r#"{"action_type":"EncounterPickEncounter","card_id":11}"#;
+    let (status, _) = post_action(&client, pick_json);
+    assert_eq!(status, Status::Created, "PickEncounter should succeed");
+
+    // Play a full round to get stamina: Defence → Attack → Resource
+    // Defence phase: play non-cost Defence (id 9)
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":9}"#,
+    );
+    assert_eq!(status, Status::Created, "Defence card should succeed");
+    // Auto-advance: enemy plays, phase → Attacking
+
+    // Attack phase: play non-cost Attack (id 8)
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":8}"#,
+    );
+    assert_eq!(status, Status::Created, "Attack card should succeed");
+    // Auto-advance: enemy plays, phase → Resourcing
+
+    // Resource phase: play Resource (id 10) — grants stamina
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":10}"#,
+    );
+    assert_eq!(status, Status::Created, "Resource card should succeed");
+    // Auto-advance: phase → Defending
+
+    // Verify player now has stamina
+    let stamina_after_resource = player_token(&client, "Stamina");
+    assert!(
+        stamina_after_resource > 0,
+        "Player should have Stamina after playing Resource card (got {})",
+        stamina_after_resource
+    );
+
+    // Defending phase again: play cost Defence card (id 32) — should succeed now
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
+    );
+    assert_eq!(
+        status,
+        Status::Created,
+        "Cost Defence card should succeed with stamina"
+    );
+
+    // Verify stamina was consumed
+    let stamina_after_cost = player_token(&client, "Stamina");
+    assert!(
+        stamina_after_cost < stamina_after_resource,
+        "Stamina should decrease after playing cost card (before={}, after={})",
+        stamina_after_resource,
+        stamina_after_cost
+    );
+}
+
+#[test]
+fn scenario_cost_mining_card_rejected_without_stamina() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created, "NewGame should succeed");
+
+    // Pick mining encounter (id 15)
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    );
+    assert_eq!(status, Status::Created, "Mining encounter should start");
+
+    // Verify player starts with 1000 stamina
+    let stamina_before = player_token(&client, "Stamina");
+    assert_eq!(
+        stamina_before, 1000,
+        "Player should start with 1000 Stamina"
+    );
+
+    // Play cost Mining card (id 33, stamina_cost 100) — should succeed and deduct stamina
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":33}"#,
+    );
+    assert_eq!(
+        status,
+        Status::Created,
+        "Cost Mining card should succeed with 1000 stamina"
+    );
+
+    let stamina_after = player_token(&client, "Stamina");
+    assert!(
+        stamina_after < stamina_before,
+        "Stamina should decrease after cost mining card (before={}, after={})",
+        stamina_before,
+        stamina_after
+    );
+
+    // Play non-cost Mining card (id 12) — should succeed without stamina cost
+    let enc_resp = client.get("/encounter").dispatch();
+    if enc_resp.status() != Status::NotFound {
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterPlayCard","card_id":12}"#,
+        );
+        assert_eq!(
+            status,
+            Status::Created,
+            "Non-cost mining card should succeed"
+        );
+    }
+}
+
+#[test]
+fn scenario_cost_cards_exist_in_starting_decks() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created, "NewGame should succeed");
+
+    // Check that cost Attack card (id 31) exists in the library
+    let cards = get_json(&client, "/library/cards?card_kind=Attack");
+    let card_ids: Vec<u64> = cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
+        .collect();
+    assert!(
+        card_ids.contains(&8),
+        "Non-cost Attack card (8) should be in library"
+    );
+    assert!(
+        card_ids.contains(&31),
+        "Cost Attack card (31) should be in library"
+    );
+
+    // Check that cost Defence card (id 32) exists
+    let cards = get_json(&client, "/library/cards?card_kind=Defence");
+    let card_ids: Vec<u64> = cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
+        .collect();
+    assert!(
+        card_ids.contains(&9),
+        "Non-cost Defence card (9) should be in library"
+    );
+    assert!(
+        card_ids.contains(&32),
+        "Cost Defence card (32) should be in library"
+    );
+
+    // Check that cost Mining card (id 33) exists
+    let cards = get_json(&client, "/library/cards?card_kind=Mining");
+    let card_ids: Vec<u64> = cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
+        .collect();
+    assert!(
+        card_ids.contains(&33),
+        "Cost Mining card (33) should be in library"
+    );
+
+    // Check that cost Woodcutting card (id 34) exists
+    let cards = get_json(&client, "/library/cards?card_kind=Woodcutting");
+    let card_ids: Vec<u64> = cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
+        .collect();
+    assert!(
+        card_ids.contains(&34),
+        "Cost Woodcutting card (34) should be in library"
+    );
+
+    // Verify cost cards have fewer copies than non-cost cards
+    let attack_cards = get_json(&client, "/library/cards?card_kind=Attack");
+    let attack_arr = attack_cards.as_array().unwrap();
+    let non_cost_attack = attack_arr.iter().find(|c| c["id"] == 8).unwrap();
+    let cost_attack = attack_arr.iter().find(|c| c["id"] == 31).unwrap();
+    let non_cost_deck = non_cost_attack["counts"]["deck"].as_u64().unwrap_or(0);
+    let cost_deck = cost_attack["counts"]["deck"].as_u64().unwrap_or(0);
+    assert!(
+        cost_deck < non_cost_deck,
+        "Cost Attack should have fewer deck copies ({}) than non-cost ({})",
+        cost_deck,
+        non_cost_deck
     );
 }

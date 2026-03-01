@@ -89,19 +89,50 @@ impl Token {
 }
 
 /// Describes what kind of effect a card applies.
+/// CardEffects are templates with min/max ranges; concrete cards roll fixed values.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "effect_type")]
 pub enum CardEffectKind {
     ChangeTokens {
         target: EffectTarget,
         token_type: TokenType,
-        amount: i64,
+        min: i64,
+        max: i64,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
     },
     DrawCards {
         attack: u32,
         defence: u32,
         resource: u32,
     },
+}
+
+/// Cost definition on a CardEffect template: a percentage range of the effect value.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct CardEffectCost {
+    pub cost_type: TokenType,
+    pub min_percent: u32,
+    pub max_percent: u32,
+}
+
+/// A concrete effect on a card: references a CardEffect and stores rolled values.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ConcreteEffect {
+    pub effect_id: usize,
+    pub rolled_value: i64,
+    #[serde(default)]
+    pub rolled_costs: Vec<ConcreteEffectCost>,
+}
+
+/// A concrete rolled cost on a card: the specific percentage rolled from the cost range.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ConcreteEffectCost {
+    pub cost_type: TokenType,
+    pub rolled_percent: u32,
 }
 
 /// Who a card effect targets.
@@ -146,13 +177,13 @@ impl CardCounts {
 #[serde(crate = "rocket::serde", tag = "card_kind")]
 pub enum CardKind {
     Attack {
-        effect_ids: Vec<usize>,
+        effects: Vec<ConcreteEffect>,
     },
     Defence {
-        effect_ids: Vec<usize>,
+        effects: Vec<ConcreteEffect>,
     },
     Resource {
-        effect_ids: Vec<usize>,
+        effects: Vec<ConcreteEffect>,
     },
     Mining {
         mining_effect: MiningCardEffect,
@@ -184,6 +215,8 @@ pub enum CardKind {
 pub struct MiningCardEffect {
     pub ore_damage: i64,
     pub durability_prevent: i64,
+    #[serde(default)]
+    pub stamina_cost: i64,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -243,6 +276,8 @@ pub struct WoodcuttingCardEffect {
     pub chop_types: Vec<ChopType>,
     pub chop_values: Vec<u32>,
     pub durability_cost: i64,
+    #[serde(default)]
+    pub stamina_cost: i64,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -353,7 +388,7 @@ pub struct CombatantDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCardDef {
-    pub effect_ids: Vec<usize>,
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 

@@ -195,16 +195,16 @@ impl Library {
         let mut errors = Vec::new();
         for (id, card) in self.cards.iter().enumerate() {
             match &card.kind {
-                CardKind::Attack { effect_ids }
-                | CardKind::Defence { effect_ids }
-                | CardKind::Resource { effect_ids } => {
-                    for &ref_id in effect_ids {
-                        match self.cards.get(ref_id) {
+                CardKind::Attack { effects }
+                | CardKind::Defence { effects }
+                | CardKind::Resource { effects } => {
+                    for effect in effects {
+                        match self.cards.get(effect.effect_id) {
                             Some(ref_card)
                                 if matches!(ref_card.kind, CardKind::PlayerCardEffect { .. }) => {}
                             _ => errors.push(format!(
                                 "Card {} has effect referencing invalid PlayerCardEffect {}",
-                                id, ref_id
+                                id, effect.effect_id
                             )),
                         }
                     }
@@ -218,8 +218,8 @@ impl Library {
                         &combatant_def.resource_deck,
                     ] {
                         for enemy_card in deck {
-                            for &ref_id in &enemy_card.effect_ids {
-                                match self.cards.get(ref_id) {
+                            for effect in &enemy_card.effects {
+                                match self.cards.get(effect.effect_id) {
                                     Some(ref_card)
                                         if matches!(
                                             ref_card.kind,
@@ -227,7 +227,7 @@ impl Library {
                                         ) => {}
                                     _ => errors.push(format!(
                                         "Enemy card in card {} has effect referencing invalid EnemyCardEffect {}",
-                                        id, ref_id
+                                        id, effect.effect_id
                                     )),
                                 }
                             }

@@ -1,24 +1,76 @@
 use super::action_log::ActionLog;
 use super::types::{
-    ActionEntry, ActionPayload, CardCounts, CardKind, CombatEncounterState, EncounterKind,
-    EncounterOutcome, EncounterState, HerbalismEncounterState, MiningEncounterState,
+    ActionEntry, ActionPayload, CardCounts, CardKind, CombatEncounterState, ConcreteEffect,
+    ConcreteEffectCost, EncounterKind, EncounterOutcome, EncounterState, HerbalismEncounterState,
+    MiningEncounterState,
 };
 use super::Library;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 
-fn initialize_library() -> Library {
+fn roll_range(rng: &mut rand_pcg::Lcg64Xsh32, min: i64, max: i64) -> i64 {
+    use rand::RngCore;
+    if min == max {
+        return min;
+    }
+    let (lo, hi) = if min < max { (min, max) } else { (max, min) };
+    let range = (hi - lo + 1) as u64;
+    lo + (rng.next_u64() % range) as i64
+}
+
+fn roll_range_u32(rng: &mut rand_pcg::Lcg64Xsh32, min: u32, max: u32) -> u32 {
+    use rand::RngCore;
+    if min == max {
+        return min;
+    }
+    let (lo, hi) = if min < max { (min, max) } else { (max, min) };
+    let range = (hi - lo + 1) as u64;
+    lo + (rng.next_u64() % range) as u32
+}
+
+fn roll_concrete_effect(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    effect_id: usize,
+    library: &Library,
+) -> ConcreteEffect {
+    let kind = library.resolve_effect(effect_id);
+    let (rolled_value, rolled_costs) = match kind {
+        Some(super::types::CardEffectKind::ChangeTokens {
+            min, max, costs, ..
+        }) => {
+            let value = roll_range(rng, min, max);
+            let costs = costs
+                .iter()
+                .map(|c| ConcreteEffectCost {
+                    cost_type: c.cost_type.clone(),
+                    rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
+                })
+                .collect();
+            (value, costs)
+        }
+        _ => (0, vec![]),
+    };
+    ConcreteEffect {
+        effect_id,
+        rolled_value,
+        rolled_costs,
+    }
+}
+
+fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     let mut lib = Library::new();
 
-    // ---- Player CardEffect deck entries ----
+    // ---- Player CardEffect deck entries (templates with ranges) ----
 
-    // id 0: Player "deal 5 damage" effect
+    // id 0: Player "deal damage" effect (range: 400-600, old: 5)
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: super::types::CardEffectKind::ChangeTokens {
                 target: super::types::EffectTarget::OnOpponent,
                 token_type: super::types::TokenType::Health,
-                amount: -5,
+                min: -600,
+                max: -400,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -29,13 +81,15 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 1: Player "grant 3 shield" effect
+    // id 1: Player "grant shield" effect (range: 200-400, old: 3)
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: super::types::CardEffectKind::ChangeTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Shield,
-                amount: 3,
+                min: 200,
+                max: 400,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -46,13 +100,15 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 2: Player "grant 2 stamina" effect
+    // id 2: Player "grant stamina" effect (range: 150-250, old: 2)
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: super::types::CardEffectKind::ChangeTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Stamina,
-                amount: 2,
+                min: 150,
+                max: 250,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -80,15 +136,17 @@ fn initialize_library() -> Library {
         },
     );
 
-    // ---- Enemy CardEffect deck entries ----
+    // ---- Enemy CardEffect deck entries (templates with ranges) ----
 
-    // id 4: Enemy "deal 3 damage" effect
+    // id 4: Enemy "deal damage" effect (range: 200-400, old: 3)
     lib.add_card(
         CardKind::EnemyCardEffect {
             kind: super::types::CardEffectKind::ChangeTokens {
                 target: super::types::EffectTarget::OnOpponent,
                 token_type: super::types::TokenType::Health,
-                amount: -3,
+                min: -400,
+                max: -200,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -99,13 +157,15 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 5: Enemy "grant 2 shield" effect
+    // id 5: Enemy "grant shield" effect (range: 150-250, old: 2)
     lib.add_card(
         CardKind::EnemyCardEffect {
             kind: super::types::CardEffectKind::ChangeTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Shield,
-                amount: 2,
+                min: 150,
+                max: 250,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -116,13 +176,15 @@ fn initialize_library() -> Library {
         },
     );
 
-    // id 6: Enemy "grant 1 stamina" effect
+    // id 6: Enemy "grant stamina" effect (range: 80-120, old: 1)
     lib.add_card(
         CardKind::EnemyCardEffect {
             kind: super::types::CardEffectKind::ChangeTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Stamina,
-                amount: 1,
+                min: 80,
+                max: 120,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -150,12 +212,12 @@ fn initialize_library() -> Library {
         },
     );
 
-    // ---- Player action cards (reference CardEffect entries by id) ----
+    // ---- Player action cards (concrete rolled values from CardEffect ranges) ----
 
-    // Attack card (id 8): deals 5 damage to opponent
+    // Attack card (id 8): deals damage to opponent
     lib.add_card(
         CardKind::Attack {
-            effect_ids: vec![0],
+            effects: vec![roll_concrete_effect(rng, 0, &lib)],
         },
         CardCounts {
             library: 0,
@@ -165,10 +227,10 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Defence card (id 9): grants 3 shield to self
+    // Defence card (id 9): grants shield to self
     lib.add_card(
         CardKind::Defence {
-            effect_ids: vec![1],
+            effects: vec![roll_concrete_effect(rng, 1, &lib)],
         },
         CardCounts {
             library: 0,
@@ -178,10 +240,13 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Resource card (id 10): grants 2 stamina to self, draws 2 cards
+    // Resource card (id 10): grants stamina to self, draws cards
     lib.add_card(
         CardKind::Resource {
-            effect_ids: vec![2, 3],
+            effects: vec![
+                roll_concrete_effect(rng, 2, &lib),
+                roll_concrete_effect(rng, 3, &lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -191,7 +256,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Combat encounter: Gnome (id 11)
+    // Combat encounter: Gnome (id 11) — enemy health scaled 20→2000
     lib.add_card(
         CardKind::Encounter {
             encounter_kind: super::types::EncounterKind::Combat {
@@ -199,15 +264,15 @@ fn initialize_library() -> Library {
                     initial_tokens: HashMap::from([
                         (
                             super::types::Token::persistent(super::types::TokenType::Health),
-                            20,
+                            2000,
                         ),
                         (
                             super::types::Token::persistent(super::types::TokenType::MaxHealth),
-                            20,
+                            2000,
                         ),
                     ]),
                     attack_deck: vec![super::types::EnemyCardDef {
-                        effect_ids: vec![4],
+                        effects: vec![roll_concrete_effect(rng, 4, &lib)],
                         counts: super::types::DeckCounts {
                             deck: 0,
                             hand: 10,
@@ -215,7 +280,7 @@ fn initialize_library() -> Library {
                         },
                     }],
                     defence_deck: vec![super::types::EnemyCardDef {
-                        effect_ids: vec![5],
+                        effects: vec![roll_concrete_effect(rng, 5, &lib)],
                         counts: super::types::DeckCounts {
                             deck: 0,
                             hand: 10,
@@ -223,7 +288,10 @@ fn initialize_library() -> Library {
                         },
                     }],
                     resource_deck: vec![super::types::EnemyCardDef {
-                        effect_ids: vec![6, 7],
+                        effects: vec![
+                            roll_concrete_effect(rng, 6, &lib),
+                            roll_concrete_effect(rng, 7, &lib),
+                        ],
                         counts: super::types::DeckCounts {
                             deck: 0,
                             hand: 10,
@@ -241,14 +309,15 @@ fn initialize_library() -> Library {
         },
     );
 
-    // ---- Mining player cards ----
+    // ---- Mining player cards (scaled by ~100x) ----
 
     // Aggressive mining card (id 12): high ore damage, no protection
     lib.add_card(
         CardKind::Mining {
             mining_effect: super::types::MiningCardEffect {
-                ore_damage: 5,
+                ore_damage: 500,
                 durability_prevent: 0,
+                stamina_cost: 0,
             },
         },
         CardCounts {
@@ -263,8 +332,9 @@ fn initialize_library() -> Library {
     lib.add_card(
         CardKind::Mining {
             mining_effect: super::types::MiningCardEffect {
-                ore_damage: 3,
-                durability_prevent: 2,
+                ore_damage: 300,
+                durability_prevent: 200,
+                stamina_cost: 0,
             },
         },
         CardCounts {
@@ -279,8 +349,9 @@ fn initialize_library() -> Library {
     lib.add_card(
         CardKind::Mining {
             mining_effect: super::types::MiningCardEffect {
-                ore_damage: 1,
-                durability_prevent: 3,
+                ore_damage: 100,
+                durability_prevent: 300,
+                stamina_cost: 0,
             },
         },
         CardCounts {
@@ -291,14 +362,14 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Mining encounter: Iron Ore (id 15)
+    // Mining encounter: Iron Ore (id 15) — scaled by ~100x
     lib.add_card(
         CardKind::Encounter {
             encounter_kind: super::types::EncounterKind::Mining {
                 mining_def: super::types::MiningDef {
                     initial_tokens: HashMap::from([(
                         super::types::Token::persistent(super::types::TokenType::OreHealth),
-                        15,
+                        1500,
                     )]),
                     ore_deck: vec![
                         super::types::OreCard {
@@ -310,7 +381,7 @@ fn initialize_library() -> Library {
                             },
                         },
                         super::types::OreCard {
-                            durability_damage: 1,
+                            durability_damage: 100,
                             counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 8,
@@ -318,7 +389,7 @@ fn initialize_library() -> Library {
                             },
                         },
                         super::types::OreCard {
-                            durability_damage: 2,
+                            durability_damage: 200,
                             counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 4,
@@ -326,7 +397,7 @@ fn initialize_library() -> Library {
                             },
                         },
                         super::types::OreCard {
-                            durability_damage: 3,
+                            durability_damage: 300,
                             counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 2,
@@ -336,7 +407,7 @@ fn initialize_library() -> Library {
                     ],
                     rewards: HashMap::from([(
                         super::types::Token::persistent(super::types::TokenType::Ore),
-                        10,
+                        1000,
                     )]),
                 },
             },
@@ -349,14 +420,14 @@ fn initialize_library() -> Library {
         },
     );
 
-    // ---- Herbalism player cards ----
+    // ---- Herbalism player cards (durability_cost scaled by ~100x) ----
 
     // Narrow herbalism card (id 16): targets 1 characteristic, low durability cost
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
                 target_characteristics: vec![super::types::PlantCharacteristic::Fragile],
-                durability_cost: 1,
+                durability_cost: 100,
             },
         },
         CardCounts {
@@ -375,7 +446,7 @@ fn initialize_library() -> Library {
                     super::types::PlantCharacteristic::Thorny,
                     super::types::PlantCharacteristic::Aromatic,
                 ],
-                durability_cost: 1,
+                durability_cost: 100,
             },
         },
         CardCounts {
@@ -395,7 +466,7 @@ fn initialize_library() -> Library {
                     super::types::PlantCharacteristic::Luminous,
                     super::types::PlantCharacteristic::Fragile,
                 ],
-                durability_cost: 1,
+                durability_cost: 100,
             },
         },
         CardCounts {
@@ -406,7 +477,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Herbalism encounter: Meadow Herb (id 19)
+    // Herbalism encounter: Meadow Herb (id 19) — rewards scaled by ~100x
     lib.add_card(
         CardKind::Encounter {
             encounter_kind: super::types::EncounterKind::Herbalism {
@@ -464,7 +535,7 @@ fn initialize_library() -> Library {
                     ],
                     rewards: HashMap::from([(
                         super::types::Token::persistent(super::types::TokenType::Plant),
-                        5,
+                        500,
                     )]),
                 },
             },
@@ -477,8 +548,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // ---- Woodcutting player cards ----
-    // Each card has 1 ChopType + 1 chop_value, durability_cost of 1
+    // ---- Woodcutting player cards (durability_cost scaled by ~100x) ----
 
     // LightChop card (id 20): value 2
     lib.add_card(
@@ -486,7 +556,8 @@ fn initialize_library() -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::LightChop],
                 chop_values: vec![2],
-                durability_cost: 1,
+                durability_cost: 100,
+                stamina_cost: 0,
             },
         },
         CardCounts {
@@ -503,7 +574,8 @@ fn initialize_library() -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::HeavyChop],
                 chop_values: vec![5],
-                durability_cost: 1,
+                durability_cost: 100,
+                stamina_cost: 0,
             },
         },
         CardCounts {
@@ -520,7 +592,8 @@ fn initialize_library() -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::MediumChop],
                 chop_values: vec![3],
-                durability_cost: 1,
+                durability_cost: 100,
+                stamina_cost: 0,
             },
         },
         CardCounts {
@@ -537,7 +610,8 @@ fn initialize_library() -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::PrecisionChop],
                 chop_values: vec![7],
-                durability_cost: 1,
+                durability_cost: 100,
+                stamina_cost: 0,
             },
         },
         CardCounts {
@@ -548,7 +622,7 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Woodcutting encounter: Oak Tree (id 24)
+    // Woodcutting encounter: Oak Tree (id 24) — rewards scaled by ~100x
     lib.add_card(
         CardKind::Encounter {
             encounter_kind: super::types::EncounterKind::Woodcutting {
@@ -556,7 +630,7 @@ fn initialize_library() -> Library {
                     max_plays: 8,
                     base_rewards: HashMap::from([(
                         super::types::Token::persistent(super::types::TokenType::Lumber),
-                        10,
+                        1000,
                     )]),
                 },
             },
@@ -569,13 +643,13 @@ fn initialize_library() -> Library {
         },
     );
 
-    // ---- Fishing player cards ----
-    // Card id 25: Low value fishing card (value: 2, durability_cost: 1) — 15 in deck, 5 on hand
+    // ---- Fishing player cards (values and durability_cost scaled by ~100x) ----
+    // Card id 25: Low value fishing card
     lib.add_card(
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
-                value: 2,
-                durability_cost: 1,
+                value: 200,
+                durability_cost: 100,
             },
         },
         CardCounts {
@@ -585,12 +659,12 @@ fn initialize_library() -> Library {
             discard: 0,
         },
     );
-    // Card id 26: Medium value fishing card (value: 4, durability_cost: 1) — 15 in deck, 5 on hand
+    // Card id 26: Medium value fishing card
     lib.add_card(
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
-                value: 4,
-                durability_cost: 1,
+                value: 400,
+                durability_cost: 100,
             },
         },
         CardCounts {
@@ -600,12 +674,12 @@ fn initialize_library() -> Library {
             discard: 0,
         },
     );
-    // Card id 27: High value fishing card (value: 7, durability_cost: 1) — 10 in deck, 5 on hand
+    // Card id 27: High value fishing card
     lib.add_card(
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
-                value: 7,
-                durability_cost: 1,
+                value: 700,
+                durability_cost: 100,
             },
         },
         CardCounts {
@@ -616,18 +690,18 @@ fn initialize_library() -> Library {
         },
     );
 
-    // Fishing encounter: River Spot (id 28)
+    // Fishing encounter: River Spot (id 28) — values scaled by ~100x
     lib.add_card(
         CardKind::Encounter {
             encounter_kind: super::types::EncounterKind::Fishing {
                 fishing_def: super::types::FishingDef {
-                    valid_range_min: 1,
-                    valid_range_max: 3,
+                    valid_range_min: 100,
+                    valid_range_max: 300,
                     max_turns: 8,
                     win_turns_needed: 4,
                     fish_deck: vec![
                         super::types::FishCard {
-                            value: 1,
+                            value: 100,
                             counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 6,
@@ -635,7 +709,7 @@ fn initialize_library() -> Library {
                             },
                         },
                         super::types::FishCard {
-                            value: 3,
+                            value: 300,
                             counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 6,
@@ -643,7 +717,7 @@ fn initialize_library() -> Library {
                             },
                         },
                         super::types::FishCard {
-                            value: 5,
+                            value: 500,
                             counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 4,
@@ -651,7 +725,7 @@ fn initialize_library() -> Library {
                             },
                         },
                         super::types::FishCard {
-                            value: 7,
+                            value: 700,
                             counts: super::types::DeckCounts {
                                 deck: 0,
                                 hand: 2,
@@ -661,7 +735,7 @@ fn initialize_library() -> Library {
                     ],
                     rewards: HashMap::from([(
                         super::types::Token::persistent(super::types::TokenType::Fish),
-                        10,
+                        1000,
                     )]),
                 },
             },
@@ -670,6 +744,118 @@ fn initialize_library() -> Library {
             library: 1,
             deck: 0,
             hand: 3,
+            discard: 0,
+        },
+    );
+
+    // ---- Cost card effect templates and variants (Step 9.2) ----
+
+    // id 29: Powerful "deal damage" effect with Stamina cost (range: 700-900, cost: 30-50%)
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: super::types::CardEffectKind::ChangeTokens {
+                target: super::types::EffectTarget::OnOpponent,
+                token_type: super::types::TokenType::Health,
+                min: -900,
+                max: -700,
+                costs: vec![super::types::CardEffectCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    min_percent: 30,
+                    max_percent: 50,
+                }],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // id 30: Powerful "grant shield" effect with Stamina cost (range: 350-550, cost: 30-50%)
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: super::types::CardEffectKind::ChangeTokens {
+                target: super::types::EffectTarget::OnSelf,
+                token_type: super::types::TokenType::Shield,
+                min: 350,
+                max: 550,
+                costs: vec![super::types::CardEffectCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    min_percent: 30,
+                    max_percent: 50,
+                }],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost Attack card (id 31): more powerful but costs Stamina
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![roll_concrete_effect(rng, 29, &lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // Cost Defence card (id 32): more powerful but costs Stamina
+    lib.add_card(
+        CardKind::Defence {
+            effects: vec![roll_concrete_effect(rng, 30, &lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // Cost Mining card (id 33): high ore damage, costs stamina
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 800,
+                durability_prevent: 0,
+                stamina_cost: 100,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // Cost Woodcutting card (id 34): HeavyChop+LightChop combo, costs stamina
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: super::types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    super::types::ChopType::HeavyChop,
+                    super::types::ChopType::LightChop,
+                ],
+                chop_values: vec![5, 3],
+                durability_cost: 100,
+                stamina_cost: 100,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 1,
             discard: 0,
         },
     );
@@ -681,30 +867,29 @@ fn initialize_library() -> Library {
     lib
 }
 
-/// Apply card effects to combat, modifying player tokens and combat snapshot.
-/// Resolves effect IDs from library card effect entries.
+/// Apply card effects to combat using concrete rolled values.
 /// Only processes ChangeTokens effects; DrawCards effects are handled separately.
 fn apply_card_effects(
-    effect_ids: &[usize],
+    effects: &[ConcreteEffect],
     is_player: bool,
     player_tokens: &mut HashMap<super::types::Token, i64>,
     combat: &mut CombatEncounterState,
     library: &Library,
 ) {
-    for &effect_id in effect_ids {
-        let kind = match library.resolve_effect(effect_id) {
+    for effect in effects {
+        let kind = match library.resolve_effect(effect.effect_id) {
             Some(resolved) => resolved,
             None => continue,
         };
 
-        let (target, token_type, amount) = match &kind {
+        let (target, token_type) = match &kind {
             super::types::CardEffectKind::ChangeTokens {
-                target,
-                token_type,
-                amount,
-            } => (target, token_type, *amount),
+                target, token_type, ..
+            } => (target, token_type),
             super::types::CardEffectKind::DrawCards { .. } => continue,
         };
+
+        let amount = effect.rolled_value;
 
         let target_tokens = match (target, is_player) {
             (super::types::EffectTarget::OnSelf, true)
@@ -715,13 +900,23 @@ fn apply_card_effects(
 
         if *token_type == super::types::TokenType::Health && amount < 0 {
             let damage = -amount;
+            // Dodge absorbs first (timing-based, expires after Defending phase)
             let dodge = target_tokens
                 .get(&super::types::Token::dodge())
                 .copied()
                 .unwrap_or(0);
-            let absorbed = dodge.min(damage);
-            target_tokens.insert(super::types::Token::dodge(), (dodge - absorbed).max(0));
-            let remaining_damage = damage - absorbed;
+            let dodge_absorbed = dodge.min(damage);
+            target_tokens.insert(
+                super::types::Token::dodge(),
+                (dodge - dodge_absorbed).max(0),
+            );
+            let after_dodge = damage - dodge_absorbed;
+            // Shield absorbs next (persists for encounter, blocks 1:1)
+            let shield_key = super::types::Token::persistent(super::types::TokenType::Shield);
+            let shield = target_tokens.get(&shield_key).copied().unwrap_or(0);
+            let shield_absorbed = shield.min(after_dodge);
+            target_tokens.insert(shield_key, (shield - shield_absorbed).max(0));
+            let remaining_damage = after_dodge - shield_absorbed;
             if remaining_damage > 0 {
                 let health = target_tokens
                     .entry(super::types::Token::persistent(
@@ -911,6 +1106,12 @@ fn longest_consecutive_run(sorted_values: &[u32]) -> usize {
 
 impl GameState {
     pub fn new() -> Self {
+        use rand::SeedableRng;
+        let mut rng = rand_pcg::Lcg64Xsh32::from_entropy();
+        Self::new_with_rng(&mut rng)
+    }
+
+    pub fn new_with_rng(rng: &mut rand_pcg::Lcg64Xsh32) -> Self {
         let mut balances = HashMap::new();
         for id in super::types::TokenType::all() {
             balances.insert(super::types::Token::persistent(id), 0i64);
@@ -920,25 +1121,27 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::Foresight),
             3,
         );
-        // MiningDurability starts at 100; lost during mining, not regained until crafting
+        // Durabilities scaled by ~100x (100→10000)
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::MiningDurability),
-            100,
+            10000,
         );
-        // HerbalismDurability starts at 100; lost during herbalism, not regained until crafting
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::HerbalismDurability),
-            100,
+            10000,
         );
-        // WoodcuttingDurability starts at 100; lost during woodcutting, not regained until crafting
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::WoodcuttingDurability),
-            100,
+            10000,
         );
-        // FishingDurability starts at 100; lost during fishing, not regained until crafting
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::FishingDurability),
-            100,
+            10000,
+        );
+        // Starting stamina
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::Stamina),
+            1000,
         );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
@@ -959,7 +1162,7 @@ impl GameState {
         Self {
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
-            library: initialize_library(),
+            library: initialize_library(rng),
             current_encounter: None,
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_encounter_result: None,
@@ -1071,19 +1274,21 @@ impl GameState {
             .get(card_id)
             .ok_or_else(|| format!("Card {} not found in Library", card_id))?
             .clone();
-        let effect_ids = match &lib_card.kind {
-            CardKind::Attack { effect_ids }
-            | CardKind::Defence { effect_ids }
-            | CardKind::Resource { effect_ids } => effect_ids.clone(),
+        let effects = match &lib_card.kind {
+            CardKind::Attack { effects }
+            | CardKind::Defence { effects }
+            | CardKind::Resource { effects } => effects.clone(),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
+        // Check and deduct costs before applying effects
+        Self::check_and_deduct_costs(&effects, &mut self.token_balances)?;
         let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
-        for &id in &effect_ids {
+        for effect in &effects {
             if let Some(super::types::CardEffectKind::DrawCards {
                 attack,
                 defence,
                 resource,
-            }) = self.library.resolve_effect(id)
+            }) = self.library.resolve_effect(effect.effect_id)
             {
                 atk_draws += attack;
                 def_draws += defence;
@@ -1091,7 +1296,7 @@ impl GameState {
             }
         }
         apply_card_effects(
-            &effect_ids,
+            &effects,
             true,
             &mut self.token_balances,
             combat,
@@ -1105,6 +1310,84 @@ impl GameState {
             self.encounter_phase = super::types::EncounterPhase::Scouting;
         }
         self.draw_player_cards_by_type(atk_draws, def_draws, res_draws, rng);
+        Ok(())
+    }
+
+    /// Check if player can pay all costs on a card's effects. Deducts costs if affordable.
+    fn check_and_deduct_costs(
+        effects: &[ConcreteEffect],
+        token_balances: &mut HashMap<super::types::Token, i64>,
+    ) -> Result<(), String> {
+        Self::preview_costs(effects, token_balances)?;
+        // Deduct costs (we know they're affordable from preview)
+        for effect in effects {
+            for cost in &effect.rolled_costs {
+                let cost_amount =
+                    (effect.rolled_value.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
+                let entry = super::types::token_entry_by_type(token_balances, &cost.cost_type);
+                *entry -= cost_amount;
+            }
+        }
+        Ok(())
+    }
+
+    /// Check if player can afford all costs without deducting. Used for pre-validation.
+    pub fn preview_costs(
+        effects: &[ConcreteEffect],
+        token_balances: &HashMap<super::types::Token, i64>,
+    ) -> Result<(), String> {
+        let mut total_costs: HashMap<super::types::TokenType, i64> = HashMap::new();
+        for effect in effects {
+            for cost in &effect.rolled_costs {
+                let cost_amount =
+                    (effect.rolled_value.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
+                *total_costs.entry(cost.cost_type.clone()).or_insert(0) += cost_amount;
+            }
+        }
+        for (cost_type, cost_amount) in &total_costs {
+            let balance = super::types::token_balance_by_type(token_balances, cost_type);
+            if balance < *cost_amount {
+                return Err(format!(
+                    "Insufficient {:?}: need {} but have {}",
+                    cost_type, cost_amount, balance
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Check if player can pay stamina cost for a gathering card. Deducts if affordable.
+    fn check_and_deduct_stamina_cost(
+        stamina_cost: i64,
+        token_balances: &mut HashMap<super::types::Token, i64>,
+    ) -> Result<(), String> {
+        Self::preview_stamina_cost(stamina_cost, token_balances)?;
+        if stamina_cost > 0 {
+            let entry = super::types::token_entry_by_type(
+                token_balances,
+                &super::types::TokenType::Stamina,
+            );
+            *entry -= stamina_cost;
+        }
+        Ok(())
+    }
+
+    /// Check if player can afford stamina cost without deducting. Used for pre-validation.
+    pub fn preview_stamina_cost(
+        stamina_cost: i64,
+        token_balances: &HashMap<super::types::Token, i64>,
+    ) -> Result<(), String> {
+        if stamina_cost <= 0 {
+            return Ok(());
+        }
+        let balance =
+            super::types::token_balance_by_type(token_balances, &super::types::TokenType::Stamina);
+        if balance < stamina_cost {
+            return Err(format!(
+                "Insufficient Stamina: need {} but have {}",
+                stamina_cost, balance
+            ));
+        }
         Ok(())
     }
 
@@ -1200,15 +1483,15 @@ impl GameState {
             let card_idx = hand_indices[pick_idx];
             deck[card_idx].counts.hand -= 1;
             deck[card_idx].counts.discard += 1;
-            let effect_ids = deck[card_idx].effect_ids.clone();
+            let effects = deck[card_idx].effects.clone();
 
             let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
-            for &id in &effect_ids {
+            for effect in &effects {
                 if let Some(super::types::CardEffectKind::DrawCards {
                     attack,
                     defence,
                     resource,
-                }) = self.library.resolve_effect(id)
+                }) = self.library.resolve_effect(effect.effect_id)
                 {
                     atk_draws += attack;
                     def_draws += defence;
@@ -1217,7 +1500,7 @@ impl GameState {
             }
 
             apply_card_effects(
-                &effect_ids,
+                &effects,
                 false,
                 &mut self.token_balances,
                 combat,
@@ -1322,6 +1605,9 @@ impl GameState {
             CardKind::Mining { mining_effect } => mining_effect.clone(),
             _ => return Err("Cannot play a non-mining card in mining encounter".to_string()),
         };
+
+        // Check and deduct stamina cost before playing
+        Self::check_and_deduct_stamina_cost(mining_effect.stamina_cost, &mut self.token_balances)?;
 
         // Apply player mining card: damage ore
         let ore_defeated = {
@@ -1640,6 +1926,12 @@ impl GameState {
                 )
             }
         };
+
+        // Check and deduct stamina cost before playing
+        Self::check_and_deduct_stamina_cost(
+            woodcutting_effect.stamina_cost,
+            &mut self.token_balances,
+        )?;
 
         // Deduct durability cost
         let durability_key =

@@ -201,8 +201,11 @@ fn test_enemy_play_applies_effects() {
         serde_json::from_str(&resp_after.into_string().expect("body")).expect("json");
     let shield_after = token_value(&combat_after["enemy_tokens"], "Shield");
 
-    // Enemy defence card grants 2 shield
-    assert_eq!(shield_after, shield_before + 2);
+    // Enemy defence card grants shield (scaled ~100x, rolled from range)
+    assert!(
+        shield_after > shield_before,
+        "Enemy should have gained shield from defence card, before={shield_before} after={shield_after}"
+    );
 }
 
 #[test]
@@ -253,7 +256,7 @@ fn test_player_kills_enemy_and_combat_ends() {
     // Phase cycle: Defending(9) -> Attacking(8) -> Resourcing(10) -> Defending(9) ...
     // Card ids: 8=Attack, 9=Defence, 10=Resource
     let phase_cards = [9, 8, 10]; // Defence, Attack, Resource
-    for (phase_idx, _) in (0..30).enumerate() {
+    for (phase_idx, _) in (0..10000).enumerate() {
         let card_id = phase_cards[phase_idx % 3];
         let action_json = format!(
             r#"{{ "action_type": "EncounterPlayCard", "card_id": {} }}"#,

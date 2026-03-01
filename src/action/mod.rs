@@ -51,12 +51,12 @@ pub async fn play(
             seed_bytes[0..8].copy_from_slice(&s.to_le_bytes());
             seed_bytes[8..16].copy_from_slice(&s.to_le_bytes());
             *player_data.seed.lock().await = seed_bytes;
-            let new_rng = Lcg64Xsh32::from_seed(seed_bytes);
-            *player_data.random_generator_state.lock().await = new_rng;
+            let mut new_rng = Lcg64Xsh32::from_seed(seed_bytes);
 
-            // Reset game state (library is re-initialized with encounter cards in hand)
+            // Reset game state using seeded RNG for deterministic library initialization
             let mut gs = game_state.lock().await;
-            let new_gs = crate::library::GameState::new();
+            let new_gs = crate::library::GameState::new_with_rng(&mut new_rng);
+            *player_data.random_generator_state.lock().await = new_rng;
             gs.library = new_gs.library;
             gs.token_balances = new_gs.token_balances;
             gs.current_encounter = None;
@@ -116,7 +116,7 @@ pub async fn play(
                             crate::library::types::Token::persistent(
                                 crate::library::types::TokenType::Health,
                             ),
-                            20,
+                            2000,
                         );
                     }
                     match gs.start_combat(card_id, &mut rng) {
@@ -196,6 +196,25 @@ pub async fn play(
                             )))));
                         }
                     }
+                    // Pre-check costs before moving the card
+                    {
+                        let effects = match &lib_card.kind {
+                            crate::library::types::CardKind::Attack { effects }
+                            | crate::library::types::CardKind::Defence { effects }
+                            | crate::library::types::CardKind::Resource { effects } => effects,
+                            _ => {
+                                return Err(Right(BadRequest(new_status(format!(
+                                    "Card {} is not a playable combat card",
+                                    card_id
+                                )))))
+                            }
+                        };
+                        if let Err(e) =
+                            crate::library::GameState::preview_costs(effects, &gs.token_balances)
+                        {
+                            return Err(Right(BadRequest(new_status(e))));
+                        }
+                    }
                     match gs.library.play(card_id as usize) {
                         Ok(()) => {
                             let mut rng = player_data.random_generator_state.lock().await;
@@ -221,6 +240,17 @@ pub async fn play(
                             "Card {} is not a Mining card (required for mining encounter)",
                             card_id
                         )))));
+                    }
+                    // Pre-check stamina cost before playing
+                    if let crate::library::types::CardKind::Mining { mining_effect } =
+                        &lib_card.kind
+                    {
+                        if let Err(e) = crate::library::GameState::preview_stamina_cost(
+                            mining_effect.stamina_cost,
+                            &gs.token_balances,
+                        ) {
+                            return Err(Right(BadRequest(new_status(e))));
+                        }
                     }
                     match gs.library.play(card_id as usize) {
                         Ok(()) => {
@@ -258,6 +288,17 @@ pub async fn play(
                             "Card {} is not a Woodcutting card (required for woodcutting encounter)",
                             card_id
                         )))));
+                    }
+                    // Pre-check stamina cost before playing
+                    if let crate::library::types::CardKind::Woodcutting { woodcutting_effect } =
+                        &lib_card.kind
+                    {
+                        if let Err(e) = crate::library::GameState::preview_stamina_cost(
+                            woodcutting_effect.stamina_cost,
+                            &gs.token_balances,
+                        ) {
+                            return Err(Right(BadRequest(new_status(e))));
+                        }
                     }
                     match gs.library.play(card_id as usize) {
                         Ok(()) => {

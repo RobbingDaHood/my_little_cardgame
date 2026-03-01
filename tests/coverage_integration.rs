@@ -420,7 +420,7 @@ fn play_card_nonexistent() {
 fn add_test_library_card_endpoint() {
     let client = client();
     let card = serde_json::json!({
-        "kind": {"card_kind": "Attack", "effect_ids": []},
+        "kind": {"card_kind": "Attack", "effects": []},
         "counts": {"library": 0, "deck": 5, "hand": 0, "discard": 0}
     });
     let response = client
