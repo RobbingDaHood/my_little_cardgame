@@ -475,6 +475,8 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 target_characteristics: vec![super::types::PlantCharacteristic::Fragile],
                 durability_cost: 100,
                 costs: vec![],
+                match_mode: super::types::HerbalismMatchMode::Or,
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -495,6 +497,8 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 ],
                 durability_cost: 100,
                 costs: vec![],
+                match_mode: super::types::HerbalismMatchMode::Or,
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -516,6 +520,8 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 ],
                 durability_cost: 100,
                 costs: vec![],
+                match_mode: super::types::HerbalismMatchMode::Or,
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -1088,6 +1094,96 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_max: 0,
                 modify_fish_amount: 0,
                 stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // ---- New herbalism expansion cards ----
+
+    // Card id 42: MostCommon card — removes the most common characteristic (limit 1)
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: super::types::HerbalismCardEffect {
+                target_characteristics: vec![],
+                durability_cost: 100,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 150,
+                }],
+                match_mode: super::types::HerbalismMatchMode::MostCommon { limit: 1 },
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Card id 43: LeastCommon card — removes the least common characteristic (limit 1)
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: super::types::HerbalismCardEffect {
+                target_characteristics: vec![],
+                durability_cost: 100,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 150,
+                }],
+                match_mode: super::types::HerbalismMatchMode::LeastCommon { limit: 1 },
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Card id 44: AND-based multi-type card — removes only plants matching ALL listed types
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: super::types::HerbalismCardEffect {
+                target_characteristics: vec![
+                    super::types::PlantCharacteristic::Fragile,
+                    super::types::PlantCharacteristic::Thorny,
+                ],
+                durability_cost: 100,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 100,
+                }],
+                match_mode: super::types::HerbalismMatchMode::And,
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Card id 45: Stamina rest card for herbalism
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: super::types::HerbalismCardEffect {
+                target_characteristics: vec![],
+                durability_cost: 50,
+                costs: vec![],
+                match_mode: super::types::HerbalismMatchMode::Or,
+                stamina_grant: 200,
             },
         },
         CardCounts {
@@ -2210,24 +2306,91 @@ impl GameState {
             return Ok(());
         }
 
-        // Remove plant cards sharing ≥1 characteristic with the player's card
+        // Apply stamina grant
+        if herbalism_effect.stamina_grant > 0 {
+            let entry = super::types::token_entry_by_type(
+                &mut self.token_balances,
+                &super::types::TokenType::Stamina,
+            );
+            *entry += herbalism_effect.stamina_grant;
+        }
+
+        // Remove plant cards based on match mode
         {
             let herbalism = match &mut self.current_encounter {
                 Some(EncounterState::Herbalism(h)) => h,
                 _ => return Err("No active herbalism encounter".to_string()),
             };
-            for plant_card in &mut herbalism.plant_hand {
-                if plant_card.counts.hand == 0 {
-                    continue;
+
+            match &herbalism_effect.match_mode {
+                super::types::HerbalismMatchMode::Or => {
+                    for plant_card in &mut herbalism.plant_hand {
+                        if plant_card.counts.hand == 0 {
+                            continue;
+                        }
+                        let shares_characteristic = plant_card
+                            .characteristics
+                            .iter()
+                            .any(|c| herbalism_effect.target_characteristics.contains(c));
+                        if shares_characteristic {
+                            plant_card.counts.hand = 0;
+                        }
+                    }
                 }
-                let shares_characteristic = plant_card
-                    .characteristics
-                    .iter()
-                    .any(|c| herbalism_effect.target_characteristics.contains(c));
-                if shares_characteristic {
-                    plant_card.counts.hand = 0;
+                super::types::HerbalismMatchMode::And => {
+                    for plant_card in &mut herbalism.plant_hand {
+                        if plant_card.counts.hand == 0 {
+                            continue;
+                        }
+                        let has_all = herbalism_effect
+                            .target_characteristics
+                            .iter()
+                            .all(|c| plant_card.characteristics.contains(c));
+                        if has_all {
+                            plant_card.counts.hand = 0;
+                        }
+                    }
+                }
+                super::types::HerbalismMatchMode::MostCommon { limit } => {
+                    let targets = Self::herbalism_most_common_characteristics(
+                        &herbalism.plant_hand,
+                        rng,
+                        *limit,
+                    );
+                    for plant_card in &mut herbalism.plant_hand {
+                        if plant_card.counts.hand == 0 {
+                            continue;
+                        }
+                        let shares = plant_card
+                            .characteristics
+                            .iter()
+                            .any(|c| targets.contains(c));
+                        if shares {
+                            plant_card.counts.hand = 0;
+                        }
+                    }
+                }
+                super::types::HerbalismMatchMode::LeastCommon { limit } => {
+                    let targets = Self::herbalism_least_common_characteristics(
+                        &herbalism.plant_hand,
+                        rng,
+                        *limit,
+                    );
+                    for plant_card in &mut herbalism.plant_hand {
+                        if plant_card.counts.hand == 0 {
+                            continue;
+                        }
+                        let shares = plant_card
+                            .characteristics
+                            .iter()
+                            .any(|c| targets.contains(c));
+                        if shares {
+                            plant_card.counts.hand = 0;
+                        }
+                    }
                 }
             }
+
             herbalism.round += 1;
         }
 
@@ -2252,6 +2415,56 @@ impl GameState {
     }
 
     /// Finalize an herbalism encounter: grant rewards (win) or apply penalties (loss).
+    fn herbalism_most_common_characteristics(
+        plant_hand: &[super::types::PlantCard],
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        limit: u32,
+    ) -> Vec<super::types::PlantCharacteristic> {
+        use rand::RngCore;
+        use std::collections::HashMap;
+        let mut counts: HashMap<super::types::PlantCharacteristic, u32> = HashMap::new();
+        for card in plant_hand {
+            if card.counts.hand == 0 {
+                continue;
+            }
+            for c in &card.characteristics {
+                *counts.entry(c.clone()).or_insert(0) += 1;
+            }
+        }
+        let mut sorted: Vec<_> = counts.into_iter().collect();
+        sorted.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| (rng.next_u64() % 2).cmp(&1)));
+        sorted
+            .into_iter()
+            .take(limit as usize)
+            .map(|(c, _)| c)
+            .collect()
+    }
+
+    fn herbalism_least_common_characteristics(
+        plant_hand: &[super::types::PlantCard],
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        limit: u32,
+    ) -> Vec<super::types::PlantCharacteristic> {
+        use rand::RngCore;
+        use std::collections::HashMap;
+        let mut counts: HashMap<super::types::PlantCharacteristic, u32> = HashMap::new();
+        for card in plant_hand {
+            if card.counts.hand == 0 {
+                continue;
+            }
+            for c in &card.characteristics {
+                *counts.entry(c.clone()).or_insert(0) += 1;
+            }
+        }
+        let mut sorted: Vec<_> = counts.into_iter().collect();
+        sorted.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| (rng.next_u64() % 2).cmp(&1)));
+        sorted
+            .into_iter()
+            .take(limit as usize)
+            .map(|(c, _)| c)
+            .collect()
+    }
+
     fn finish_herbalism_encounter(&mut self, is_win: bool) {
         if is_win {
             let rewards = match &self.current_encounter {

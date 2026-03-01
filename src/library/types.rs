@@ -297,6 +297,24 @@ pub enum PlantCharacteristic {
     Luminous,
 }
 
+/// How an herbalism card matches plant characteristics.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum HerbalismMatchMode {
+    /// Remove plants sharing ANY listed characteristic (existing behavior).
+    Or,
+    /// Remove plants matching ALL listed characteristics.
+    And,
+    /// Remove plants matching the characteristic(s) present on the MOST cards.
+    MostCommon { limit: u32 },
+    /// Remove plants matching the characteristic(s) present on the LEAST cards.
+    LeastCommon { limit: u32 },
+}
+
+fn default_match_mode() -> HerbalismMatchMode {
+    HerbalismMatchMode::Or
+}
+
 /// Inline effect for Herbalism discipline cards.
 /// Targets characteristics to remove matching plant cards; broader cards are riskier.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -306,6 +324,10 @@ pub struct HerbalismCardEffect {
     pub durability_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
+    #[serde(default = "default_match_mode")]
+    pub match_mode: HerbalismMatchMode,
+    #[serde(default)]
+    pub stamina_grant: i64,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
