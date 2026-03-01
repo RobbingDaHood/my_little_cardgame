@@ -52,3 +52,35 @@ Step 9.3 introduces token caps on all resource-granting CardEffects. When implem
 
 #### 7. Balance pass needed after step 9.3
 After implementing MORE TOKENS (step 9.3), all the new handsize tokens, caps, and cost cards will need a balance pass. Consider adding a 9.5 balance step, or note this in the existing 11.5 gathering balance pass.
+
+---
+
+## New suggestions (from implementing step 9.3)
+
+### vision.md
+
+#### 8. Document autoloss mechanic
+Vision should describe the autoloss condition: "If all remaining combat hand cards are unpayable (every effect on every hand card has an unaffordable cost), combat ends as PlayerLost." This is an important failsafe that prevents stuck encounters and should be mentioned in the combat flow section.
+
+#### 9. Document max handsize tokens
+Vision should list the max handsize tokens (AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand) in the canonical token list with their default value of 10. These control how many cards can be drawn into each hand type.
+
+#### 10. Document HerbalismMatchMode
+Vision's Herbalism section should mention the new match modes: Or (existing), And (removes only plants matching ALL listed types), MostCommon (targets characteristic appearing on most plant cards), LeastCommon (targets characteristic appearing on fewest plant cards).
+
+#### 11. Document fishing range and fish amount tokens
+Vision's Fishing section should note that valid_range_min and valid_range_max are now token-backed (FishingRangeMin, FishingRangeMax), modifiable by card effects during the encounter. FishAmount token controls how many wins a successful turn counts for.
+
+#### 12. Add stamina_grant to discipline card documentation
+All gathering disciplines (Mining, Woodcutting, Herbalism, Fishing) now support a stamina_grant field on their card effects for "rest" cards. Vision should mention this pattern as a universal gathering mechanic.
+
+### roadmap.md
+
+#### 13. Enemy cost AI step needed
+Step 9.3 specified that enemies should check cost affordability when selecting cards, but enemy AI was not modified in this implementation (enemies still pick randomly). A dedicated step or sub-step should be added for enemy cost-awareness AI. This could be part of the existing "future enemy AI step" mentioned in the roadmap.
+
+#### 14. Consider splitting 9.3 in hindsight
+Step 9.3 was large (13 sub-steps, 12 commits). Future steps of this magnitude should consider being split into numbered sub-steps (9.3.1, 9.3.2, etc.) in the roadmap for better progress tracking.
+
+#### 15. Update card count references
+The roadmap references specific card counts (e.g., "35 cards total" in 9.1 results). These should be updated or removed since each step adds more cards. Current count is 54 library cards after 9.3.

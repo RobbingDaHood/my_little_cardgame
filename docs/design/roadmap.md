@@ -366,7 +366,7 @@ Roadmap steps
      - No cost Herbalism or Fishing variants (as per spec)
    - Known edge case — stuck encounter: When all remaining hand cards are cost cards and the player has no stamina (or other required resource), the encounter gets stuck (can't play any cards but encounter is still Undecided). Current workaround: player uses EncounterAbort. Future improvement: auto-detect when no playable cards remain and offer a forced pass or auto-loss. Affects both combat and gathering encounters.
 
-9.3) MORE TOKENS and card variations
+9.3) MORE TOKENS and card variations ✅ Completed
    - Goal: Expand the range of good and bad cards by adding tokens, CardEffects, caps, and handsize management across all disciplines. This is the beginning of a greater work with adjustments expected in future steps.
    - Description:
      **Max handsize tokens:**
@@ -426,6 +426,21 @@ Roadmap steps
      - Add CardEffects like all other disciplines: costs of stamina and rewards for greater effect. Deck is mainly non-cost cards.
 
    - Playable acceptance: All disciplines have expanded CardEffects with caps, costs, and handsize tokens. Multi-effect evaluation works correctly (first-to-last, partial success). Enemy AI respects cost affordability. Scenario tests cover new mechanics.
+   - Implementation results:
+     - Duration field on ChangeTokens with TokenLifecycle, backward-compatible via serde defaults
+     - Cap (cap_min/cap_max) and gain_percent (gain_min_percent/gain_max_percent) on ChangeTokens; rolled to concrete values, applied as clamp during token grants
+     - 10 max handsize tokens (AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand) initialized to 10; enforced during draws without disrupting RNG sequence
+     - Multi-effect evaluation: effects evaluated sequentially per card, each pays its own cost, partial success allowed
+     - Generalized cost structure: GatheringCost { cost_type, amount } vec on all gathering card types; merge_gathering_costs combines explicit costs with legacy inline fields
+     - Autoloss: if all combat hand cards are unpayable (all effects have unaffordable costs), combat ends as PlayerLost
+     - MilestoneInsight token: 100 granted on combat PlayerWon
+     - Fishing expansion: FishingCardEffect redesigned with values:Vec<i64>, modify_range_min/max, modify_fish_amount, stamina_grant; FishingRangeMin/FishingRangeMax/FishAmount tokens; 7 new cards (range widen x2, cost-narrow, fish amount+, multi-value fish decrease, rest, stamina cost)
+     - Herbalism expansion: HerbalismMatchMode enum (Or, And, MostCommon, LeastCommon); stamina_grant; 4 new cards
+     - Woodcutting expansion: stamina_grant; 5 new cards (SplitChop, dual-type, 3-type cost, 4-type cost, rest)
+     - Mining expansion: stamina_grant; 3 new cards (high damage+protection cost, very high damage cost, rest)
+     - 54 total library cards (was 35)
+     - 7 new scenario tests covering MilestoneInsight, expansion card counts, max handsize initialization, fishing range tokens
+     - Known: enemy cost handling not fully expanded (enemies don't check cost affordability for random picks); deferred to future enemy AI step
 
 9.4) Rest encounter
    - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic.
