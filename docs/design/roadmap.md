@@ -320,7 +320,7 @@ Roadmap steps
    - 2 scenario tests added (full loop + abort).
    - Playable acceptance: ✅ Fishing end-to-end with card-subtraction, produces Fish tokens, EncounterAbort supported.
 
-9.1) Major refactor: CardEffects range system
+9.1) Major refactor: CardEffects range system ✅ Completed
    - Goal: Replace fixed numeric values on CardEffects with a min-max range system that allows card variation and makes future research/crafting systems meaningful.
    - Description: CardEffects define two values for each numeric parameter:
      - min: The minimum possible value for this effect.
@@ -334,8 +334,14 @@ Roadmap steps
      - Bump most numbers on cards, tokens, and encounters by a factor of ~100 (e.g., 1 → 100) to create interesting ranges. A value of 1 doesn't allow meaningful ranges (1-10 is too volatile), but 80-120 is fine.
    - This step is placed before Research and Crafting because those systems will add more CardEffects and concrete cards that benefit from the range system.
    - Playable acceptance: All existing cards use the range system. CardEffects define min/max ranges, concrete cards have a single rolled fixed value. All rolls are deterministic via the game seed. Scenario tests verify reproducibility.
+   - Implementation results:
+     - All cards use ConcreteEffect with rolled values from min-max ranges
+     - All numeric values scaled ~100x (Health 2000, Durabilities 10000, etc.)
+     - Deterministic rolling via game seed RNG
+     - 35 cards total in library (was 29)
+     - All scenario tests pass with scaled values
 
-9.2) CardEffects cost system
+9.2) CardEffects cost system ✅ Completed
    - Goal: Add an optional cost to CardEffects, creating a strategic cost-benefit dimension. The system must support multiple cost types and multiple costs per card from the start.
    - Description: Some CardEffects have one or more costs, each defined as a percentage range of the effect value:
      - Each cost entry specifies: a cost_type (e.g., Stamina) and a min-max percentage multiplier.
@@ -350,6 +356,15 @@ Roadmap steps
      - Woodcutting and Mining cards can also have stamina costs (with a non-cost alternative for each).
      - Starting decks should mainly contain non-cost cards for ease of initial play.
    - Playable acceptance: Cost cards exist for combat, mining, and woodcutting. Cost calculations are deterministic. Starting decks are weighted toward non-cost cards. Scenario tests verify cost mechanics.
+   - Implementation results:
+     - Cost cards for Attack (id 31), Defence (id 32), Mining (id 33), Woodcutting (id 34)
+     - Cost PlayerCardEffects (ids 29-30) with 30-50% Stamina cost ranges
+     - Pre-validation prevents card consumption on insufficient resources
+     - 4 new scenario tests verify cost mechanics
+     - Starting decks: cost cards at deck:5 vs non-cost at deck:15
+     - 1 cost Attack variant (vs 1 non-cost), 1 cost Defence variant (vs 1 non-cost), 1 cost Mining variant (vs 3 non-cost), 1 cost Woodcutting variant (vs 4 non-cost)
+     - No cost Herbalism or Fishing variants (as per spec)
+   - Known edge case — stuck encounter: When all remaining hand cards are cost cards and the player has no stamina (or other required resource), the encounter gets stuck (can't play any cards but encounter is still Undecided). Current workaround: player uses EncounterAbort. Future improvement: auto-detect when no playable cards remain and offer a forced pass or auto-loss. Affects both combat and gathering encounters.
 
 9.3) MORE TOKENS and card variations
    - Goal: Expand the range of good and bad cards by adding tokens, CardEffects, caps, and handsize management across all disciplines. This is the beginning of a greater work with adjustments expected in future steps.
@@ -436,6 +451,10 @@ Roadmap steps
      6. Add rest encounters to initialize_library() (~20% of encounter deck).
      7. Add scenario test.
    - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, recovery is applied (respecting caps), encounter completes as PlayerWon. Scenario test passes.
+   - Implementation insights from 9.1/9.2:
+     - The ConcreteEffect model is already in place — rest cards should use the same pattern with rolled values from min-max ranges.
+     - Stamina token is already functional and tested as a cost currency (player starts with 1000 Stamina).
+     - The cost pre-validation pattern (preview_costs/preview_stamina_cost) is established and should be reused for rest card costs.
 
 9) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
