@@ -28,6 +28,10 @@ fn library_draw_and_play_and_return() {
                 max: -500,
                 costs: vec![],
                 duration: TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -43,6 +47,8 @@ fn library_draw_and_play_and_return() {
                 effect_id: 0,
                 rolled_value: -500,
                 rolled_costs: vec![],
+                rolled_cap: None,
+                rolled_gain_percent: None,
             }],
         },
         CardCounts {

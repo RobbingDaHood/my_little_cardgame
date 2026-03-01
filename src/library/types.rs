@@ -105,10 +105,20 @@ pub enum CardEffectKind {
         #[serde(default)]
         costs: Vec<CardEffectCost>,
         /// Duration/lifecycle of the token granted by this effect.
-        /// Even if each TokenType currently uses the same duration, this field
-        /// future-proofs per-effect duration overrides.
         #[serde(default = "default_persistent_lifecycle")]
         duration: TokenLifecycle,
+        /// Cap range for token-granting effects. When set, the granted amount
+        /// is `rolled_cap * rolled_gain_percent / 100`, clamped so the token
+        /// balance does not exceed `rolled_cap`.
+        #[serde(default)]
+        cap_min: Option<i64>,
+        #[serde(default)]
+        cap_max: Option<i64>,
+        /// Gain percentage range (only meaningful when cap is set).
+        #[serde(default)]
+        gain_min_percent: Option<u32>,
+        #[serde(default)]
+        gain_max_percent: Option<u32>,
     },
     DrawCards {
         attack: u32,
@@ -134,6 +144,12 @@ pub struct ConcreteEffect {
     pub rolled_value: i64,
     #[serde(default)]
     pub rolled_costs: Vec<ConcreteEffectCost>,
+    /// Rolled cap for token-granting effects (from cap_min..cap_max on the template).
+    #[serde(default)]
+    pub rolled_cap: Option<i64>,
+    /// Rolled gain percentage (from gain_min_percent..gain_max_percent on the template).
+    #[serde(default)]
+    pub rolled_gain_percent: Option<u32>,
 }
 
 /// A concrete rolled cost on a card: the specific percentage rolled from the cost range.

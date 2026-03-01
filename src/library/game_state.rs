@@ -34,9 +34,16 @@ fn roll_concrete_effect(
     library: &Library,
 ) -> ConcreteEffect {
     let kind = library.resolve_effect(effect_id);
-    let (rolled_value, rolled_costs) = match kind {
+    let (rolled_value, rolled_costs, rolled_cap, rolled_gain_percent) = match kind {
         Some(super::types::CardEffectKind::ChangeTokens {
-            min, max, costs, ..
+            min,
+            max,
+            costs,
+            cap_min,
+            cap_max,
+            gain_min_percent,
+            gain_max_percent,
+            ..
         }) => {
             let value = roll_range(rng, min, max);
             let costs = costs
@@ -46,14 +53,20 @@ fn roll_concrete_effect(
                     rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
                 })
                 .collect();
-            (value, costs)
+            let r_cap = cap_min.zip(cap_max).map(|(lo, hi)| roll_range(rng, lo, hi));
+            let r_gain = gain_min_percent
+                .zip(gain_max_percent)
+                .map(|(lo, hi)| roll_range_u32(rng, lo, hi));
+            (value, costs, r_cap, r_gain)
         }
-        _ => (0, vec![]),
+        _ => (0, vec![], None, None),
     };
     ConcreteEffect {
         effect_id,
         rolled_value,
         rolled_costs,
+        rolled_cap,
+        rolled_gain_percent,
     }
 }
 
@@ -72,6 +85,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 max: -400,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -92,6 +109,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 max: 400,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -112,6 +133,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 max: 250,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -151,6 +176,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 max: -200,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -171,6 +200,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 max: 250,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -191,6 +224,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 max: 120,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -770,6 +807,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     max_percent: 50,
                 }],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -794,6 +835,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     max_percent: 50,
                 }],
                 duration: super::types::TokenLifecycle::PersistentCounter,
+                cap_min: None,
+                cap_max: None,
+                gain_min_percent: None,
+                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -934,10 +979,21 @@ fn apply_card_effects(
                 *health = (*health - remaining_damage).max(0);
             }
         } else {
+            // For token-granting effects with a cap: granted = cap * gain_percent / 100,
+            // clamped so balance does not exceed cap.
+            let grant_amount = match (effect.rolled_cap, effect.rolled_gain_percent) {
+                (Some(cap), Some(pct)) => {
+                    let raw_gain = cap * pct as i64 / 100;
+                    let key = super::types::Token::persistent(token_type.clone());
+                    let current = target_tokens.get(&key).copied().unwrap_or(0);
+                    raw_gain.min((cap - current).max(0))
+                }
+                _ => amount,
+            };
             let entry = target_tokens
                 .entry(super::types::Token::persistent(token_type.clone()))
                 .or_insert(0);
-            *entry = (*entry + amount).max(0);
+            *entry = (*entry + grant_amount).max(0);
         }
     }
 }
