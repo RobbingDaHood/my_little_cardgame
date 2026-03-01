@@ -351,25 +351,91 @@ Roadmap steps
      - Starting decks should mainly contain non-cost cards for ease of initial play.
    - Playable acceptance: Cost cards exist for combat, mining, and woodcutting. Cost calculations are deterministic. Starting decks are weighted toward non-cost cards. Scenario tests verify cost mechanics.
 
-9.3) Rest encounter
-   - Goal: Add a rest encounter type that allows stamina recovery and creates a meaningful pacing mechanic.
+9.3) MORE TOKENS and card variations
+   - Goal: Expand the range of good and bad cards by adding tokens, CardEffects, caps, and handsize management across all disciplines. This is the beginning of a greater work with adjustments expected in future steps.
+   - Description:
+     **Max handsize tokens:**
+     - Every player deck that uses a hand (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, Fishing) has a deck-specific token controlling max handsize (e.g., AttackMaxHand, DefenceMaxHand, MiningMaxHand, etc.). These tokens are respected during draws — no draw exceeds the handsize limit.
+     - Every encounter that has an enemy hand size also has a token controlling that max handsize. In the future the player could have effects that impact enemy max handsize.
+     - Initial handsize tokens should be set to reasonable defaults at game start.
+
+     **Token caps (max thresholds):**
+     - All CardEffects that grant a resource back (e.g., Stamina, Shield, Dodge, etc.) have a `cap` field (min/max range on the template, rolled to a concrete value). If adding the granted amount would exceed the cap, the value is clamped.
+     - At least two types of resourcing cards in the player deck: one with a high cap (grants less resource) and one with a low cap (grants more resource). They can both reference the same CardEffect template with a range. This creates a strategic choice.
+
+     **Multi-effect evaluation:**
+     - If a card has multiple CardEffects, they are evaluated in isolation, first to last. This is relevant across many disciplines.
+     - If a later CardEffect cannot pay its cost, the previous CardEffects still applied and the card play did not fail. A previous effect could grant the resource a later effect needs for its cost.
+
+     **Generalized cost structure:**
+     - All cards (except CardEffect templates) that have a cost store costs as `Vec<(TokenType, amount)>` so cost logic can be generalized.
+     - Any card that cannot pay its cost cannot be played.
+     - If the enemy picks a random card from hand, it should only try from cards where it can pay the cost. If it cannot pay the cost on any hand card, pick at random and pay as much as possible (even zero).
+     - A future roadmap step will expand enemy AI and fix cost handling more thoroughly.
+
+     **Fishing discipline expansions:**
+     - Fishing player cards can have multiple CardEffects with multiple values (Vec<i64>); whichever value would "win the round" is chosen when the card is played. Initial deck cards have one CardEffect with one value each.
+     - The fishing encounter state struct moves more fields to token-based setup.
+     - New player fishing CardEffect: remove a "min value" token from the fish encounter (not below zero), affecting current and future turn win evaluation. Similar effect for increasing "max value" tokens. Both affect between 50-250 tokens (min/max range). Add a couple of cards with these effects to the player deck.
+     - New player fishing CardEffect with a "cost" that does the reverse (narrows the valid range by increasing min or decreasing max). These cards have 3-5 values on a single CardEffect. Cost is determined by: (a) sum distance between the values (wider range = more options = higher cost), and (b) number of values (less impact than distance). Cost is defined as a range percentage — a very good card costs 200-350 stamina and a bad card 50-150. Calculate min-max percentage on the CardEffect to achieve this. Add one card to the player deck.
+     - Add a "fish amount" token to the fish encounter.
+     - Add a player CardEffect that increases the fish amount.
+     - Add a player CardEffect with multiple values but decreases the fish amount (similar cost calculation as above).
+     - Add a player CardEffect that gives significant stamina but has no values (a rest action while fishing).
+     - If not already present, add a fishing action that costs stamina and has multiple values (similar cost calculation).
+
+     **Herbalism discipline expansions:**
+     - New player CardEffects:
+       - A CardEffect that costs either Stamina or "reward amount" can have higher amounts on the effects below. The cost is a percentage range based on the benefit of the card.
+       - A CardEffect that removes the plant type present on the most cards (limited to X plant types). Ties broken at random. More types removed is better.
+       - A CardEffect that removes the plant type present on the least cards (limited to X plant types). Ties broken at random. More types removed is better.
+       - A CardEffect with multiple types where only cards matching ALL types are removed ("and" based). At least 2 and at most all-minus-one plant types. More types is worse (2 types is best).
+       - A similar CardEffect but "or" based (same costs).
+     - Simple single-type CardEffect cards remain dominant in the initial deck. One of each special CardEffect on different cards in moderate versions.
+
+     **Woodcutting expansions:**
+     - Good/bad is straightforward: more numbers and patterns on a card = better. Sum of different numbers and patterns is the total "benefit."
+     - CardEffect costs can be stamina and reward amount.
+     - No-cost CardEffects have a card benefit between 1-4.
+     - Cost CardEffects have a total card benefit of 5-15.
+     - Initial deck is mainly no-cost cards with a couple of moderate cost/benefit cards.
+
+     **Mining expansions:**
+     - Good/bad is clear: high damage is always good, high defence is usually good.
+     - Add cost-based CardEffects for stamina and rewards. Same mix as other disciplines.
+     - Initial deck is mainly no-cost with some cost cards.
+     - Note: A future roadmap step should improve mining gameplay since it currently is a simpler combat variant, which is a bit boring. But it is fine for now.
+
+     **Combat expansions:**
+     - Add a "milestone insight" reward token to all combat encounters. Add to the milestone roadmap step that starting a milestone encounter costs "milestone insight" tokens. Milestone insight (like all other rewards) is a token accumulated by the player.
+     - Add CardEffects like all other disciplines: costs of stamina and rewards for greater effect. Deck is mainly non-cost cards.
+
+   - Playable acceptance: All disciplines have expanded CardEffects with caps, costs, and handsize tokens. Multi-effect evaluation works correctly (first-to-last, partial success). Enemy AI respects cost affordability. Scenario tests cover new mechanics.
+
+9.4) Rest encounter
+   - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic.
    - Description: A new encounter type where the player picks a rest benefit card.
      - The starting encounter deck should have ~20% rest encounters.
-     - A rest card effect is defined with a wide range (min-max) using the Step 9.1 range system.
-     - 5 different rest cards are rolled from this effect at game initialization.
+     - Rest cards cost a mix of herbs and fish tokens.
+     - Three CardEffect variants:
+       1. Great amount of Stamina recovery — costs both fish and herbs tokens, each with its own cost percentage min/max range.
+       2. Health recovery — similar cost structure with fish and herbs.
+       3. Mixed Stamina + Health recovery — each has a min-max range but generally gives less total than the two specialized variants, providing a benefit to specialization.
+     - All rest CardEffects give great amounts of tokens but have a cap. All CardEffects that grant tokens should have a cap.
+     - 5 different rest cards are rolled from these effects at game initialization.
      - Each of those 5 cards has 5 copies in the rest deck (25 total cards).
      - When the encounter starts: draw 5 rest cards from the deck and present them as choices.
-     - The player picks 1 card. That card's effect (e.g., stamina recovery) takes effect immediately and the encounter is won.
-     - To start, rest cards only provide stamina recovery. Future iterations may add health recovery, durability repair, or other benefits.
+     - The player picks 1 card. That card's effect takes effect immediately and the encounter is won.
+     - The rest deck should contrary to all other decks be mainly filled with cards that have a cost, and only a few without cost.
    - Implementation checklist:
      1. Add EncounterKind::Rest { rest_def: RestDef } with rest deck and rewards.
-     2. Add RestCardEffect with stamina_recovery (using range system from 9.1, or fixed values if 9.1 is not yet implemented).
+     2. Add RestCardEffect with recovery values and costs (using range system from 9.1).
      3. Add CardKind::Rest { rest_effect: RestCardEffect } for rest action cards.
      4. Add EncounterState::Rest(RestEncounterState) with drawn hand of 5 cards.
      5. Implement EncounterPlayCard for rest: apply chosen card's effect, mark encounter as won.
      6. Add rest encounters to initialize_library() (~20% of encounter deck).
      7. Add scenario test.
-   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, stamina is recovered, encounter completes as PlayerWon. Scenario test passes.
+   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, recovery is applied (respecting caps), encounter completes as PlayerWon. Scenario test passes.
 
 9) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
