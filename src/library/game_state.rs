@@ -71,6 +71,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 min: -600,
                 max: -400,
                 costs: vec![],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {
@@ -90,6 +91,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 min: 200,
                 max: 400,
                 costs: vec![],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {
@@ -109,6 +111,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 min: 150,
                 max: 250,
                 costs: vec![],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {
@@ -147,6 +150,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 min: -400,
                 max: -200,
                 costs: vec![],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {
@@ -166,6 +170,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 min: 150,
                 max: 250,
                 costs: vec![],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {
@@ -185,6 +190,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 min: 80,
                 max: 120,
                 costs: vec![],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {
@@ -763,6 +769,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     min_percent: 30,
                     max_percent: 50,
                 }],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {
@@ -786,6 +793,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     min_percent: 30,
                     max_percent: 50,
                 }],
+                duration: super::types::TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {

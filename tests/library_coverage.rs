@@ -1,6 +1,6 @@
 use my_little_cardgame::library::types::{
     token_balance_by_type, ActionPayload, CardCounts, CardEffectKind, CardKind, ConcreteEffect,
-    EffectTarget, Token, TokenType,
+    EffectTarget, Token, TokenLifecycle, TokenType,
 };
 use my_little_cardgame::library::{GameState, Library};
 
@@ -27,6 +27,7 @@ fn library_draw_and_play_and_return() {
                 min: -500,
                 max: -500,
                 costs: vec![],
+                duration: TokenLifecycle::PersistentCounter,
             },
         },
         CardCounts {

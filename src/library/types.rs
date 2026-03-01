@@ -2,6 +2,10 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 use std::collections::HashMap;
 
+fn default_persistent_lifecycle() -> TokenLifecycle {
+    TokenLifecycle::PersistentCounter
+}
+
 /// Canonical token identifier enum.
 /// Each variant is a well-known token with associated lifecycle semantics.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -100,6 +104,11 @@ pub enum CardEffectKind {
         max: i64,
         #[serde(default)]
         costs: Vec<CardEffectCost>,
+        /// Duration/lifecycle of the token granted by this effect.
+        /// Even if each TokenType currently uses the same duration, this field
+        /// future-proofs per-effect duration overrides.
+        #[serde(default = "default_persistent_lifecycle")]
+        duration: TokenLifecycle,
     },
     DrawCards {
         attack: u32,
