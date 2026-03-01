@@ -1893,6 +1893,13 @@ impl GameState {
             _ => EncounterOutcome::Undecided,
         };
         if outcome != EncounterOutcome::Undecided {
+            if outcome == EncounterOutcome::PlayerWon {
+                let entry = super::types::token_entry_by_type(
+                    &mut self.token_balances,
+                    &super::types::TokenType::MilestoneInsight,
+                );
+                *entry += 100;
+            }
             self.last_encounter_result = Some(outcome.clone());
             self.encounter_results.push(outcome);
             self.current_encounter = None;
@@ -2208,6 +2215,13 @@ impl GameState {
             }
 
             if combat.outcome != EncounterOutcome::Undecided {
+                if combat.outcome == EncounterOutcome::PlayerWon {
+                    let entry = super::types::token_entry_by_type(
+                        &mut self.token_balances,
+                        &super::types::TokenType::MilestoneInsight,
+                    );
+                    *entry += 100;
+                }
                 self.last_encounter_result = Some(combat.outcome.clone());
                 self.encounter_results.push(combat.outcome.clone());
                 self.current_encounter = None;
