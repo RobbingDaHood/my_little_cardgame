@@ -1418,14 +1418,69 @@ impl GameState {
             );
         }
         check_combat_end(&self.token_balances, combat);
-        if combat.outcome != EncounterOutcome::Undecided {
-            self.last_encounter_result = Some(combat.outcome.clone());
-            self.encounter_results.push(combat.outcome.clone());
+        if combat.outcome == EncounterOutcome::Undecided {
+            // Check autoloss: if all hand cards are unpayable, player loses
+            if self.all_combat_hand_cards_unpayable() {
+                let combat = match &mut self.current_encounter {
+                    Some(EncounterState::Combat(c)) => c,
+                    _ => return Ok(()),
+                };
+                combat.outcome = EncounterOutcome::PlayerLost;
+            }
+        }
+        let outcome = match &self.current_encounter {
+            Some(EncounterState::Combat(c)) => c.outcome.clone(),
+            _ => EncounterOutcome::Undecided,
+        };
+        if outcome != EncounterOutcome::Undecided {
+            self.last_encounter_result = Some(outcome.clone());
+            self.encounter_results.push(outcome);
             self.current_encounter = None;
             self.encounter_phase = super::types::EncounterPhase::Scouting;
         }
         self.draw_player_cards_by_type(atk_draws, def_draws, res_draws, rng);
         Ok(())
+    }
+
+    /// Check if all combat hand cards (attack, defence, resource) are unpayable.
+    /// A card is "unpayable" if ALL of its effects have costs that can't be afforded.
+    /// A card with any costless effect is always playable.
+    fn all_combat_hand_cards_unpayable(&self) -> bool {
+        let hand_cards: Vec<_> = self
+            .library
+            .cards
+            .iter()
+            .filter(|c| {
+                c.counts.hand > 0
+                    && matches!(
+                        c.kind,
+                        CardKind::Attack { .. }
+                            | CardKind::Defence { .. }
+                            | CardKind::Resource { .. }
+                    )
+            })
+            .collect();
+        if hand_cards.is_empty() {
+            return false;
+        }
+        hand_cards.iter().all(|card| {
+            let effects = match &card.kind {
+                CardKind::Attack { effects }
+                | CardKind::Defence { effects }
+                | CardKind::Resource { effects } => effects,
+                _ => return false,
+            };
+            if effects.is_empty() {
+                return false;
+            }
+            // Card is unpayable if ALL effects have costs and none can be afforded
+            effects.iter().all(|effect| {
+                if effect.rolled_costs.is_empty() {
+                    return false; // costless effect → card is playable
+                }
+                Self::preview_costs(std::slice::from_ref(effect), &self.token_balances).is_err()
+            })
+        })
     }
 
     /// Check if player can pay all costs on a card's effects. Deducts costs if affordable.
