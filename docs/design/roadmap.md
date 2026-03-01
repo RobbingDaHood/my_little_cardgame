@@ -577,3 +577,17 @@ Appendix: Minimum ticket examples for the first 8 steps
 - Research: Implement CardEffect discipline tags, Insight card effect, research encounter with choose/progress actions, and deterministic card generation recorded to the ActionLog.
 - Merchants: Implement MerchantOffers and Barter decks, deterministic visits, and barter flows recorded to the ActionLog.
 
+CardEffect ideas (future)
+-------------------------
+A lot of these could be introduced with a Milestone boss encounter or as progression rewards.
+
+- **Life steal:** All disciplines could have a "life steal" CardEffect that converts a portion of the effect's value into health or resource recovery.
+- **Max handsize milestones:** Some milestones can increase the max handsize in a specific discipline, providing a permanent progression reward.
+- **Merchant rare deals:** Some merchants can offer rare interesting deals where permanent tokens can be exchanged for other permanent tokens (e.g., trade max handsize in woodcutting for max handsize in crafting).
+- **Herbalism guard token:** A "guard" token that protects plant cards in some way but only exists for a very short period. Not a guaranteed win condition — for example, the next card play leaves half of the cards that would have been removed, chosen at random.
+- **Card forgetting:** A CardEffect that lets the player forget (permanently remove) a full card including all copies, as long as all copies are in the library and not in deck/hand/discard. More powerful effect the more cards are crafted; still a good effect even without crafted cards. This is a way to clean up the library of old unused cards. Requires implementing empty entries in the library vector with ID reuse — critical that existing cards keep their IDs.
+- **Magic CardEffects:** Add magic-themed CardEffects for all disciplines, potentially gated behind research or milestones.
+- **Cooking mechanic:** Expand the rest encounter with a cooking sub-system to make rest more interesting and create demand for Fish and Herbs.
+- **Faction expansion of milestones:** Expand milestones into a faction mechanic with more sense of player choices and possibly a faction discipline deck.
+- **Scouting expansion:** Expand the scouting step to give the user more choice rather than deterministic difficulty increases. It should be possible to shape the difficulty (and rewards) of an encounter and leave the nature of the enemy somewhat random. Maybe choosing 1 out of 3 options. Adding a Scouting discipline deck when a good mechanic is figured out.
+
