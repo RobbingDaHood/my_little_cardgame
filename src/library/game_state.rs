@@ -362,6 +362,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 0,
                 stamina_cost: 0,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -380,6 +381,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 200,
                 stamina_cost: 0,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -398,6 +400,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 300,
                 stamina_cost: 0,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -918,6 +921,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 0,
                 stamina_cost: 100,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -947,6 +951,71 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             library: 0,
             deck: 5,
             hand: 1,
+            discard: 0,
+        },
+    );
+
+    // ---- New mining expansion cards ----
+
+    // High damage + high protection, stamina cost card
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 600,
+                durability_prevent: 300,
+                stamina_cost: 0,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 200,
+                }],
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Very high damage, no protection, higher stamina cost
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 1000,
+                durability_prevent: 0,
+                stamina_cost: 0,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 300,
+                }],
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 2,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Mining rest card: grants stamina, no damage/protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: super::types::MiningCardEffect {
+                ore_damage: 0,
+                durability_prevent: 0,
+                stamina_cost: 0,
+                costs: vec![],
+                stamina_grant: 200,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
             discard: 0,
         },
     );
@@ -2235,6 +2304,15 @@ impl GameState {
             &[(super::types::TokenType::Stamina, mining_effect.stamina_cost)],
         );
         Self::check_and_deduct_gathering_costs(&all_costs, &mut self.token_balances)?;
+
+        // Apply stamina grant
+        if mining_effect.stamina_grant > 0 {
+            let entry = super::types::token_entry_by_type(
+                &mut self.token_balances,
+                &super::types::TokenType::Stamina,
+            );
+            *entry += mining_effect.stamina_grant;
+        }
 
         // Apply player mining card: damage ore
         let ore_defeated = {

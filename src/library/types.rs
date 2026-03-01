@@ -284,6 +284,8 @@ pub struct MiningCardEffect {
     pub stamina_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
+    #[serde(default)]
+    pub stamina_grant: i64,
 }
 
 /// Plant characteristics used by Herbalism encounters.
