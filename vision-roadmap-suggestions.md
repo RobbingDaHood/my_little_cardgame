@@ -1,118 +1,54 @@
 # Suggestions for vision.md and roadmap.md
 
-Based on implementing Steps 9.1 (CardEffects range system) and 9.2 (CardEffects cost system).
+Based on implementing Steps 9.1 (CardEffects range system), 9.2 (CardEffects cost system), Shield absorption, 1000 starting Stamina, and docs/issues.md roadmap edits.
 
 ---
 
-## vision.md Suggestions
+## vision.md Suggestions (all applied)
 
-### 1. Update CardEffectKind description (line ~58)
-
-**Current:** `ChangeTokens { target, token_type, amount }` for token manipulation  
-**Should be:** `ChangeTokens { target, token_type, min, max, costs }` for token manipulation with range-based values and optional costs
-
-### 2. Update Library implementation notes (line ~36)
-
-**Current:** "Card definitions use `effect_ids: Vec<usize>` to reference their CardEffect entries in the Library by index."  
-**Should be:** "Card definitions use `effects: Vec<ConcreteEffect>` where each ConcreteEffect stores an `effect_id` (reference to a CardEffect entry) and a `rolled_value` (fixed value rolled from the CardEffect's min-max range at creation time). Cost effects also store `rolled_costs: Vec<ConcreteEffectCost>` with rolled percentage values."
-
-### 3. Update Library CardEffect deck description (line ~37)
-
-**Current:** "Every card effect on action/enemy cards references a CardEffect deck entry via `effect_ids: Vec<usize>`."  
-**Should be:** "Every card effect on action/enemy cards references a CardEffect deck entry via `effects: Vec<ConcreteEffect>`, where each ConcreteEffect contains the effect_id reference, rolled_value, and optional rolled_costs."
-
-### 4. Add section about two-layer card effect model
-
-Suggest adding a new subsection under "Core gameplay elements" describing the two-layer model:
-
-```
-### Card Effect Architecture (Two-Layer Model)
-
-Card effects use a two-layer architecture:
-
-- **Template layer (CardEffect entries):** PlayerCardEffect and EnemyCardEffect entries in the Library define min-max ranges for effect values and optional cost percentage ranges. These are the "blueprints" for concrete cards.
-- **Concrete layer (cards with rolled values):** Attack, Defence, Resource, and enemy cards store ConcreteEffect entries with fixed rolled values determined at library initialization. When a card is played, its concrete rolled value is used directly — no per-play randomness.
-
-ConcreteEffect structure:
-- effect_id: usize — references the CardEffect template
-- rolled_value: i64 — specific value rolled from min-max range at creation time
-- rolled_costs: Vec<ConcreteEffectCost> — rolled cost percentages
-
-All values are scaled by ~100x (e.g., damage 500, health 2000, durabilities 10000) to enable meaningful ranges and percentage-based costs.
-```
-
-### 5. Add section about cost system
-
-Suggest adding to the combat section:
-
-```
-### Cost System
-
-Some card effects have optional costs defined as percentage ranges of the effect value:
-- Each cost entry specifies a cost_type (e.g., Stamina) and min-max percentage.
-- At card creation, cost percentages are rolled and fixed.
-- At play time: cost = rolled_value × rolled_percent / 100.
-- If the player can't pay the full cost, the card cannot be played.
-- Cost cards are more powerful but require resource management.
-- Starting decks are weighted toward non-cost cards.
-- Cost system extends to gathering encounters (Mining, Woodcutting stamina costs).
-```
-
-### 6. Update token values
-
-Any hardcoded token values in vision.md should reflect the 100x scaling:
-- Player health: 2000 (was 20)
-- Durabilities: 10000 (was 100)
-- Damage ranges: 400-600 (was 5)
-- Shield ranges: 200-400 (was 3)
-
-### 7. Add MiningCardEffect and WoodcuttingCardEffect stamina_cost field
-
-The vision references MiningCardEffect with `ore_damage, durability_prevent` — should add `stamina_cost` field. Similarly WoodcuttingCardEffect should mention `stamina_cost`.
+### 1. ✅ Update CardEffectKind description — Applied
+### 2. ✅ Update Library implementation notes — Applied
+### 3. ✅ Update Library CardEffect deck description — Applied
+### 4. ✅ Add Card Effect Architecture (Two-Layer Model) section — Applied
+### 5. ✅ Add Cost System section — Applied
+### 6. ✅ Update token values to 100x scaling — Applied
+### 7. ✅ Add MiningCardEffect and WoodcuttingCardEffect stamina_cost field — Applied
 
 ---
 
-## roadmap.md Suggestions
+## roadmap.md Suggestions (all applied)
 
-### 1. Mark Steps 9.1 and 9.2 as complete
+### 1. ✅ Mark Steps 9.1 and 9.2 as complete — Applied
+### 2. ✅ Add implementation insight to Rest encounter step — Applied
+### 3. ✅ Note about "stuck encounter" edge case — Applied
+### 4. ✅ Update Step 9.2 design rules with implementation details — Applied
 
-Add completion markers and update playable acceptance with actual results:
+---
 
-**Step 9.1:** ✅ Completed
-- All cards use ConcreteEffect with rolled values from min-max ranges
-- All numeric values scaled ~100x
-- Deterministic rolling via game seed RNG
-- 35 cards total in library (was 29)
-- All scenario tests pass with scaled values
+## New suggestions (from implementing docs/issues.md)
 
-**Step 9.2:** ✅ Completed
-- Cost cards for Attack (id 31), Defence (id 32), Mining (id 33), Woodcutting (id 34)
-- Cost PlayerCardEffects (ids 29-30) with 30-50% Stamina cost ranges
-- Pre-validation prevents card consumption on insufficient resources
-- 4 new scenario tests verify cost mechanics
-- Starting decks: cost cards at deck:5 vs non-cost at deck:15
+### vision.md
 
-### 2. Add implementation insight to Step 9.3 (Rest encounter)
+#### 1. Add Stamina token to canonical token list
+The Stamina token is referenced across many sections but has no dedicated entry in the "Canonical token list, generators, and uses" section (line ~166). Should add:
+- Stamina (resource counter): Initialized to 1000 at game start. Primary cost currency for cost cards across all disciplines. Generated by: rest encounters, fishing stamina cards. Consumed by: cost cards (Attack, Defence, Mining, Woodcutting, future crafting). Spendable: yes (consumed automatically by cost card plays).
 
-Step 9.3 will benefit from awareness of:
-- The ConcreteEffect model is already in place — rest cards should use the same pattern
-- Stamina token is already functional and tested as a cost currency
-- The cost pre-validation pattern (preview_costs/preview_stamina_cost) is established
+#### 2. Document encounter generation pattern
+The vision describes encounter setup but doesn't explain the library initialization pattern for encounters. Worth adding a brief note that encounters (Combat, Mining, Herbalism, Woodcutting, Fishing) are generated at game start with seeded RNG, and their enemy decks contain cards with ConcreteEffects just like player cards.
 
-### 3. Note about "stuck encounter" edge case
+#### 3. Update EncounterState enum to show all variants
+The EncounterState enum in vision.md (line ~100) is missing the Rest variant that will be added in step 9.4. Update when implemented.
 
-The implementation revealed an edge case: when all remaining hand cards are cost cards and the player has no stamina, the encounter gets stuck (can't play any cards but encounter is still Undecided). The current workaround is for the player to use EncounterAbort. A future improvement could be:
-- Auto-detect when no playable cards remain and offer a forced pass or auto-loss
-- This affects both combat and gathering encounters
-- Consider adding this to a future roadmap step (perhaps as part of UX polish)
+#### 4. Document multi-effect evaluation order
+The vision doesn't describe the evaluation order for cards with multiple CardEffects. Should add: "When a card has multiple ConcreteEffects, they are evaluated sequentially (first to last). If a later effect cannot pay its cost, the previous effects still applied and the card play did not fail."
 
-### 4. Update Step 9.2 design rules with implementation details
+### roadmap.md
 
-The roadmap says "at least one cost variation for each non-cost variation of attack and defence cards." Current implementation has:
-- 1 cost Attack variant (vs 1 non-cost) ✓
-- 1 cost Defence variant (vs 1 non-cost) ✓
-- 1 cost Mining variant (vs 3 non-cost) ✓
-- 1 cost Woodcutting variant (vs 4 non-cost) ✓
-- No cost Herbalism or Fishing variants (as per roadmap spec)
+#### 5. Add enemy AI improvement step
+Step 9.3 mentions that enemies should pick from affordable cards and fall back to random if none are affordable. This is not yet implemented — enemy AI currently picks at random regardless of costs. Worth adding a dedicated step or sub-step for enemy AI cost awareness.
 
-Future steps could add more cost variants with different cost percentages for more strategic depth.
+#### 6. Consider token cap documentation in vision.md
+Step 9.3 introduces token caps on all resource-granting CardEffects. When implemented, vision.md should document the cap mechanic (rolled from a min-max range on the CardEffect template, stored on ConcreteEffect, clamping applied at grant time).
+
+#### 7. Balance pass needed after step 9.3
+After implementing MORE TOKENS (step 9.3), all the new handsize tokens, caps, and cost cards will need a balance pass. Consider adding a 9.5 balance step, or note this in the existing 11.5 gathering balance pass.
