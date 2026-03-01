@@ -614,6 +614,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -633,6 +634,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -652,6 +654,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -671,6 +674,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -936,6 +940,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 100,
                 costs: vec![],
+                stamina_grant: 0,
             },
         },
         CardCounts {
@@ -1094,6 +1099,126 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_max: 0,
                 modify_fish_amount: 0,
                 stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // ---- New woodcutting expansion cards ----
+
+    // No-cost card: SplitChop value 4 (benefit: 2 = 1 type + 1 value)
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: super::types::WoodcuttingCardEffect {
+                chop_types: vec![super::types::ChopType::SplitChop],
+                chop_values: vec![4],
+                durability_cost: 100,
+                stamina_cost: 0,
+                costs: vec![],
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 10,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // No-cost card: LightChop+MediumChop, values 1,6 (benefit: 4 = 2 types + 2 values)
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: super::types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    super::types::ChopType::LightChop,
+                    super::types::ChopType::MediumChop,
+                ],
+                chop_values: vec![1, 6],
+                durability_cost: 100,
+                stamina_cost: 0,
+                costs: vec![],
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost card: 3 types, 3 values (benefit: 6), moderate stamina cost
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: super::types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    super::types::ChopType::HeavyChop,
+                    super::types::ChopType::MediumChop,
+                    super::types::ChopType::PrecisionChop,
+                ],
+                chop_values: vec![3, 5, 7],
+                durability_cost: 100,
+                stamina_cost: 0,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 150,
+                }],
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost card: 4 types, 4 values (benefit: 8), higher stamina cost
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: super::types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    super::types::ChopType::LightChop,
+                    super::types::ChopType::HeavyChop,
+                    super::types::ChopType::MediumChop,
+                    super::types::ChopType::SplitChop,
+                ],
+                chop_values: vec![2, 4, 6, 8],
+                durability_cost: 100,
+                stamina_cost: 0,
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 250,
+                }],
+                stamina_grant: 0,
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 2,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Woodcutting rest card: grants stamina, no chops
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: super::types::WoodcuttingCardEffect {
+                chop_types: vec![],
+                chop_values: vec![],
+                durability_cost: 50,
+                stamina_cost: 0,
+                costs: vec![],
+                stamina_grant: 200,
             },
         },
         CardCounts {
@@ -2573,6 +2698,15 @@ impl GameState {
             )],
         );
         Self::check_and_deduct_gathering_costs(&all_costs, &mut self.token_balances)?;
+
+        // Apply stamina grant
+        if woodcutting_effect.stamina_grant > 0 {
+            let entry = super::types::token_entry_by_type(
+                &mut self.token_balances,
+                &super::types::TokenType::Stamina,
+            );
+            *entry += woodcutting_effect.stamina_grant;
+        }
 
         // Deduct legacy durability cost (depletes encounter, doesn't reject card)
         let durability_key =

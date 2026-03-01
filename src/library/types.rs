@@ -371,6 +371,8 @@ pub struct WoodcuttingCardEffect {
     pub stamina_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
+    #[serde(default)]
+    pub stamina_grant: i64,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
