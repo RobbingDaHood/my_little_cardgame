@@ -454,6 +454,7 @@ Roadmap steps
    - The player can abort a crafting encounter at any point.
    - Playable acceptance: Can resolve a craft encounter, produces a Library card copy (visible via GET /library), and demonstrates cost evaluation based on card effects; crafted cards are never directly inserted into player decks.
    - Notes: Start with a single crafting encounter type to prove the flow; ensure crafting is the primary economy sink and costs scale with card quality.
+   - Stamina and Health tokens should be usable in CardEffects with costs within the crafting discipline, same deck mix as other discipline cards (mostly no-cost, some cost cards) in the initial deck.
 
 10) Research encounters and card discovery
    - Goal: Implement Research as a first-class encounter type where players invest Insight tokens to discover and create new cards for their library.
