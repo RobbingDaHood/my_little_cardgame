@@ -900,13 +900,23 @@ fn apply_card_effects(
 
         if *token_type == super::types::TokenType::Health && amount < 0 {
             let damage = -amount;
+            // Dodge absorbs first (timing-based, expires after Defending phase)
             let dodge = target_tokens
                 .get(&super::types::Token::dodge())
                 .copied()
                 .unwrap_or(0);
-            let absorbed = dodge.min(damage);
-            target_tokens.insert(super::types::Token::dodge(), (dodge - absorbed).max(0));
-            let remaining_damage = damage - absorbed;
+            let dodge_absorbed = dodge.min(damage);
+            target_tokens.insert(
+                super::types::Token::dodge(),
+                (dodge - dodge_absorbed).max(0),
+            );
+            let after_dodge = damage - dodge_absorbed;
+            // Shield absorbs next (persists for encounter, blocks 1:1)
+            let shield_key = super::types::Token::persistent(super::types::TokenType::Shield);
+            let shield = target_tokens.get(&shield_key).copied().unwrap_or(0);
+            let shield_absorbed = shield.min(after_dodge);
+            target_tokens.insert(shield_key, (shield - shield_absorbed).max(0));
+            let remaining_damage = after_dodge - shield_absorbed;
             if remaining_damage > 0 {
                 let health = target_tokens
                     .entry(super::types::Token::persistent(
