@@ -1373,10 +1373,17 @@ impl GameState {
             | CardKind::Resource { effects } => effects.clone(),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
-        // Check and deduct costs before applying effects
-        Self::check_and_deduct_costs(&effects, &mut self.token_balances)?;
+        // Multi-effect evaluation: each effect is evaluated independently.
+        // A previous effect can grant tokens that a later effect needs.
+        // If an effect's cost cannot be paid, it is skipped (partial success).
         let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
         for effect in &effects {
+            // Try to pay cost for this single effect
+            if Self::check_and_deduct_costs(std::slice::from_ref(effect), &mut self.token_balances)
+                .is_err()
+            {
+                continue;
+            }
             if let Some(super::types::CardEffectKind::DrawCards {
                 attack,
                 defence,
@@ -1387,14 +1394,14 @@ impl GameState {
                 def_draws += defence;
                 res_draws += resource;
             }
+            apply_card_effects(
+                std::slice::from_ref(effect),
+                true,
+                &mut self.token_balances,
+                combat,
+                &self.library,
+            );
         }
-        apply_card_effects(
-            &effects,
-            true,
-            &mut self.token_balances,
-            combat,
-            &self.library,
-        );
         check_combat_end(&self.token_balances, combat);
         if combat.outcome != EncounterOutcome::Undecided {
             self.last_encounter_result = Some(combat.outcome.clone());

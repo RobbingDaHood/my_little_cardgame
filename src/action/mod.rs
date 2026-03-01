@@ -196,12 +196,13 @@ pub async fn play(
                             )))));
                         }
                     }
-                    // Pre-check costs before moving the card
+                    // Pre-check: card is a valid combat card (type check only;
+                    // individual effect costs are evaluated one-at-a-time in resolve_player_card)
                     {
-                        let effects = match &lib_card.kind {
-                            crate::library::types::CardKind::Attack { effects }
-                            | crate::library::types::CardKind::Defence { effects }
-                            | crate::library::types::CardKind::Resource { effects } => effects,
+                        match &lib_card.kind {
+                            crate::library::types::CardKind::Attack { .. }
+                            | crate::library::types::CardKind::Defence { .. }
+                            | crate::library::types::CardKind::Resource { .. } => {}
                             _ => {
                                 return Err(Right(BadRequest(new_status(format!(
                                     "Card {} is not a playable combat card",
@@ -209,11 +210,6 @@ pub async fn play(
                                 )))))
                             }
                         };
-                        if let Err(e) =
-                            crate::library::GameState::preview_costs(effects, &gs.token_balances)
-                        {
-                            return Err(Right(BadRequest(new_status(e))));
-                        }
                     }
                     match gs.library.play(card_id as usize) {
                         Ok(()) => {
