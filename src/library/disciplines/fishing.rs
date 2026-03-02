@@ -114,11 +114,10 @@ impl GameState {
             *entry = (*entry + fishing_effect.modify_fish_amount).max(0);
         }
 
-        // Apply stamina grant
-        if fishing_effect.stamina_grant > 0 {
-            let entry =
-                types::token_entry_by_type(&mut self.token_balances, &types::TokenType::Stamina);
-            *entry += fishing_effect.stamina_grant;
+        // Apply gains
+        for gain in &fishing_effect.gains {
+            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
+            *entry += gain.amount;
         }
 
         // If card has no values, skip the fishing duel (utility-only card)

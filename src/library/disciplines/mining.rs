@@ -66,11 +66,10 @@ impl GameState {
         );
         Self::check_and_deduct_gathering_costs(&all_costs, &mut self.token_balances)?;
 
-        // Apply stamina grant
-        if mining_effect.stamina_grant > 0 {
-            let entry =
-                types::token_entry_by_type(&mut self.token_balances, &types::TokenType::Stamina);
-            *entry += mining_effect.stamina_grant;
+        // Apply gains
+        for gain in &mining_effect.gains {
+            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
+            *entry += gain.amount;
         }
 
         // Apply player mining card: damage ore

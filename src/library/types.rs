@@ -289,7 +289,7 @@ pub struct MiningCardEffect {
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
     #[serde(default)]
-    pub stamina_grant: i64,
+    pub gains: Vec<GatheringCost>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -333,7 +333,7 @@ pub struct HerbalismCardEffect {
     pub costs: Vec<GatheringCost>,
     pub match_mode: HerbalismMatchMode,
     #[serde(default)]
-    pub stamina_grant: i64,
+    pub gains: Vec<GatheringCost>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
@@ -378,7 +378,7 @@ pub struct WoodcuttingCardEffect {
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
     #[serde(default)]
-    pub stamina_grant: i64,
+    pub gains: Vec<GatheringCost>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -416,7 +416,7 @@ pub struct FishingCardEffect {
     #[serde(default)]
     pub modify_fish_amount: i64,
     #[serde(default)]
-    pub stamina_grant: i64,
+    pub gains: Vec<GatheringCost>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.

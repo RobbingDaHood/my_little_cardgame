@@ -80,11 +80,10 @@ impl GameState {
             return Ok(());
         }
 
-        // Apply stamina grant
-        if herbalism_effect.stamina_grant > 0 {
-            let entry =
-                types::token_entry_by_type(&mut self.token_balances, &types::TokenType::Stamina);
-            *entry += herbalism_effect.stamina_grant;
+        // Apply gains
+        for gain in &herbalism_effect.gains {
+            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
+            *entry += gain.amount;
         }
 
         // Remove plant cards based on match mode

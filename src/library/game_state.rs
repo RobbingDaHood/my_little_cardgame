@@ -354,7 +354,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 0,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -373,7 +373,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 200,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -392,7 +392,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 300,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -472,7 +472,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 match_mode: super::types::HerbalismMatchMode::Or {
                     types: vec![super::types::PlantCharacteristic::Fragile],
                 },
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -495,7 +495,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                         super::types::PlantCharacteristic::Aromatic,
                     ],
                 },
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -519,7 +519,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                         super::types::PlantCharacteristic::Fragile,
                     ],
                 },
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -612,7 +612,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -632,7 +632,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -652,7 +652,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -672,7 +672,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -715,7 +715,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 0,
                 modify_fish_amount: 0,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -735,7 +735,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 0,
                 modify_fish_amount: 0,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -755,7 +755,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 0,
                 modify_fish_amount: 0,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -910,7 +910,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 0,
                 stamina_cost: 100,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -933,7 +933,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 100,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -957,7 +957,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 200,
                 }],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -979,7 +979,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 300,
                 }],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -998,7 +998,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_prevent: 0,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 200,
+                gains: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 200,
+                }],
             },
         },
         CardCounts {
@@ -1021,7 +1024,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: -150,
                 modify_range_max: 0,
                 modify_fish_amount: 0,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1042,7 +1045,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 150,
                 modify_fish_amount: 0,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1066,7 +1069,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 50,
                 modify_range_max: -50,
                 modify_fish_amount: 0,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1087,7 +1090,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 0,
                 modify_fish_amount: 1,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1111,7 +1114,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 0,
                 modify_fish_amount: -1,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1132,7 +1135,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 0,
                 modify_fish_amount: 0,
-                stamina_grant: 200,
+                gains: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 200,
+                }],
             },
         },
         CardCounts {
@@ -1156,7 +1162,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 modify_range_min: 0,
                 modify_range_max: 0,
                 modify_fish_amount: 0,
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1178,7 +1184,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1201,7 +1207,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 100,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1228,7 +1234,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 150,
                 }],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1256,7 +1262,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 250,
                 }],
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1276,7 +1282,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 50,
                 stamina_cost: 0,
                 costs: vec![],
-                stamina_grant: 200,
+                gains: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 200,
+                }],
             },
         },
         CardCounts {
@@ -1302,7 +1311,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     limit: 1,
                     types: vec![],
                 },
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1326,7 +1335,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     limit: 1,
                     types: vec![],
                 },
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1352,7 +1361,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                         super::types::PlantCharacteristic::Thorny,
                     ],
                 },
-                stamina_grant: 0,
+                gains: vec![],
             },
         },
         CardCounts {
@@ -1370,7 +1379,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                 durability_cost: 50,
                 costs: vec![],
                 match_mode: super::types::HerbalismMatchMode::Or { types: vec![] },
-                stamina_grant: 200,
+                gains: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 200,
+                }],
             },
         },
         CardCounts {
