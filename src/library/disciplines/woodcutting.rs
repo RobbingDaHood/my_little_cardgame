@@ -247,9 +247,38 @@ impl GameState {
             self.finish_woodcutting_encounter(true);
         } else {
             self.draw_player_woodcutting_card(rng);
+
+            // Check autoloss: if all woodcutting hand cards are unpayable, player loses
+            if self.current_encounter.is_some() && self.all_woodcutting_hand_cards_unpayable() {
+                self.finish_woodcutting_encounter(false);
+            }
         }
 
         Ok(())
+    }
+
+    /// Check if all woodcutting hand cards are unpayable (pre-play costs unaffordable).
+    fn all_woodcutting_hand_cards_unpayable(&self) -> bool {
+        let hand_cards: Vec<_> = self
+            .library
+            .cards
+            .iter()
+            .filter(|c| c.counts.hand > 0 && matches!(c.kind, CardKind::Woodcutting { .. }))
+            .collect();
+        if hand_cards.is_empty() {
+            return false;
+        }
+        hand_cards.iter().all(|card| {
+            let costs = match &card.kind {
+                CardKind::Woodcutting { woodcutting_effect } => &woodcutting_effect.costs,
+                _ => return false,
+            };
+            let (pre_play_costs, _) = types::split_gathering_costs(costs);
+            if pre_play_costs.is_empty() {
+                return false;
+            }
+            Self::preview_gathering_costs(&pre_play_costs, &self.token_balances).is_err()
+        })
     }
 
     /// Finalize a woodcutting encounter: grant pattern-scaled rewards on win.

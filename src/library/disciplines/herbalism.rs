@@ -184,9 +184,38 @@ impl GameState {
         } else {
             // Draw 1 herbalism card for player
             self.draw_player_herbalism_card(rng);
+
+            // Check autoloss: if all herbalism hand cards are unpayable, player loses
+            if self.current_encounter.is_some() && self.all_herbalism_hand_cards_unpayable() {
+                self.finish_herbalism_encounter(false);
+            }
         }
 
         Ok(())
+    }
+
+    /// Check if all herbalism hand cards are unpayable (pre-play costs unaffordable).
+    fn all_herbalism_hand_cards_unpayable(&self) -> bool {
+        let hand_cards: Vec<_> = self
+            .library
+            .cards
+            .iter()
+            .filter(|c| c.counts.hand > 0 && matches!(c.kind, CardKind::Herbalism { .. }))
+            .collect();
+        if hand_cards.is_empty() {
+            return false;
+        }
+        hand_cards.iter().all(|card| {
+            let costs = match &card.kind {
+                CardKind::Herbalism { herbalism_effect } => &herbalism_effect.costs,
+                _ => return false,
+            };
+            let (pre_play_costs, _) = types::split_gathering_costs(costs);
+            if pre_play_costs.is_empty() {
+                return false;
+            }
+            Self::preview_gathering_costs(&pre_play_costs, &self.token_balances).is_err()
+        })
     }
 
     fn herbalism_most_common_characteristics(
