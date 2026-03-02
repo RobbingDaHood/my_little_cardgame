@@ -187,12 +187,10 @@ impl GameState {
             }
         };
 
-        // Check and deduct costs (generalized + legacy stamina cost)
-        let all_costs = Self::merge_gathering_costs(
-            &woodcutting_effect.costs,
-            &[(types::TokenType::Stamina, woodcutting_effect.stamina_cost)],
-        );
-        Self::check_and_deduct_gathering_costs(&all_costs, &mut self.token_balances)?;
+        // Split costs into pre-play (reject if unaffordable) and post-play (durability)
+        let (pre_play_costs, post_play_costs) =
+            types::split_gathering_costs(&woodcutting_effect.costs);
+        Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
 
         // Apply gains
         for gain in &woodcutting_effect.gains {
@@ -200,11 +198,16 @@ impl GameState {
             *entry += gain.amount;
         }
 
-        // Deduct legacy durability cost (depletes encounter, doesn't reject card)
-        let durability_key = types::Token::persistent(types::TokenType::WoodcuttingDurability);
-        let durability = self.token_balances.entry(durability_key).or_insert(0);
-        *durability = (*durability - woodcutting_effect.durability_cost).max(0);
-        let durability_depleted = *durability <= 0;
+        // Deduct durability costs (depletes encounter, doesn't reject card)
+        let mut durability_depleted = false;
+        for cost in &post_play_costs {
+            let key = types::Token::persistent(cost.cost_type.clone());
+            let durability = self.token_balances.entry(key).or_insert(0);
+            *durability = (*durability - cost.amount).max(0);
+            if *durability <= 0 {
+                durability_depleted = true;
+            }
+        }
 
         if durability_depleted {
             self.finish_woodcutting_encounter(false);

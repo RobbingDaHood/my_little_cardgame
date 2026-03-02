@@ -352,7 +352,6 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             mining_effect: super::types::MiningCardEffect {
                 ore_damage: 500,
                 durability_prevent: 0,
-                stamina_cost: 0,
                 costs: vec![],
                 gains: vec![],
             },
@@ -371,7 +370,6 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             mining_effect: super::types::MiningCardEffect {
                 ore_damage: 300,
                 durability_prevent: 200,
-                stamina_cost: 0,
                 costs: vec![],
                 gains: vec![],
             },
@@ -390,7 +388,6 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             mining_effect: super::types::MiningCardEffect {
                 ore_damage: 100,
                 durability_prevent: 300,
-                stamina_cost: 0,
                 costs: vec![],
                 gains: vec![],
             },
@@ -467,8 +464,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::HerbalismDurability,
+                    amount: 100,
+                }],
                 match_mode: super::types::HerbalismMatchMode::Or {
                     types: vec![super::types::PlantCharacteristic::Fragile],
                 },
@@ -487,8 +486,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::HerbalismDurability,
+                    amount: 100,
+                }],
                 match_mode: super::types::HerbalismMatchMode::Or {
                     types: vec![
                         super::types::PlantCharacteristic::Thorny,
@@ -510,8 +511,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::HerbalismDurability,
+                    amount: 100,
+                }],
                 match_mode: super::types::HerbalismMatchMode::Or {
                     types: vec![
                         super::types::PlantCharacteristic::Bitter,
@@ -609,9 +612,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::LightChop],
                 chop_values: vec![2],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -629,9 +633,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::HeavyChop],
                 chop_values: vec![5],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -649,9 +654,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::MediumChop],
                 chop_values: vec![3],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -669,9 +675,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::PrecisionChop],
                 chop_values: vec![7],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -710,8 +717,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![200],
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -727,8 +736,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![400],
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -744,8 +755,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![700],
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -899,8 +912,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             mining_effect: super::types::MiningCardEffect {
                 ore_damage: 800,
                 durability_prevent: 0,
-                stamina_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::Stamina,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -921,9 +936,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     super::types::ChopType::LightChop,
                 ],
                 chop_values: vec![5, 3],
-                durability_cost: 100,
-                stamina_cost: 100,
-                costs: vec![],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 100,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::WoodcuttingDurability,
+                        amount: 100,
+                    },
+                ],
                 gains: vec![],
             },
         },
@@ -943,7 +965,6 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             mining_effect: super::types::MiningCardEffect {
                 ore_damage: 600,
                 durability_prevent: 300,
-                stamina_cost: 0,
                 costs: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 200,
@@ -965,7 +986,6 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             mining_effect: super::types::MiningCardEffect {
                 ore_damage: 1000,
                 durability_prevent: 0,
-                stamina_cost: 0,
                 costs: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 300,
@@ -987,7 +1007,6 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             mining_effect: super::types::MiningCardEffect {
                 ore_damage: 0,
                 durability_prevent: 0,
-                stamina_cost: 0,
                 costs: vec![],
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
@@ -1010,8 +1029,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![],
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::FishingRangeMin,
                     amount: -150,
@@ -1031,8 +1052,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![],
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::FishingRangeMax,
                     amount: 150,
@@ -1052,11 +1075,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![100, 350, 600],
-                durability_cost: 100,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 150,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::FishingDurability,
+                        amount: 100,
+                    },
+                ],
                 gains: vec![
                     super::types::GatheringCost {
                         cost_type: super::types::TokenType::FishingRangeMin,
@@ -1082,8 +1110,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![],
-                durability_cost: 100,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::FishAmount,
                     amount: 1,
@@ -1103,11 +1133,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![150, 400, 650],
-                durability_cost: 100,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 100,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 100,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::FishingDurability,
+                        amount: 100,
+                    },
+                ],
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::FishAmount,
                     amount: -1,
@@ -1127,8 +1162,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![],
-                durability_cost: 50,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::FishingDurability,
+                    amount: 50,
+                }],
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 200,
@@ -1148,11 +1185,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         CardKind::Fishing {
             fishing_effect: super::types::FishingCardEffect {
                 values: vec![50, 250, 500, 750],
-                durability_cost: 100,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 200,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 200,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::FishingDurability,
+                        amount: 100,
+                    },
+                ],
                 gains: vec![],
             },
         },
@@ -1172,9 +1214,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![super::types::ChopType::SplitChop],
                 chop_values: vec![4],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -1195,9 +1238,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     super::types::ChopType::MediumChop,
                 ],
                 chop_values: vec![1, 6],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
                 gains: vec![],
             },
         },
@@ -1219,12 +1263,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     super::types::ChopType::PrecisionChop,
                 ],
                 chop_values: vec![3, 5, 7],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 150,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::WoodcuttingDurability,
+                        amount: 100,
+                    },
+                ],
                 gains: vec![],
             },
         },
@@ -1247,12 +1295,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
                     super::types::ChopType::SplitChop,
                 ],
                 chop_values: vec![2, 4, 6, 8],
-                durability_cost: 100,
-                stamina_cost: 0,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 250,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 250,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::WoodcuttingDurability,
+                        amount: 100,
+                    },
+                ],
                 gains: vec![],
             },
         },
@@ -1270,9 +1322,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             woodcutting_effect: super::types::WoodcuttingCardEffect {
                 chop_types: vec![],
                 chop_values: vec![],
-                durability_cost: 50,
-                stamina_cost: 0,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::WoodcuttingDurability,
+                    amount: 50,
+                }],
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 200,
@@ -1293,11 +1346,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                durability_cost: 100,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 150,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::HerbalismDurability,
+                        amount: 100,
+                    },
+                ],
                 match_mode: super::types::HerbalismMatchMode::MostCommon {
                     limit: 1,
                     types: vec![],
@@ -1317,11 +1375,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                durability_cost: 100,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 150,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::HerbalismDurability,
+                        amount: 100,
+                    },
+                ],
                 match_mode: super::types::HerbalismMatchMode::LeastCommon {
                     limit: 1,
                     types: vec![],
@@ -1341,11 +1404,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                durability_cost: 100,
-                costs: vec![super::types::GatheringCost {
-                    cost_type: super::types::TokenType::Stamina,
-                    amount: 100,
-                }],
+                costs: vec![
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::Stamina,
+                        amount: 100,
+                    },
+                    super::types::GatheringCost {
+                        cost_type: super::types::TokenType::HerbalismDurability,
+                        amount: 100,
+                    },
+                ],
                 match_mode: super::types::HerbalismMatchMode::And {
                     types: vec![
                         super::types::PlantCharacteristic::Fragile,
@@ -1367,8 +1435,10 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                durability_cost: 50,
-                costs: vec![],
+                costs: vec![super::types::GatheringCost {
+                    cost_type: super::types::TokenType::HerbalismDurability,
+                    amount: 50,
+                }],
                 match_mode: super::types::HerbalismMatchMode::Or { types: vec![] },
                 gains: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
@@ -1579,25 +1649,6 @@ impl GameState {
             }
         }
         Ok(())
-    }
-
-    /// Merge explicit gathering costs with legacy inline cost fields.
-    /// Legacy costs are only included if their amount > 0 and the same TokenType
-    /// is not already present in the explicit costs vec.
-    pub fn merge_gathering_costs(
-        costs: &[super::types::GatheringCost],
-        legacy: &[(super::types::TokenType, i64)],
-    ) -> Vec<super::types::GatheringCost> {
-        let mut merged: Vec<super::types::GatheringCost> = costs.to_vec();
-        for (token_type, amount) in legacy {
-            if *amount > 0 && !merged.iter().any(|c| c.cost_type == *token_type) {
-                merged.push(super::types::GatheringCost {
-                    cost_type: token_type.clone(),
-                    amount: *amount,
-                });
-            }
-        }
-        merged
     }
 
     /// Draw player cards from deck to hand per card type, recycling discard if needed.

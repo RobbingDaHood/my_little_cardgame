@@ -101,6 +101,32 @@ impl TokenType {
             TokenType::FishAmount,
         ]
     }
+
+    pub fn is_durability_cost(&self) -> bool {
+        matches!(
+            self,
+            TokenType::MiningDurability
+                | TokenType::HerbalismDurability
+                | TokenType::WoodcuttingDurability
+                | TokenType::FishingDurability
+        )
+    }
+}
+
+/// Split gathering costs into pre-play costs (reject card if unaffordable)
+/// and post-play costs (durability — deplete encounter after play).
+pub fn split_gathering_costs(costs: &[GatheringCost]) -> (Vec<GatheringCost>, Vec<GatheringCost>) {
+    let pre_play = costs
+        .iter()
+        .filter(|c| !c.cost_type.is_durability_cost())
+        .cloned()
+        .collect();
+    let post_play = costs
+        .iter()
+        .filter(|c| c.cost_type.is_durability_cost())
+        .cloned()
+        .collect();
+    (pre_play, post_play)
 }
 
 impl Token {
@@ -285,8 +311,6 @@ pub struct MiningCardEffect {
     pub ore_damage: i64,
     pub durability_prevent: i64,
     #[serde(default)]
-    pub stamina_cost: i64,
-    #[serde(default)]
     pub costs: Vec<GatheringCost>,
     #[serde(default)]
     pub gains: Vec<GatheringCost>,
@@ -328,7 +352,6 @@ pub enum HerbalismMatchMode {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct HerbalismCardEffect {
-    pub durability_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
     pub match_mode: HerbalismMatchMode,
@@ -372,9 +395,6 @@ pub enum ChopType {
 pub struct WoodcuttingCardEffect {
     pub chop_types: Vec<ChopType>,
     pub chop_values: Vec<u32>,
-    pub durability_cost: i64,
-    #[serde(default)]
-    pub stamina_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
     #[serde(default)]
@@ -406,7 +426,6 @@ pub struct WoodcuttingDef {
 #[serde(crate = "rocket::serde")]
 pub struct FishingCardEffect {
     pub values: Vec<i64>,
-    pub durability_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
     #[serde(default)]

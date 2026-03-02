@@ -59,12 +59,8 @@ impl GameState {
             _ => return Err("Cannot play a non-mining card in mining encounter".to_string()),
         };
 
-        // Check and deduct costs (generalized costs first, then legacy stamina_cost)
-        let all_costs = Self::merge_gathering_costs(
-            &mining_effect.costs,
-            &[(types::TokenType::Stamina, mining_effect.stamina_cost)],
-        );
-        Self::check_and_deduct_gathering_costs(&all_costs, &mut self.token_balances)?;
+        // Check and deduct pre-play costs (stamina etc. — reject card if unaffordable)
+        Self::check_and_deduct_gathering_costs(&mining_effect.costs, &mut self.token_balances)?;
 
         // Apply gains
         for gain in &mining_effect.gains {

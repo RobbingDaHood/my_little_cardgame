@@ -58,22 +58,23 @@ impl GameState {
             _ => return Err("Cannot play a non-herbalism card in herbalism encounter".to_string()),
         };
 
-        // Check and deduct generalized costs (excluding legacy durability which is handled below)
-        if !herbalism_effect.costs.is_empty() {
-            Self::check_and_deduct_gathering_costs(
-                &herbalism_effect.costs,
-                &mut self.token_balances,
-            )?;
+        // Split costs into pre-play (reject if unaffordable) and post-play (durability)
+        let (pre_play_costs, post_play_costs) =
+            types::split_gathering_costs(&herbalism_effect.costs);
+        if !pre_play_costs.is_empty() {
+            Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
         }
 
-        // Apply legacy durability cost (depletes encounter, doesn't reject card)
-        let durability_key = types::Token::persistent(types::TokenType::HerbalismDurability);
-        let durability = self
-            .token_balances
-            .entry(durability_key.clone())
-            .or_insert(0);
-        *durability = (*durability - herbalism_effect.durability_cost).max(0);
-        let durability_depleted = *durability <= 0;
+        // Apply durability costs (depletes encounter, doesn't reject card)
+        let mut durability_depleted = false;
+        for cost in &post_play_costs {
+            let key = types::Token::persistent(cost.cost_type.clone());
+            let durability = self.token_balances.entry(key).or_insert(0);
+            *durability = (*durability - cost.amount).max(0);
+            if *durability <= 0 {
+                durability_depleted = true;
+            }
+        }
 
         if durability_depleted {
             self.finish_herbalism_encounter(false);

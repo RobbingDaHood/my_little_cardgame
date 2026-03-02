@@ -241,15 +241,8 @@ pub async fn play(
                     if let crate::library::types::CardKind::Mining { mining_effect } =
                         &lib_card.kind
                     {
-                        let all_costs = crate::library::GameState::merge_gathering_costs(
-                            &mining_effect.costs,
-                            &[(
-                                crate::library::types::TokenType::Stamina,
-                                mining_effect.stamina_cost,
-                            )],
-                        );
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
-                            &all_costs,
+                            &mining_effect.costs,
                             &gs.token_balances,
                         ) {
                             return Err(Right(BadRequest(new_status(e))));
@@ -296,15 +289,10 @@ pub async fn play(
                     if let crate::library::types::CardKind::Woodcutting { woodcutting_effect } =
                         &lib_card.kind
                     {
-                        let all_costs = crate::library::GameState::merge_gathering_costs(
-                            &woodcutting_effect.costs,
-                            &[(
-                                crate::library::types::TokenType::Stamina,
-                                woodcutting_effect.stamina_cost,
-                            )],
-                        );
+                        let (pre_play_costs, _) =
+                            crate::library::types::split_gathering_costs(&woodcutting_effect.costs);
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
-                            &all_costs,
+                            &pre_play_costs,
                             &gs.token_balances,
                         ) {
                             return Err(Right(BadRequest(new_status(e))));
