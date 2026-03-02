@@ -1515,31 +1515,31 @@ impl GameState {
         // Max handsize tokens (player decks)
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::AttackMaxHand),
-            10,
+            5,
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::DefenceMaxHand),
-            10,
+            5,
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::ResourceMaxHand),
-            10,
+            5,
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::MiningMaxHand),
-            10,
+            5,
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::HerbalismMaxHand),
-            10,
+            5,
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::WoodcuttingMaxHand),
-            10,
+            5,
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::FishingMaxHand),
-            10,
+            5,
         );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
