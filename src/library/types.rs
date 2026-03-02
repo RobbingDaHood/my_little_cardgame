@@ -304,17 +304,19 @@ pub enum PlantCharacteristic {
 #[serde(crate = "rocket::serde")]
 pub enum HerbalismMatchMode {
     /// Remove plants sharing ANY listed characteristic (existing behavior).
-    Or,
+    Or { types: Vec<PlantCharacteristic> },
     /// Remove plants matching ALL listed characteristics.
-    And,
+    And { types: Vec<PlantCharacteristic> },
     /// Remove plants matching the characteristic(s) present on the MOST cards.
-    MostCommon { limit: u32 },
+    MostCommon {
+        limit: u32,
+        types: Vec<PlantCharacteristic>,
+    },
     /// Remove plants matching the characteristic(s) present on the LEAST cards.
-    LeastCommon { limit: u32 },
-}
-
-fn default_match_mode() -> HerbalismMatchMode {
-    HerbalismMatchMode::Or
+    LeastCommon {
+        limit: u32,
+        types: Vec<PlantCharacteristic>,
+    },
 }
 
 /// Inline effect for Herbalism discipline cards.
@@ -322,11 +324,9 @@ fn default_match_mode() -> HerbalismMatchMode {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct HerbalismCardEffect {
-    pub target_characteristics: Vec<PlantCharacteristic>,
     pub durability_cost: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
-    #[serde(default = "default_match_mode")]
     pub match_mode: HerbalismMatchMode,
     #[serde(default)]
     pub stamina_grant: i64,

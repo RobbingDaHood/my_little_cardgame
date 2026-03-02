@@ -95,7 +95,9 @@ impl GameState {
             };
 
             match &herbalism_effect.match_mode {
-                types::HerbalismMatchMode::Or => {
+                types::HerbalismMatchMode::Or {
+                    types: target_types,
+                } => {
                     for plant_card in &mut herbalism.plant_hand {
                         if plant_card.counts.hand == 0 {
                             continue;
@@ -103,19 +105,20 @@ impl GameState {
                         let shares_characteristic = plant_card
                             .characteristics
                             .iter()
-                            .any(|c| herbalism_effect.target_characteristics.contains(c));
+                            .any(|c| target_types.contains(c));
                         if shares_characteristic {
                             plant_card.counts.hand = 0;
                         }
                     }
                 }
-                types::HerbalismMatchMode::And => {
+                types::HerbalismMatchMode::And {
+                    types: target_types,
+                } => {
                     for plant_card in &mut herbalism.plant_hand {
                         if plant_card.counts.hand == 0 {
                             continue;
                         }
-                        let has_all = herbalism_effect
-                            .target_characteristics
+                        let has_all = target_types
                             .iter()
                             .all(|c| plant_card.characteristics.contains(c));
                         if has_all {
@@ -123,7 +126,7 @@ impl GameState {
                         }
                     }
                 }
-                types::HerbalismMatchMode::MostCommon { limit } => {
+                types::HerbalismMatchMode::MostCommon { limit, .. } => {
                     let targets = Self::herbalism_most_common_characteristics(
                         &herbalism.plant_hand,
                         rng,
@@ -142,7 +145,7 @@ impl GameState {
                         }
                     }
                 }
-                types::HerbalismMatchMode::LeastCommon { limit } => {
+                types::HerbalismMatchMode::LeastCommon { limit, .. } => {
                     let targets = Self::herbalism_least_common_characteristics(
                         &herbalism.plant_hand,
                         rng,

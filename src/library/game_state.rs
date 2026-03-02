@@ -474,10 +474,11 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                target_characteristics: vec![super::types::PlantCharacteristic::Fragile],
                 durability_cost: 100,
                 costs: vec![],
-                match_mode: super::types::HerbalismMatchMode::Or,
+                match_mode: super::types::HerbalismMatchMode::Or {
+                    types: vec![super::types::PlantCharacteristic::Fragile],
+                },
                 stamina_grant: 0,
             },
         },
@@ -493,13 +494,14 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                target_characteristics: vec![
-                    super::types::PlantCharacteristic::Thorny,
-                    super::types::PlantCharacteristic::Aromatic,
-                ],
                 durability_cost: 100,
                 costs: vec![],
-                match_mode: super::types::HerbalismMatchMode::Or,
+                match_mode: super::types::HerbalismMatchMode::Or {
+                    types: vec![
+                        super::types::PlantCharacteristic::Thorny,
+                        super::types::PlantCharacteristic::Aromatic,
+                    ],
+                },
                 stamina_grant: 0,
             },
         },
@@ -515,14 +517,15 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                target_characteristics: vec![
-                    super::types::PlantCharacteristic::Bitter,
-                    super::types::PlantCharacteristic::Luminous,
-                    super::types::PlantCharacteristic::Fragile,
-                ],
                 durability_cost: 100,
                 costs: vec![],
-                match_mode: super::types::HerbalismMatchMode::Or,
+                match_mode: super::types::HerbalismMatchMode::Or {
+                    types: vec![
+                        super::types::PlantCharacteristic::Bitter,
+                        super::types::PlantCharacteristic::Luminous,
+                        super::types::PlantCharacteristic::Fragile,
+                    ],
+                },
                 stamina_grant: 0,
             },
         },
@@ -1303,13 +1306,15 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                target_characteristics: vec![],
                 durability_cost: 100,
                 costs: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 150,
                 }],
-                match_mode: super::types::HerbalismMatchMode::MostCommon { limit: 1 },
+                match_mode: super::types::HerbalismMatchMode::MostCommon {
+                    limit: 1,
+                    types: vec![],
+                },
                 stamina_grant: 0,
             },
         },
@@ -1325,13 +1330,15 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                target_characteristics: vec![],
                 durability_cost: 100,
                 costs: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 150,
                 }],
-                match_mode: super::types::HerbalismMatchMode::LeastCommon { limit: 1 },
+                match_mode: super::types::HerbalismMatchMode::LeastCommon {
+                    limit: 1,
+                    types: vec![],
+                },
                 stamina_grant: 0,
             },
         },
@@ -1347,16 +1354,17 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                target_characteristics: vec![
-                    super::types::PlantCharacteristic::Fragile,
-                    super::types::PlantCharacteristic::Thorny,
-                ],
                 durability_cost: 100,
                 costs: vec![super::types::GatheringCost {
                     cost_type: super::types::TokenType::Stamina,
                     amount: 100,
                 }],
-                match_mode: super::types::HerbalismMatchMode::And,
+                match_mode: super::types::HerbalismMatchMode::And {
+                    types: vec![
+                        super::types::PlantCharacteristic::Fragile,
+                        super::types::PlantCharacteristic::Thorny,
+                    ],
+                },
                 stamina_grant: 0,
             },
         },
@@ -1372,10 +1380,9 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: super::types::HerbalismCardEffect {
-                target_characteristics: vec![],
                 durability_cost: 50,
                 costs: vec![],
-                match_mode: super::types::HerbalismMatchMode::Or,
+                match_mode: super::types::HerbalismMatchMode::Or { types: vec![] },
                 stamina_grant: 200,
             },
         },
