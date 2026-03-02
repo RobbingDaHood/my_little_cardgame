@@ -6,7 +6,7 @@ use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
 /// Apply card effects to combat using concrete rolled values.
-/// Only processes ChangeTokens effects; DrawCards effects are handled separately.
+/// Only processes GainTokens and LoseTokens effects; DrawCards effects are handled separately.
 fn apply_card_effects(
     effects: &[ConcreteEffect],
     is_player: bool,
@@ -20,14 +20,15 @@ fn apply_card_effects(
             None => continue,
         };
 
-        let (target, token_type) = match &kind {
-            types::CardEffectKind::ChangeTokens {
+        let (target, token_type, is_loss) = match &kind {
+            types::CardEffectKind::GainTokens {
                 target, token_type, ..
-            } => (target, token_type),
+            } => (target, token_type, false),
+            types::CardEffectKind::LoseTokens {
+                target, token_type, ..
+            } => (target, token_type, true),
             types::CardEffectKind::DrawCards { .. } => continue,
         };
-
-        let amount = effect.rolled_value;
 
         let target_tokens = match (target, is_player) {
             (types::EffectTarget::OnSelf, true) | (types::EffectTarget::OnOpponent, false) => {
@@ -38,31 +39,37 @@ fn apply_card_effects(
             }
         };
 
-        if *token_type == types::TokenType::Health && amount < 0 {
-            let damage = -amount;
-            // Dodge absorbs first (timing-based, expires after Defending phase)
-            let dodge = target_tokens
-                .get(&types::Token::dodge())
-                .copied()
-                .unwrap_or(0);
-            let dodge_absorbed = dodge.min(damage);
-            target_tokens.insert(types::Token::dodge(), (dodge - dodge_absorbed).max(0));
-            let after_dodge = damage - dodge_absorbed;
-            // Shield absorbs next (persists for encounter, blocks 1:1)
-            let shield_key = types::Token::persistent(types::TokenType::Shield);
-            let shield = target_tokens.get(&shield_key).copied().unwrap_or(0);
-            let shield_absorbed = shield.min(after_dodge);
-            target_tokens.insert(shield_key, (shield - shield_absorbed).max(0));
-            let remaining_damage = after_dodge - shield_absorbed;
-            if remaining_damage > 0 {
-                let health = target_tokens
-                    .entry(types::Token::persistent(types::TokenType::Health))
+        if is_loss {
+            let damage = effect.rolled_value;
+            if *token_type == types::TokenType::Health {
+                // Dodge absorbs first (timing-based, expires after Defending phase)
+                let dodge = target_tokens
+                    .get(&types::Token::dodge())
+                    .copied()
+                    .unwrap_or(0);
+                let dodge_absorbed = dodge.min(damage);
+                target_tokens.insert(types::Token::dodge(), (dodge - dodge_absorbed).max(0));
+                let after_dodge = damage - dodge_absorbed;
+                // Shield absorbs next (persists for encounter, blocks 1:1)
+                let shield_key = types::Token::persistent(types::TokenType::Shield);
+                let shield = target_tokens.get(&shield_key).copied().unwrap_or(0);
+                let shield_absorbed = shield.min(after_dodge);
+                target_tokens.insert(shield_key, (shield - shield_absorbed).max(0));
+                let remaining_damage = after_dodge - shield_absorbed;
+                if remaining_damage > 0 {
+                    let health = target_tokens
+                        .entry(types::Token::persistent(types::TokenType::Health))
+                        .or_insert(0);
+                    *health = (*health - remaining_damage).max(0);
+                }
+            } else {
+                let entry = target_tokens
+                    .entry(types::Token::persistent(token_type.clone()))
                     .or_insert(0);
-                *health = (*health - remaining_damage).max(0);
+                *entry = (*entry - damage).max(0);
             }
         } else {
-            // For token-granting effects with a cap: granted = cap * gain_percent / 100,
-            // clamped so balance does not exceed cap.
+            // GainTokens: granted = cap * gain_percent / 100, clamped so balance <= cap
             let grant_amount = match (effect.rolled_cap, effect.rolled_gain_percent) {
                 (Some(cap), Some(pct)) => {
                     let raw_gain = cap * pct as i64 / 100;
@@ -70,7 +77,7 @@ fn apply_card_effects(
                     let current = target_tokens.get(&key).copied().unwrap_or(0);
                     raw_gain.min((cap - current).max(0))
                 }
-                _ => amount,
+                _ => effect.rolled_value,
             };
             let entry = target_tokens
                 .entry(types::Token::persistent(token_type.clone()))

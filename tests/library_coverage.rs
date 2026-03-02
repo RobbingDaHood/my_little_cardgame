@@ -21,17 +21,13 @@ fn library_draw_and_play_and_return() {
     // First add a card effect entry (id 0)
     lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: CardEffectKind::ChangeTokens {
+            kind: CardEffectKind::LoseTokens {
                 target: EffectTarget::OnOpponent,
                 token_type: TokenType::Health,
-                min: -500,
-                max: -500,
+                min: 500,
+                max: 500,
                 costs: vec![],
                 duration: TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -45,7 +41,7 @@ fn library_draw_and_play_and_return() {
         CardKind::Attack {
             effects: vec![ConcreteEffect {
                 effect_id: 0,
-                rolled_value: -500,
+                rolled_value: 500,
                 rolled_costs: vec![],
                 rolled_cap: None,
                 rolled_gain_percent: None,

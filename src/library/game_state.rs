@@ -34,15 +34,28 @@ fn roll_concrete_effect(
 ) -> ConcreteEffect {
     let kind = library.resolve_effect(effect_id);
     let (rolled_value, rolled_costs, rolled_cap, rolled_gain_percent) = match kind {
-        Some(super::types::CardEffectKind::ChangeTokens {
-            min,
-            max,
-            costs,
+        Some(super::types::CardEffectKind::GainTokens {
             cap_min,
             cap_max,
             gain_min_percent,
             gain_max_percent,
+            costs,
             ..
+        }) => {
+            let r_cap = roll_range(rng, cap_min, cap_max);
+            let r_gain = roll_range_u32(rng, gain_min_percent, gain_max_percent);
+            let value = r_cap * r_gain as i64 / 100;
+            let costs = costs
+                .iter()
+                .map(|c| ConcreteEffectCost {
+                    cost_type: c.cost_type.clone(),
+                    rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
+                })
+                .collect();
+            (value, costs, Some(r_cap), Some(r_gain))
+        }
+        Some(super::types::CardEffectKind::LoseTokens {
+            min, max, costs, ..
         }) => {
             let value = roll_range(rng, min, max);
             let costs = costs
@@ -52,11 +65,7 @@ fn roll_concrete_effect(
                     rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
                 })
                 .collect();
-            let r_cap = cap_min.zip(cap_max).map(|(lo, hi)| roll_range(rng, lo, hi));
-            let r_gain = gain_min_percent
-                .zip(gain_max_percent)
-                .map(|(lo, hi)| roll_range_u32(rng, lo, hi));
-            (value, costs, r_cap, r_gain)
+            (value, costs, None, None)
         }
         _ => (0, vec![], None, None),
     };
@@ -77,17 +86,13 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 0: Player "deal damage" effect (range: 400-600, old: 5)
     lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::LoseTokens {
                 target: super::types::EffectTarget::OnOpponent,
                 token_type: super::types::TokenType::Health,
-                min: -600,
-                max: -400,
+                min: 400,
+                max: 600,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -101,17 +106,15 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 1: Player "grant shield" effect (range: 200-400, old: 3)
     lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::GainTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Shield,
-                min: 200,
-                max: 400,
+                cap_min: 200,
+                cap_max: 400,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -125,17 +128,15 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 2: Player "grant stamina" effect (range: 150-250, old: 2)
     lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::GainTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Stamina,
-                min: 150,
-                max: 250,
+                cap_min: 150,
+                cap_max: 250,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -168,17 +169,13 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 4: Enemy "deal damage" effect (range: 200-400, old: 3)
     lib.add_card(
         CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::LoseTokens {
                 target: super::types::EffectTarget::OnOpponent,
                 token_type: super::types::TokenType::Health,
-                min: -400,
-                max: -200,
+                min: 200,
+                max: 400,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -192,17 +189,15 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 5: Enemy "grant shield" effect (range: 150-250, old: 2)
     lib.add_card(
         CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::GainTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Shield,
-                min: 150,
-                max: 250,
+                cap_min: 150,
+                cap_max: 250,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -216,17 +211,15 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 6: Enemy "grant stamina" effect (range: 80-120, old: 1)
     lib.add_card(
         CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::GainTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Stamina,
-                min: 80,
-                max: 120,
+                cap_min: 80,
+                cap_max: 120,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
                 costs: vec![],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -836,21 +829,17 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 29: Powerful "deal damage" effect with Stamina cost (range: 700-900, cost: 30-50%)
     lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::LoseTokens {
                 target: super::types::EffectTarget::OnOpponent,
                 token_type: super::types::TokenType::Health,
-                min: -900,
-                max: -700,
+                min: 700,
+                max: 900,
                 costs: vec![super::types::CardEffectCost {
                     cost_type: super::types::TokenType::Stamina,
                     min_percent: 30,
                     max_percent: 50,
                 }],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {
@@ -864,21 +853,19 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     // id 30: Powerful "grant shield" effect with Stamina cost (range: 350-550, cost: 30-50%)
     lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::ChangeTokens {
+            kind: super::types::CardEffectKind::GainTokens {
                 target: super::types::EffectTarget::OnSelf,
                 token_type: super::types::TokenType::Shield,
-                min: 350,
-                max: 550,
+                cap_min: 350,
+                cap_max: 550,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
                 costs: vec![super::types::CardEffectCost {
                     cost_type: super::types::TokenType::Stamina,
                     min_percent: 30,
                     max_percent: 50,
                 }],
                 duration: super::types::TokenLifecycle::PersistentCounter,
-                cap_min: None,
-                cap_max: None,
-                gain_min_percent: None,
-                gain_max_percent: None,
             },
         },
         CardCounts {

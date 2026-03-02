@@ -129,28 +129,32 @@ impl Token {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "effect_type")]
 pub enum CardEffectKind {
-    ChangeTokens {
+    /// Grant tokens: starts from a cap range and calculates gain as cap * gain_percent / 100,
+    /// clamped so the token balance does not exceed the rolled cap.
+    /// Costs are a percentage of the gain. The gain token_type must not match any cost token_type.
+    GainTokens {
+        target: EffectTarget,
+        token_type: TokenType,
+        cap_min: i64,
+        cap_max: i64,
+        gain_min_percent: u32,
+        gain_max_percent: u32,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
+        #[serde(default = "default_persistent_lifecycle")]
+        duration: TokenLifecycle,
+    },
+    /// Lose tokens: min/max represent the positive amount to lose. The apply logic subtracts.
+    /// Costs are calculated after the loss value is determined.
+    LoseTokens {
         target: EffectTarget,
         token_type: TokenType,
         min: i64,
         max: i64,
         #[serde(default)]
         costs: Vec<CardEffectCost>,
-        /// Duration/lifecycle of the token granted by this effect.
         #[serde(default = "default_persistent_lifecycle")]
         duration: TokenLifecycle,
-        /// Cap range for token-granting effects. When set, the granted amount
-        /// is `rolled_cap * rolled_gain_percent / 100`, clamped so the token
-        /// balance does not exceed `rolled_cap`.
-        #[serde(default)]
-        cap_min: Option<i64>,
-        #[serde(default)]
-        cap_max: Option<i64>,
-        /// Gain percentage range (only meaningful when cap is set).
-        #[serde(default)]
-        gain_min_percent: Option<u32>,
-        #[serde(default)]
-        gain_max_percent: Option<u32>,
     },
     DrawCards {
         attack: u32,

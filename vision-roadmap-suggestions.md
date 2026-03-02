@@ -84,3 +84,33 @@ Step 9.3 was large (13 sub-steps, 12 commits). Future steps of this magnitude sh
 
 #### 15. Update card count references
 The roadmap references specific card counts (e.g., "35 cards total" in 9.1 results). These should be updated or removed since each step adds more cards. Current count is 54 library cards after 9.3.
+
+---
+
+## New suggestions (from GainTokens/LoseTokens split)
+
+### vision.md
+
+#### 18. Update CardEffectKind description for GainTokens/LoseTokens
+The vision currently describes `CardEffectKind` as having two variants (`ChangeTokens` and `DrawCards`). This should be updated to three variants: `GainTokens` (cap-based token grants), `LoseTokens` (range-based token loss), and `DrawCards`. Document that GainTokens uses cap/gain_percent to calculate grants (clamped so balance ≤ cap), while LoseTokens uses positive min/max values representing amounts to lose.
+
+#### 19. Document GainTokens validation rule
+Vision should note the invariant: GainTokens effects cannot have a cost_type matching their gain token_type. This prevents circular dependencies where gaining a token also costs that same token.
+
+#### 20. Document LoseTokens positive-value convention
+Vision should clarify that LoseTokens min/max are always positive values representing the amount to lose (not negative). The combat apply logic handles subtraction. This is a deliberate design choice for clarity over the old negative-number convention.
+
+### roadmap.md
+
+#### 21. Mark GainTokens/LoseTokens split as complete
+The split from `ChangeTokens` into `GainTokens` and `LoseTokens` (from docs/issues.md item 1) should be recorded as a completed step. Note that rolled values changed from signed (negative for damage) to positive-only for both variants, with the effect type determining gain vs loss semantics.
+
+### vision.md
+
+#### 16. Document module structure for disciplines
+Vision's architecture section should mention that discipline-specific game logic (combat, mining, herbalism, woodcutting, fishing) is organized under `src/library/disciplines/`, with each discipline in its own module implementing methods on `GameState`. This supports the "everything is a deck" design by keeping each discipline's card resolution logic self-contained.
+
+### roadmap.md
+
+#### 17. Consider further splitting initialize_library
+The `initialize_library` function (1300+ lines) is the largest remaining block in `game_state.rs`. A future step could split it into per-discipline card registration functions (e.g., `register_combat_cards`, `register_mining_cards`) called from a thin `initialize_library` orchestrator. This would align with the discipline module split pattern.
