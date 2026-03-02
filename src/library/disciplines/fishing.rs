@@ -89,31 +89,6 @@ impl GameState {
             return Ok(());
         }
 
-        // Apply range modifications
-        if fishing_effect.modify_range_min != 0 {
-            let entry = self
-                .token_balances
-                .entry(types::Token::persistent(types::TokenType::FishingRangeMin))
-                .or_insert(0);
-            *entry = (*entry + fishing_effect.modify_range_min).max(0);
-        }
-        if fishing_effect.modify_range_max != 0 {
-            let entry = self
-                .token_balances
-                .entry(types::Token::persistent(types::TokenType::FishingRangeMax))
-                .or_insert(0);
-            *entry += fishing_effect.modify_range_max;
-        }
-
-        // Apply fish amount modification
-        if fishing_effect.modify_fish_amount != 0 {
-            let entry = self
-                .token_balances
-                .entry(types::Token::persistent(types::TokenType::FishAmount))
-                .or_insert(1);
-            *entry = (*entry + fishing_effect.modify_fish_amount).max(0);
-        }
-
         // Apply gains
         for gain in &fishing_effect.gains {
             let entry = types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);

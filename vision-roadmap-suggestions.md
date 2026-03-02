@@ -71,8 +71,8 @@ Vision's Herbalism section should mention the new match modes: Or (existing), An
 #### 11. Document fishing range and fish amount tokens
 Vision's Fishing section should note that valid_range_min and valid_range_max are now token-backed (FishingRangeMin, FishingRangeMax), modifiable by card effects during the encounter. FishAmount token controls how many wins a successful turn counts for.
 
-#### 12. Add stamina_grant to discipline card documentation
-All gathering disciplines (Mining, Woodcutting, Herbalism, Fishing) now support a stamina_grant field on their card effects for "rest" cards. Vision should mention this pattern as a universal gathering mechanic.
+#### 12. ~~Add stamina_grant to discipline card documentation~~ (Superseded by suggestion #22 — stamina_grant replaced with gains vector)
+All gathering disciplines (Mining, Woodcutting, Herbalism, Fishing) now support a `gains: Vec<GatheringCost>` vector on their card effects. Vision should document this as a universal gathering mechanic for granting tokens on card play.
 
 ### roadmap.md
 
@@ -114,3 +114,31 @@ Vision's architecture section should mention that discipline-specific game logic
 
 #### 17. Consider further splitting initialize_library
 The `initialize_library` function (1300+ lines) is the largest remaining block in `game_state.rs`. A future step could split it into per-discipline card registration functions (e.g., `register_combat_cards`, `register_mining_cards`) called from a thin `initialize_library` orchestrator. This would align with the discipline module split pattern.
+
+---
+
+## New suggestions (from stamina_grant → gains refactor)
+
+### vision.md
+
+#### 22. Document gains vector on discipline card effects
+Vision's discipline card effect documentation should note that all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) use a `gains: Vec<GatheringCost>` vector for granting tokens when a card is played. This supersedes the old `stamina_grant` field and is more flexible — any `TokenType` can be granted, not just Stamina. "Rest" cards use `gains` with `TokenType::Stamina` entries.
+
+### roadmap.md
+
+#### 23. Record stamina_grant → gains migration as complete
+The refactor from `stamina_grant: i64` to `gains: Vec<GatheringCost>` on all four discipline card effect structs (MiningCardEffect, HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect) should be noted as a completed step. This resolved docs/issues.md item 1 and generalized discipline card token grants beyond Stamina-only.
+
+---
+
+## New suggestions (from FishingCardEffect modify_* → gains refactor)
+
+### vision.md
+
+#### 24. Document unified gains model for fishing range/amount tokens
+Vision's Fishing section should note that `FishingRangeMin`, `FishingRangeMax`, and `FishAmount` modifications are now expressed as entries in the standard `gains: Vec<GatheringCost>` vector on `FishingCardEffect`, rather than as dedicated struct fields. This means all token modifications during fishing (including range narrowing/widening and fish amount changes) flow through the same generic gains loop, consistent with the other gathering disciplines. The old `.max(0)` clamping on write was removed; range comparison logic handles edge cases at read time.
+
+### roadmap.md
+
+#### 25. Record FishingCardEffect modify_* → gains migration as complete
+The removal of `modify_range_min`, `modify_range_max`, and `modify_fish_amount` fields from `FishingCardEffect` should be noted as a completed step. These three fields were replaced by entries in the existing `gains: Vec<GatheringCost>` vector using the already-defined `TokenType::FishingRangeMin`, `TokenType::FishingRangeMax`, and `TokenType::FishAmount` token types. This eliminates special-case application logic in `resolve_player_fishing_card` and simplifies the struct to match the unified gains model used across all gathering disciplines.

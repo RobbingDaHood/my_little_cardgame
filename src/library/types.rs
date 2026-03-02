@@ -410,12 +410,6 @@ pub struct FishingCardEffect {
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
     #[serde(default)]
-    pub modify_range_min: i64,
-    #[serde(default)]
-    pub modify_range_max: i64,
-    #[serde(default)]
-    pub modify_fish_amount: i64,
-    #[serde(default)]
     pub gains: Vec<GatheringCost>,
 }
 
