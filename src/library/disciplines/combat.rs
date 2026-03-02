@@ -179,6 +179,16 @@ impl GameState {
             | CardKind::Resource { effects } => effects.clone(),
             _ => return Err("Cannot play a non-action card".to_string()),
         };
+        // Pre-check: if no effect on the card can be paid, reject the play
+        let any_payable = effects.iter().any(|effect| {
+            if effect.rolled_costs.is_empty() {
+                return true; // costless effect is always playable
+            }
+            Self::preview_costs(std::slice::from_ref(effect), &self.token_balances).is_ok()
+        });
+        if !any_payable && !effects.is_empty() {
+            return Err("Cannot play card: no effect costs can be paid".to_string());
+        }
         // Multi-effect evaluation: each effect is evaluated independently.
         // A previous effect can grant tokens that a later effect needs.
         // If an effect's cost cannot be paid, it is skipped (partial success).
