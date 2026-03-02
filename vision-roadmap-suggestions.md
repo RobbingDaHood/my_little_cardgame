@@ -142,3 +142,94 @@ Vision's Fishing section should note that `FishingRangeMin`, `FishingRangeMax`, 
 
 #### 25. Record FishingCardEffect modify_* → gains migration as complete
 The removal of `modify_range_min`, `modify_range_max`, and `modify_fish_amount` fields from `FishingCardEffect` should be noted as a completed step. These three fields were replaced by entries in the existing `gains: Vec<GatheringCost>` vector using the already-defined `TokenType::FishingRangeMin`, `TokenType::FishingRangeMax`, and `TokenType::FishAmount` token types. This eliminates special-case application logic in `resolve_player_fishing_card` and simplifies the struct to match the unified gains model used across all gathering disciplines.
+
+---
+
+## New suggestions (from dedicated cost fields → costs vec migration)
+
+### vision.md
+
+#### 26. Document unified costs model for discipline cards
+Vision's gathering discipline sections should note that all per-card costs (stamina, durability, etc.) are now expressed exclusively through the `costs: Vec<GatheringCost>` vector. The dedicated `stamina_cost` (Mining, Woodcutting) and `durability_cost` (Herbalism, Woodcutting, Fishing) struct fields have been removed. Costs are classified at resolution time as either pre-play (reject card if unaffordable, e.g. Stamina) or post-play (deplete encounter, e.g. durability tokens), determined by `TokenType::is_durability_cost()`.
+
+#### 27. Document pre-play vs post-play cost semantics
+Vision should describe the two cost categories for gathering discipline cards: (1) **Pre-play costs** — checked before the card is played; if the player cannot afford them, the card play is rejected (e.g. Stamina). (2) **Post-play costs** — deducted after the card's effects are applied; if the resource reaches zero, the encounter ends as a loss (e.g. MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability). The `split_gathering_costs()` helper separates these from the unified costs vec.
+
+### roadmap.md
+
+#### 28. Record dedicated cost fields → costs vec migration as complete
+The removal of `stamina_cost` from `MiningCardEffect` and `WoodcuttingCardEffect`, and `durability_cost` from `HerbalismCardEffect`, `WoodcuttingCardEffect`, and `FishingCardEffect` should be recorded as a completed step. All costs now flow through the `costs: Vec<GatheringCost>` vector. The `merge_gathering_costs()` helper was removed as it is no longer needed.
+
+---
+
+## New suggestions (from extending autoloss to all disciplines)
+
+### vision.md
+
+#### 29. Generalize autoloss mechanic documentation to all encounter types
+Suggestion #8 described the autoloss mechanic for combat only. This should be updated to cover all encounter types. The vision should state: "If all remaining hand cards for the current discipline are unpayable (every card's pre-play costs exceed the player's token balances), the encounter ends as PlayerLost. This applies to all disciplines: Combat (attack/defence/resource cards), Mining, Herbalism, Woodcutting, and Fishing. For gathering disciplines, unpayability is determined by splitting costs via `split_gathering_costs()` and checking only pre-play costs with `preview_gathering_costs()`. Cards with no pre-play costs are always considered playable."
+
+### roadmap.md
+
+#### 30. Record autoloss generalization as complete
+The autoloss mechanic was extended from combat-only to all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing). Each discipline now has an `all_<discipline>_hand_cards_unpayable()` method that checks if all hand cards of that type have unaffordable pre-play costs, triggering an automatic loss. The check runs after each card play and draw, ensuring no stuck encounters across any discipline.
+
+---
+
+## Suggestions from post-9.3 docs/issues.md batch update (2026-03-02)
+
+All items from the docs/issues.md batch have been implemented and vision.md/roadmap.md have been updated to reflect the changes. Below are remaining improvement suggestions.
+
+### vision.md
+
+#### 31. ✅ Updated CardEffectKind description for GainTokens/LoseTokens — Applied
+Updated the CardEffectKind description to show three variants: GainTokens (cap-based), LoseTokens (positive min/max), DrawCards.
+
+#### 32. ✅ Updated module layout for disciplines/ — Applied
+Added `disciplines/` subfolder to the architecture section.
+
+#### 33. ✅ Updated gathering card effects to use costs/gains vecs — Applied
+Woodcutting, Herbalism, and Fishing sections now reference `costs`/`gains` vectors instead of dedicated `durability_cost`/`stamina_cost` fields.
+
+#### 34. ✅ Updated HerbalismMatchMode description — Applied
+Herbalism section now documents Or/And/MostCommon/LeastCommon match modes wrapping data.
+
+#### 35. ✅ Updated unpayable card behavior — Applied
+Added unpayable card rejection (error on play) and all-disciplines autoloss to vision.md.
+
+#### 36. ✅ Stamina section updated — Applied
+Removed future-tense "9.2, 9.3 will implement" phrasing since those steps are now complete.
+
+#### 37. Add max handsize tokens to vision.md canonical token list
+Vision should document the 10 max handsize tokens (7 player + 3 enemy) in the token reference section, noting they are initialized to 5. These are PersistentCounter tokens that control draw limits per deck type. Currently only documented in the roadmap implementation results.
+
+#### 38. Document GatheringCost as a shared type
+Vision should mention `GatheringCost { cost_type: TokenType, amount: i64 }` as a shared struct used across all gathering disciplines for both `costs` and `gains` vectors. This is a key unifying type that makes all gathering card effects consistent.
+
+#### 39. Document pre-play vs post-play cost classification
+Vision should explain that `TokenType::is_durability_cost()` and `split_gathering_costs()` classify gathering card costs into pre-play (Stamina, etc. — card rejected if unaffordable) and post-play (durability tokens — deducted after effects, encounter loss if depleted). This two-category cost model is fundamental to how all gathering disciplines work.
+
+#### 40. Add Stamina token to canonical token list
+The Stamina token (initialized to 1000, shared cost currency) is still missing from the canonical token list section despite being referenced extensively. Should be added with its generators (rest encounters, stamina gain effects) and consumers (cost cards across all disciplines).
+
+#### 41. Document GainTokens validation invariant
+Vision should note: "GainTokens effects cannot have a cost_type matching their gain token_type" as a design invariant. This prevents circular grant/cost loops.
+
+### roadmap.md
+
+#### 42. Consider documenting card count progression
+The roadmap mentions "54 total library cards" after 9.3, but future steps will add more. Consider maintaining a running card count table or removing absolute counts from implementation results to avoid staleness.
+
+#### 43. Update initialize_library splitting consideration
+The `initialize_library` function may have been simplified by the disciplines/ split. If per-discipline card registration was extracted, document it. If not, note it as a future cleanup candidate.
+
+#### 44. Fishing roadmap description still mentions old fields
+The 8.4 description section still referenced `durability_cost` in the description (now updated). Consider reviewing other older step descriptions for similar stale field references — the implementation checklist items may still reference old APIs even though the "COMPLETE" status means they're historical records.
+
+### General improvements
+
+#### 45. Mark old suggestions as applied
+Suggestions #8, #9, #10, #11, #12, #16, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30 have all been addressed in the codebase and/or documentation. They should be marked ✅ for clarity.
+
+#### 46. vision.md is very large (83KB+)
+Consider splitting vision.md into focused sub-documents (e.g., `vision-tokens.md`, `vision-encounters.md`, `vision-architecture.md`) with a top-level index. The single-file format makes it hard to find and update specific sections. Alternatively, add a table of contents at the top.

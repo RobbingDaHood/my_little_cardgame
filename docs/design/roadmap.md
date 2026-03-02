@@ -215,7 +215,7 @@ Roadmap steps
    - Goal: Third gathering discipline with a UNIQUE mechanic (card-characteristic matching) that differentiates it from Mining/Woodcutting's damage-vs-durability template.
    - Description: The plant (enemy) starts with X cards on hand and does NOT draw more cards. Each enemy card has 1-3 characteristics from a small enum (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous). Player plays Herbalism cards that target characteristics; playing a card removes all enemy cards that share at least one characteristic with the player's card. Player draws 1 Herbalism card per play.
    - Win condition: exactly 1 enemy card remains → that card is the reward, plus Plant tokens are granted.
-   - Loss conditions: 0 enemy cards remain (over-harvested — player was too aggressive with broad-matching cards), OR HerbalismDurability ≤ 0 (durability depleted — each player card has a durability_cost applied immediately on play).
+   - Loss conditions: 0 enemy cards remain (over-harvested — player was too aggressive with broad-matching cards), OR HerbalismDurability ≤ 0 (durability depleted — durability cost applied via costs vec on play).
    - Tokens: HerbalismDurability (persistent, init 100 at game start), Plant (reward material token).
    - Key design notes:
      - The strategic tension is between playing narrow cards (remove fewer enemy cards, safer) vs broad cards (remove more, risk over-harvesting).
@@ -223,7 +223,7 @@ Roadmap steps
      - This is fundamentally different from Mining/Woodcutting (no HP-vs-durability loop) and creates the "knowledge and precision" feel from the vision.
    - Implementation checklist:
      1. Add PlantCharacteristic enum (Fragile, Thorny, Aromatic, Bitter, Luminous)
-     2. Add CardKind::Herbalism { herbalism_effect: HerbalismCardEffect } with target_characteristics: Vec<PlantCharacteristic>, durability_cost: i64
+     2. Add CardKind::Herbalism { herbalism_effect: HerbalismCardEffect } with match_mode: HerbalismMatchMode, costs: Vec<GatheringCost>, gains: Vec<GatheringCost>
      3. Add HerbalismEncounterState with plant_hand (cards with characteristics), plant_deck (DeckCounts or direct Vec)
      4. Add EncounterState::Herbalism(HerbalismEncounterState)
      5. Add TokenType::HerbalismDurability, Plant
@@ -245,7 +245,7 @@ Roadmap steps
        - A `chop_type`: one of 5 types (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop).
        - A `chop_value`: a number between 1-10.
        - Cards can have multiple types and multiple values, but initial cards have 1 of each.
-       - A `durability_cost`: a fixed small cost (like herbalism, around 1). Durability depletion is a loss condition.
+       - Costs (durability, stamina, etc.) and gains expressed via `costs`/`gains` vecs. Durability depletion is a loss condition.
      - Turn flow: Player starts with hand size 5 and plays up to 8 cards total. Each time a card is played, 1 new Woodcutting card is drawn. All played cards are tracked.
      - After all cards are played (or the player chooses to stop early): evaluate the played cards for the best matching pattern and reward Lumber tokens accordingly.
      - Early stop: The player can choose to stop the woodcutting encounter after every card play. This is NOT an abort — the pattern of all cards played so far is still evaluated and rewards granted accordingly. Durability cost is only paid for the cards actually played. Pattern multipliers for better (rarer) patterns need to be significantly larger to justify playing more cards and risking more durability.
@@ -265,7 +265,7 @@ Roadmap steps
      - The 8-card format (vs poker's 5) allows for richer pattern combinations.
    - Implementation checklist:
      1. Add ChopType enum (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop)
-     2. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_types: Vec<ChopType>, chop_values: Vec<u32>, durability_cost: i64
+     2. Add CardKind::Woodcutting { woodcutting_effect: WoodcuttingCardEffect } with chop_types: Vec<ChopType>, chop_values: Vec<u32>, costs: Vec<GatheringCost>, gains: Vec<GatheringCost>
      3. Add WoodcuttingEncounterState with played_cards: Vec tracking the 8 played cards, max_plays: 8
      4. Add EncounterState::Woodcutting(WoodcuttingEncounterState)
      5. Add TokenType::WoodcuttingDurability, Lumber
@@ -279,7 +279,7 @@ Roadmap steps
    - Playable acceptance: Woodcutting encounter playable end-to-end with pattern evaluation, produces Lumber tokens, scenario test passes.
    - BREAKING changes: none (additive only).
    - New card IDs: 20 (LightChop), 21 (HeavyChop), 22 (MediumChop), 23 (PrecisionChop), 24 (Oak Tree encounter).
-   - New types: ChopType enum (5 variants), WoodcuttingCardEffect (chop_types, chop_values, durability_cost), PlayedWoodcuttingCard, WoodcuttingDef, WoodcuttingEncounterState.
+   - New types: ChopType enum (5 variants), WoodcuttingCardEffect (chop_types, chop_values, costs, gains), PlayedWoodcuttingCard, WoodcuttingDef, WoodcuttingEncounterState.
    - New tokens: WoodcuttingDurability (persistent, init 100), Lumber (reward material).
    - NO enemy/tree deck — pattern matching mechanic is unique from Mining.
    - Poker-inspired pattern evaluation (13+ patterns, multipliers 1.0x–5.0x).
@@ -288,7 +288,7 @@ Roadmap steps
 
 8.4) Fishing (gathering) — COMPLETE
    - Goal: Fourth gathering discipline with a numeric card-subtraction mechanic that differentiates it from other gathering types.
-   - Description: Each fishing encounter defines a `valid_range` (min, max), `max_turns`, and `win_turns_needed`. Each round the player plays a numeric card first, then the enemy (fish) plays a numeric card. The two values are subtracted: `result = (player_value - fish_value).max(0)`. If the result falls within the `valid_range` (inclusive), the turn counts as "won". Player draws 1 Fishing card per play. Every card played has a small `durability_cost` applied to FishingDurability.
+   - Description: Each fishing encounter defines a `valid_range` (min, max), `max_turns`, and `win_turns_needed`. Each round the player plays a numeric card first, then the enemy (fish) plays a numeric card. The two values are subtracted: `result = (player_value - fish_value).max(0)`. If the result falls within the `valid_range` (inclusive), the turn counts as "won". Player draws 1 Fishing card per play. Costs (durability, stamina, etc.) are in the `costs: Vec<GatheringCost>` vector.
    - Win: player wins `win_turns_needed` rounds before `max_turns` are exhausted → grant Fish tokens.
    - Loss: `max_turns` exhausted without enough wins → PlayerLost. OR FishingDurability ≤ 0 → PlayerLost.
    - Tokens: FishingDurability (persistent, init 100 at game start), Fish (reward material token).
@@ -298,7 +298,7 @@ Roadmap steps
      - The max_turns limit creates urgency — the player has limited rounds to accumulate enough wins.
      - The fish deck (enemy) has cards with varying numeric values, creating uncertainty about what value the player needs to beat.
    - Implementation checklist:
-     1. Add CardKind::Fishing { fishing_effect: FishingCardEffect } with value, durability_cost
+     1. Add CardKind::Fishing { fishing_effect: FishingCardEffect } with values, costs: Vec<GatheringCost>, gains: Vec<GatheringCost>
      2. Add FishCard { value, counts: DeckCounts } for enemy fish cards
      3. Add FishingDef { valid_range, max_turns, win_turns_needed, fish_deck, rewards }
      4. Add FishingEncounterState with turns_won, max_turns, win_turns_needed, valid_range, fish_deck, rewards
@@ -313,7 +313,7 @@ Roadmap steps
      13. Add scenario test
    - BREAKING changes: none (additive only).
    - New card IDs: 25 (Low Fishing, value 2), 26 (Medium Fishing, value 4), 27 (High Fishing, value 7), 28 (River Spot encounter).
-   - New types: FishingCardEffect (value, durability_cost), FishCard (value, counts), FishingDef (valid_range_min/max, max_turns, win_turns_needed, fish_deck, rewards), FishingEncounterState.
+   - New types: FishingCardEffect (values, costs, gains), FishCard (value, counts), FishingDef (valid_range_min/max, max_turns, win_turns_needed, fish_deck, rewards), FishingEncounterState.
    - New tokens: FishingDurability (persistent, init 100), Fish (reward material).
    - Enemy fish deck with 4 card variants (values 1, 3, 5, 7) — shuffled at encounter start.
    - Two loss conditions: max_turns exhausted without enough wins, OR FishingDurability ≤ 0.
@@ -427,20 +427,32 @@ Roadmap steps
 
    - Playable acceptance: All disciplines have expanded CardEffects with caps, costs, and handsize tokens. Multi-effect evaluation works correctly (first-to-last, partial success). Enemy AI respects cost affordability. Scenario tests cover new mechanics.
    - Implementation results:
-     - Duration field on ChangeTokens with TokenLifecycle, backward-compatible via serde defaults
-     - Cap (cap_min/cap_max) and gain_percent (gain_min_percent/gain_max_percent) on ChangeTokens; rolled to concrete values, applied as clamp during token grants
-     - 10 max handsize tokens (AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand) initialized to 10; enforced during draws without disrupting RNG sequence
+     - Duration field on ChangeTokens (now split into GainTokens/LoseTokens) with TokenLifecycle, backward-compatible via serde defaults
+     - Cap (cap_min/cap_max) and gain_percent (gain_min_percent/gain_max_percent) on GainTokens; rolled to concrete values, applied as clamp during token grants. LoseTokens uses positive min/max for amount to lose.
+     - 10 max handsize tokens (AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand) initialized to 10; enforced during draws without disrupting RNG sequence (later changed to 5 in post-9.3)
      - Multi-effect evaluation: effects evaluated sequentially per card, each pays its own cost, partial success allowed
-     - Generalized cost structure: GatheringCost { cost_type, amount } vec on all gathering card types; merge_gathering_costs combines explicit costs with legacy inline fields
-     - Autoloss: if all combat hand cards are unpayable (all effects have unaffordable costs), combat ends as PlayerLost
+     - Generalized cost structure: GatheringCost { cost_type, amount } vec on all gathering card types; merge_gathering_costs combines explicit costs with legacy inline fields (later simplified: dedicated fields removed, all costs in costs vec)
+     - Autoloss: if all combat hand cards are unpayable (all effects have unaffordable costs), combat ends as PlayerLost (later extended to all disciplines in post-9.3)
      - MilestoneInsight token: 100 granted on combat PlayerWon
-     - Fishing expansion: FishingCardEffect redesigned with values:Vec<i64>, modify_range_min/max, modify_fish_amount, stamina_grant; FishingRangeMin/FishingRangeMax/FishAmount tokens; 7 new cards (range widen x2, cost-narrow, fish amount+, multi-value fish decrease, rest, stamina cost)
-     - Herbalism expansion: HerbalismMatchMode enum (Or, And, MostCommon, LeastCommon); stamina_grant; 4 new cards
-     - Woodcutting expansion: stamina_grant; 5 new cards (SplitChop, dual-type, 3-type cost, 4-type cost, rest)
-     - Mining expansion: stamina_grant; 3 new cards (high damage+protection cost, very high damage cost, rest)
+     - Fishing expansion: FishingCardEffect redesigned with values:Vec<i64>, gains/costs vecs; FishingRangeMin/FishingRangeMax/FishAmount tokens; 7 new cards (range widen x2, cost-narrow, fish amount+, multi-value fish decrease, rest, stamina cost)
+     - Herbalism expansion: HerbalismMatchMode enum (Or{types}, And{types}, MostCommon{limit,types}, LeastCommon{limit,types}); gains/costs vecs; 4 new cards
+     - Woodcutting expansion: gains/costs vecs; 5 new cards (SplitChop, dual-type, 3-type cost, 4-type cost, rest)
+     - Mining expansion: gains/costs vecs; 3 new cards (high damage+protection cost, very high damage cost, rest)
      - 54 total library cards (was 35)
      - 7 new scenario tests covering MilestoneInsight, expansion card counts, max handsize initialization, fishing range tokens
      - Known: enemy cost handling not fully expanded (enemies don't check cost affordability for random picks); deferred to future enemy AI step
+
+### Post-9.3 implementation (2026-03-02)
+- BREAKING: `ChangeTokens` CardEffectKind split into `GainTokens` and `LoseTokens`. GainTokens has required cap_min/cap_max/gain_min_percent/gain_max_percent fields; LoseTokens has positive min/max (amount to lose). GainTokens cannot have a cost_type matching the gain token_type.
+- BREAKING: `stamina_grant` field removed from all four discipline card effects (MiningCardEffect, HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect). Replaced with `gains: Vec<GatheringCost>` for granting any token type on card play.
+- BREAKING: `modify_range_min`, `modify_range_max`, `modify_fish_amount` fields removed from FishingCardEffect. Now expressed as entries in the `gains: Vec<GatheringCost>` vector using FishingRangeMin, FishingRangeMax, FishAmount token types.
+- BREAKING: `durability_cost` removed from HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect. `stamina_cost` removed from MiningCardEffect, WoodcuttingCardEffect. All costs now use `costs: Vec<GatheringCost>` exclusively. `merge_gathering_costs()` removed. `TokenType::is_durability_cost()` and `split_gathering_costs()` added to classify costs as pre-play (reject if unaffordable) or post-play (durability depletion).
+- BREAKING: `target_characteristics` removed from HerbalismCardEffect. Replaced with `HerbalismMatchMode` enum that wraps data: `Or { types }`, `And { types }`, `MostCommon { limit, types }`, `LeastCommon { limit, types }`.
+- BREAKING: All 7 `*MaxHand` tokens (AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand) initialized to 5 instead of 10.
+- Unpayable card → error: if no effect on a card can have its pre-play costs paid, the play is rejected with an error. Player must choose another card.
+- Autoloss extended to all disciplines: all encounter types (Combat, Mining, Herbalism, Woodcutting, Fishing) now check if all hand cards are unpayable and auto-lose if so. Previously only combat checked this.
+- `game_state.rs` discipline logic split into `src/library/disciplines/` with per-discipline modules: `combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`. General methods (cost payment, token operations) remain in `game_state.rs`.
+- docs/issues.md batch (10 issues resolved).
 
 9.4) Rest encounter
    - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic.
@@ -469,7 +481,7 @@ Roadmap steps
    - Implementation insights from 9.1/9.2:
      - The ConcreteEffect model is already in place — rest cards should use the same pattern with rolled values from min-max ranges.
      - Stamina token is already functional and tested as a cost currency (player starts with 1000 Stamina).
-     - The cost pre-validation pattern (preview_costs/preview_stamina_cost) is established and should be reused for rest card costs.
+     - The cost pre-validation pattern (preview_costs/preview_gathering_costs with split_gathering_costs) is established and should be reused for rest card costs.
 
 9) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
