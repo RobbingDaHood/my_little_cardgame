@@ -1,7 +1,267 @@
 use crate::library::types::{
-    self, CardKind, EncounterKind, EncounterOutcome, EncounterState, HerbalismEncounterState,
+    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    HerbalismEncounterState,
 };
-use crate::library::GameState;
+use crate::library::{GameState, Library};
+use std::collections::HashMap;
+
+pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+    // Narrow herbalism card: targets 1 characteristic, low durability cost
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::HerbalismDurability,
+                    amount: 100,
+                }],
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![types::PlantCharacteristic::Fragile],
+                },
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Medium herbalism card: targets 2 characteristics
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::HerbalismDurability,
+                    amount: 100,
+                }],
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Thorny,
+                        types::PlantCharacteristic::Aromatic,
+                    ],
+                },
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Broad herbalism card: targets 3 characteristics
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::HerbalismDurability,
+                    amount: 100,
+                }],
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Bitter,
+                        types::PlantCharacteristic::Luminous,
+                        types::PlantCharacteristic::Fragile,
+                    ],
+                },
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Herbalism encounter: Meadow Herb
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: types::EncounterKind::Herbalism {
+                herbalism_def: types::HerbalismDef {
+                    plant_hand: vec![
+                        types::PlantCard {
+                            characteristics: vec![types::PlantCharacteristic::Fragile],
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        types::PlantCard {
+                            characteristics: vec![
+                                types::PlantCharacteristic::Thorny,
+                                types::PlantCharacteristic::Aromatic,
+                            ],
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        types::PlantCard {
+                            characteristics: vec![
+                                types::PlantCharacteristic::Bitter,
+                                types::PlantCharacteristic::Luminous,
+                            ],
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        types::PlantCard {
+                            characteristics: vec![
+                                types::PlantCharacteristic::Fragile,
+                                types::PlantCharacteristic::Thorny,
+                            ],
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                        types::PlantCard {
+                            characteristics: vec![types::PlantCharacteristic::Luminous],
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 1,
+                                discard: 0,
+                            },
+                        },
+                    ],
+                    rewards: HashMap::from([(
+                        types::Token::persistent(types::TokenType::Plant),
+                        500,
+                    )]),
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
+    // MostCommon card — removes the most common characteristic (limit 1)
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::HerbalismDurability,
+                        amount: 100,
+                    },
+                ],
+                match_mode: types::HerbalismMatchMode::MostCommon {
+                    limit: 1,
+                    types: vec![],
+                },
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // LeastCommon card — removes the least common characteristic (limit 1)
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::HerbalismDurability,
+                        amount: 100,
+                    },
+                ],
+                match_mode: types::HerbalismMatchMode::LeastCommon {
+                    limit: 1,
+                    types: vec![],
+                },
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // AND-based multi-type card — removes only plants matching ALL listed types
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 100,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::HerbalismDurability,
+                        amount: 100,
+                    },
+                ],
+                match_mode: types::HerbalismMatchMode::And {
+                    types: vec![
+                        types::PlantCharacteristic::Fragile,
+                        types::PlantCharacteristic::Thorny,
+                    ],
+                },
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Stamina rest card for herbalism
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::HerbalismDurability,
+                    amount: 50,
+                }],
+                match_mode: types::HerbalismMatchMode::Or { types: vec![] },
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::Stamina,
+                    amount: 200,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+}
 
 impl GameState {
     /// Initialize an herbalism gathering encounter from a Library Encounter card.

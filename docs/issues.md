@@ -1,29 +1,38 @@
 When the below point states "Roadmap" it means edit the roadmap.md directly.
 
-1. Split the ChangeTokens CardEffectKind into two: One that is a GainTokens and another that is LooseTokens 
-    1. The GainTokens keep the cap fields. 
-        1. They also start with the cap and then calcualate a gain. 
-        1. They can still have a cost as a percentage of the gain. 
-        1. They can never gain somet type of token that is also a cost: on the same CardEffect
-    1. The LooseTokens do not need the cap fields. 
-        1. They calculate the value and then afterward the cost. 
-    1. This way the enums are not bloated with fields that are usually empty or zero. 
-1. ~~The stamina_grant fields should be part of a "gains" list of vector (token, amount)s.~~ (Done — replaced with `gains: Vec<GatheringCost>`) 
-1. All the new "modify_"-fields should also be new tokens or manipulate with a token. 
-    1. The rewards on an encunter is a vec of (token, amount): So increase of rewards on a CardEffect is just a "gain" with the correct token. 
-1. Durability lost on all the card effects should be part of the "cossts" as one of the tokens that will be paid. 
-1. If in doubt the make it a token: Then it is either on the player, the encounter or on a card effects as either "costs" or "gains"; There should not be much else in form of fields. 
-1. The "target_characteristics" in herbalism should be of the HerbalismMatchMode type and then each type wraps the relevant array or values. 
-    1. So the OR and AND wraps a vector. 
-    1. MostCommon and LeastCommon wraps a limit and a vector of types. 
-1. The initial max handsizes are 5 not 10. 
-1. If no card effect costs on a card can be paid then the card play errors and the player can choose another card. 
-1. THe "all_combat_hand_cards_unpayable" logic is not only relevant for combat decks, they are relevant for every single player deck that can be used in encounters. 
-    1. If they player cannot play any cards because they cannot pay at least one effect on the card, then the player looses the encounter. 
-1. Split the "game_state.rs" file logic into a file pr. diciplin: group all code that relates to one diciplin in that file. 
-    1. consider if it makes sense to have a subfolder for diciplins. 
-    1. consider refactoring the code to better support this divide of the code. 
-    1. General methods like paying costs etc. can stay in game_state or maybe be exportet to some helper file. 
+1. The initial decks should also be populated from the relevant diciplin files. 
+    1. Example: all cards that relates to mining should be initialize in the mining file. 
+    1. All CardEffects used in multiple diciplins can stay in the GameState file. 
+1. Consider if all the "all_X_hand_cards_unpayable" methods cannot be generalized? 
+1. Consider if the "X_play_random" methods cannot be generalized: Seems like it is always about picking a random card from a hand for cards with a spcieific type. 
+    1. Same with drawing cards. 
+    1. And shuffle hands
+    1. And fetching discard into the deck
+    1. And draw random 
+1. Add a step as the last 9.x step: Better mining. 
+    1. Mining is about: 
+        1. Maintaining a light level 
+        1. While doing the mining 
+        1. And saving energy for carrying all the yield
+    1. So the player can conclude the game at any point, and then he gets the lowest of stamina and yield: That will cost that amount of stamina to conclude. 
+    1. In addition there are player CardEffects that increases the "light level": 
+        1. This is a set of tokens starting at 300 at the start of the encounter. 
+        1. Every card the enemy plays can have the durability loss as of today and also reduces the light level with a moderate amount. 
+            1. So they both have CardEffects that only does one or the other, but most will do both. 
+            1. The ones that only do one does more of it then.
+        1. The Player have seperate card effects that increases the light level with a high amount: but not a CardEffect that has both. 
+            1. Later in the game when the player starts crafting cards with multiple card effects then one card could have both. 
+    1. Instead of the enemy only having X health, then they have no health and the player cannot win by reducing the non existent health. 
+        1. The player can only win by ending the game. 
+        1. The player can loose by running out of durability or not being able to play any cards. 
+    1. When the player plays a "damage" card (renamed to just mining and the token on the card effect is now called "mining power") then a "yield" token is accumulated: 
+        1. It is the "mining power" * "light level" / 100 
+    1. Because there are no enemy then the enemy cannot have any CardEffects that cost stamina. 
+    1. The enemy does have some rare cards that removes a bit of the players health.
+        1. That card effect is rare and does not take a lot of life. 
+1. The woodcutting multiplier on matching patterns need to have a higher difference. 
+    1. The difference should be proportional with the statistical probability of getting that pattern. 
+    1. Do not make it dynamic based on the number of turns, cards etc. Just assume 8 cards player out of 13 cards total, what is the probability of a pattern. 
 
 # When done with all of this then update vision and roadmap files
 

@@ -1,7 +1,207 @@
 use crate::library::types::{
-    self, CardKind, EncounterKind, EncounterOutcome, EncounterState, MiningEncounterState,
+    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    MiningEncounterState,
 };
-use crate::library::GameState;
+use crate::library::{GameState, Library};
+use std::collections::HashMap;
+
+pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+    // Aggressive mining card: high ore damage, no protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                ore_damage: 500,
+                durability_prevent: 0,
+                costs: vec![],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Balanced mining card: moderate ore damage and protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                ore_damage: 300,
+                durability_prevent: 200,
+                costs: vec![],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Protective mining card: low ore damage, high protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                ore_damage: 100,
+                durability_prevent: 300,
+                costs: vec![],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Mining encounter: Iron Ore
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: types::EncounterKind::Mining {
+                mining_def: types::MiningDef {
+                    initial_tokens: HashMap::from([(
+                        types::Token::persistent(types::TokenType::OreHealth),
+                        1500,
+                    )]),
+                    ore_deck: vec![
+                        types::OreCard {
+                            durability_damage: 0,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 6,
+                                discard: 0,
+                            },
+                        },
+                        types::OreCard {
+                            durability_damage: 100,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 8,
+                                discard: 0,
+                            },
+                        },
+                        types::OreCard {
+                            durability_damage: 200,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 4,
+                                discard: 0,
+                            },
+                        },
+                        types::OreCard {
+                            durability_damage: 300,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 2,
+                                discard: 0,
+                            },
+                        },
+                    ],
+                    rewards: HashMap::from([(
+                        types::Token::persistent(types::TokenType::Ore),
+                        1000,
+                    )]),
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
+    // Cost Mining card: high ore damage, costs stamina
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                ore_damage: 800,
+                durability_prevent: 0,
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::Stamina,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // High damage + high protection, stamina cost card
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                ore_damage: 600,
+                durability_prevent: 300,
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::Stamina,
+                    amount: 200,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Very high damage, no protection, higher stamina cost
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                ore_damage: 1000,
+                durability_prevent: 0,
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::Stamina,
+                    amount: 300,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 2,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Mining rest card: grants stamina, no damage/protection
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                ore_damage: 0,
+                durability_prevent: 0,
+                costs: vec![],
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::Stamina,
+                    amount: 200,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+}
 
 impl GameState {
     /// Initialize a mining gathering encounter from a Library Encounter card.

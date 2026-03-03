@@ -1,5 +1,310 @@
-use crate::library::types::{self, CardKind, EncounterKind, EncounterOutcome, EncounterState};
-use crate::library::GameState;
+use crate::library::types::{
+    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+};
+use crate::library::{GameState, Library};
+use std::collections::HashMap;
+
+pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+    // Low value fishing card
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![200],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Medium value fishing card
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![400],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // High value fishing card
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![700],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 10,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Fishing encounter: River Spot
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: types::EncounterKind::Fishing {
+                fishing_def: types::FishingDef {
+                    valid_range_min: 100,
+                    valid_range_max: 300,
+                    max_turns: 8,
+                    win_turns_needed: 4,
+                    fish_deck: vec![
+                        types::FishCard {
+                            value: 100,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 6,
+                                discard: 0,
+                            },
+                        },
+                        types::FishCard {
+                            value: 300,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 6,
+                                discard: 0,
+                            },
+                        },
+                        types::FishCard {
+                            value: 500,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 4,
+                                discard: 0,
+                            },
+                        },
+                        types::FishCard {
+                            value: 700,
+                            counts: types::DeckCounts {
+                                deck: 0,
+                                hand: 2,
+                                discard: 0,
+                            },
+                        },
+                    ],
+                    rewards: HashMap::from([(
+                        types::Token::persistent(types::TokenType::Fish),
+                        1000,
+                    )]),
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
+    // Widen range — reduces min value token
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingRangeMin,
+                    amount: -150,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Widen range — increases max value token
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingRangeMax,
+                    amount: 150,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Cost card — narrows range but has multiple values (3 values)
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![100, 350, 600],
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::FishingDurability,
+                        amount: 100,
+                    },
+                ],
+                gains: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::FishingRangeMin,
+                        amount: 50,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::FishingRangeMax,
+                        amount: -50,
+                    },
+                ],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Increase fish amount
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingDurability,
+                    amount: 100,
+                }],
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishAmount,
+                    amount: 1,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Multi-value but decreases fish amount
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![150, 400, 650],
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 100,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::FishingDurability,
+                        amount: 100,
+                    },
+                ],
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishAmount,
+                    amount: -1,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Rest card — grants stamina, no values
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::FishingDurability,
+                    amount: 50,
+                }],
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::Stamina,
+                    amount: 200,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Stamina cost card with multiple values
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![50, 250, 500, 750],
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 200,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::FishingDurability,
+                        amount: 100,
+                    },
+                ],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+}
 
 impl GameState {
     /// Initialize a fishing gathering encounter from a Library Encounter card.

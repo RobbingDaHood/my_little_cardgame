@@ -1,9 +1,180 @@
 use crate::library::types::{
-    self, CardKind, CombatEncounterState, ConcreteEffect, EncounterKind, EncounterOutcome,
-    EncounterState,
+    self, CardCounts, CardKind, CombatEncounterState, ConcreteEffect, EncounterKind,
+    EncounterOutcome, EncounterState,
 };
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
+
+use crate::library::game_state::roll_concrete_effect;
+
+pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // Attack card: deals damage to opponent
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![roll_concrete_effect(rng, 0, lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Defence card: grants shield to self
+    lib.add_card(
+        CardKind::Defence {
+            effects: vec![roll_concrete_effect(rng, 1, lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Resource card: grants stamina to self, draws cards
+    lib.add_card(
+        CardKind::Resource {
+            effects: vec![
+                roll_concrete_effect(rng, 2, lib),
+                roll_concrete_effect(rng, 3, lib),
+            ],
+        },
+        CardCounts {
+            library: 0,
+            deck: 35,
+            hand: 5,
+            discard: 0,
+        },
+    );
+
+    // Combat encounter: Gnome — enemy health 2000
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: types::EncounterKind::Combat {
+                combatant_def: types::CombatantDef {
+                    initial_tokens: HashMap::from([
+                        (types::Token::persistent(types::TokenType::Health), 2000),
+                        (types::Token::persistent(types::TokenType::MaxHealth), 2000),
+                    ]),
+                    attack_deck: vec![types::EnemyCardDef {
+                        effects: vec![roll_concrete_effect(rng, 4, lib)],
+                        counts: types::DeckCounts {
+                            deck: 0,
+                            hand: 10,
+                            discard: 0,
+                        },
+                    }],
+                    defence_deck: vec![types::EnemyCardDef {
+                        effects: vec![roll_concrete_effect(rng, 5, lib)],
+                        counts: types::DeckCounts {
+                            deck: 0,
+                            hand: 10,
+                            discard: 0,
+                        },
+                    }],
+                    resource_deck: vec![types::EnemyCardDef {
+                        effects: vec![
+                            roll_concrete_effect(rng, 6, lib),
+                            roll_concrete_effect(rng, 7, lib),
+                        ],
+                        counts: types::DeckCounts {
+                            deck: 0,
+                            hand: 10,
+                            discard: 0,
+                        },
+                    }],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
+    // Cost damage PlayerCardEffect (range: 700-900, cost: 30-50% Stamina)
+    let cost_damage_idx = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Health,
+                min: 700,
+                max: 900,
+                costs: vec![types::CardEffectCost {
+                    cost_type: types::TokenType::Stamina,
+                    min_percent: 30,
+                    max_percent: 50,
+                }],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost shield PlayerCardEffect (range: 350-550, cost: 30-50% Stamina)
+    let cost_shield_idx = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Shield,
+                cap_min: 350,
+                cap_max: 550,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![types::CardEffectCost {
+                    cost_type: types::TokenType::Stamina,
+                    min_percent: 30,
+                    max_percent: 50,
+                }],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost Attack card: more powerful but costs Stamina
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![roll_concrete_effect(rng, cost_damage_idx, lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // Cost Defence card: more powerful but costs Stamina
+    lib.add_card(
+        CardKind::Defence {
+            effects: vec![roll_concrete_effect(rng, cost_shield_idx, lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 2,
+            discard: 0,
+        },
+    );
+}
 
 /// Apply card effects to combat using concrete rolled values.
 /// Only processes GainTokens and LoseTokens effects; DrawCards effects are handled separately.

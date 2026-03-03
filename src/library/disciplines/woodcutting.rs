@@ -1,5 +1,271 @@
-use crate::library::types::{self, CardKind, EncounterKind, EncounterOutcome, EncounterState};
-use crate::library::GameState;
+use crate::library::types::{
+    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+};
+use crate::library::{GameState, Library};
+use std::collections::HashMap;
+
+pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+    // LightChop card: value 2
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::LightChop],
+                chop_values: vec![2],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 2,
+            discard: 0,
+        },
+    );
+
+    // HeavyChop card: value 5
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::HeavyChop],
+                chop_values: vec![5],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // MediumChop card: value 3
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::MediumChop],
+                chop_values: vec![3],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // PrecisionChop card: value 7
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::PrecisionChop],
+                chop_values: vec![7],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 15,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // Woodcutting encounter: Oak Tree
+    lib.add_card(
+        CardKind::Encounter {
+            encounter_kind: types::EncounterKind::Woodcutting {
+                woodcutting_def: types::WoodcuttingDef {
+                    max_plays: 8,
+                    base_rewards: HashMap::from([(
+                        types::Token::persistent(types::TokenType::Lumber),
+                        1000,
+                    )]),
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 3,
+            discard: 0,
+        },
+    );
+
+    // Cost Woodcutting card: HeavyChop+LightChop combo, costs stamina
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::HeavyChop, types::ChopType::LightChop],
+                chop_values: vec![5, 3],
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 100,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::WoodcuttingDurability,
+                        amount: 100,
+                    },
+                ],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // SplitChop value 4
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::SplitChop],
+                chop_values: vec![4],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 10,
+            hand: 1,
+            discard: 0,
+        },
+    );
+
+    // LightChop+MediumChop, values 1,6
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::LightChop, types::ChopType::MediumChop],
+                chop_values: vec![1, 6],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::WoodcuttingDurability,
+                    amount: 100,
+                }],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 5,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost card: 3 types, 3 values, moderate stamina cost
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    types::ChopType::HeavyChop,
+                    types::ChopType::MediumChop,
+                    types::ChopType::PrecisionChop,
+                ],
+                chop_values: vec![3, 5, 7],
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 150,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::WoodcuttingDurability,
+                        amount: 100,
+                    },
+                ],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Cost card: 4 types, 4 values, higher stamina cost
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    types::ChopType::LightChop,
+                    types::ChopType::HeavyChop,
+                    types::ChopType::MediumChop,
+                    types::ChopType::SplitChop,
+                ],
+                chop_values: vec![2, 4, 6, 8],
+                costs: vec![
+                    types::GatheringCost {
+                        cost_type: types::TokenType::Stamina,
+                        amount: 250,
+                    },
+                    types::GatheringCost {
+                        cost_type: types::TokenType::WoodcuttingDurability,
+                        amount: 100,
+                    },
+                ],
+                gains: vec![],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 2,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // Woodcutting rest card: grants stamina, no chops
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![],
+                chop_values: vec![],
+                costs: vec![types::GatheringCost {
+                    cost_type: types::TokenType::WoodcuttingDurability,
+                    amount: 50,
+                }],
+                gains: vec![types::GatheringCost {
+                    cost_type: types::TokenType::Stamina,
+                    amount: 200,
+                }],
+            },
+        },
+        CardCounts {
+            library: 0,
+            deck: 3,
+            hand: 0,
+            discard: 0,
+        },
+    );
+}
 
 /// Evaluate played woodcutting cards and return (pattern_name, reward_multiplier).
 /// Poker-inspired patterns adapted for 8 cards using ChopType counts.

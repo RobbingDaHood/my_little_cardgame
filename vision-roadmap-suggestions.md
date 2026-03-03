@@ -1,6 +1,22 @@
 # Suggestions for vision.md and roadmap.md
 
-Based on implementing Steps 9.1 (CardEffects range system), 9.2 (CardEffects cost system), Shield absorption, 1000 starting Stamina, and docs/issues.md roadmap edits.
+Based on implementing Steps 9.1 (CardEffects range system), 9.2 (CardEffects cost system), Shield absorption, 1000 starting Stamina, docs/issues.md roadmap edits, and card initialization refactoring into discipline modules.
+
+---
+
+## Suggestions from Card Initialization Refactoring (new)
+
+### 1. roadmap.md: Add completed refactoring step
+Add an entry documenting that card initialization has been refactored from a single monolithic `initialize_library()` function into per-discipline registration functions (`register_combat_cards`, `register_mining_cards`, etc.) in their respective module files under `src/library/disciplines/`. This improves maintainability and makes it easier to add new disciplines or cards.
+
+### 2. vision.md: Document discipline module responsibility
+Consider adding a note to the architecture section that each discipline module (`combat.rs`, `mining.rs`, etc.) is responsible for both its encounter logic AND its card registration. This "everything about a discipline lives in its module" pattern makes it clear where new cards and encounter types should be added.
+
+### 3. roadmap.md: Note BREAKING card ID change
+Document that card IDs are now dynamic (determined by registration order) rather than hard-coded. Tests that reference specific card IDs will need updating. Consider adding a card lookup-by-name or card-type query endpoint to make tests more resilient to ID changes.
+
+### 4. vision.md: Shared vs discipline-specific effects
+Document the architectural decision that shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines, while discipline-specific effects are registered within their discipline module.
 
 ---
 
