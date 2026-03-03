@@ -307,9 +307,9 @@ impl GameState {
         let mut enemy_attack_deck = combatant_def.attack_deck.clone();
         let mut enemy_defence_deck = combatant_def.defence_deck.clone();
         let mut enemy_resource_deck = combatant_def.resource_deck.clone();
-        Self::enemy_shuffle_hand(rng, &mut enemy_attack_deck);
-        Self::enemy_shuffle_hand(rng, &mut enemy_defence_deck);
-        Self::enemy_shuffle_hand(rng, &mut enemy_resource_deck);
+        crate::library::game_state::deck_shuffle_hand(rng, &mut enemy_attack_deck);
+        crate::library::game_state::deck_shuffle_hand(rng, &mut enemy_defence_deck);
+        crate::library::game_state::deck_shuffle_hand(rng, &mut enemy_resource_deck);
         let snapshot = CombatEncounterState {
             round: 1,
             phase: types::CombatPhase::Defending,
@@ -481,20 +481,7 @@ impl GameState {
             types::CombatPhase::Resourcing => &mut combat.enemy_resource_deck,
         };
 
-        // Collect indices of cards with hand > 0
-        let hand_indices: Vec<usize> = deck
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| c.counts.hand > 0)
-            .map(|(i, _)| i)
-            .collect();
-
-        if !hand_indices.is_empty() {
-            use rand::RngCore;
-            let pick_idx = (rng.next_u64() as usize) % hand_indices.len();
-            let card_idx = hand_indices[pick_idx];
-            deck[card_idx].counts.hand -= 1;
-            deck[card_idx].counts.discard += 1;
+        if let Some(card_idx) = crate::library::game_state::deck_play_random(rng, deck) {
             let effects = deck[card_idx].effects.clone();
 
             let (mut atk_draws, mut def_draws, mut res_draws) = (0u32, 0u32, 0u32);
@@ -547,49 +534,7 @@ impl GameState {
     /// Draw `count` random cards from a single enemy deck to hand, recycling discard if needed.
     fn enemy_draw_n(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::EnemyCardDef], count: u32) {
         for _ in 0..count {
-            Self::enemy_draw_random(rng, deck);
-        }
-    }
-
-    /// Shuffle enemy hand: move all cards to deck, then draw random cards back to hand.
-    fn enemy_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::EnemyCardDef]) {
-        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
-        // Move all hand cards to deck
-        for card in deck.iter_mut() {
-            card.counts.deck += card.counts.hand;
-            card.counts.hand = 0;
-        }
-        // Draw random cards until hand is full again
-        for _ in 0..target_hand {
-            Self::enemy_draw_random(rng, deck);
-        }
-    }
-
-    /// Draw one random card from enemy deck to hand, recycling discard if needed.
-    fn enemy_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::EnemyCardDef]) {
-        use rand::RngCore;
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        if total_deck == 0 {
-            // Recycle discard to deck
-            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
-            if total_discard == 0 {
-                return;
-            }
-            for card in deck.iter_mut() {
-                card.counts.deck += card.counts.discard;
-                card.counts.discard = 0;
-            }
-        }
-        // Pick a random card from deck (weighted by deck count)
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        let mut pick = (rng.next_u64() as u32) % total_deck;
-        for card in deck.iter_mut() {
-            if pick < card.counts.deck {
-                card.counts.deck -= 1;
-                card.counts.hand += 1;
-                return;
-            }
-            pick -= card.counts.deck;
+            crate::library::game_state::deck_draw_random(rng, deck);
         }
     }
 

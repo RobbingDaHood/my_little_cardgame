@@ -495,6 +495,48 @@ pub struct DeckCounts {
     pub discard: u32,
 }
 
+/// Trait for card types that have `DeckCounts` (deck/hand/discard tracking).
+pub trait HasDeckCounts {
+    fn counts(&self) -> &DeckCounts;
+    fn counts_mut(&mut self) -> &mut DeckCounts;
+}
+
+impl HasDeckCounts for OreCard {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
+}
+
+impl HasDeckCounts for FishCard {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
+}
+
+impl HasDeckCounts for PlantCard {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
+}
+
+impl HasDeckCounts for EnemyCardDef {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
+}
+
 /// Definition of an enemy combatant for a combat encounter card.
 /// Enemies are self-contained: their cards are inline, not Library references.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

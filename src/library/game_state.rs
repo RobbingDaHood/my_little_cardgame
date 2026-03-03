@@ -1,7 +1,7 @@
 use super::action_log::ActionLog;
 use super::types::{
     ActionEntry, ActionPayload, CardCounts, CardKind, ConcreteEffect, ConcreteEffectCost,
-    EncounterKind, EncounterOutcome, EncounterState,
+    EncounterKind, EncounterOutcome, EncounterState, HasDeckCounts,
 };
 use super::Library;
 use std::collections::HashMap;
@@ -715,4 +715,81 @@ impl Default for GameState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+pub(crate) fn deck_draw_random<T: HasDeckCounts>(rng: &mut rand_pcg::Lcg64Xsh32, cards: &mut [T]) {
+    use rand::RngCore;
+    let total_deck: u32 = cards.iter().map(|c| c.counts().deck).sum();
+    if total_deck == 0 {
+        let total_discard: u32 = cards.iter().map(|c| c.counts().discard).sum();
+        if total_discard == 0 {
+            return;
+        }
+        for card in cards.iter_mut() {
+            let counts = card.counts_mut();
+            counts.deck += counts.discard;
+            counts.discard = 0;
+        }
+    }
+    let total_deck: u32 = cards.iter().map(|c| c.counts().deck).sum();
+    if total_deck == 0 {
+        return;
+    }
+    let mut pick = (rng.next_u64() as u32) % total_deck;
+    for card in cards.iter_mut() {
+        if pick < card.counts().deck {
+            let counts = card.counts_mut();
+            counts.deck -= 1;
+            counts.hand += 1;
+            return;
+        }
+        pick -= card.counts().deck;
+    }
+}
+
+pub(crate) fn deck_shuffle_hand<T: HasDeckCounts>(rng: &mut rand_pcg::Lcg64Xsh32, cards: &mut [T]) {
+    let target_hand: u32 = cards.iter().map(|c| c.counts().hand).sum();
+    for card in cards.iter_mut() {
+        let counts = card.counts_mut();
+        counts.deck += counts.hand;
+        counts.hand = 0;
+    }
+    for _ in 0..target_hand {
+        deck_draw_random(rng, cards);
+    }
+}
+
+/// Pick a random card from hand, move it to discard. Returns the index of the picked card, or None.
+pub(crate) fn deck_play_random<T: HasDeckCounts>(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    cards: &mut [T],
+) -> Option<usize> {
+    use rand::RngCore;
+    let total_hand: u32 = cards.iter().map(|c| c.counts().hand).sum();
+    if total_hand == 0 {
+        let total_discard: u32 = cards.iter().map(|c| c.counts().discard).sum();
+        if total_discard == 0 {
+            return None;
+        }
+        for card in cards.iter_mut() {
+            let counts = card.counts_mut();
+            counts.hand += counts.discard;
+            counts.discard = 0;
+        }
+    }
+    let total_hand: u32 = cards.iter().map(|c| c.counts().hand).sum();
+    if total_hand == 0 {
+        return None;
+    }
+    let mut pick = (rng.next_u64() as u32) % total_hand;
+    for (i, card) in cards.iter_mut().enumerate() {
+        if pick < card.counts().hand {
+            let counts = card.counts_mut();
+            counts.hand -= 1;
+            counts.discard += 1;
+            return Some(i);
+        }
+        pick -= card.counts().hand;
+    }
+    None
 }

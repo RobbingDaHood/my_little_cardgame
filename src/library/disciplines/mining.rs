@@ -227,7 +227,7 @@ impl GameState {
             }
         };
         let mut ore_deck = mining_def.ore_deck.clone();
-        Self::ore_shuffle_hand(rng, &mut ore_deck);
+        crate::library::game_state::deck_shuffle_hand(rng, &mut ore_deck);
         let state = MiningEncounterState {
             round: 1,
             encounter_card_id,
@@ -352,7 +352,7 @@ impl GameState {
 
         // Ore draws a card
         if let Some(EncounterState::Mining(mining)) = &mut self.current_encounter {
-            Self::ore_draw_random(rng, &mut mining.ore_deck);
+            crate::library::game_state::deck_draw_random(rng, &mut mining.ore_deck);
         }
 
         // Check if player durability is depleted
@@ -397,46 +397,5 @@ impl GameState {
             rng,
             Some(types::TokenType::MiningMaxHand),
         );
-    }
-
-    /// Shuffle ore hand: move all to deck, redraw to original hand size.
-    fn ore_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::OreCard]) {
-        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
-        for card in deck.iter_mut() {
-            card.counts.deck += card.counts.hand;
-            card.counts.hand = 0;
-        }
-        for _ in 0..target_hand {
-            Self::ore_draw_random(rng, deck);
-        }
-    }
-
-    /// Draw one random ore card from deck to hand, recycling discard if needed.
-    fn ore_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::OreCard]) {
-        use rand::RngCore;
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        if total_deck == 0 {
-            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
-            if total_discard == 0 {
-                return;
-            }
-            for card in deck.iter_mut() {
-                card.counts.deck += card.counts.discard;
-                card.counts.discard = 0;
-            }
-        }
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        if total_deck == 0 {
-            return;
-        }
-        let mut pick = (rng.next_u64() as u32) % total_deck;
-        for card in deck.iter_mut() {
-            if pick < card.counts.deck {
-                card.counts.deck -= 1;
-                card.counts.hand += 1;
-                return;
-            }
-            pick -= card.counts.deck;
-        }
     }
 }

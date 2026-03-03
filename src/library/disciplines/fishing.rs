@@ -330,7 +330,7 @@ impl GameState {
             }
         };
         let mut fish_deck = fishing_def.fish_deck;
-        Self::fish_shuffle_hand(rng, &mut fish_deck);
+        crate::library::game_state::deck_shuffle_hand(rng, &mut fish_deck);
         // Initialize fishing tokens (encounter-scoped, stored in player token_balances)
         self.token_balances.insert(
             types::Token::persistent(types::TokenType::FishingRangeMin),
@@ -514,37 +514,20 @@ impl GameState {
         rng: &mut rand_pcg::Lcg64Xsh32,
         encounter: &mut Option<EncounterState>,
     ) -> i64 {
-        use rand::RngCore;
         let fish_deck = match encounter {
             Some(EncounterState::Fishing(f)) => &mut f.fish_deck,
             _ => return 0,
         };
-        let total_hand: u32 = fish_deck.iter().map(|c| c.counts.hand).sum();
-        if total_hand == 0 {
-            // Recycle discard to hand
-            let total_discard: u32 = fish_deck.iter().map(|c| c.counts.discard).sum();
-            if total_discard == 0 {
-                return 0;
+        match crate::library::game_state::deck_play_random(rng, fish_deck) {
+            Some(idx) => {
+                let fish_deck = match encounter {
+                    Some(EncounterState::Fishing(f)) => &f.fish_deck,
+                    _ => return 0,
+                };
+                fish_deck[idx].value
             }
-            for card in fish_deck.iter_mut() {
-                card.counts.hand += card.counts.discard;
-                card.counts.discard = 0;
-            }
+            None => 0,
         }
-        let total_hand: u32 = fish_deck.iter().map(|c| c.counts.hand).sum();
-        if total_hand == 0 {
-            return 0;
-        }
-        let mut pick = (rng.next_u64() as u32) % total_hand;
-        for card in fish_deck.iter_mut() {
-            if pick < card.counts.hand {
-                card.counts.hand -= 1;
-                card.counts.discard += 1;
-                return card.value;
-            }
-            pick -= card.counts.hand;
-        }
-        0
     }
 
     fn finish_fishing_encounter(&mut self, is_win: bool) {
@@ -576,44 +559,5 @@ impl GameState {
             rng,
             Some(types::TokenType::FishingMaxHand),
         );
-    }
-
-    fn fish_shuffle_hand(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::FishCard]) {
-        let target_hand: u32 = deck.iter().map(|c| c.counts.hand).sum();
-        for card in deck.iter_mut() {
-            card.counts.deck += card.counts.hand;
-            card.counts.hand = 0;
-        }
-        for _ in 0..target_hand {
-            Self::fish_draw_random(rng, deck);
-        }
-    }
-
-    fn fish_draw_random(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [types::FishCard]) {
-        use rand::RngCore;
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        if total_deck == 0 {
-            let total_discard: u32 = deck.iter().map(|c| c.counts.discard).sum();
-            if total_discard == 0 {
-                return;
-            }
-            for card in deck.iter_mut() {
-                card.counts.deck += card.counts.discard;
-                card.counts.discard = 0;
-            }
-        }
-        let total_deck: u32 = deck.iter().map(|c| c.counts.deck).sum();
-        if total_deck == 0 {
-            return;
-        }
-        let mut pick = (rng.next_u64() as u32) % total_deck;
-        for card in deck.iter_mut() {
-            if pick < card.counts.deck {
-                card.counts.deck -= 1;
-                card.counts.hand += 1;
-                return;
-            }
-            pick -= card.counts.deck;
-        }
     }
 }
