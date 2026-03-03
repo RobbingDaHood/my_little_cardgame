@@ -483,6 +483,29 @@ Roadmap steps
      - Stamina token is already functional and tested as a cost currency (player starts with 1000 Stamina).
      - The cost pre-validation pattern (preview_costs/preview_gathering_costs with split_gathering_costs) is established and should be reused for rest card costs.
 
+9.5) Better Mining redesign
+   - Goal: Redesign the mining encounter to be about maintaining a light level while mining for yield, creating a risk-vs-reward pacing mechanic where the player decides when to stop.
+   - Description:
+     - **Core loop**: The player manages three resources during a mining encounter: light level, yield, and stamina. The player can conclude the encounter at any point; the reward is `min(stamina, yield)` and concluding costs that amount of stamina.
+     - **Light level**: A new token starting at 300 at the start of each mining encounter.
+       - Enemy cards reduce the light level (moderate amount). Most enemy cards reduce both light level and durability; some only reduce one (doing more of it).
+       - Player cards can increase the light level (high amount), but no single player CardEffect both increases light level and does mining power. Later, crafted multi-effect cards could combine both.
+     - **No enemy health**: The enemy has no health and cannot be killed. The player can only win by ending the encounter. The player loses by running out of durability or having all hand cards unpayable.
+     - **Mining power → yield**: When the player plays a "mining power" card (renamed from "damage"), a yield token is accumulated: `yield += mining_power × light_level / 100`. Higher light level means more yield per card played.
+     - **Enemy CardEffects**: Because there is no enemy entity to fight, enemy cards cannot have CardEffects that cost stamina. The enemy does have rare cards that remove a small amount of the player's health.
+   - Implementation checklist:
+     1. Add `MiningLightLevel` token type (initial value 300 per encounter).
+     2. Add `MiningYield` token type (accumulates during encounter).
+     3. Rename mining "damage" to "mining power" in CardEffects and API responses.
+     4. Implement yield calculation: `mining_power × light_level / 100` on mining power card play.
+     5. Add "conclude mining" player action: reward = `min(stamina, yield)`, costs that stamina.
+     6. Remove enemy health from mining encounters; remove enemy stamina-cost CardEffects.
+     7. Add enemy CardEffects that reduce light level (with and without durability damage).
+     8. Add player CardEffects that increase light level.
+     9. Add rare enemy CardEffects that remove small amounts of player health.
+     10. Update mining scenario tests for new mechanics.
+   - Playable acceptance: Mining encounter starts with light level 300, player plays mining power cards to accumulate yield, player concludes encounter and receives `min(stamina, yield)` ore tokens (costing that stamina). Enemy cards reduce light level and durability. Scenario test passes.
+
 9) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
    - Description: A crafting encounter provides a pool of "Crafting tokens" (initially ~10) that the player spends on various crafting actions:
