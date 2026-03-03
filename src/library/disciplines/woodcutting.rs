@@ -307,63 +307,63 @@ fn evaluate_best_pattern(played: &[types::PlayedWoodcuttingCard]) -> (String, f6
     // Evaluate patterns from best to worst
     // Eight of a Kind: all 8 cards same type
     if max_type_count >= 8 {
-        return ("Eight of a Kind".to_string(), 5.0);
+        return ("Eight of a Kind".to_string(), 55.0);
     }
     // Seven of a Kind
     if max_type_count >= 7 {
-        return ("Seven of a Kind".to_string(), 4.0);
+        return ("Seven of a Kind".to_string(), 12.0);
     }
     // Perfect Straight: 8 sequential values
     if longest_straight >= 8 {
-        return ("Perfect Straight".to_string(), 4.0);
+        return ("Perfect Straight".to_string(), 3.0);
     }
     // Six of a Kind
     if max_type_count >= 6 {
-        return ("Six of a Kind".to_string(), 3.5);
+        return ("Six of a Kind".to_string(), 4.0);
     }
     // Long Straight: 6-7 sequential values
     if longest_straight >= 6 {
-        return ("Long Straight".to_string(), 3.0);
+        return ("Long Straight".to_string(), 1.5);
     }
     // Full Set: all 5 chop types present
     if distinct_types >= 5 {
-        return ("Full Set".to_string(), 3.0);
+        return ("Full Set".to_string(), 1.0);
     }
     // Five of a Kind
     if max_type_count >= 5 {
-        return ("Five of a Kind".to_string(), 2.5);
+        return ("Five of a Kind".to_string(), 2.0);
     }
     // Four of a Kind with Pair: 4+ of one type plus 2+ of another
     if max_type_count >= 4 && sorted_type_counts.len() >= 2 && sorted_type_counts[1] >= 2 {
-        return ("Full House".to_string(), 2.5);
+        return ("Full House".to_string(), 1.5);
     }
     // Four of a Kind
     if max_type_count >= 4 {
-        return ("Four of a Kind".to_string(), 2.0);
+        return ("Four of a Kind".to_string(), 10.0);
     }
     // Short Straight: 4-5 sequential values
     if longest_straight >= 4 {
-        return ("Short Straight".to_string(), 2.0);
+        return ("Short Straight".to_string(), 2.5);
     }
     // Two Pair Types: 2 types with 3+ each
     if sorted_type_counts.len() >= 2 && sorted_type_counts[0] >= 3 && sorted_type_counts[1] >= 3 {
-        return ("Two Pair Types".to_string(), 1.8);
+        return ("Two Pair Types".to_string(), 2.0);
     }
     // Value Quads: 4+ of same value
     if freq_list.first().copied().unwrap_or(0) >= 4 {
-        return ("Value Quads".to_string(), 1.8);
+        return ("Value Quads".to_string(), 12.0);
     }
     // Triple of a Kind
     if max_type_count >= 3 {
-        return ("Triple".to_string(), 1.5);
+        return ("Triple".to_string(), 2.0);
     }
     // Value Triples
     if freq_list.first().copied().unwrap_or(0) >= 3 {
-        return ("Value Triple".to_string(), 1.3);
+        return ("Value Triple".to_string(), 19.0);
     }
     // Pair (2+ of a type)
     if max_type_count >= 2 {
-        return ("Pair".to_string(), 1.2);
+        return ("Pair".to_string(), 4.5);
     }
     // High Card (fallback)
     ("High Card".to_string(), 1.0)
