@@ -263,3 +263,23 @@ Vision's architecture section could note that `GameState::all_gathering_hand_car
 
 #### 48. Record gathering unpayable DRY refactor as complete
 The four identical `all_<discipline>_hand_cards_unpayable()` methods were refactored into a single generic `all_gathering_hand_cards_unpayable()` on `GameState` that takes a closure to extract costs from the discipline-specific `CardKind` variant. Each discipline method now delegates to this shared helper. Combat's unpayable check remains separate. This is a pure DRY refactor with no behavioral changes.
+
+---
+
+## New suggestions (from HasDeckCounts trait and deck operation generalization)
+
+### vision.md
+
+#### 49. Document trait-based deck abstraction
+Vision's architecture section should document the `HasDeckCounts` trait as a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`). Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. This establishes the pattern: "shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods."
+
+### roadmap.md
+
+#### 50. Record HasDeckCounts refactoring as complete
+The duplicated `shuffle_hand` and `draw_random` methods across four discipline files (mining, fishing, herbalism, combat) were unified into three generic functions (`deck_draw_random`, `deck_shuffle_hand`, `deck_play_random`) using the new `HasDeckCounts` trait. This removed ~74 lines of duplicated code. Combat's `resolve_enemy_play` inline pick logic was also refactored to use `deck_play_random`, switching from uniform-over-types to weighted-by-count selection for consistency.
+
+#### 51. Extend HasDeckCounts to player library cards
+The `LibraryCard` type uses `CardCounts` (with an extra `library` field) instead of `DeckCounts`. Consider a broader `HasCounts` trait hierarchy or unifying `CardCounts` and `DeckCounts` so player deck draw/shuffle operations can also use generic functions, further reducing duplication in `draw_player_cards_of_kind`.
+
+#### 52. Generalize ore play-random in mining.rs
+The `resolve_ore_play` method in mining.rs still has inline logic for picking a random ore card from hand and moving it to discard. This could be refactored to use `deck_play_random`, matching how combat's `resolve_enemy_play` and fishing's `fish_play_random` were updated.
