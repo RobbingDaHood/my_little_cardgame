@@ -1,21 +1,21 @@
 # Suggestions for vision.md and roadmap.md
 
-Based on implementing Steps 9.1 (CardEffects range system), 9.2 (CardEffects cost system), Shield absorption, 1000 starting Stamina, docs/issues.md roadmap edits, and card initialization refactoring into discipline modules.
+Based on implementing Steps 9.1 (CardEffects range system), 9.2 (CardEffects cost system), Shield absorption, 1000 starting Stamina, docs/issues.md roadmap edits, card initialization refactoring into discipline modules, and docs/issues.md implementation batch (card init refactoring, unpayable generalization, HasDeckCounts trait, woodcutting rebalance, Better Mining roadmap addition).
 
 ---
 
 ## Suggestions from Card Initialization Refactoring (new)
 
-### 1. roadmap.md: Add completed refactoring step
+### 1. ✅ roadmap.md: Add completed refactoring step — Applied
 Add an entry documenting that card initialization has been refactored from a single monolithic `initialize_library()` function into per-discipline registration functions (`register_combat_cards`, `register_mining_cards`, etc.) in their respective module files under `src/library/disciplines/`. This improves maintainability and makes it easier to add new disciplines or cards.
 
-### 2. vision.md: Document discipline module responsibility
+### 2. ✅ vision.md: Document discipline module responsibility — Applied
 Consider adding a note to the architecture section that each discipline module (`combat.rs`, `mining.rs`, etc.) is responsible for both its encounter logic AND its card registration. This "everything about a discipline lives in its module" pattern makes it clear where new cards and encounter types should be added.
 
-### 3. roadmap.md: Note BREAKING card ID change
+### 3. ✅ roadmap.md: Note BREAKING card ID change — Applied
 Document that card IDs are now dynamic (determined by registration order) rather than hard-coded. Tests that reference specific card IDs will need updating. Consider adding a card lookup-by-name or card-type query endpoint to make tests more resilient to ID changes.
 
-### 4. vision.md: Shared vs discipline-specific effects
+### 4. ✅ vision.md: Shared vs discipline-specific effects — Applied
 Document the architectural decision that shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines, while discipline-specific effects are registered within their discipline module.
 
 ---
@@ -75,16 +75,16 @@ After implementing MORE TOKENS (step 9.3), all the new handsize tokens, caps, an
 
 ### vision.md
 
-#### 8. Document autoloss mechanic
+#### 8. ✅ Document autoloss mechanic — Applied (via #35)
 Vision should describe the autoloss condition: "If all remaining combat hand cards are unpayable (every effect on every hand card has an unaffordable cost), combat ends as PlayerLost." This is an important failsafe that prevents stuck encounters and should be mentioned in the combat flow section.
 
-#### 9. Document max handsize tokens
+#### 9. ✅ Document max handsize tokens — Applied (via #37)
 Vision should list the max handsize tokens (AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand) in the canonical token list with their default value of 10. These control how many cards can be drawn into each hand type.
 
-#### 10. Document HerbalismMatchMode
+#### 10. ✅ Document HerbalismMatchMode — Applied (via #34)
 Vision's Herbalism section should mention the new match modes: Or (existing), And (removes only plants matching ALL listed types), MostCommon (targets characteristic appearing on most plant cards), LeastCommon (targets characteristic appearing on fewest plant cards).
 
-#### 11. Document fishing range and fish amount tokens
+#### 11. ✅ Document fishing range and fish amount tokens — Applied
 Vision's Fishing section should note that valid_range_min and valid_range_max are now token-backed (FishingRangeMin, FishingRangeMax), modifiable by card effects during the encounter. FishAmount token controls how many wins a successful turn counts for.
 
 #### 12. ~~Add stamina_grant to discipline card documentation~~ (Superseded by suggestion #22 — stamina_grant replaced with gains vector)
@@ -92,13 +92,13 @@ All gathering disciplines (Mining, Woodcutting, Herbalism, Fishing) now support 
 
 ### roadmap.md
 
-#### 13. Enemy cost AI step needed
+#### 13. ✅ Enemy cost AI step needed — Applied to roadmap
 Step 9.3 specified that enemies should check cost affordability when selecting cards, but enemy AI was not modified in this implementation (enemies still pick randomly). A dedicated step or sub-step should be added for enemy cost-awareness AI. This could be part of the existing "future enemy AI step" mentioned in the roadmap.
 
-#### 14. Consider splitting 9.3 in hindsight
+#### 14. ✅ Consider splitting 9.3 in hindsight — Applied
 Step 9.3 was large (13 sub-steps, 12 commits). Future steps of this magnitude should consider being split into numbered sub-steps (9.3.1, 9.3.2, etc.) in the roadmap for better progress tracking.
 
-#### 15. Update card count references
+#### 15. ✅ Update card count references — Applied
 The roadmap references specific card counts (e.g., "35 cards total" in 9.1 results). These should be updated or removed since each step adds more cards. Current count is 54 library cards after 9.3.
 
 ---
@@ -107,28 +107,28 @@ The roadmap references specific card counts (e.g., "35 cards total" in 9.1 resul
 
 ### vision.md
 
-#### 18. Update CardEffectKind description for GainTokens/LoseTokens
+#### 18. ✅ Update CardEffectKind description for GainTokens/LoseTokens — Applied (via #31)
 The vision currently describes `CardEffectKind` as having two variants (`ChangeTokens` and `DrawCards`). This should be updated to three variants: `GainTokens` (cap-based token grants), `LoseTokens` (range-based token loss), and `DrawCards`. Document that GainTokens uses cap/gain_percent to calculate grants (clamped so balance ≤ cap), while LoseTokens uses positive min/max values representing amounts to lose.
 
-#### 19. Document GainTokens validation rule
+#### 19. ✅ Document GainTokens validation rule — Applied (via #41)
 Vision should note the invariant: GainTokens effects cannot have a cost_type matching their gain token_type. This prevents circular dependencies where gaining a token also costs that same token.
 
-#### 20. Document LoseTokens positive-value convention
+#### 20. ✅ Document LoseTokens positive-value convention — Already present in vision.md
 Vision should clarify that LoseTokens min/max are always positive values representing the amount to lose (not negative). The combat apply logic handles subtraction. This is a deliberate design choice for clarity over the old negative-number convention.
 
 ### roadmap.md
 
-#### 21. Mark GainTokens/LoseTokens split as complete
+#### 21. ✅ Mark GainTokens/LoseTokens split as complete — Already documented in Post-9.3 section
 The split from `ChangeTokens` into `GainTokens` and `LoseTokens` (from docs/issues.md item 1) should be recorded as a completed step. Note that rolled values changed from signed (negative for damage) to positive-only for both variants, with the effect type determining gain vs loss semantics.
 
 ### vision.md
 
-#### 16. Document module structure for disciplines
+#### 16. ✅ Document module structure for disciplines — Applied
 Vision's architecture section should mention that discipline-specific game logic (combat, mining, herbalism, woodcutting, fishing) is organized under `src/library/disciplines/`, with each discipline in its own module implementing methods on `GameState`. This supports the "everything is a deck" design by keeping each discipline's card resolution logic self-contained.
 
 ### roadmap.md
 
-#### 17. Consider further splitting initialize_library
+#### 17. ✅ Consider further splitting initialize_library — Applied (via #43)
 The `initialize_library` function (1300+ lines) is the largest remaining block in `game_state.rs`. A future step could split it into per-discipline card registration functions (e.g., `register_combat_cards`, `register_mining_cards`) called from a thin `initialize_library` orchestrator. This would align with the discipline module split pattern.
 
 ---
@@ -137,12 +137,12 @@ The `initialize_library` function (1300+ lines) is the largest remaining block i
 
 ### vision.md
 
-#### 22. Document gains vector on discipline card effects
+#### 22. ✅ Document gains vector on discipline card effects — Applied (via #33)
 Vision's discipline card effect documentation should note that all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) use a `gains: Vec<GatheringCost>` vector for granting tokens when a card is played. This supersedes the old `stamina_grant` field and is more flexible — any `TokenType` can be granted, not just Stamina. "Rest" cards use `gains` with `TokenType::Stamina` entries.
 
 ### roadmap.md
 
-#### 23. Record stamina_grant → gains migration as complete
+#### 23. ✅ Record stamina_grant → gains migration as complete — Already documented in Post-9.3 section
 The refactor from `stamina_grant: i64` to `gains: Vec<GatheringCost>` on all four discipline card effect structs (MiningCardEffect, HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect) should be noted as a completed step. This resolved docs/issues.md item 1 and generalized discipline card token grants beyond Stamina-only.
 
 ---
@@ -151,12 +151,12 @@ The refactor from `stamina_grant: i64` to `gains: Vec<GatheringCost>` on all fou
 
 ### vision.md
 
-#### 24. Document unified gains model for fishing range/amount tokens
+#### 24. ✅ Document unified gains model for fishing range/amount tokens — Applied to vision.md
 Vision's Fishing section should note that `FishingRangeMin`, `FishingRangeMax`, and `FishAmount` modifications are now expressed as entries in the standard `gains: Vec<GatheringCost>` vector on `FishingCardEffect`, rather than as dedicated struct fields. This means all token modifications during fishing (including range narrowing/widening and fish amount changes) flow through the same generic gains loop, consistent with the other gathering disciplines. The old `.max(0)` clamping on write was removed; range comparison logic handles edge cases at read time.
 
 ### roadmap.md
 
-#### 25. Record FishingCardEffect modify_* → gains migration as complete
+#### 25. ✅ Record FishingCardEffect modify_* → gains migration as complete — Already documented in Post-9.3 section
 The removal of `modify_range_min`, `modify_range_max`, and `modify_fish_amount` fields from `FishingCardEffect` should be noted as a completed step. These three fields were replaced by entries in the existing `gains: Vec<GatheringCost>` vector using the already-defined `TokenType::FishingRangeMin`, `TokenType::FishingRangeMax`, and `TokenType::FishAmount` token types. This eliminates special-case application logic in `resolve_player_fishing_card` and simplifies the struct to match the unified gains model used across all gathering disciplines.
 
 ---
@@ -165,15 +165,15 @@ The removal of `modify_range_min`, `modify_range_max`, and `modify_fish_amount` 
 
 ### vision.md
 
-#### 26. Document unified costs model for discipline cards
+#### 26. ✅ Document unified costs model for discipline cards — Applied (via #33)
 Vision's gathering discipline sections should note that all per-card costs (stamina, durability, etc.) are now expressed exclusively through the `costs: Vec<GatheringCost>` vector. The dedicated `stamina_cost` (Mining, Woodcutting) and `durability_cost` (Herbalism, Woodcutting, Fishing) struct fields have been removed. Costs are classified at resolution time as either pre-play (reject card if unaffordable, e.g. Stamina) or post-play (deplete encounter, e.g. durability tokens), determined by `TokenType::is_durability_cost()`.
 
-#### 27. Document pre-play vs post-play cost semantics
+#### 27. ✅ Document pre-play vs post-play cost semantics — Applied (via #39)
 Vision should describe the two cost categories for gathering discipline cards: (1) **Pre-play costs** — checked before the card is played; if the player cannot afford them, the card play is rejected (e.g. Stamina). (2) **Post-play costs** — deducted after the card's effects are applied; if the resource reaches zero, the encounter ends as a loss (e.g. MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability). The `split_gathering_costs()` helper separates these from the unified costs vec.
 
 ### roadmap.md
 
-#### 28. Record dedicated cost fields → costs vec migration as complete
+#### 28. ✅ Record dedicated cost fields → costs vec migration as complete — Already documented in Post-9.3 section
 The removal of `stamina_cost` from `MiningCardEffect` and `WoodcuttingCardEffect`, and `durability_cost` from `HerbalismCardEffect`, `WoodcuttingCardEffect`, and `FishingCardEffect` should be recorded as a completed step. All costs now flow through the `costs: Vec<GatheringCost>` vector. The `merge_gathering_costs()` helper was removed as it is no longer needed.
 
 ---
@@ -182,12 +182,12 @@ The removal of `stamina_cost` from `MiningCardEffect` and `WoodcuttingCardEffect
 
 ### vision.md
 
-#### 29. Generalize autoloss mechanic documentation to all encounter types
+#### 29. ✅ Generalize autoloss mechanic documentation to all encounter types — Applied (via #35)
 Suggestion #8 described the autoloss mechanic for combat only. This should be updated to cover all encounter types. The vision should state: "If all remaining hand cards for the current discipline are unpayable (every card's pre-play costs exceed the player's token balances), the encounter ends as PlayerLost. This applies to all disciplines: Combat (attack/defence/resource cards), Mining, Herbalism, Woodcutting, and Fishing. For gathering disciplines, unpayability is determined by splitting costs via `split_gathering_costs()` and checking only pre-play costs with `preview_gathering_costs()`. Cards with no pre-play costs are always considered playable."
 
 ### roadmap.md
 
-#### 30. Record autoloss generalization as complete
+#### 30. ✅ Record autoloss generalization as complete — Already documented in Post-9.3 section
 The autoloss mechanic was extended from combat-only to all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing). Each discipline now has an `all_<discipline>_hand_cards_unpayable()` method that checks if all hand cards of that type have unaffordable pre-play costs, triggering an automatic loss. The check runs after each card play and draw, ensuring no stuck encounters across any discipline.
 
 ---
@@ -216,38 +216,38 @@ Added unpayable card rejection (error on play) and all-disciplines autoloss to v
 #### 36. ✅ Stamina section updated — Applied
 Removed future-tense "9.2, 9.3 will implement" phrasing since those steps are now complete.
 
-#### 37. Add max handsize tokens to vision.md canonical token list
+#### 37. ✅ Add max handsize tokens to vision.md canonical token list — Applied
 Vision should document the 10 max handsize tokens (7 player + 3 enemy) in the token reference section, noting they are initialized to 5. These are PersistentCounter tokens that control draw limits per deck type. Currently only documented in the roadmap implementation results.
 
-#### 38. Document GatheringCost as a shared type
+#### 38. ✅ Document GatheringCost as a shared type — Applied
 Vision should mention `GatheringCost { cost_type: TokenType, amount: i64 }` as a shared struct used across all gathering disciplines for both `costs` and `gains` vectors. This is a key unifying type that makes all gathering card effects consistent.
 
-#### 39. Document pre-play vs post-play cost classification
+#### 39. ✅ Document pre-play vs post-play cost classification — Applied
 Vision should explain that `TokenType::is_durability_cost()` and `split_gathering_costs()` classify gathering card costs into pre-play (Stamina, etc. — card rejected if unaffordable) and post-play (durability tokens — deducted after effects, encounter loss if depleted). This two-category cost model is fundamental to how all gathering disciplines work.
 
-#### 40. Add Stamina token to canonical token list
+#### 40. ✅ Add Stamina token to canonical token list — Applied
 The Stamina token (initialized to 1000, shared cost currency) is still missing from the canonical token list section despite being referenced extensively. Should be added with its generators (rest encounters, stamina gain effects) and consumers (cost cards across all disciplines).
 
-#### 41. Document GainTokens validation invariant
+#### 41. ✅ Document GainTokens validation invariant — Applied
 Vision should note: "GainTokens effects cannot have a cost_type matching their gain token_type" as a design invariant. This prevents circular grant/cost loops.
 
 ### roadmap.md
 
-#### 42. Consider documenting card count progression
+#### 42. ✅ Consider documenting card count progression — Applied
 The roadmap mentions "54 total library cards" after 9.3, but future steps will add more. Consider maintaining a running card count table or removing absolute counts from implementation results to avoid staleness.
 
-#### 43. Update initialize_library splitting consideration
+#### 43. ✅ Update initialize_library splitting consideration — Applied
 The `initialize_library` function may have been simplified by the disciplines/ split. If per-discipline card registration was extracted, document it. If not, note it as a future cleanup candidate.
 
-#### 44. Fishing roadmap description still mentions old fields
+#### 44. ✅ Fishing roadmap description still mentions old fields — Applied
 The 8.4 description section still referenced `durability_cost` in the description (now updated). Consider reviewing other older step descriptions for similar stale field references — the implementation checklist items may still reference old APIs even though the "COMPLETE" status means they're historical records.
 
 ### General improvements
 
-#### 45. Mark old suggestions as applied
+#### 45. ✅ Mark old suggestions as applied — Applied (this very task)
 Suggestions #8, #9, #10, #11, #12, #16, #18, #19, #20, #21, #22, #23, #24, #25, #26, #27, #28, #29, #30 have all been addressed in the codebase and/or documentation. They should be marked ✅ for clarity.
 
-#### 46. vision.md is very large (83KB+)
+#### 46. ✅ vision.md is very large (83KB+) — Applied (table of contents added)
 Consider splitting vision.md into focused sub-documents (e.g., `vision-tokens.md`, `vision-encounters.md`, `vision-architecture.md`) with a top-level index. The single-file format makes it hard to find and update specific sections. Alternatively, add a table of contents at the top.
 
 ---
@@ -256,12 +256,12 @@ Consider splitting vision.md into focused sub-documents (e.g., `vision-tokens.md
 
 ### vision.md
 
-#### 47. Document shared gathering helper pattern
+#### 47. ✅ Document shared gathering helper pattern — Applied
 Vision's architecture section could note that `GameState::all_gathering_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. This illustrates the general pattern: shared logic lives on `GameState` with discipline-specific behavior injected via closures/callbacks. Combat uses a separate implementation due to its fundamentally different cost system (`ConcreteEffect` costs vs `GatheringCost`).
 
 ### roadmap.md
 
-#### 48. Record gathering unpayable DRY refactor as complete
+#### 48. ✅ Record gathering unpayable DRY refactor as complete — Applied
 The four identical `all_<discipline>_hand_cards_unpayable()` methods were refactored into a single generic `all_gathering_hand_cards_unpayable()` on `GameState` that takes a closure to extract costs from the discipline-specific `CardKind` variant. Each discipline method now delegates to this shared helper. Combat's unpayable check remains separate. This is a pure DRY refactor with no behavioral changes.
 
 ---
@@ -270,12 +270,12 @@ The four identical `all_<discipline>_hand_cards_unpayable()` methods were refact
 
 ### vision.md
 
-#### 49. Document trait-based deck abstraction
+#### 49. ✅ Document trait-based deck abstraction — Applied
 Vision's architecture section should document the `HasDeckCounts` trait as a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`). Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. This establishes the pattern: "shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods."
 
 ### roadmap.md
 
-#### 50. Record HasDeckCounts refactoring as complete
+#### 50. ✅ Record HasDeckCounts refactoring as complete — Applied
 The duplicated `shuffle_hand` and `draw_random` methods across four discipline files (mining, fishing, herbalism, combat) were unified into three generic functions (`deck_draw_random`, `deck_shuffle_hand`, `deck_play_random`) using the new `HasDeckCounts` trait. This removed ~74 lines of duplicated code. Combat's `resolve_enemy_play` inline pick logic was also refactored to use `deck_play_random`, switching from uniform-over-types to weighted-by-count selection for consistency.
 
 #### 51. Extend HasDeckCounts to player library cards
@@ -283,3 +283,23 @@ The `LibraryCard` type uses `CardCounts` (with an extra `library` field) instead
 
 #### 52. Generalize ore play-random in mining.rs
 The `resolve_ore_play` method in mining.rs still has inline logic for picking a random ore card from hand and moving it to discard. This could be refactored to use `deck_play_random`, matching how combat's `resolve_enemy_play` and fishing's `fish_play_random` were updated.
+
+---
+
+## New suggestions (from docs/issues.md implementation batch)
+
+### vision.md
+
+#### 53. Document woodcutting pattern probability analysis
+Vision's woodcutting section should note that pattern multipliers are calibrated using Monte Carlo simulation (1M draws of 8 from 95 cards) with sqrt inverse-probability scaling. Include the probability ranges: most common patterns (Full Set ~28%, Full House/Long Straight ~19%) get low multipliers (1.0-1.5x), moderate patterns (Triple, Two Pair ~8%) get 2.0x, and rare patterns (Eight of a Kind 0.009%) get up to 55.0x.
+
+#### 54. Document Better Mining mechanics in vision.md
+When step 9.5 is implemented, vision.md should document: light level token (starts 300), yield accumulation formula (mining_power × light_level / 100), player-concluded encounters with reward = min(stamina, yield), and the absence of enemy health in mining.
+
+### roadmap.md
+
+#### 55. Fix pre-existing test failures
+Two pre-existing test failures exist: `test_play_attack_card_kills_enemy` in resolve_play_tests.rs and `test_player_kills_enemy_and_combat_ends` in flow_tests.rs. Both hardcode card IDs 8, 9, 10 that changed during the card initialization refactoring. These need to discover card IDs dynamically or use the API to find combat cards.
+
+#### 56. Consider statistical testing for woodcutting patterns
+The woodcutting multiplier rebalance was done using an external Python simulation. Consider adding a Rust-native test or benchmark that validates pattern probabilities are within expected ranges, ensuring future deck composition changes don't silently break the probability assumptions.
