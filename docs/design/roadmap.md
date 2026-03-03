@@ -458,7 +458,7 @@ Roadmap steps
 - BREAKING: Card IDs are now dynamic (determined by registration order) rather than hard-coded. Tests referencing specific card IDs need updating. Consider a card lookup-by-name or card-type query endpoint to make tests more resilient to ID changes.
 - Gathering unpayable DRY refactor: four identical `all_<discipline>_hand_cards_unpayable()` methods unified into a single generic `all_gathering_hand_cards_unpayable()` on `GameState` that takes a closure to extract costs from the discipline-specific `CardKind` variant. Combat's unpayable check remains separate.
 - `HasDeckCounts` trait: unified `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` generic functions replace duplicated per-discipline methods for `OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`. Removed ~74 lines of duplicated code. Combat's `resolve_enemy_play` updated to use `deck_play_random` with weighted-by-count selection.
-- Woodcutting multiplier rebalance by probability.
+- Woodcutting multiplier rebalance: pattern multipliers recalibrated proportional to the statistical probability of each pattern (assuming 8 cards played from a 13-card pool), so rarer patterns yield substantially higher rewards.
 - docs/issues.md batch (10 issues resolved).
 
 9.4) Rest encounter
@@ -482,7 +482,7 @@ Roadmap steps
      3. Add CardKind::Rest { rest_effect: RestCardEffect } for rest action cards.
      4. Add EncounterState::Rest(RestEncounterState) with drawn hand of 5 cards.
      5. Implement EncounterPlayCard for rest: apply chosen card's effect, mark encounter as won.
-     6. Add rest encounters to initialize_library() (~20% of encounter deck).
+     6. Add rest encounters via the discipline registration pattern (~20% of encounter deck).
      7. Add scenario test.
    - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, recovery is applied (respecting caps), encounter completes as PlayerWon. Scenario test passes.
    - Implementation insights from 9.1/9.2:
