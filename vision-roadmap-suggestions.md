@@ -249,3 +249,17 @@ Suggestions #8, #9, #10, #11, #12, #16, #18, #19, #20, #21, #22, #23, #24, #25, 
 
 #### 46. vision.md is very large (83KB+)
 Consider splitting vision.md into focused sub-documents (e.g., `vision-tokens.md`, `vision-encounters.md`, `vision-architecture.md`) with a top-level index. The single-file format makes it hard to find and update specific sections. Alternatively, add a table of contents at the top.
+
+---
+
+## New suggestions (from gathering unpayable method DRY refactor)
+
+### vision.md
+
+#### 47. Document shared gathering helper pattern
+Vision's architecture section could note that `GameState::all_gathering_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. This illustrates the general pattern: shared logic lives on `GameState` with discipline-specific behavior injected via closures/callbacks. Combat uses a separate implementation due to its fundamentally different cost system (`ConcreteEffect` costs vs `GatheringCost`).
+
+### roadmap.md
+
+#### 48. Record gathering unpayable DRY refactor as complete
+The four identical `all_<discipline>_hand_cards_unpayable()` methods were refactored into a single generic `all_gathering_hand_cards_unpayable()` on `GameState` that takes a closure to extract costs from the discipline-specific `CardKind` variant. Each discipline method now delegates to this shared helper. Combat's unpayable check remains separate. This is a pure DRY refactor with no behavioral changes.

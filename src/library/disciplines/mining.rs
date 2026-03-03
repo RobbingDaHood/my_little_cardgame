@@ -301,25 +301,9 @@ impl GameState {
 
     /// Check if all mining hand cards are unpayable (pre-play costs unaffordable).
     fn all_mining_hand_cards_unpayable(&self) -> bool {
-        let hand_cards: Vec<_> = self
-            .library
-            .cards
-            .iter()
-            .filter(|c| c.counts.hand > 0 && matches!(c.kind, CardKind::Mining { .. }))
-            .collect();
-        if hand_cards.is_empty() {
-            return false;
-        }
-        hand_cards.iter().all(|card| {
-            let costs = match &card.kind {
-                CardKind::Mining { mining_effect } => &mining_effect.costs,
-                _ => return false,
-            };
-            let (pre_play_costs, _) = types::split_gathering_costs(costs);
-            if pre_play_costs.is_empty() {
-                return false;
-            }
-            Self::preview_gathering_costs(&pre_play_costs, &self.token_balances).is_err()
+        self.all_gathering_hand_cards_unpayable(|k| match k {
+            CardKind::Mining { mining_effect } => Some(&mining_effect.costs),
+            _ => None,
         })
     }
 

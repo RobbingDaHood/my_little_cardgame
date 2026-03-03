@@ -451,6 +451,29 @@ impl GameState {
         Ok(())
     }
 
+    pub(crate) fn all_gathering_hand_cards_unpayable(
+        &self,
+        cost_extractor: impl Fn(&super::types::CardKind) -> Option<&Vec<super::types::GatheringCost>>,
+    ) -> bool {
+        let hand_cards: Vec<_> = self
+            .library
+            .cards
+            .iter()
+            .filter(|c| c.counts.hand > 0 && cost_extractor(&c.kind).is_some())
+            .collect();
+        if hand_cards.is_empty() {
+            return false;
+        }
+        hand_cards.iter().all(|card| {
+            let costs = cost_extractor(&card.kind).unwrap();
+            let (pre_play_costs, _) = super::types::split_gathering_costs(costs);
+            if pre_play_costs.is_empty() {
+                return false;
+            }
+            Self::preview_gathering_costs(&pre_play_costs, &self.token_balances).is_err()
+        })
+    }
+
     /// Draw player cards from deck to hand per card type, recycling discard if needed.
     pub(crate) fn draw_player_cards_by_type(
         &mut self,
