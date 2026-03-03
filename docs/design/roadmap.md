@@ -338,8 +338,10 @@ Roadmap steps
      - All cards use ConcreteEffect with rolled values from min-max ranges
      - All numeric values scaled ~100x (Health 2000, Durabilities 10000, etc.)
      - Deterministic rolling via game seed RNG
-     - 35 cards total in library (was 29)
+     - 35 cards total in library at time of implementation (was 29; count has since grown — see later steps)
      - All scenario tests pass with scaled values
+
+> **Note on card counts:** Card counts in implementation results (e.g., "35 cards", "54 cards") are point-in-time records reflecting the count when that step was completed. They are not kept up to date as later steps add more cards.
 
 9.2) CardEffects cost system ✅ Completed
    - Goal: Add an optional cost to CardEffects, creating a strategic cost-benefit dimension. The system must support multiple cost types and multiple costs per card from the start.
@@ -452,6 +454,11 @@ Roadmap steps
 - Unpayable card → error: if no effect on a card can have its pre-play costs paid, the play is rejected with an error. Player must choose another card.
 - Autoloss extended to all disciplines: all encounter types (Combat, Mining, Herbalism, Woodcutting, Fishing) now check if all hand cards are unpayable and auto-lose if so. Previously only combat checked this.
 - `game_state.rs` discipline logic split into `src/library/disciplines/` with per-discipline modules: `combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`. General methods (cost payment, token operations) remain in `game_state.rs`.
+- Card initialization refactored from monolithic `initialize_library()` into per-discipline registration functions (`register_combat_cards`, `register_mining_cards`, etc.) under `src/library/disciplines/`. `initialize_library` is now a thin orchestrator calling these discipline-specific functions.
+- BREAKING: Card IDs are now dynamic (determined by registration order) rather than hard-coded. Tests referencing specific card IDs need updating. Consider a card lookup-by-name or card-type query endpoint to make tests more resilient to ID changes.
+- Gathering unpayable DRY refactor: four identical `all_<discipline>_hand_cards_unpayable()` methods unified into a single generic `all_gathering_hand_cards_unpayable()` on `GameState` that takes a closure to extract costs from the discipline-specific `CardKind` variant. Combat's unpayable check remains separate.
+- `HasDeckCounts` trait: unified `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` generic functions replace duplicated per-discipline methods for `OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`. Removed ~74 lines of duplicated code. Combat's `resolve_enemy_play` updated to use `deck_play_random` with weighted-by-count selection.
+- Woodcutting multiplier rebalance by probability.
 - docs/issues.md batch (10 issues resolved).
 
 9.4) Rest encounter
@@ -589,6 +596,7 @@ Roadmap steps
      - Tune encounter card counts and difficulty distributions.
      - Balance Insight generation rates and research costs across disciplines.
      - Add cross-discipline scenario tests (e.g., mine then herbalism then combat then research in sequence).
+     - Post-9.3 balance: review handsize tokens (now defaulting to 5), cap values, and cost card tuning introduced in 9.3. Ensure the cost/benefit ratio across disciplines feels fair after the expanded CardEffects.
    - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs. Research costs are proportional to card power.
 
 12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
@@ -619,6 +627,7 @@ Roadmap steps
 16) Implement varied enemy AI, conditional card effects, and targeting
    - Goal: Add enemy behaviors and richer card effect syntax (conditions, triggers, target selectors) while keeping deterministic resolution and action logging.
    - Description: Provide behavior profiles for enemies and expand the card schema; cover interactions with momentum, status tokens, and conditional triggers.
+     - Enemy AI cost awareness: Currently enemies pick cards randomly regardless of costs (deferred from 9.3). This step should include making enemies check cost affordability when selecting cards, falling back to random if none are affordable.
    - Playable acceptance: New cards and behaviors are playable and deterministic given the same seed; unit tests cover conditional resolution.
    - Notes: Keep scripting sandboxed and composable.
 
@@ -642,6 +651,8 @@ Implementation guidelines and priorities
 - Prefer data-driven content formats (deck files, CardEffect tables) so designers can author content without code changes.
 - Try to migrate tests away from test endpoints and use only public endpoints. Only use test endpoints temporarily if it is not possible to run the test without them; the expectation is that a later point in the roadmap will make any test endpoint redundant. 
 - Test migration status: `tests/scenario_tests.rs` uses only production endpoints and serves as the model for new tests. Track which test files still depend on /tests/* endpoints and target full migration as features make test endpoints redundant.
+- Large steps should be split into numbered sub-steps (e.g., 9.3.1, 9.3.2) for better progress tracking. Step 9.3 had 13 sub-steps and 12 commits — future steps of similar magnitude benefit from finer granularity in the roadmap.
+- Older step descriptions may reference field names that were later refactored (e.g., `durability_cost`, `stamina_cost`, `modify_range_min`). These are historical records describing the state at time of implementation and should not be updated retroactively.
 
 How to use this roadmap
 -----------------------
@@ -673,4 +684,9 @@ A lot of these could be introduced with a Milestone boss encounter or as progres
 - **Cooking mechanic:** Expand the rest encounter with a cooking sub-system to make rest more interesting and create demand for Fish and Herbs.
 - **Faction expansion of milestones:** Expand milestones into a faction mechanic with more sense of player choices and possibly a faction discipline deck.
 - **Scouting expansion:** Expand the scouting step to give the user more choice rather than deterministic difficulty increases. It should be possible to shape the difficulty (and rewards) of an encounter and leave the nature of the enemy somewhat random. Maybe choosing 1 out of 3 options. Adding a Scouting discipline deck when a good mechanic is figured out.
+
+Code architecture improvements (future)
+----------------------------------------
+- **Extend HasDeckCounts to player library cards:** `LibraryCard` uses `CardCounts` (with an extra `library` field) instead of `DeckCounts`. Consider a broader `HasCounts` trait hierarchy or unifying `CardCounts` and `DeckCounts` so player deck draw/shuffle operations can also use generic functions, further reducing duplication in `draw_player_cards_of_kind`.
+- **Generalize ore play-random in mining.rs:** `resolve_ore_play` still has inline logic for picking a random ore card from hand and moving it to discard. Refactor to use `deck_play_random`, matching how combat's `resolve_enemy_play` and fishing's `fish_play_random` were updated.
 

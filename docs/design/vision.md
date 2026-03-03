@@ -2,6 +2,35 @@
 
 This document describes the high-level gameplay vision for the project, with a focus on core mechanics and the role of decks and tokens.
 
+## Table of contents
+
+- [High-level principles](#high-level-principles)
+- [Architecture and module layout](#architecture-and-module-layout)
+- [Core gameplay elements](#core-gameplay-elements)
+- [Current combat setup](#current-combat-setup)
+  - [Card Effect Architecture (Two-Layer Model)](#card-effect-architecture-two-layer-model)
+  - [Cost System](#cost-system)
+- [Areas as decks (future vision)](#areas-as-decks-future-vision)
+- [Crafting](#crafting)
+- [Token lifecycles](#token-lifecycles)
+- [Balancing](#balancing)
+- [Distinct encounter playstyles](#distinct-encounter-playstyles)
+  - [Stamina as cross-discipline cost currency](#stamina-as-cross-discipline-cost-currency)
+- [Special tokens and cross-discipline currencies](#special-tokens-and-cross-discipline-currencies)
+- [Trading and merchants](#trading-and-merchants)
+- [Example turn flow (compact)](#example-turn-flow-compact)
+- [Reproducibility and single-game seed](#reproducibility-and-single-game-seed)
+- [Early game and progression](#early-game-and-progression)
+- [Interface and API](#interface-and-api)
+- [Card location model and counts](#card-location-model-and-counts)
+- [Goals and milestones](#goals-and-milestones)
+- [Encounter templates by discipline](#encounter-templates-by-discipline)
+- [Open-ended sandbox](#open-ended-sandbox)
+- [Endpoint organization](#endpoint-organization)
+- [Automatic test setup](#automatic-test-setup)
+- [Entity ids](#entity-ids)
+- [Closing](#closing)
+
 ## High-level principles
 
 - Turn-based gameplay: All interactions are resolved in discrete turns. Players (and enemies/encounters) take actions in a clear turn order, allowing deterministic resolution and meaningful choices.
@@ -17,12 +46,18 @@ The codebase is organized into the following main modules:
   - `types.rs` — core data types (LibraryCard, CardKind, CardEffectKind, CombatantDef, CombatState, ActionPayload, CardLocation, etc.)
   - `action_log.rs` — append-only player action log
   - `game_state.rs` — top-level GameState managing Library, tokens, and encounter phase
-  - `disciplines/` — per-discipline encounter logic modules (`combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`), each implementing methods on `GameState`
+  - `disciplines/` — per-discipline encounter logic modules (`combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`), each implementing methods on `GameState`. Each discipline module is responsible for both its encounter logic AND its card registration — everything about a discipline lives in its module.
   - `endpoints.rs` — HTTP route handlers for gameplay and library queries
 - `src/combat/` — combat state endpoints (delegates to GameState methods)
 - `src/action/` — player action handling and POST /action request processing (PlayerActions enum manages encounter phase transitions)
 - `src/player_data.rs` — RandomGeneratorWrapper: seeded RNG wrapper for deterministic random operations
 - `src/main.rs` — binary entry that mounts Rocket routes and serves OpenAPI/Swagger UI
+
+Architectural patterns:
+
+- **Shared vs discipline-specific effects:** Shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines. Discipline-specific effects are registered within their discipline module.
+- **Trait-based deck abstraction:** The `HasDeckCounts` trait provides a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`). Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. Shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods.
+- **Shared gathering helper:** `GameState::all_gathering_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. Shared logic lives on `GameState` with discipline-specific behavior injected via closures. Combat uses a separate implementation due to its different cost system (`ConcreteEffect` costs vs `GatheringCost`).
 
 ## Core gameplay elements
 
@@ -145,6 +180,16 @@ Some card effects have optional costs defined as percentage ranges of the effect
 - Cost cards are more powerful but require resource management.
 - Starting decks are weighted toward non-cost cards.
 - Cost system extends to gathering encounters (Mining, Woodcutting stamina costs).
+
+### Gathering Cost Model
+
+`GatheringCost { cost_type: TokenType, amount: i64 }` is a shared struct used across all gathering disciplines for both `costs: Vec<GatheringCost>` and `gains: Vec<GatheringCost>` vectors. This is the key unifying type that makes all gathering card effects consistent.
+
+Gathering card costs are classified into two categories at resolution time:
+- **Pre-play costs** (e.g., Stamina): checked before the card is played; if the player cannot afford them, the card play is rejected. `TokenType::is_durability_cost()` returns `false` for these.
+- **Post-play costs** (e.g., MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability): deducted after the card's effects are applied; if the resource reaches zero, the encounter ends as a loss. `TokenType::is_durability_cost()` returns `true` for these.
+
+The `split_gathering_costs()` helper separates costs from the unified `costs` vec into these two categories.
 
 
 ## Areas as decks (future vision)
@@ -384,6 +429,10 @@ Stamina is intended as the shared cost currency across all disciplines. It is ea
 
 This subsection is the authoritative token reference. Each token type below lists how it is typically earned, where it may be spent, and whether it can carry structured payload data.
 
+- Stamina (resource counter): Initialized to 1000 at game start. Primary cost currency for cost cards across all disciplines. Generated by: rest encounters, stamina gain card effects, fishing stamina cards. Consumed by: cost cards (Attack, Defence, Mining, Woodcutting, Herbalism, Fishing, future crafting). Spendable: yes (consumed automatically as a pre-play cost on card plays).
+
+- Max handsize tokens (PersistentCounter, initialized to 5): Control how many cards can be drawn into each hand type per draw. Player tokens: AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand. Enemy tokens: EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand. Modifiable by card effects.
+
 
 
 
@@ -599,7 +648,7 @@ Concrete examples
 4) Fishing / Foraging (gathering)
 
 - Current simplified implementation (Step 8.4):
-  - Numeric card-subtraction mechanic: Each fishing encounter defines a valid_range (min, max), max_turns, and win_turns_needed.
+  - Numeric card-subtraction mechanic: Each fishing encounter defines a valid_range (min, max), max_turns, and win_turns_needed. FishingRangeMin and FishingRangeMax are token-backed values modifiable by card effects during the encounter (via the `gains` vector). FishAmount is a token controlling how many wins a successful turn counts for.
   - Each round the player plays a numeric card first, then the enemy (fish) plays a numeric card. The two values are subtracted: result = (player_value - fish_value).max(0). If the result falls within the valid_range (inclusive), the turn counts as "won".
   - Win: player wins win_turns_needed rounds before max_turns are exhausted → grant Fish tokens. Loss: max_turns exhausted without enough wins → PlayerLost. OR FishingDurability ≤ 0 → PlayerLost.
   - FishingDurability initialized at game start (100). All costs (durability, stamina, etc.) are in the `costs: Vec<GatheringCost>` vector; token grants (FishingRangeMin, FishingRangeMax, FishAmount modifications) use the `gains: Vec<GatheringCost>` vector. Player draws 1 card per play.
