@@ -218,7 +218,8 @@ impl Library {
             match &card.kind {
                 CardKind::Attack { effects }
                 | CardKind::Defence { effects }
-                | CardKind::Resource { effects } => {
+                | CardKind::Resource { effects }
+                | CardKind::Rest { effects, .. } => {
                     for effect in effects {
                         match self.cards.get(effect.effect_id) {
                             Some(ref_card)

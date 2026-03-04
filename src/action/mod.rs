@@ -148,7 +148,7 @@ pub async fn play(
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
                 }
-                crate::library::types::EncounterKind::Rest { .. } => {
+                crate::library::types::EncounterKind::Rest => {
                     match gs.start_rest_encounter(card_id, &mut rng) {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
@@ -169,12 +169,28 @@ pub async fn play(
                 ))));
             }
 
-            // Rest encounters use card_id as an index into the rest hand, not a library card
+            // Rest encounters handle play internally (including library.play)
             if matches!(
                 gs.current_encounter,
                 Some(crate::library::types::EncounterState::Rest(_))
             ) {
-                if let Err(e) = gs.resolve_rest_card_choice(card_id as usize) {
+                let lib_card = match gs.library.get(card_id as usize) {
+                    Some(c) => c.clone(),
+                    None => {
+                        return Err(Left(NotFound(new_status(format!(
+                            "Card {} does not exist in Library",
+                            card_id
+                        )))));
+                    }
+                };
+                if !matches!(lib_card.kind, crate::library::types::CardKind::Rest { .. }) {
+                    return Err(Right(BadRequest(new_status(format!(
+                        "Card {} is not a Rest card (required for rest encounter)",
+                        card_id
+                    )))));
+                }
+                let mut rng = player_data.random_generator_state.lock().await;
+                if let Err(e) = gs.resolve_rest_card_play(card_id as usize, &mut rng) {
                     return Err(Right(BadRequest(new_status(e))));
                 }
                 let payload = crate::library::types::ActionPayload::PlayCard {
@@ -407,6 +423,10 @@ pub async fn play(
                     return Err(Right(BadRequest(new_status(
                         "Cannot abort a combat encounter".to_string(),
                     ))));
+                }
+                Some(crate::library::types::EncounterState::Rest(_)) => {
+                    // Rest encounters always result in PlayerWon on abort
+                    gs.abort_rest_encounter();
                 }
                 Some(_) => {
                     // Mark non-combat encounter as lost, go to scouting

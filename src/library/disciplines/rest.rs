@@ -1,153 +1,156 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState, RestEncounterState,
+    self, CardCounts, CardEffectCost, CardEffectKind, CardKind, EncounterKind, EncounterOutcome,
+    EncounterState, RestEncounterState,
 };
 use crate::library::{GameState, Library};
 
 pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
-    // Three rest card effect templates:
-    // 1. Great Stamina recovery — costs fish + herbs
-    let stamina_template = types::RestCardEffectTemplate {
-        recoveries: vec![types::RestRecoveryRange {
-            token_type: types::TokenType::Stamina,
-            cap_min: 400,
-            cap_max: 600,
-            gain_min_percent: 80,
-            gain_max_percent: 100,
-        }],
-        cost_ranges: vec![
-            types::RestCostRange {
-                cost_type: types::TokenType::Fish,
-                min_amount: 50,
-                max_amount: 150,
-            },
-            types::RestCostRange {
-                cost_type: types::TokenType::Plant,
-                min_amount: 50,
-                max_amount: 150,
-            },
-        ],
-    };
+    // Rest PlayerCardEffect entries (GainTokens templates with RestToken + material costs).
+    // Costs use percentage-of-gain: roll cap → roll gain% → roll cost% of gain.
 
-    // 2. Health recovery — costs fish + herbs
-    let health_template = types::RestCardEffectTemplate {
-        recoveries: vec![types::RestRecoveryRange {
-            token_type: types::TokenType::Health,
-            cap_min: 300,
-            cap_max: 500,
-            gain_min_percent: 80,
-            gain_max_percent: 100,
-        }],
-        cost_ranges: vec![
-            types::RestCostRange {
-                cost_type: types::TokenType::Fish,
-                min_amount: 80,
-                max_amount: 200,
+    // 1. Stamina recovery — costs Fish (10-30%) + Plant (10-30%)
+    let stamina_effect_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Stamina,
+                cap_min: 400,
+                cap_max: 600,
+                gain_min_percent: 80,
+                gain_max_percent: 100,
+                costs: vec![
+                    CardEffectCost {
+                        cost_type: types::TokenType::Fish,
+                        min_percent: 10,
+                        max_percent: 30,
+                    },
+                    CardEffectCost {
+                        cost_type: types::TokenType::Plant,
+                        min_percent: 10,
+                        max_percent: 30,
+                    },
+                ],
+                duration: types::TokenLifecycle::PersistentCounter,
             },
-            types::RestCostRange {
-                cost_type: types::TokenType::Plant,
-                min_amount: 80,
-                max_amount: 200,
-            },
-        ],
-    };
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
 
-    // 3. Mixed Stamina + Health — less total than specialized
-    let mixed_template = types::RestCardEffectTemplate {
-        recoveries: vec![
-            types::RestRecoveryRange {
+    // 2. Health recovery — costs Fish (15-35%) + Plant (15-35%)
+    let health_effect_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Health,
+                cap_min: 300,
+                cap_max: 500,
+                gain_min_percent: 80,
+                gain_max_percent: 100,
+                costs: vec![
+                    CardEffectCost {
+                        cost_type: types::TokenType::Fish,
+                        min_percent: 15,
+                        max_percent: 35,
+                    },
+                    CardEffectCost {
+                        cost_type: types::TokenType::Plant,
+                        min_percent: 15,
+                        max_percent: 35,
+                    },
+                ],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    // 3. Mixed Stamina + Health — no RestToken cost (free play), lower gains
+    let mixed_stamina_effect_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Stamina,
                 cap_min: 200,
                 cap_max: 350,
                 gain_min_percent: 70,
                 gain_max_percent: 90,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
             },
-            types::RestRecoveryRange {
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
+
+    let mixed_health_effect_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Health,
                 cap_min: 150,
                 cap_max: 300,
                 gain_min_percent: 70,
                 gain_max_percent: 90,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
             },
-        ],
-        cost_ranges: vec![
-            types::RestCostRange {
-                cost_type: types::TokenType::Fish,
-                min_amount: 30,
-                max_amount: 120,
-            },
-            types::RestCostRange {
-                cost_type: types::TokenType::Plant,
-                min_amount: 30,
-                max_amount: 120,
-            },
-        ],
-    };
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+    );
 
-    // Roll 5 concrete rest cards from the 3 templates.
-    // Distribution: 2 stamina, 2 health, 1 mixed. Most have costs.
-    // The rest deck should be mainly cards with cost and only a few without.
-    let templates = [
-        &stamina_template,
-        &stamina_template,
-        &health_template,
-        &health_template,
-        &mixed_template,
+    // Roll concrete rest cards referencing these effect templates.
+    // Distribution: 2 stamina, 2 health, 1 mixed.
+    // Stamina/health cards cost 1 rest token; mixed card costs 0.
+    let effect_groups: Vec<(Vec<usize>, i64)> = vec![
+        (vec![stamina_effect_id], 1),
+        (vec![stamina_effect_id], 1),
+        (vec![health_effect_id], 1),
+        (vec![health_effect_id], 1),
+        (vec![mixed_stamina_effect_id, mixed_health_effect_id], 0),
     ];
 
-    let mut rest_cards = Vec::new();
-    for (i, template) in templates.iter().enumerate() {
-        let recoveries = template
-            .recoveries
+    for (effect_ids, rest_token_cost) in &effect_groups {
+        let effects: Vec<types::ConcreteEffect> = effect_ids
             .iter()
-            .map(|r| {
-                let rolled_cap = crate::library::game_state::roll_range(rng, r.cap_min, r.cap_max);
-                let rolled_gain = crate::library::game_state::roll_range_u32(
-                    rng,
-                    r.gain_min_percent,
-                    r.gain_max_percent,
-                );
-                types::ConcreteRestRecovery {
-                    token_type: r.token_type.clone(),
-                    rolled_value: rolled_cap * rolled_gain as i64 / 100,
-                    rolled_cap,
-                    rolled_gain_percent: rolled_gain,
-                }
-            })
+            .map(|&eid| crate::library::game_state::roll_concrete_effect(rng, eid, lib))
             .collect();
-
-        // Card at index 4 (the mixed card) is the cost-free one
-        let costs = if i == 4 {
-            vec![]
-        } else {
-            template
-                .cost_ranges
-                .iter()
-                .map(|c| types::GatheringCost {
-                    cost_type: c.cost_type.clone(),
-                    amount: crate::library::game_state::roll_range(rng, c.min_amount, c.max_amount),
-                })
-                .collect()
-        };
-
-        rest_cards.push(types::RestCard {
-            recoveries,
-            costs,
-            counts: types::DeckCounts {
+        lib.add_card(
+            CardKind::Rest {
+                effects,
+                rest_token_cost: *rest_token_cost,
+            },
+            CardCounts {
+                library: 0,
                 deck: 5,
                 hand: 0,
                 discard: 0,
             },
-        });
+        );
     }
 
     // Register rest encounter card (~20% of encounter deck = hand: 4)
     lib.add_card(
         CardKind::Encounter {
-            encounter_kind: EncounterKind::Rest {
-                rest_def: types::RestDef {
-                    rest_deck: rest_cards,
-                },
-            },
+            encounter_kind: EncounterKind::Rest,
         },
         CardCounts {
             library: 1,
@@ -159,8 +162,8 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
 }
 
 impl GameState {
-    /// Initialize a rest encounter from a Library Encounter card.
-    /// Draws 5 rest cards from the rest deck and presents them as choices.
+    /// Initialize a rest encounter. Draws rest cards from the player's Library
+    /// deck to hand and sets initial rest tokens (1–2).
     pub fn start_rest_encounter(
         &mut self,
         encounter_card_id: usize,
@@ -171,10 +174,10 @@ impl GameState {
             .get(encounter_card_id)
             .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
             .clone();
-        let rest_def = match &lib_card.kind {
+        match &lib_card.kind {
             CardKind::Encounter {
-                encounter_kind: EncounterKind::Rest { rest_def },
-            } => rest_def.clone(),
+                encounter_kind: EncounterKind::Rest,
+            } => {}
             _ => {
                 return Err(format!(
                     "Card {} is not a rest encounter",
@@ -183,71 +186,153 @@ impl GameState {
             }
         };
 
-        let mut rest_deck = rest_def.rest_deck;
-        // Shuffle the rest deck
-        crate::library::game_state::deck_shuffle_hand(rng, &mut rest_deck);
+        // Draw rest cards from deck to hand
+        let max_hand =
+            types::token_balance_by_type(&self.token_balances, &types::TokenType::RestMaxHand);
+        self.draw_player_cards_of_kind(
+            max_hand as u32,
+            |k| matches!(k, CardKind::Rest { .. }),
+            rng,
+            Some(types::TokenType::RestMaxHand),
+        );
 
-        // Draw 5 rest cards from deck to hand
-        for _ in 0..5 {
-            crate::library::game_state::deck_draw_random(rng, &mut rest_deck);
-        }
+        // Set initial rest tokens (1–2)
+        let initial_rest_tokens = crate::library::game_state::roll_range(rng, 1, 2);
 
         let state = RestEncounterState {
             encounter_card_id,
             outcome: EncounterOutcome::Undecided,
-            rest_hand: rest_deck,
+            rest_tokens: initial_rest_tokens,
         };
         self.current_encounter = Some(EncounterState::Rest(state));
         self.encounter_phase = types::EncounterPhase::InEncounter;
         Ok(())
     }
 
-    /// Player picks a rest card by index into the rest_hand.
-    /// Applies recovery effects (respecting caps), deducts costs, marks encounter as won.
-    pub fn resolve_rest_card_choice(&mut self, rest_card_index: usize) -> Result<(), String> {
-        let rest_card = {
+    /// Play a rest card from the player's hand.
+    /// Applies GainTokens effects, deducts RestToken costs from encounter state,
+    /// deducts other costs from player token_balances, and moves card hand→discard.
+    pub fn resolve_rest_card_play(
+        &mut self,
+        card_id: usize,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> Result<(), String> {
+        let lib_card = self
+            .library
+            .get(card_id)
+            .ok_or_else(|| format!("Card {} not found in Library", card_id))?
+            .clone();
+        let (effects, rest_token_cost) = match &lib_card.kind {
+            CardKind::Rest {
+                effects,
+                rest_token_cost,
+            } => (effects.clone(), *rest_token_cost),
+            _ => return Err("Cannot play a non-rest card in rest encounter".to_string()),
+        };
+
+        if lib_card.counts.hand == 0 {
+            return Err(format!("Card {} is not in hand", card_id));
+        }
+
+        // Check rest tokens are sufficient
+        {
             let rest_state = match &self.current_encounter {
                 Some(EncounterState::Rest(r)) => r,
                 _ => return Err("No active rest encounter".to_string()),
             };
-
-            // Find the card in hand at the given index
-            let hand_cards: Vec<&types::RestCard> = rest_state
-                .rest_hand
-                .iter()
-                .filter(|c| c.counts.hand > 0)
-                .collect();
-
-            if rest_card_index >= hand_cards.len() {
+            if rest_state.rest_tokens < rest_token_cost {
                 return Err(format!(
-                    "Rest card index {} out of range (hand has {} cards)",
-                    rest_card_index,
-                    hand_cards.len()
+                    "Insufficient RestTokens: need {} but have {}",
+                    rest_token_cost, rest_state.rest_tokens
                 ));
-            }
-
-            hand_cards[rest_card_index].clone()
-        };
-
-        // Check and deduct costs (herbs and fish tokens)
-        GameState::check_and_deduct_gathering_costs(&rest_card.costs, &mut self.token_balances)?;
-
-        // Apply recovery effects (respecting caps)
-        for recovery in &rest_card.recoveries {
-            let entry = types::token_entry_by_type(&mut self.token_balances, &recovery.token_type);
-            *entry += recovery.rolled_value;
-            // Cap the token at rolled_cap
-            if *entry > recovery.rolled_cap {
-                *entry = recovery.rolled_cap;
             }
         }
 
-        // Mark encounter as won
+        // Check and deduct costs from player token_balances
+        GameState::check_and_deduct_costs(&effects, &mut self.token_balances)?;
+
+        // Apply GainTokens effects
+        for effect in &effects {
+            let effect_kind = self.library.resolve_effect(effect.effect_id);
+            if let Some(CardEffectKind::GainTokens {
+                token_type,
+                duration,
+                ..
+            }) = effect_kind
+            {
+                let token = types::Token {
+                    token_type: token_type.clone(),
+                    lifecycle: duration.clone(),
+                };
+                let entry = self.token_balances.entry(token).or_insert(0);
+                *entry += effect.rolled_value;
+                // Cap the token balance at rolled_cap
+                if let Some(cap) = effect.rolled_cap {
+                    if *entry > cap {
+                        *entry = cap;
+                    }
+                }
+            }
+        }
+
+        // Move card hand→discard
+        self.library.play(card_id)?;
+
+        // Deduct rest tokens from encounter state
+        if let Some(EncounterState::Rest(ref mut rest_state)) = self.current_encounter {
+            rest_state.rest_tokens -= rest_token_cost;
+        }
+
+        // Draw replacement rest card
+        self.draw_player_cards_of_kind(
+            1,
+            |k| matches!(k, CardKind::Rest { .. }),
+            rng,
+            Some(types::TokenType::RestMaxHand),
+        );
+
+        // Check if rest tokens are depleted → auto-complete
+        let tokens_depleted = matches!(
+            &self.current_encounter,
+            Some(EncounterState::Rest(r)) if r.rest_tokens <= 0
+        );
+        if tokens_depleted {
+            self.complete_rest_encounter();
+        }
+
+        Ok(())
+    }
+
+    /// Complete the rest encounter as PlayerWon.
+    fn complete_rest_encounter(&mut self) {
+        if let Some(EncounterState::Rest(ref mut r)) = self.current_encounter {
+            r.outcome = EncounterOutcome::PlayerWon;
+        }
+        self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
+        self.encounter_results.push(EncounterOutcome::PlayerWon);
+        // Return rest cards from hand to discard
+        for card in self.library.cards.iter_mut() {
+            if matches!(card.kind, CardKind::Rest { .. }) && card.counts.hand > 0 {
+                card.counts.discard += card.counts.hand;
+                card.counts.hand = 0;
+            }
+        }
+        self.current_encounter = None;
+        self.encounter_phase = types::EncounterPhase::Scouting;
+    }
+
+    /// Abort a rest encounter — always results in PlayerWon.
+    pub fn abort_rest_encounter(&mut self) {
+        // Return rest cards from hand to discard
+        for card in self.library.cards.iter_mut() {
+            if matches!(card.kind, CardKind::Rest { .. }) && card.counts.hand > 0 {
+                card.counts.discard += card.counts.hand;
+                card.counts.hand = 0;
+            }
+        }
         self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
         self.encounter_results.push(EncounterOutcome::PlayerWon);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
-
-        Ok(())
     }
 }

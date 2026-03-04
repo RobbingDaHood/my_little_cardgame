@@ -56,6 +56,9 @@ pub enum TokenType {
     FishingRangeMin,
     FishingRangeMax,
     FishAmount,
+    // Rest encounter tokens
+    RestToken,
+    RestMaxHand,
 }
 
 /// All known token types.
@@ -99,6 +102,8 @@ impl TokenType {
             TokenType::FishingRangeMin,
             TokenType::FishingRangeMax,
             TokenType::FishAmount,
+            TokenType::RestToken,
+            TokenType::RestMaxHand,
         ]
     }
 
@@ -292,6 +297,10 @@ pub enum CardKind {
     Fishing {
         fishing_effect: FishingCardEffect,
     },
+    Rest {
+        effects: Vec<ConcreteEffect>,
+        rest_token_cost: i64,
+    },
     Encounter {
         encounter_kind: EncounterKind,
     },
@@ -454,85 +463,6 @@ pub struct FishingDef {
     pub rewards: HashMap<Token, i64>,
 }
 
-/// A concrete recovery effect on a rest card (rolled from RestCardEffect template).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct ConcreteRestRecovery {
-    pub token_type: TokenType,
-    pub rolled_value: i64,
-    pub rolled_cap: i64,
-    pub rolled_gain_percent: u32,
-}
-
-/// A card in the rest deck (encounter-internal).
-/// Each card has concrete recovery effects and concrete costs, all rolled at game init.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct RestCard {
-    pub recoveries: Vec<ConcreteRestRecovery>,
-    #[serde(default)]
-    pub costs: Vec<GatheringCost>,
-    pub counts: DeckCounts,
-}
-
-impl HasDeckCounts for RestCard {
-    fn deck_count(&self) -> u32 {
-        self.counts.deck
-    }
-    fn hand_count(&self) -> u32 {
-        self.counts.hand
-    }
-    fn discard_count(&self) -> u32 {
-        self.counts.discard
-    }
-    fn deck_count_mut(&mut self) -> &mut u32 {
-        &mut self.counts.deck
-    }
-    fn hand_count_mut(&mut self) -> &mut u32 {
-        &mut self.counts.hand
-    }
-    fn discard_count_mut(&mut self) -> &mut u32 {
-        &mut self.counts.discard
-    }
-}
-
-/// Template for rest card effects: defines ranges for recovery values and costs.
-/// Used at game init to roll concrete RestCards.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct RestCardEffectTemplate {
-    pub recoveries: Vec<RestRecoveryRange>,
-    #[serde(default)]
-    pub cost_ranges: Vec<RestCostRange>,
-}
-
-/// Range for a single recovery effect on a rest card template.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct RestRecoveryRange {
-    pub token_type: TokenType,
-    pub cap_min: i64,
-    pub cap_max: i64,
-    pub gain_min_percent: u32,
-    pub gain_max_percent: u32,
-}
-
-/// Range for a cost on a rest card template.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct RestCostRange {
-    pub cost_type: TokenType,
-    pub min_amount: i64,
-    pub max_amount: i64,
-}
-
-/// Definition of a rest encounter.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct RestDef {
-    pub rest_deck: Vec<RestCard>,
-}
-
 /// Sub-type of encounter cards.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_type")]
@@ -542,7 +472,7 @@ pub enum EncounterKind {
     Herbalism { herbalism_def: HerbalismDef },
     Woodcutting { woodcutting_def: WoodcuttingDef },
     Fishing { fishing_def: FishingDef },
-    Rest { rest_def: RestDef },
+    Rest,
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -1100,13 +1030,13 @@ pub struct FishingEncounterState {
     pub rewards: HashMap<Token, i64>,
 }
 
-/// Runtime state for a rest encounter (pick one card from drawn hand).
+/// Runtime state for a rest encounter (play rest cards using rest tokens).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct RestEncounterState {
     pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
-    pub rest_hand: Vec<RestCard>,
+    pub rest_tokens: i64,
 }
 
 /// Active encounter state, dispatched by encounter type.

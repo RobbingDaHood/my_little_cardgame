@@ -342,6 +342,10 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::FishingMaxHand),
             5,
         );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::RestMaxHand),
+            5,
+        );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -640,7 +644,7 @@ impl GameState {
                                     let _ = gs.start_fishing_encounter(card_id, &mut rng);
                                 }
                                 CardKind::Encounter {
-                                    encounter_kind: EncounterKind::Rest { .. },
+                                    encounter_kind: EncounterKind::Rest,
                                 } => {
                                     let _ = gs.start_rest_encounter(card_id, &mut rng);
                                 }
@@ -652,7 +656,11 @@ impl GameState {
                     }
                 }
                 ActionPayload::PlayCard { card_id } => {
-                    let _ = gs.library.play(*card_id);
+                    // Rest encounters handle library.play() internally
+                    let is_rest = matches!(&gs.current_encounter, Some(EncounterState::Rest(_)));
+                    if !is_rest {
+                        let _ = gs.library.play(*card_id);
+                    }
                     match &gs.current_encounter {
                         Some(EncounterState::Combat(_)) => {
                             let _ = gs.resolve_player_card(*card_id, &mut rng);
@@ -676,7 +684,7 @@ impl GameState {
                             let _ = gs.resolve_player_fishing_card(*card_id, &mut rng);
                         }
                         Some(EncounterState::Rest(_)) => {
-                            let _ = gs.resolve_rest_card_choice(*card_id);
+                            let _ = gs.resolve_rest_card_play(*card_id, &mut rng);
                         }
                         None => {}
                     }
@@ -697,7 +705,11 @@ impl GameState {
                     gs.encounter_phase = super::types::EncounterPhase::NoEncounter;
                 }
                 ActionPayload::AbortEncounter => {
-                    gs.abort_encounter();
+                    if matches!(&gs.current_encounter, Some(EncounterState::Rest(_))) {
+                        gs.abort_rest_encounter();
+                    } else {
+                        gs.abort_encounter();
+                    }
                 }
             }
             match gs.action_log.entries.lock() {
