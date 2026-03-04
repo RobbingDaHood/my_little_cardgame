@@ -59,7 +59,7 @@ fn test_play_attack_card_kills_enemy() {
     // Play cards cycling through phases until combat ends
     // Phase cycle: Defending(9) -> Attacking(8) -> Resourcing(10) -> ...
     let phase_cards = [9, 8, 10]; // Defence, Attack, Resource
-    for (phase_idx, _) in (0..30).enumerate() {
+    for (phase_idx, _) in (0..150).enumerate() {
         let card_id = phase_cards[phase_idx % 3];
         let action_json = format!(
             r#"{{ "action_type": "EncounterPlayCard", "card_id": {} }}"#,

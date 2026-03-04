@@ -3,6 +3,7 @@
 //! This file provides small, well-scoped domain primitives used by higher-level systems.
 
 pub mod action_log;
+pub(crate) mod disciplines;
 mod endpoints;
 pub mod game_state;
 pub mod types;
@@ -34,7 +35,27 @@ impl Library {
     }
 
     /// Add a card to the library. Returns the card ID (index).
+    /// Panics if a GainTokens effect has a cost token_type matching its gain token_type.
     pub fn add_card(&mut self, kind: CardKind, counts: CardCounts) -> usize {
+        // Validate GainTokens: gain token_type must not match any cost token_type
+        let effect_kind = match &kind {
+            CardKind::PlayerCardEffect { kind: k, .. }
+            | CardKind::EnemyCardEffect { kind: k, .. } => Some(k),
+            _ => None,
+        };
+        if let Some(types::CardEffectKind::GainTokens {
+            token_type, costs, ..
+        }) = effect_kind
+        {
+            for cost in costs {
+                assert!(
+                    cost.cost_type != *token_type,
+                    "GainTokens cannot have a cost_type ({:?}) matching its gain token_type ({:?})",
+                    cost.cost_type,
+                    token_type
+                );
+            }
+        }
         let id = self.cards.len();
         self.cards.push(LibraryCard { kind, counts });
         id

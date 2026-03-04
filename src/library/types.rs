@@ -2,6 +2,10 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::JsonSchema;
 use std::collections::HashMap;
 
+fn default_persistent_lifecycle() -> TokenLifecycle {
+    TokenLifecycle::PersistentCounter
+}
+
 /// Canonical token identifier enum.
 /// Each variant is a well-known token with associated lifecycle semantics.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -34,6 +38,24 @@ pub enum TokenType {
     Fish,
     // Encounter-scoped tokens
     OreHealth,
+    // Max handsize tokens (player decks)
+    AttackMaxHand,
+    DefenceMaxHand,
+    ResourceMaxHand,
+    MiningMaxHand,
+    HerbalismMaxHand,
+    WoodcuttingMaxHand,
+    FishingMaxHand,
+    // Max handsize tokens (enemy decks, encounter-scoped)
+    EnemyAttackMaxHand,
+    EnemyDefenceMaxHand,
+    EnemyResourceMaxHand,
+    // Milestone/reward tokens
+    MilestoneInsight,
+    // Fishing encounter-scoped tokens
+    FishingRangeMin,
+    FishingRangeMax,
+    FishAmount,
 }
 
 /// All known token types.
@@ -63,8 +85,48 @@ impl TokenType {
             TokenType::Lumber,
             TokenType::Fish,
             TokenType::OreHealth,
+            TokenType::AttackMaxHand,
+            TokenType::DefenceMaxHand,
+            TokenType::ResourceMaxHand,
+            TokenType::MiningMaxHand,
+            TokenType::HerbalismMaxHand,
+            TokenType::WoodcuttingMaxHand,
+            TokenType::FishingMaxHand,
+            TokenType::EnemyAttackMaxHand,
+            TokenType::EnemyDefenceMaxHand,
+            TokenType::EnemyResourceMaxHand,
+            TokenType::MilestoneInsight,
+            TokenType::FishingRangeMin,
+            TokenType::FishingRangeMax,
+            TokenType::FishAmount,
         ]
     }
+
+    pub fn is_durability_cost(&self) -> bool {
+        matches!(
+            self,
+            TokenType::MiningDurability
+                | TokenType::HerbalismDurability
+                | TokenType::WoodcuttingDurability
+                | TokenType::FishingDurability
+        )
+    }
+}
+
+/// Split gathering costs into pre-play costs (reject card if unaffordable)
+/// and post-play costs (durability — deplete encounter after play).
+pub fn split_gathering_costs(costs: &[GatheringCost]) -> (Vec<GatheringCost>, Vec<GatheringCost>) {
+    let pre_play = costs
+        .iter()
+        .filter(|c| !c.cost_type.is_durability_cost())
+        .cloned()
+        .collect();
+    let post_play = costs
+        .iter()
+        .filter(|c| c.cost_type.is_durability_cost())
+        .cloned()
+        .collect();
+    (pre_play, post_play)
 }
 
 impl Token {
@@ -93,13 +155,32 @@ impl Token {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "effect_type")]
 pub enum CardEffectKind {
-    ChangeTokens {
+    /// Grant tokens: starts from a cap range and calculates gain as cap * gain_percent / 100,
+    /// clamped so the token balance does not exceed the rolled cap.
+    /// Costs are a percentage of the gain. The gain token_type must not match any cost token_type.
+    GainTokens {
+        target: EffectTarget,
+        token_type: TokenType,
+        cap_min: i64,
+        cap_max: i64,
+        gain_min_percent: u32,
+        gain_max_percent: u32,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
+        #[serde(default = "default_persistent_lifecycle")]
+        duration: TokenLifecycle,
+    },
+    /// Lose tokens: min/max represent the positive amount to lose. The apply logic subtracts.
+    /// Costs are calculated after the loss value is determined.
+    LoseTokens {
         target: EffectTarget,
         token_type: TokenType,
         min: i64,
         max: i64,
         #[serde(default)]
         costs: Vec<CardEffectCost>,
+        #[serde(default = "default_persistent_lifecycle")]
+        duration: TokenLifecycle,
     },
     DrawCards {
         attack: u32,
@@ -125,6 +206,12 @@ pub struct ConcreteEffect {
     pub rolled_value: i64,
     #[serde(default)]
     pub rolled_costs: Vec<ConcreteEffectCost>,
+    /// Rolled cap for token-granting effects (from cap_min..cap_max on the template).
+    #[serde(default)]
+    pub rolled_cap: Option<i64>,
+    /// Rolled gain percentage (from gain_min_percent..gain_max_percent on the template).
+    #[serde(default)]
+    pub rolled_gain_percent: Option<u32>,
 }
 
 /// A concrete rolled cost on a card: the specific percentage rolled from the cost range.
@@ -133,6 +220,14 @@ pub struct ConcreteEffect {
 pub struct ConcreteEffectCost {
     pub cost_type: TokenType,
     pub rolled_percent: u32,
+}
+
+/// Fixed-amount cost used by gathering discipline cards.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct GatheringCost {
+    pub cost_type: TokenType,
+    pub amount: i64,
 }
 
 /// Who a card effect targets.
@@ -216,7 +311,9 @@ pub struct MiningCardEffect {
     pub ore_damage: i64,
     pub durability_prevent: i64,
     #[serde(default)]
-    pub stamina_cost: i64,
+    pub costs: Vec<GatheringCost>,
+    #[serde(default)]
+    pub gains: Vec<GatheringCost>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -230,13 +327,36 @@ pub enum PlantCharacteristic {
     Luminous,
 }
 
+/// How an herbalism card matches plant characteristics.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum HerbalismMatchMode {
+    /// Remove plants sharing ANY listed characteristic (existing behavior).
+    Or { types: Vec<PlantCharacteristic> },
+    /// Remove plants matching ALL listed characteristics.
+    And { types: Vec<PlantCharacteristic> },
+    /// Remove plants matching the characteristic(s) present on the MOST cards.
+    MostCommon {
+        limit: u32,
+        types: Vec<PlantCharacteristic>,
+    },
+    /// Remove plants matching the characteristic(s) present on the LEAST cards.
+    LeastCommon {
+        limit: u32,
+        types: Vec<PlantCharacteristic>,
+    },
+}
+
 /// Inline effect for Herbalism discipline cards.
 /// Targets characteristics to remove matching plant cards; broader cards are riskier.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct HerbalismCardEffect {
-    pub target_characteristics: Vec<PlantCharacteristic>,
-    pub durability_cost: i64,
+    #[serde(default)]
+    pub costs: Vec<GatheringCost>,
+    pub match_mode: HerbalismMatchMode,
+    #[serde(default)]
+    pub gains: Vec<GatheringCost>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
@@ -275,9 +395,10 @@ pub enum ChopType {
 pub struct WoodcuttingCardEffect {
     pub chop_types: Vec<ChopType>,
     pub chop_values: Vec<u32>,
-    pub durability_cost: i64,
     #[serde(default)]
-    pub stamina_cost: i64,
+    pub costs: Vec<GatheringCost>,
+    #[serde(default)]
+    pub gains: Vec<GatheringCost>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -300,12 +421,15 @@ pub struct WoodcuttingDef {
 }
 
 /// Inline effect for Fishing discipline cards.
-/// Cards have a numeric value and a durability cost.
+/// Cards can have multiple values; the best value for winning is chosen.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct FishingCardEffect {
-    pub value: i64,
-    pub durability_cost: i64,
+    pub values: Vec<i64>,
+    #[serde(default)]
+    pub costs: Vec<GatheringCost>,
+    #[serde(default)]
+    pub gains: Vec<GatheringCost>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.
@@ -369,6 +493,48 @@ pub struct DeckCounts {
     pub deck: u32,
     pub hand: u32,
     pub discard: u32,
+}
+
+/// Trait for card types that have `DeckCounts` (deck/hand/discard tracking).
+pub trait HasDeckCounts {
+    fn counts(&self) -> &DeckCounts;
+    fn counts_mut(&mut self) -> &mut DeckCounts;
+}
+
+impl HasDeckCounts for OreCard {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
+}
+
+impl HasDeckCounts for FishCard {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
+}
+
+impl HasDeckCounts for PlantCard {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
+}
+
+impl HasDeckCounts for EnemyCardDef {
+    fn counts(&self) -> &DeckCounts {
+        &self.counts
+    }
+    fn counts_mut(&mut self) -> &mut DeckCounts {
+        &mut self.counts
+    }
 }
 
 /// Definition of an enemy combatant for a combat encounter card.

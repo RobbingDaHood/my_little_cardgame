@@ -2,6 +2,35 @@
 
 This document describes the high-level gameplay vision for the project, with a focus on core mechanics and the role of decks and tokens.
 
+## Table of contents
+
+- [High-level principles](#high-level-principles)
+- [Architecture and module layout](#architecture-and-module-layout)
+- [Core gameplay elements](#core-gameplay-elements)
+- [Current combat setup](#current-combat-setup)
+  - [Card Effect Architecture (Two-Layer Model)](#card-effect-architecture-two-layer-model)
+  - [Cost System](#cost-system)
+- [Areas as decks (future vision)](#areas-as-decks-future-vision)
+- [Crafting](#crafting)
+- [Token lifecycles](#token-lifecycles)
+- [Balancing](#balancing)
+- [Distinct encounter playstyles](#distinct-encounter-playstyles)
+  - [Stamina as cross-discipline cost currency](#stamina-as-cross-discipline-cost-currency)
+- [Special tokens and cross-discipline currencies](#special-tokens-and-cross-discipline-currencies)
+- [Trading and merchants](#trading-and-merchants)
+- [Example turn flow (compact)](#example-turn-flow-compact)
+- [Reproducibility and single-game seed](#reproducibility-and-single-game-seed)
+- [Early game and progression](#early-game-and-progression)
+- [Interface and API](#interface-and-api)
+- [Card location model and counts](#card-location-model-and-counts)
+- [Goals and milestones](#goals-and-milestones)
+- [Encounter templates by discipline](#encounter-templates-by-discipline)
+- [Open-ended sandbox](#open-ended-sandbox)
+- [Endpoint organization](#endpoint-organization)
+- [Automatic test setup](#automatic-test-setup)
+- [Entity ids](#entity-ids)
+- [Closing](#closing)
+
 ## High-level principles
 
 - Turn-based gameplay: All interactions are resolved in discrete turns. Players (and enemies/encounters) take actions in a clear turn order, allowing deterministic resolution and meaningful choices.
@@ -16,12 +45,19 @@ The codebase is organized into the following main modules:
 - `src/library/` — core domain module containing:
   - `types.rs` — core data types (LibraryCard, CardKind, CardEffectKind, CombatantDef, CombatState, ActionPayload, CardLocation, etc.)
   - `action_log.rs` — append-only player action log
-  - `game_state.rs` — top-level GameState managing Library, tokens, combat, and encounter phase
+  - `game_state.rs` — top-level GameState managing Library, tokens, and encounter phase
+  - `disciplines/` — per-discipline encounter logic modules (`combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`), each implementing methods on `GameState`. Each discipline module is responsible for both its encounter logic AND its card registration — everything about a discipline lives in its module.
   - `endpoints.rs` — HTTP route handlers for gameplay and library queries
 - `src/combat/` — combat state endpoints (delegates to GameState methods)
 - `src/action/` — player action handling and POST /action request processing (PlayerActions enum manages encounter phase transitions)
 - `src/player_data.rs` — RandomGeneratorWrapper: seeded RNG wrapper for deterministic random operations
 - `src/main.rs` — binary entry that mounts Rocket routes and serves OpenAPI/Swagger UI
+
+Architectural patterns:
+
+- **Shared vs discipline-specific effects:** Shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines. Discipline-specific effects are registered within their discipline module.
+- **Trait-based deck abstraction:** The `HasDeckCounts` trait provides a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`). Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. Shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods.
+- **Shared gathering helper:** `GameState::all_gathering_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. Shared logic lives on `GameState` with discipline-specific behavior injected via closures. Combat uses a separate implementation due to its different cost system (`ConcreteEffect` costs vs `GatheringCost`).
 
 ## Core gameplay elements
 
@@ -50,20 +86,21 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 ## Current combat setup
 
 ### Implementation updates (2026-02-23)
-- Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, MiningDurability, Ore, OreHealth. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. PersistentCounter is the default lifecycle for all token types, but any token type can use any lifecycle — for example Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`); the old array-of-entries format is still accepted for backward-compatible deserialization.
+- Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability, Ore, Plant, Lumber, Fish, OreHealth, AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand, MilestoneInsight, FishingRangeMin, FishingRangeMax, FishAmount. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. PersistentCounter is the default lifecycle for all token types, but any token type can use any lifecycle — for example Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`); the old array-of-entries format is still accepted for backward-compatible deserialization.
 - The ScopedToEncounter lifecycle was replaced by FixedTypeDuration { phases, duration }; references to ScopedToEncounter were removed.
-- Encounter state lives in GameState (current_encounter: Option<EncounterState>, encounter_phase: EncounterPhase) and src/combat/ endpoints delegate to GameState methods. EncounterState is an enum with variants Combat(CombatEncounterState) and Mining(MiningEncounterState), each containing encounter-type-specific state. CombatEncounterState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside the encounter state. Turn control is implicit: the player always acts first, then the system auto-resolves enemy play and advances combat phase within the same action.
+- Encounter state lives in GameState (current_encounter: Option<EncounterState>, encounter_phase: EncounterPhase) and src/combat/ endpoints delegate to GameState methods. EncounterState is an enum with variants Combat(CombatEncounterState), Mining(MiningEncounterState), Herbalism(HerbalismEncounterState), Woodcutting(WoodcuttingEncounterState), and Fishing(FishingEncounterState), each containing encounter-type-specific state. CombatEncounterState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside the encounter state. Turn control is implicit: the player always acts first, then the system auto-resolves enemy play and advances combat phase within the same action.
 - Encounter outcome is tracked via an `EncounterOutcome` enum on each encounter state with variants: Undecided, PlayerWon, PlayerLost. GameState maintains `encounter_results: Vec<EncounterOutcome>` — each completed encounter pushes its outcome to this vector. The `/encounter/results` endpoint returns the full history. Encounter completion is determined solely by `outcome != EncounterOutcome::Undecided` (there is no separate `is_finished` field).
 - Dodge and Shield absorption: damage consumes Dodge tokens first, then Shield tokens, before Health is reduced. Dodge expires after the Defending phase (FixedTypeDuration). Shield persists for the encounter (PersistentCounter) but has smaller CardEffect ranges.
-- Drawing additional cards is modelled via the `CardEffectKind::DrawCards { attack, defence, resource }` variant of the `CardEffectKind` enum. `CardEffectKind` has two variants: `ChangeTokens { target, token_type, min, max, costs }` for token manipulation with range-based values and optional costs, and `DrawCards { attack: u32, defence: u32, resource: u32 }` for per-deck-type card draw. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via ChangeTokens effects. Starting decks draw 1 attack, 1 defence, 2 resource cards per resource play (4 total) for steady pacing. DrawCards is not a token type — it is purely a card effect subtype. Both player and enemy draws happen per deck type with discard recycling per type.
-- CardEffectKind extensibility: new card effect subtypes (e.g., conditional effects, area-of-effect, combo triggers) should be added as new `CardEffectKind` variants rather than overloading `ChangeTokens` with special token types. This keeps each effect kind self-describing and ensures exhaustive match coverage in Rust.
+- Drawing additional cards is modelled via the `CardEffectKind::DrawCards { attack, defence, resource }` variant of the `CardEffectKind` enum. `CardEffectKind` has three variants: `GainTokens { target, token_type, cap_min, cap_max, gain_min_percent, gain_max_percent, costs }` for capped token grants (gain is calculated from cap and percentage, balance clamped to ≤ cap; cost_type must not match the gain token_type), `LoseTokens { target, token_type, min, max, costs }` for token loss with positive min/max values representing amounts to lose, and `DrawCards { attack: u32, defence: u32, resource: u32 }` for per-deck-type card draw. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via GainTokens/LoseTokens effects. Starting decks draw 1 attack, 1 defence, 2 resource cards per resource play (4 total) for steady pacing. DrawCards is not a token type — it is purely a card effect subtype. Both player and enemy draws happen per deck type with discard recycling per type.
+- CardEffectKind extensibility: new card effect subtypes (e.g., conditional effects, area-of-effect, combo triggers) should be added as new `CardEffectKind` variants rather than overloading `GainTokens`/`LoseTokens` with special token types. This keeps each effect kind self-describing and ensures exhaustive match coverage in Rust.
 - Enemy decks use `DeckCounts { deck, hand, discard }` (a generic struct shared by all encounter-internal deck tracking — enemy decks, ore decks, and future encounter card pools) to track card locations. At combat start, enemy hands are shuffled (all cards move to deck, then random cards drawn to restore hand size using the seeded RNG). Enemies play from hand only; played cards go to discard. When a deck is empty and a draw is needed, the discard pile is recycled into the deck. Resource cards draw their DrawCards amounts (via CardEffectKind::DrawCards { attack, defence, resource }) of cards for each of the three enemy deck types, providing the only replenishment mechanism for all enemy decks.
 - After a player plays a card via EncounterPlayCard, the system automatically resolves the enemy's play and advances the combat phase. There are no separate endpoints for enemy play or phase advancement. The exact auto-advance sequence is:
   1. Player plays card → resolve player card effects
   2. Resolve enemy play (one random card matching current CombatPhase from enemy hand)
   3. Advance combat phase (Defending → Attacking → Resourcing → Defending)
   4. Check combat end conditions (either side HP ≤ 0)
-- CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum with variants Combat { combatant_def } and Mining { mining_def }, with future non-combat encounter types to follow (Woodcutting, Herbalism, etc.). CardKind::Mining { mining_effect: MiningCardEffect } is a separate card kind for mining action cards with inline effects (ore_damage: i64, durability_prevent: i64, stamina_cost: i64). CardKind::Woodcutting cards similarly include stamina_cost for resource management.
+- CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum with variants Combat { combatant_def }, Mining { mining_def }, Herbalism { herbalism_def }, Woodcutting { woodcutting_def }, and Fishing { fishing_def }. CardKind::Mining { mining_effect: MiningCardEffect } is a separate card kind for mining action cards with inline effects (ore_damage, durability_prevent) and `costs: Vec<GatheringCost>` / `gains: Vec<GatheringCost>` vectors for all cost and grant logic. CardKind::Woodcutting and other discipline cards similarly use `costs`/`gains` vectors instead of dedicated fields.
+- Unpayable card rejection: if no effect on a card can have its pre-play costs paid, the card play is rejected with an error and the player must choose another card. If all hand cards for the current discipline are unpayable (every card's pre-play costs exceed token balances), the encounter ends as PlayerLost. This applies to all encounter types: Combat, Mining, Herbalism, Woodcutting, and Fishing. For gathering disciplines, costs are split via `split_gathering_costs()` into pre-play costs (rejected if unaffordable, e.g. Stamina) and post-play costs (durability depletion after card resolves).
 - Players cannot abandon combat encounters once started; combat continues until one side is defeated (HP reaches 0). Non-combat encounters (e.g., Mining) may be aborted via the EncounterAbort action, which marks the encounter as PlayerLost, grants no rewards, applies no penalties, and transitions to Scouting phase. EncounterApplyScouting is the action that transitions from post-encounter Scouting phase back to NoEncounter.
 - Scouting after loss: after combat ends (whether the player wins or loses), the game transitions to the Scouting phase. The player can apply scouting regardless of combat outcome. This is intentional — scouting is a post-encounter lifecycle step, not a victory reward.
 - Health initialization: player Health is set to 2000 when picking an encounter only if current Health is 0. Health persists across encounters within a game; it is not reset between encounters.
@@ -143,6 +180,16 @@ Some card effects have optional costs defined as percentage ranges of the effect
 - Cost cards are more powerful but require resource management.
 - Starting decks are weighted toward non-cost cards.
 - Cost system extends to gathering encounters (Mining, Woodcutting stamina costs).
+
+### Gathering Cost Model
+
+`GatheringCost { cost_type: TokenType, amount: i64 }` is a shared struct used across all gathering disciplines for both `costs: Vec<GatheringCost>` and `gains: Vec<GatheringCost>` vectors. This is the key unifying type that makes all gathering card effects consistent.
+
+Gathering card costs are classified into two categories at resolution time:
+- **Pre-play costs** (e.g., Stamina): checked before the card is played; if the player cannot afford them, the card play is rejected. `TokenType::is_durability_cost()` returns `false` for these.
+- **Post-play costs** (e.g., MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability): deducted after the card's effects are applied; if the resource reaches zero, the encounter ends as a loss. `TokenType::is_durability_cost()` returns `true` for these.
+
+The `split_gathering_costs()` helper separates costs from the unified `costs` vec into these two categories.
 
 
 ## Areas as decks (future vision)
@@ -345,8 +392,8 @@ Research candidate generation and card creation
 
   This system uses the Library's CardEffect pool and makes area evolution an explicit part of every encounter's lifecycle.
 
-- Mining (gathering subtype): focuses on discipline wear and extraction. Uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. Future refined versions (Step 8.5) will add multi-phase resolution, stamina costs, and entry costs.
-- Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays up to 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After all plays (or the player chooses to stop early), the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Pattern rarity has significant multiplier impact to reward playing more cards. Each card costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
+- Mining (gathering subtype): focuses on discipline wear and extraction. Uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. A planned redesign (roadmap Step 9.5) will replace the current HP-depletion model with a light-level / yield / stamina pacing mechanic where the player decides when to stop mining; yield is calculated as `mining_power × light_level / 100`, and the reward on conclusion is `min(stamina, yield)` costing that stamina. Future refined versions (Step 8.5) will add tiered rewards, stamina costs, and entry costs.
+- Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays up to 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After all plays (or the player chooses to stop early), the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Pattern multipliers are proportional to the statistical probability of achieving each pattern (assuming 8 cards played from a 13-card pool), so rarer patterns yield substantially higher rewards. Each card costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
 - Fishing (gathering subtype): focuses on numeric precision. Each encounter defines a valid_range, max_turns, and win_turns_needed. Each round the player and enemy (fish) play numeric cards; the difference (clamped ≥ 0) must fall within the valid_range to count as a "won" turn. Win enough turns before max_turns to win. Every card costs durability; FishingDurability depletion is a second loss condition.
 
 Design consequences and examples:
@@ -376,11 +423,15 @@ Encounter types use distinct enemy behavior patterns that future types may reuse
 
 ### Stamina as cross-discipline cost currency
 
-Stamina is intended as the shared cost currency across all disciplines. It is earned through rest encounters and specific card effects, and spent as an optional cost for powerful card plays. Unlike discipline-specific durability tokens (which are encounter-operational pools), Stamina is a strategic resource the player manages across encounters. Future steps (9.2, 9.3) will implement Stamina costs on cards and rest encounters for recovery.
+Stamina is intended as the shared cost currency across all disciplines. It is earned through rest encounters and specific card effects, and spent as an optional cost for powerful card plays. Unlike discipline-specific durability tokens (which are encounter-operational pools), Stamina is a strategic resource the player manages across encounters. Stamina costs on gathering cards are expressed via the `costs: Vec<GatheringCost>` vector and checked as pre-play costs (card is rejected if unaffordable).
 
 ## Special tokens and cross-discipline currencies
 
 This subsection is the authoritative token reference. Each token type below lists how it is typically earned, where it may be spent, and whether it can carry structured payload data.
+
+- Stamina (resource counter): Initialized to 1000 at game start. Primary cost currency for cost cards across all disciplines. Generated by: rest encounters, stamina gain card effects, fishing stamina cards. Consumed by: cost cards (Attack, Defence, Mining, Woodcutting, Herbalism, Fishing, future crafting). Spendable: yes (consumed automatically as a pre-play cost on card plays).
+
+- Max handsize tokens (PersistentCounter, initialized to 5): Control how many cards can be drawn into each hand type per draw. Player tokens: AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand. Enemy tokens: EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand. Modifiable by card effects.
 
 
 
@@ -528,13 +579,21 @@ Concrete examples
 - Current simplified implementation (Step 8.1):
   - Encounter card fields: OreHealth (via ore_tokens), ore deck (DeckCounts), rewards (HashMap<Token, i64>).
   - Pre-start: all encounter fields are visible before committing.
-  - Start: OreHealth token set on MiningEncounterState.ore_tokens; MiningDurability checked (persists from game start at 100).
+  - Start: OreHealth token set on MiningEncounterState.ore_tokens; MiningDurability checked (persists from game start at 10000).
   - Phases: none — single action per turn, no phase rotation.
   - Player actions: Play Mining cards (ore_damage + durability_prevent tradeoff). Player draws 1 mining card per play.
   - Decks: Player Mining deck, Ore deck (encounter-internal, uses DeckCounts).
   - Tokens: MiningDurability (persistent, game-start init), OreHealth (encounter-scoped), Ore (reward).
   - Win: OreHealth ≤ 0 → grant reward tokens (Ore: 10). Loss: MiningDurability ≤ 0 → PlayerLost, no penalties.
   - EncounterAbort available (marks as PlayerLost, no rewards/penalties).
+
+- Near-term redesign (roadmap Step 9.5 — Better Mining):
+  - Replaces the current HP-depletion model with a light-level / yield / stamina pacing mechanic.
+  - MiningLightLevel token starts at 300 per encounter; enemy cards reduce it, player cards restore it.
+  - Mining power cards accumulate MiningYield: `yield += mining_power × light_level / 100`.
+  - No enemy health — the player wins only by choosing to conclude the encounter; reward is `min(stamina, yield)` costing that stamina.
+  - Loss conditions: MiningDurability ≤ 0 or all hand cards unpayable.
+  - Enemy has rare cards that remove small amounts of player Health; enemy cards cannot cost stamina.
 
 - Future refined version (Step 8.5 — end-state vision):
   - Tiered rewards: Ore T1, T2, T3. Player card effects increase encounter tier (harder gameplay, higher reward tier).
@@ -551,13 +610,13 @@ Concrete examples
 
 - Current simplified implementation (Step 8.3):
   - Unique mechanic: rhythm-based pattern matching for greater yields. NO enemy deck.
-  - Player Woodcutting cards have: a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop), a numeric chop_value (1-10), and a durability_cost (fixed small cost ~1).
+  - Player Woodcutting cards have: a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop), a numeric chop_value (1-10), and costs/gains expressed via `costs: Vec<GatheringCost>` and `gains: Vec<GatheringCost>` vectors (durability costs, stamina costs, stamina gains, etc.).
   - Cards can have multiple types and values, but initial cards have 1 of each.
   - Player starts with hand size 5 and plays up to 8 cards total. Drawing 1 new card per play.
   - After all plays (or the player chooses to stop early): evaluate the played cards for the best matching pattern (poker-inspired: flushes of same type, straights of sequential values, pairs/triples/quads, full houses, etc.) and reward Lumber tokens accordingly. Early stop is NOT an abort — the pattern of all cards played so far is still evaluated and rewards granted. Durability cost is only paid for cards actually played.
-  - Only the best pattern is used. There are always some simple patterns that match, so the player always gets some reward. Pattern rarity has significant impact on multiplier to reward playing more cards.
+  - Only the best pattern is used. There are always some simple patterns that match, so the player always gets some reward. Pattern rarity has significant impact on multiplier to reward playing more cards. Multipliers are calibrated proportional to the statistical probability of achieving each pattern (assuming 8 cards played from a 13-card pool), so rarer patterns yield substantially higher rewards.
   - Win: always wins after all cards are played or player stops early (pattern determines reward amount). Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost.
-  - WoodcuttingDurability initialized at game start (100), persists across encounters. EncounterAbort available.
+  - WoodcuttingDurability initialized at game start (10000), persists across encounters. EncounterAbort available.
   - Note: The starting library includes cards for LightChop, HeavyChop, MediumChop, and PrecisionChop. SplitChop has no starting cards — it is intended to be unlocked through crafting/research in later steps.
 
 - Future refined version (Step 8.5 — end-state vision):
@@ -576,9 +635,10 @@ Concrete examples
   - Mechanic: card-characteristic matching (unique among gathering disciplines).
   - Enemy (plant) starts with X cards on hand. The plant does NOT draw more cards.
   - Each enemy card has 1-3 characteristics from a small enum (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous).
-  - Player plays Herbalism cards that target characteristics. Playing a card removes all enemy cards that share at least one characteristic with the player's card.
-  - Win: exactly 1 enemy card remains → that card becomes the reward, plus Plant tokens granted. Loss: 0 enemy cards remain (over-harvested — too aggressive), OR HerbalismDurability ≤ 0 (durability depleted — each player card has a durability_cost applied immediately on play).
-  - HerbalismDurability initialized at game start (100), persists across encounters. Player draws 1 card per play.
+  - Player plays Herbalism cards that target characteristics via `HerbalismMatchMode`: `Or { types }` removes cards matching any listed type, `And { types }` removes only cards matching all listed types, `MostCommon { limit, types }` targets the most common characteristic(s), `LeastCommon { limit, types }` targets the least common. The match mode is set on the card effect directly (replacing the old `target_characteristics` field).
+  - Herbalism cards use `costs: Vec<GatheringCost>` and `gains: Vec<GatheringCost>` vectors for durability costs, stamina costs, and token grants.
+  - Win: exactly 1 enemy card remains → that card becomes the reward, plus Plant tokens granted. Loss: 0 enemy cards remain (over-harvested — too aggressive), OR HerbalismDurability ≤ 0 (durability depleted — durability cost applied on play via costs vec).
+  - HerbalismDurability initialized at game start (10000), persists across encounters. Player draws 1 card per play.
   - EncounterAbort available (marks as PlayerLost, no rewards/penalties).
   - Tokens: HerbalismDurability (persistent), Plant (reward material token).
 
@@ -596,10 +656,10 @@ Concrete examples
 4) Fishing / Foraging (gathering)
 
 - Current simplified implementation (Step 8.4):
-  - Numeric card-subtraction mechanic: Each fishing encounter defines a valid_range (min, max), max_turns, and win_turns_needed.
+  - Numeric card-subtraction mechanic: Each fishing encounter defines a valid_range (min, max), max_turns, and win_turns_needed. FishingRangeMin and FishingRangeMax are token-backed values modifiable by card effects during the encounter (via the `gains` vector). FishAmount is a token controlling how many wins a successful turn counts for.
   - Each round the player plays a numeric card first, then the enemy (fish) plays a numeric card. The two values are subtracted: result = (player_value - fish_value).max(0). If the result falls within the valid_range (inclusive), the turn counts as "won".
   - Win: player wins win_turns_needed rounds before max_turns are exhausted → grant Fish tokens. Loss: max_turns exhausted without enough wins → PlayerLost. OR FishingDurability ≤ 0 → PlayerLost.
-  - FishingDurability initialized at game start (100). Every card played has a small durability_cost. Player draws 1 card per play.
+  - FishingDurability initialized at game start (10000). All costs (durability, stamina, etc.) are in the `costs: Vec<GatheringCost>` vector; token grants (FishingRangeMin, FishingRangeMax, FishAmount modifications) use the `gains: Vec<GatheringCost>` vector. Player draws 1 card per play.
   - EncounterAbort available.
   - Fish deck behavior: the enemy (fish) has a fixed hand of numeric cards, shuffled at encounter start using the seeded RNG. Each turn the fish plays one card randomly from its hand. The played card is consumed (moved to discard), so the fish hand shrinks over time. This is the "fixed hand, consume on play" enemy behavior pattern.
   - Tokens: FishingDurability (persistent), Fish (reward material token).

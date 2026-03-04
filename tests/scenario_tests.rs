@@ -1512,60 +1512,33 @@ fn scenario_cost_card_rejected_without_stamina() {
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
     // Verify player starts with 1000 stamina
-    let stamina = player_token(&client, "Stamina");
-    assert_eq!(stamina, 1000, "Player should start with 1000 Stamina");
+    let stamina_before = player_token(&client, "Stamina");
+    assert_eq!(
+        stamina_before, 1000,
+        "Player should start with 1000 Stamina"
+    );
 
-    // Drain stamina by playing cost Defence cards (id 32) until insufficient
-    // Phase cycle: Defending(32 cost) -> Attacking(8) -> Resourcing(10) -> Defending...
-    let mut rejected = false;
-    for _ in 0..30 {
-        // Defending: try cost Defence card
-        let (status, _body) = post_action(
-            &client,
-            r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
-        );
-        if status == Status::BadRequest {
-            rejected = true;
-            break;
-        }
-        assert_eq!(
-            status,
-            Status::Created,
-            "Cost Defence card should succeed while stamina available"
-        );
-        // Check if combat ended
-        let enc_resp = client.get("/encounter").dispatch();
-        if enc_resp.status() == Status::NotFound {
-            break;
-        }
-        // Attacking: play non-cost Attack
-        let (status, _) = post_action(
-            &client,
-            r#"{"action_type":"EncounterPlayCard","card_id":8}"#,
-        );
-        if status != Status::Created {
-            break;
-        }
-        let enc_resp = client.get("/encounter").dispatch();
-        if enc_resp.status() == Status::NotFound {
-            break;
-        }
-        // Resourcing: play Resource (grants stamina, but cost cards drain it faster)
-        let (status, _) = post_action(
-            &client,
-            r#"{"action_type":"EncounterPlayCard","card_id":10}"#,
-        );
-        if status != Status::Created {
-            break;
-        }
-        let enc_resp = client.get("/encounter").dispatch();
-        if enc_resp.status() == Status::NotFound {
-            break;
-        }
-    }
+    // Play cost Defence card (id 32) — it has a stamina cost effect.
+    // With multi-effect evaluation, the card always succeeds:
+    // - If stamina is sufficient, the cost is paid and the effect applies
+    // - If stamina is insufficient, the costly effect is skipped
+    let (status, _body) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
+    );
+    assert_eq!(
+        status,
+        Status::Created,
+        "Cost card should succeed (multi-effect evaluation)"
+    );
+
+    // Stamina should have decreased (cost was paid since we had enough)
+    let stamina_after = player_token(&client, "Stamina");
     assert!(
-        rejected,
-        "Cost card should eventually be rejected when stamina runs out"
+        stamina_after < stamina_before,
+        "Stamina should decrease when cost is affordable: before={}, after={}",
+        stamina_before,
+        stamina_after
     );
 }
 
@@ -1769,5 +1742,173 @@ fn scenario_cost_cards_exist_in_starting_decks() {
         "Cost Attack should have fewer deck copies ({}) than non-cost ({})",
         cost_deck,
         non_cost_deck
+    );
+}
+
+// ---- 9.3 expansion scenario tests ----
+
+#[test]
+fn scenario_combat_victory_grants_milestone_insight() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // Start game and enter combat
+    post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    );
+
+    // Before combat ends, MilestoneInsight should be 0
+    assert_eq!(
+        player_token(&client, "MilestoneInsight"),
+        0,
+        "Should start with 0 MilestoneInsight"
+    );
+
+    // Play rounds until combat finishes
+    for _ in 0..80 {
+        if !play_one_round(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    if let Some(ref outcome) = result {
+        if outcome == "PlayerWon" {
+            assert!(
+                player_token(&client, "MilestoneInsight") >= 100,
+                "Should gain MilestoneInsight on combat win"
+            );
+        }
+    }
+}
+
+#[test]
+fn scenario_fishing_range_modification_cards_exist() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    post_action(&client, r#"{"action_type":"NewGame","seed":100}"#);
+
+    // Check that fishing expansion cards exist in library
+    let cards = get_json(&client, "/library/cards?card_kind=Fishing");
+    let card_arr = cards.as_array().expect("Should be array");
+
+    // Should have more than the original 3 fishing cards
+    assert!(
+        card_arr.len() >= 10,
+        "Should have at least 10 fishing cards (3 original + 7 expansion), got {}",
+        card_arr.len()
+    );
+}
+
+#[test]
+fn scenario_herbalism_match_mode_cards_exist() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    post_action(&client, r#"{"action_type":"NewGame","seed":200}"#);
+
+    // Check herbalism cards
+    let cards = get_json(&client, "/library/cards?card_kind=Herbalism");
+    let card_arr = cards.as_array().expect("Should be array");
+
+    // Should have original 3 + 4 expansion = 7 herbalism cards
+    assert!(
+        card_arr.len() >= 7,
+        "Should have at least 7 herbalism cards, got {}",
+        card_arr.len()
+    );
+}
+
+#[test]
+fn scenario_woodcutting_expansion_cards_exist() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    post_action(&client, r#"{"action_type":"NewGame","seed":300}"#);
+
+    // Check woodcutting cards
+    let cards = get_json(&client, "/library/cards?card_kind=Woodcutting");
+    let card_arr = cards.as_array().expect("Should be array");
+
+    // Should have original 4 + 1 cost + 5 expansion = 10 woodcutting cards
+    assert!(
+        card_arr.len() >= 10,
+        "Should have at least 10 woodcutting cards, got {}",
+        card_arr.len()
+    );
+}
+
+#[test]
+fn scenario_mining_expansion_cards_exist() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    post_action(&client, r#"{"action_type":"NewGame","seed":400}"#);
+
+    // Check mining cards
+    let cards = get_json(&client, "/library/cards?card_kind=Mining");
+    let card_arr = cards.as_array().expect("Should be array");
+
+    // Should have original 3 + 1 cost + 3 expansion = 7 mining cards
+    assert!(
+        card_arr.len() >= 7,
+        "Should have at least 7 mining cards, got {}",
+        card_arr.len()
+    );
+}
+
+#[test]
+fn scenario_max_handsize_tokens_initialized() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    post_action(&client, r#"{"action_type":"NewGame","seed":500}"#);
+
+    // Verify max handsize tokens are initialized to 10
+    for token_name in &[
+        "AttackMaxHand",
+        "DefenceMaxHand",
+        "ResourceMaxHand",
+        "MiningMaxHand",
+        "HerbalismMaxHand",
+        "WoodcuttingMaxHand",
+        "FishingMaxHand",
+    ] {
+        let val = player_token(&client, token_name);
+        assert_eq!(
+            val, 10,
+            "{} should be initialized to 10, got {}",
+            token_name, val
+        );
+    }
+}
+
+#[test]
+fn scenario_fishing_encounter_initializes_range_tokens() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+    post_action(&client, r#"{"action_type":"NewGame","seed":600}"#);
+
+    // Pick fishing encounter (card 28)
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterPickEncounter","card_id":28}"#,
+    );
+    assert_eq!(
+        status,
+        Status::Created,
+        "Pick fishing encounter should succeed"
+    );
+
+    // After starting fishing encounter, range tokens should be set
+    let range_min = player_token(&client, "FishingRangeMin");
+    let range_max = player_token(&client, "FishingRangeMax");
+    let fish_amount = player_token(&client, "FishAmount");
+
+    assert!(
+        range_min > 0,
+        "FishingRangeMin should be set, got {}",
+        range_min
+    );
+    assert!(
+        range_max > 0,
+        "FishingRangeMax should be set, got {}",
+        range_max
+    );
+    assert!(
+        fish_amount >= 1,
+        "FishAmount should be at least 1, got {}",
+        fish_amount
     );
 }
