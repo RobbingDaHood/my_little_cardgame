@@ -278,11 +278,11 @@ Vision's architecture section should document the `HasDeckCounts` trait as a sha
 #### 50. ✅ Record HasDeckCounts refactoring as complete — Applied
 The duplicated `shuffle_hand` and `draw_random` methods across four discipline files (mining, fishing, herbalism, combat) were unified into three generic functions (`deck_draw_random`, `deck_shuffle_hand`, `deck_play_random`) using the new `HasDeckCounts` trait. This removed ~74 lines of duplicated code. Combat's `resolve_enemy_play` inline pick logic was also refactored to use `deck_play_random`, switching from uniform-over-types to weighted-by-count selection for consistency.
 
-#### 51. Extend HasDeckCounts to player library cards
-The `LibraryCard` type uses `CardCounts` (with an extra `library` field) instead of `DeckCounts`. Consider a broader `HasCounts` trait hierarchy or unifying `CardCounts` and `DeckCounts` so player deck draw/shuffle operations can also use generic functions, further reducing duplication in `draw_player_cards_of_kind`.
+#### 51. ✅ Extend HasDeckCounts to player library cards — Applied
+The `HasDeckCounts` trait was refactored from `counts()/counts_mut()` returning `&DeckCounts` to individual accessor methods: `deck_count()`, `hand_count()`, `discard_count()` and `_mut()` variants. Both `DeckCounts` and `CardCounts` (plus `LibraryCard`) now implement the trait with flat field access, enabling generic deck operations on player library cards as well.
 
-#### 52. Generalize ore play-random in mining.rs
-The `resolve_ore_play` method in mining.rs still has inline logic for picking a random ore card from hand and moving it to discard. This could be refactored to use `deck_play_random`, matching how combat's `resolve_enemy_play` and fishing's `fish_play_random` were updated.
+#### 52. ✅ Generalize ore play-random in mining.rs — Applied
+`resolve_ore_play` was refactored to use `deck_play_random` instead of inline logic, matching the pattern used by combat and fishing.
 
 ---
 
@@ -303,3 +303,32 @@ Two pre-existing test failures exist: `test_play_attack_card_kills_enemy` in res
 
 #### 56. Consider statistical testing for woodcutting patterns
 The woodcutting multiplier rebalance was done using an external Python simulation. Consider adding a Rust-native test or benchmark that validates pattern probabilities are within expected ranges, ensuring future deck composition changes don't silently break the probability assumptions.
+
+---
+
+## New suggestions (from implementing rest encounter 9.4 and issues.md batch)
+
+### vision.md
+
+#### 57. Add RestCard/RestDef type documentation to type catalog
+Vision.md documents individual types for other encounters (OreCard, FishCard, PlantCard, etc.) but doesn't yet have a dedicated section for rest types: RestCard, RestDef, RestCardEffectTemplate, ConcreteRestRecovery, RestRecoveryRange, RestCostRange, RestEncounterState. Consider adding these to the type catalog section for completeness.
+
+#### 58. Document encounter deck composition
+Vision doesn't document the overall encounter deck composition — how many encounter cards per type and what percentage each represents. Current composition: Combat 3/19 (~16%), Mining 3/19 (~16%), Herbalism 3/19 (~16%), Woodcutting 3/19 (~16%), Fishing 3/19 (~16%), Rest 4/19 (~21%). This is meaningful design data worth documenting.
+
+#### 59. Document rest encounter's unique properties
+Rest is the only encounter type with: (a) no durability cost, (b) no loss condition, (c) encounter-internal cards not in the player library, and (d) a single-action resolution. These properties make it fundamentally different from all other encounter types. Consider noting these distinctions explicitly.
+
+### roadmap.md
+
+#### 60. Health initialization gap
+Health token is not set at game start (only initialized to 20 during combat start). Rest encounters can recover health, but if the player picks rest before their first combat, health starts at 0 and recovery is capped at the card's cap value from zero. Consider adding initial Health token to game start balances (like Stamina: 1000) in a future step.
+
+#### 61. Rest card balance notes
+Current rest card templates use aggressive recovery values (Stamina cap 400-600, Health cap 300-400). These should be play-tested and potentially adjusted if they trivialize stamina management. Consider adding a balance-tuning note to a future roadmap step.
+
+#### 62. Consider whether rest encounters should be abortable
+Rest encounters can currently be aborted like other non-combat encounters. Since rest always wins and has no turns/loss condition, aborting is essentially "skip rest." Document whether this is intended behavior or if rest should be non-abortable (auto-resolve).
+
+#### 63. Step 9.5 needs concrete range values
+The roadmap now specifies that light-level cards have caps and wood costs, but doesn't specify the min/max ranges. When implementing 9.5, define concrete ranges for: light level cap, gain percentage, and wood token cost amount.
