@@ -495,45 +495,162 @@ pub struct DeckCounts {
     pub discard: u32,
 }
 
-/// Trait for card types that have `DeckCounts` (deck/hand/discard tracking).
+/// Trait for card types that have deck/hand/discard tracking.
+/// Both `DeckCounts` and `CardCounts` implement this, enabling generic
+/// deck operations across encounter-internal and player-owned cards.
 pub trait HasDeckCounts {
-    fn counts(&self) -> &DeckCounts;
-    fn counts_mut(&mut self) -> &mut DeckCounts;
+    fn deck_count(&self) -> u32;
+    fn hand_count(&self) -> u32;
+    fn discard_count(&self) -> u32;
+    fn deck_count_mut(&mut self) -> &mut u32;
+    fn hand_count_mut(&mut self) -> &mut u32;
+    fn discard_count_mut(&mut self) -> &mut u32;
+}
+
+impl HasDeckCounts for DeckCounts {
+    fn deck_count(&self) -> u32 {
+        self.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.discard
+    }
+}
+
+impl HasDeckCounts for CardCounts {
+    fn deck_count(&self) -> u32 {
+        self.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.discard
+    }
 }
 
 impl HasDeckCounts for OreCard {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
 impl HasDeckCounts for FishCard {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
 impl HasDeckCounts for PlantCard {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
 impl HasDeckCounts for EnemyCardDef {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
+    }
+}
+
+impl HasDeckCounts for LibraryCard {
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
