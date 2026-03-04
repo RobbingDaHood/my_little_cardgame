@@ -461,34 +461,22 @@ Roadmap steps
 - Woodcutting multiplier rebalance: pattern multipliers recalibrated proportional to the statistical probability of each pattern (assuming 8 cards played from a 13-card pool), so rarer patterns yield substantially higher rewards.
 - docs/issues.md batch (10 issues resolved).
 
-9.4) Rest encounter
+9.4) Rest encounter ✅ COMPLETED
    - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic.
    - Description: A new encounter type where the player picks a rest benefit card.
-     - The starting encounter deck should have ~20% rest encounters.
-     - Rest cards cost a mix of herbs and fish tokens.
+     - The starting encounter deck has ~20% rest encounters (hand: 4 out of 19 total encounter cards).
+     - Rest cards cost a mix of herbs (Plant) and fish tokens.
      - Three CardEffect variants:
        1. Great amount of Stamina recovery — costs both fish and herbs tokens, each with its own cost percentage min/max range.
        2. Health recovery — similar cost structure with fish and herbs.
-       3. Mixed Stamina + Health recovery — each has a min-max range but generally gives less total than the two specialized variants, providing a benefit to specialization.
-     - All rest CardEffects give great amounts of tokens but have a cap. All CardEffects that grant tokens should have a cap.
-     - 5 different rest cards are rolled from these effects at game initialization.
+       3. Mixed Stamina + Health recovery — each has a min-max range but generally gives less total than the two specialized variants, providing a benefit to specialization. This card is cost-free.
+     - All rest CardEffects give great amounts of tokens with a cap. Recovery values are rolled from templates at game init.
+     - 5 different rest cards are rolled from these effects at game initialization (2 stamina, 2 health, 1 mixed).
      - Each of those 5 cards has 5 copies in the rest deck (25 total cards).
      - When the encounter starts: draw 5 rest cards from the deck and present them as choices.
      - The player picks 1 card. That card's effect takes effect immediately and the encounter is won.
-     - The rest deck should contrary to all other decks be mainly filled with cards that have a cost, and only a few without cost.
-   - Implementation checklist:
-     1. Add EncounterKind::Rest { rest_def: RestDef } with rest deck and rewards.
-     2. Add RestCardEffect with recovery values and costs (using range system from 9.1).
-     3. Add CardKind::Rest { rest_effect: RestCardEffect } for rest action cards.
-     4. Add EncounterState::Rest(RestEncounterState) with drawn hand of 5 cards.
-     5. Implement EncounterPlayCard for rest: apply chosen card's effect, mark encounter as won.
-     6. Add rest encounters via the discipline registration pattern (~20% of encounter deck).
-     7. Add scenario test.
-   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, recovery is applied (respecting caps), encounter completes as PlayerWon. Scenario test passes.
-   - Implementation insights from 9.1/9.2:
-     - The ConcreteEffect model is already in place — rest cards should use the same pattern with rolled values from min-max ranges.
-     - Stamina token is already functional and tested as a cost currency (player starts with 1000 Stamina).
-     - The cost pre-validation pattern (preview_costs/preview_gathering_costs with split_gathering_costs) is established and should be reused for rest card costs.
+     - The rest deck is mainly filled with cards that have a cost; only the mixed card is cost-free.
+   - Implementation: Completed with RestCard, RestDef, RestEncounterState types, rest.rs discipline module, action handler integration, and scenario test.
 
 9.5) Better Mining redesign
    - Goal: Redesign the mining encounter to be about maintaining a light level while mining for yield, creating a risk-vs-reward pacing mechanic where the player decides when to stop.
@@ -496,7 +484,7 @@ Roadmap steps
      - **Core loop**: The player manages three resources during a mining encounter: light level, yield, and stamina. The player can conclude the encounter at any point; the reward is `min(stamina, yield)` and concluding costs that amount of stamina.
      - **Light level**: A new token starting at 300 at the start of each mining encounter.
        - Enemy cards reduce the light level (moderate amount). Most enemy cards reduce both light level and durability; some only reduce one (doing more of it).
-       - Player cards can increase the light level (high amount), but no single player CardEffect both increases light level and does mining power. Later, crafted multi-effect cards could combine both.
+       - Player cards can increase the light level (high amount) with a cap (rolled like all gain effects: cap first, then gain as percentage of cap). Each light-level card also costs a small amount of wood tokens proportional to the gain. No single player CardEffect both increases light level and does mining power. Later, crafted multi-effect cards could combine both.
      - **No enemy health**: The enemy has no health and cannot be killed. The player can only win by ending the encounter. The player loses by running out of durability or having all hand cards unpayable.
      - **Mining power → yield**: When the player plays a "mining power" card (renamed from "damage"), a yield token is accumulated: `yield += mining_power × light_level / 100`. Higher light level means more yield per card played.
      - **Enemy CardEffects**: Because there is no enemy entity to fight, enemy cards cannot have CardEffects that cost stamina. The enemy does have rare cards that remove a small amount of the player's health.
@@ -508,7 +496,9 @@ Roadmap steps
      5. Add "conclude mining" player action: reward = `min(stamina, yield)`, costs that stamina.
      6. Remove enemy health from mining encounters; remove enemy stamina-cost CardEffects.
      7. Add enemy CardEffects that reduce light level (with and without durability damage).
-     8. Add player CardEffects that increase light level.
+     8. Add player CardEffects that increase light level. Each light-level-granting effect should:
+        - Have a max cap rolled first, then gain as a percentage of that cap (consistent with all other gain effects).
+        - Also have a cost in a small amount of wood tokens, proportional to the gain.
      9. Add rare enemy CardEffects that remove small amounts of player health.
      10. Update mining scenario tests for new mechanics.
    - Playable acceptance: Mining encounter starts with light level 300, player plays mining power cards to accumulate yield, player concludes encounter and receives `min(stamina, yield)` ore tokens (costing that stamina). Enemy cards reduce light level and durability. Scenario test passes.
