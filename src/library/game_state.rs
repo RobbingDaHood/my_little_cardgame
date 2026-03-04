@@ -253,6 +253,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     super::disciplines::herbalism::register_herbalism_cards(&mut lib, rng);
     super::disciplines::woodcutting::register_woodcutting_cards(&mut lib, rng);
     super::disciplines::fishing::register_fishing_cards(&mut lib, rng);
+    super::disciplines::rest::register_rest_cards(&mut lib, rng);
 
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
@@ -638,6 +639,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_fishing_encounter(card_id, &mut rng);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Rest { .. },
+                                } => {
+                                    let _ = gs.start_rest_encounter(card_id, &mut rng);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -668,6 +674,9 @@ impl GameState {
                         }
                         Some(EncounterState::Fishing(_)) => {
                             let _ = gs.resolve_player_fishing_card(*card_id, &mut rng);
+                        }
+                        Some(EncounterState::Rest(_)) => {
+                            let _ = gs.resolve_rest_card_choice(*card_id);
                         }
                         None => {}
                     }

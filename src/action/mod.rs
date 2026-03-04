@@ -148,6 +148,12 @@ pub async fn play(
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
                 }
+                crate::library::types::EncounterKind::Rest { .. } => {
+                    match gs.start_rest_encounter(card_id, &mut rng) {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
             }
             let payload = crate::library::types::ActionPayload::DrawEncounter {
                 encounter_id: card_id.to_string(),
@@ -162,6 +168,22 @@ pub async fn play(
                     "No active encounter".to_string(),
                 ))));
             }
+
+            // Rest encounters use card_id as an index into the rest hand, not a library card
+            if matches!(
+                gs.current_encounter,
+                Some(crate::library::types::EncounterState::Rest(_))
+            ) {
+                if let Err(e) = gs.resolve_rest_card_choice(card_id as usize) {
+                    return Err(Right(BadRequest(new_status(e))));
+                }
+                let payload = crate::library::types::ActionPayload::PlayCard {
+                    card_id: card_id as usize,
+                };
+                let entry = gs.append_action("EncounterPlayCard", payload);
+                return Ok((rocket::http::Status::Created, Json(entry)));
+            }
+
             let lib_card = match gs.library.get(card_id as usize) {
                 Some(c) => c.clone(),
                 None => {
@@ -323,6 +345,10 @@ pub async fn play(
                         }
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
+                }
+                Some(crate::library::types::EncounterState::Rest(_)) => {
+                    // Handled above before library card lookup
+                    unreachable!()
                 }
                 None => {
                     return Err(Right(BadRequest(new_status(
