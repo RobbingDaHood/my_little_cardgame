@@ -310,37 +310,20 @@ impl GameState {
     /// Ore plays a random card from hand, dealing durability damage minus prevent.
     /// Then draws a card from deck to hand.
     fn resolve_ore_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32, durability_prevent: i64) {
-        use rand::RngCore;
-
-        // Play ore card and extract damage info
-        let (effective_damage, played) = {
+        let effective_damage = {
             let mining = match &mut self.current_encounter {
                 Some(EncounterState::Mining(m)) => m,
                 _ => return,
             };
-            let hand_indices: Vec<usize> = mining
-                .ore_deck
-                .iter()
-                .enumerate()
-                .filter(|(_, c)| c.counts.hand > 0)
-                .map(|(i, _)| i)
-                .collect();
-            if hand_indices.is_empty() {
-                return;
-            }
-            let pick_idx = (rng.next_u64() as usize) % hand_indices.len();
-            let card_idx = hand_indices[pick_idx];
-            mining.ore_deck[card_idx].counts.hand -= 1;
-            mining.ore_deck[card_idx].counts.discard += 1;
-            let raw_damage = mining.ore_deck[card_idx].durability_damage;
-            let effective = (raw_damage - durability_prevent).max(0);
+            let played_idx =
+                match crate::library::game_state::deck_play_random(rng, &mut mining.ore_deck) {
+                    Some(idx) => idx,
+                    None => return,
+                };
+            let raw_damage = mining.ore_deck[played_idx].durability_damage;
             mining.round += 1;
-            (effective, true)
+            (raw_damage - durability_prevent).max(0)
         };
-
-        if !played {
-            return;
-        }
 
         // Apply durability damage to player
         let durability_key = types::Token::persistent(types::TokenType::MiningDurability);
