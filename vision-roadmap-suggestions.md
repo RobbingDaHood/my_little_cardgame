@@ -310,14 +310,14 @@ The woodcutting multiplier rebalance was done using an external Python simulatio
 
 ### vision.md
 
-#### 57. Add RestCard/RestDef type documentation to type catalog
-Vision.md documents individual types for other encounters (OreCard, FishCard, PlantCard, etc.) but doesn't yet have a dedicated section for rest types: RestCard, RestDef, RestCardEffectTemplate, ConcreteRestRecovery, RestRecoveryRange, RestCostRange, RestEncounterState. Consider adding these to the type catalog section for completeness.
+#### 57. ✅ RestCard/RestDef types removed — Superseded by refactoring
+Old rest types (RestCard, RestDef, RestCardEffectTemplate, ConcreteRestRecovery, RestRecoveryRange, RestCostRange) were removed in the rest deck refactoring. Rest cards now use `CardKind::Rest { effects: Vec<ConcreteEffect>, rest_token_cost: i64 }` with `CardCounts`, following the same pattern as Attack/Defence/Resource cards. No separate type catalog entry needed — rest types are part of the standard CardKind enum.
 
 #### 58. Document encounter deck composition
 Vision doesn't document the overall encounter deck composition — how many encounter cards per type and what percentage each represents. Current composition: Combat 3/19 (~16%), Mining 3/19 (~16%), Herbalism 3/19 (~16%), Woodcutting 3/19 (~16%), Fishing 3/19 (~16%), Rest 4/19 (~21%). This is meaningful design data worth documenting.
 
-#### 59. Document rest encounter's unique properties
-Rest is the only encounter type with: (a) no durability cost, (b) no loss condition, (c) encounter-internal cards not in the player library, and (d) a single-action resolution. These properties make it fundamentally different from all other encounter types. Consider noting these distinctions explicitly.
+#### 59. ✅ Document rest encounter's unique properties — Applied
+Rest is now the only encounter type with: (a) no durability cost, (b) no loss condition (abort always = PlayerWon), (c) rest cards as player library cards (not encounter-internal), (d) multi-card play gated by rest tokens, and (e) a flat encounter-token cost separate from the percentage-of-gain material cost system. These properties are now documented in vision.md.
 
 ### roadmap.md
 
@@ -327,8 +327,37 @@ Health token is not set at game start (only initialized to 20 during combat star
 #### 61. Rest card balance notes
 Current rest card templates use aggressive recovery values (Stamina cap 400-600, Health cap 300-400). These should be play-tested and potentially adjusted if they trivialize stamina management. Consider adding a balance-tuning note to a future roadmap step.
 
-#### 62. Consider whether rest encounters should be abortable
-Rest encounters can currently be aborted like other non-combat encounters. Since rest always wins and has no turns/loss condition, aborting is essentially "skip rest." Document whether this is intended behavior or if rest should be non-abortable (auto-resolve).
+#### 62. ✅ Rest encounters abortable as PlayerWon — Applied
+Rest encounters can be aborted, which always results in PlayerWon (player cannot lose rest). This is the intended design: abort = "stop resting early." Documented in vision.md.
 
 #### 63. Step 9.5 needs concrete range values
 The roadmap now specifies that light-level cards have caps and wood costs, but doesn't specify the min/max ranges. When implementing 9.5, define concrete ranges for: light level cap, gain percentage, and wood token cost amount.
+
+---
+
+## New suggestions (from rest deck refactoring to player library deck)
+
+### vision.md
+
+#### 64. Encounter-scoped vs persistent token taxonomy
+The token reference section mixes encounter-scoped tokens (RestToken on RestEncounterState.rest_tokens) with persistent player tokens (Stamina, Fish, Plant, MaxHand tokens). Consider adding a clear taxonomy distinguishing these categories — it would help when designing new encounter types that need their own scoped resources.
+
+#### 65. Cost calculation pipeline documentation
+The percentage-of-gain cost model (`CardEffectCost { cost_type, min_percent, max_percent }` → `ConcreteEffectCost { cost_type, rolled_percent }` → actual cost = `rolled_value * rolled_percent / 100`) is a core mechanic used by rest and other GainTokens effects. A dedicated "Cost calculation pipeline" subsection under Core gameplay elements would make the three-step rolling process clearer: (1) roll cap, (2) roll gain percent of cap, (3) roll cost percent of gain.
+
+#### 66. CardKind taxonomy readability
+The CardKind bullet (line ~102) has grown long. Consider splitting into a structured list grouping combat action cards (Attack/Defence/Resource), rest action cards (Rest), gathering action cards (Mining/Woodcutting/Herbalism/Fishing), and encounter trigger cards (Encounter). This would be easier to scan than the current dense paragraph.
+
+#### 67. Replay system discipline branching
+The vision doesn't document that the replay system has discipline-specific branching — rest encounters skip the outer `library.play()` call because rest card resolution is handled internally in `resolve_rest_card_play`. A brief note about how replay handles discipline-specific card play logic would help future implementors adding new encounter types.
+
+### roadmap.md
+
+#### 68. Cooking mechanic description outdated
+The "Cooking mechanic" future idea (line ~674) still references the old rest encounter design where rest was a simple single-pick encounter. With rest now using library cards and rest tokens, the cooking mechanic could interact with the rest token system (e.g., cooking adds rest tokens, modifies rest card effects, or creates new rest card types). Worth updating the description.
+
+#### 69. Rest token progression
+Currently 1–2 rest tokens per encounter are hardcoded. Consider adding a roadmap item for rest token progression — future upgrades could grant more rest tokens per encounter, making rest more powerful as the game progresses. This parallels how other disciplines improve through card effects and MaxHand increases.
+
+#### 70. Percentage-based cost rebalancing
+The percentage-of-gain cost system means stronger rest cards (higher recovery values) automatically cost more material (Fish/Plant). This creates an interesting emergent dynamic but may need rebalancing. Consider adding a roadmap note about tuning cost percentages across all GainTokens effects once more play-testing data is available.
