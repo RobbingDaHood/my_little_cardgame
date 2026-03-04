@@ -461,22 +461,19 @@ Roadmap steps
 - Woodcutting multiplier rebalance: pattern multipliers recalibrated proportional to the statistical probability of each pattern (assuming 8 cards played from a 13-card pool), so rarer patterns yield substantially higher rewards.
 - docs/issues.md batch (10 issues resolved).
 
-9.4) Rest encounter ✅ COMPLETED
-   - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic.
-   - Description: A new encounter type where the player picks a rest benefit card.
+9.4) Rest encounter ✅ COMPLETED (refactored)
+   - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic with multi-card play gated by rest tokens.
+   - Description: Rest cards are **player library cards** (`CardKind::Rest`) living in the Library with `CardCounts`, following the same deck/hand/discard pattern as Attack/Defence/Resource cards.
      - The starting encounter deck has ~20% rest encounters (hand: 4 out of 19 total encounter cards).
-     - Rest cards cost a mix of herbs (Plant) and fish tokens.
-     - Three CardEffect variants:
-       1. Great amount of Stamina recovery — costs both fish and herbs tokens, each with its own cost percentage min/max range.
-       2. Health recovery — similar cost structure with fish and herbs.
-       3. Mixed Stamina + Health recovery — each has a min-max range but generally gives less total than the two specialized variants, providing a benefit to specialization. This card is cost-free.
-     - All rest CardEffects give great amounts of tokens with a cap. Recovery values are rolled from templates at game init.
-     - 5 different rest cards are rolled from these effects at game initialization (2 stamina, 2 health, 1 mixed).
-     - Each of those 5 cards has 5 copies in the rest deck (25 total cards).
-     - When the encounter starts: draw 5 rest cards from the deck and present them as choices.
-     - The player picks 1 card. That card's effect takes effect immediately and the encounter is won.
-     - The rest deck is mainly filled with cards that have a cost; only the mixed card is cost-free.
-   - Implementation: Completed with RestCard, RestDef, RestEncounterState types, rest.rs discipline module, action handler integration, and scenario test.
+     - 4 PlayerCardEffect templates (2 Stamina recovery, 2 Health recovery) and 5 concrete rest cards are registered at game init, each with 5 copies (25 total in the rest deck).
+     - Rest cards use the `ConcreteEffect`/`GainTokens` pattern with `effect_id` references to `PlayerCardEffect` entries.
+     - Material costs (Fish and Plant) are percentage-of-gain via `CardEffectCost` on effects; the mixed card is cost-free.
+     - At encounter start, rest cards are drawn from the Library deck to hand (up to `RestMaxHand` limit, default 5). The encounter grants 1–2 **rest tokens**.
+     - Playing a rest card costs `rest_token_cost` (0–2) from the encounter's token pool plus material costs.
+     - Multiple cards can be played per encounter. When rest tokens are depleted, the encounter auto-completes as PlayerWon.
+     - The player can abort at any time (always PlayerWon — there is no loss condition).
+     - `EncounterKind::Rest` is a unit variant (no encounter-internal definition needed).
+   - Implementation: Completed with `CardKind::Rest { effects, rest_token_cost }`, `RestEncounterState { rest_tokens }`, `RestToken`/`RestMaxHand` token types, rest.rs discipline module (`register_rest_cards`, `start_rest_encounter`, `resolve_rest_card_play`, `abort_rest_encounter`, `complete_rest_encounter`), action handler integration, replay support, and scenario test. Old types removed: `RestCard`, `RestDef`, `RestCardEffectTemplate`, `RestCostRange`, `RestRecoveryRange`, `ConcreteRestRecovery`.
 
 9.5) Better Mining redesign
    - Goal: Redesign the mining encounter to be about maintaining a light level while mining for yield, creating a risk-vs-reward pacing mechanic where the player decides when to stop.
