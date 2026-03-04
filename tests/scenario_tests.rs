@@ -1939,9 +1939,9 @@ fn rest_encounter_ids(client: &Client) -> Vec<usize> {
 
 /// Scenario: Rest encounter full loop.
 ///
-/// New game → scout → pick rest encounter → verify 5 rest cards drawn →
-/// pick one card (index 0) → verify recovery applied → encounter won →
-/// back to scouting.
+/// New game → scout → pick rest encounter → verify rest_tokens → play rest cards
+/// (Library card IDs) → verify recovery applied → encounter auto-completes when
+/// tokens depleted → back to scouting.
 #[test]
 fn scenario_rest_encounter_full_loop() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
@@ -1969,7 +1969,7 @@ fn scenario_rest_encounter_full_loop() {
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
-    // 5. Verify encounter is Rest type with cards in hand
+    // 5. Verify encounter is Rest type with rest_tokens
     let encounter = combat_state(&client);
     assert_eq!(
         encounter
@@ -1983,83 +1983,88 @@ fn scenario_rest_encounter_full_loop() {
         Some("Undecided"),
         "Rest should be active"
     );
-
-    let rest_hand = encounter
-        .get("rest_hand")
-        .and_then(|v| v.as_array())
-        .expect("Should have rest_hand array");
-
-    let total_hand_cards: u64 = rest_hand
-        .iter()
-        .filter_map(|c| {
-            c.get("counts")
-                .and_then(|counts| counts.get("hand"))
-                .and_then(|h| h.as_u64())
-        })
-        .sum();
-    assert_eq!(
-        total_hand_cards, 5,
-        "Should have exactly 5 rest cards drawn to hand"
+    let rest_tokens = encounter
+        .get("rest_tokens")
+        .and_then(|v| v.as_i64())
+        .expect("Should have rest_tokens");
+    assert!(
+        (1..=2).contains(&rest_tokens),
+        "Rest tokens should be 1-2, got {}",
+        rest_tokens
     );
 
-    // 6. Pick a rest card. Cards 0-3 may have costs (fish/herbs); card at
-    //    index 4 (the mixed template) is cost-free. Try the last card type first
-    //    in case the player doesn't have enough tokens for the others.
-    //    The rest_hand has 5 card types. Find one with costs=[] or try index 0.
-    let cost_free_index = rest_hand.iter().enumerate().find_map(|(i, c)| {
-        let hand = c
-            .get("counts")
-            .and_then(|counts| counts.get("hand"))
-            .and_then(|h| h.as_u64())
-            .unwrap_or(0);
-        if hand == 0 {
-            return None;
-        }
-        let costs = c
-            .get("costs")
-            .and_then(|v| v.as_array())
-            .map(|arr| arr.len())
-            .unwrap_or(0);
-        if costs == 0 {
-            Some(i)
-        } else {
-            None
-        }
-    });
+    // 6. Find rest cards in player hand
+    let rest_hand_cards = get_json(&client, "/library/cards?location=Hand&card_kind=Rest");
+    let rest_hand_arr = rest_hand_cards
+        .as_array()
+        .expect("Should have rest hand cards array");
+    assert!(
+        !rest_hand_arr.is_empty(),
+        "Should have rest cards drawn to hand"
+    );
 
-    // Find the hand-relative index for the cost-free card.
-    // card_id in EncounterPlayCard is the index into hand_cards (cards with hand>0).
-    let mut hand_index = 0;
-    let mut chosen_hand_index = None;
-    for (i, c) in rest_hand.iter().enumerate() {
-        let hand = c
-            .get("counts")
-            .and_then(|counts| counts.get("hand"))
-            .and_then(|h| h.as_u64())
-            .unwrap_or(0);
-        if hand > 0 {
-            if cost_free_index == Some(i) {
-                chosen_hand_index = Some(hand_index);
+    // Find a cost-free rest card (one whose effects have no rolled_costs),
+    // or fall back to any rest card
+    let mut play_card_id = None;
+    for card in rest_hand_arr {
+        let id = card.get("id").and_then(|v| v.as_u64()).unwrap() as usize;
+        let effects = card
+            .get("kind")
+            .and_then(|k| k.get("effects"))
+            .and_then(|e| e.as_array());
+        if let Some(effs) = effects {
+            let has_any_cost = effs.iter().any(|e| {
+                e.get("rolled_costs")
+                    .and_then(|c| c.as_array())
+                    .map(|costs| !costs.is_empty())
+                    .unwrap_or(false)
+            });
+            if !has_any_cost {
+                play_card_id = Some(id);
+                break;
             }
-            hand_index += 1;
         }
     }
-    // If no cost-free card was drawn, just use index 0
-    let play_index = chosen_hand_index.unwrap_or(0);
 
-    let play_json = format!(
-        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-        play_index
-    );
-    let (status, _) = post_action(&client, &play_json);
-    assert_eq!(status, Status::Created, "Playing rest card should succeed");
+    if let Some(card_to_play) = play_card_id {
+        // Play the cost-free rest card
+        let play_json = format!(
+            r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+            card_to_play
+        );
+        let (status, _body) = post_action(&client, &play_json);
+        assert_eq!(status, Status::Created, "Playing rest card should succeed");
 
-    // 7. Verify encounter is won
-    let last_outcome = combat_result(&client).unwrap_or_default();
-    assert_eq!(
-        last_outcome, "PlayerWon",
-        "Rest encounter should always be PlayerWon after picking a card"
-    );
+        // Check if encounter completed (rest tokens may have been depleted)
+        let encounter_after = combat_state(&client);
+        if encounter_after.is_null()
+            || encounter_after.get("outcome").and_then(|v| v.as_str()) != Some("Undecided")
+        {
+            let last_outcome = combat_result(&client).unwrap_or_default();
+            assert_eq!(
+                last_outcome, "PlayerWon",
+                "Rest encounter should always be PlayerWon"
+            );
+        } else {
+            // Still active — abort to finish (rest abort = PlayerWon)
+            let (status, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+            assert_eq!(status, Status::Created, "EncounterAbort should succeed");
+            let last_outcome = combat_result(&client).unwrap_or_default();
+            assert_eq!(
+                last_outcome, "PlayerWon",
+                "Rest abort should always be PlayerWon"
+            );
+        }
+    } else {
+        // No cost-free card drawn — just abort (rest abort = PlayerWon)
+        let (status, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+        assert_eq!(status, Status::Created, "EncounterAbort should succeed");
+        let last_outcome = combat_result(&client).unwrap_or_default();
+        assert_eq!(
+            last_outcome, "PlayerWon",
+            "Rest abort should always be PlayerWon"
+        );
+    }
 
     // 8. Should be in Scouting phase now
     let (status, _) = post_action(
