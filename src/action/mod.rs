@@ -149,7 +149,7 @@ pub async fn play(
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
                 }
-                crate::library::types::EncounterKind::Rest => {
+                crate::library::types::EncounterKind::Rest { .. } => {
                     match gs.start_rest_encounter(card_id, &mut rng) {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),

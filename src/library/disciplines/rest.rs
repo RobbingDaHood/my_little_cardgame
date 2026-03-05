@@ -150,7 +150,12 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
     // Register rest encounter card (~20% of encounter deck = hand: 4)
     lib.add_card(
         CardKind::Encounter {
-            encounter_kind: EncounterKind::Rest,
+            encounter_kind: EncounterKind::Rest {
+                rest_def: types::RestDef {
+                    rest_token_min: 1,
+                    rest_token_max: 2,
+                },
+            },
         },
         CardCounts {
             library: 1,
@@ -174,10 +179,10 @@ impl GameState {
             .get(encounter_card_id)
             .ok_or_else(|| format!("Card {} not found in Library", encounter_card_id))?
             .clone();
-        match &lib_card.kind {
+        let rest_def = match &lib_card.kind {
             CardKind::Encounter {
-                encounter_kind: EncounterKind::Rest,
-            } => {}
+                encounter_kind: EncounterKind::Rest { rest_def },
+            } => rest_def.clone(),
             _ => {
                 return Err(format!(
                     "Card {} is not a rest encounter",
@@ -196,8 +201,12 @@ impl GameState {
             Some(types::TokenType::RestMaxHand),
         );
 
-        // Set initial rest tokens (1–2)
-        let initial_rest_tokens = crate::library::game_state::roll_range(rng, 1, 2);
+        // Set initial rest tokens from encounter definition
+        let initial_rest_tokens = crate::library::game_state::roll_range(
+            rng,
+            rest_def.rest_token_min,
+            rest_def.rest_token_max,
+        );
 
         let state = RestEncounterState {
             encounter_card_id,

@@ -481,7 +481,7 @@ pub enum EncounterKind {
     Herbalism { herbalism_def: HerbalismDef },
     Woodcutting { woodcutting_def: WoodcuttingDef },
     Fishing { fishing_def: FishingDef },
-    Rest,
+    Rest { rest_def: RestDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -490,6 +490,14 @@ pub enum EncounterKind {
 pub struct MiningDef {
     pub initial_light_level: i64,
     pub ore_deck: Vec<OreCard>,
+}
+
+/// Definition of a rest encounter.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct RestDef {
+    pub rest_token_min: i64,
+    pub rest_token_max: i64,
 }
 
 /// A card in the ore deck. Each card applies token-based damages to the player.

@@ -649,7 +649,7 @@ impl GameState {
                                     let _ = gs.start_fishing_encounter(card_id, &mut rng);
                                 }
                                 CardKind::Encounter {
-                                    encounter_kind: EncounterKind::Rest,
+                                    encounter_kind: EncounterKind::Rest { .. },
                                 } => {
                                     let _ = gs.start_rest_encounter(card_id, &mut rng);
                                 }
