@@ -499,6 +499,7 @@ Roadmap steps
      9. Add rare enemy CardEffects that remove small amounts of player health.
      10. Update mining scenario tests for new mechanics.
    - Playable acceptance: Mining encounter starts with light level 300, player plays mining power cards to accumulate yield, player concludes encounter and receives `min(stamina, yield)` ore tokens (costing that stamina). Enemy cards reduce light level and durability. Scenario test passes.
+   - Open items: Define concrete min/max ranges for light level cap, gain percentage, and wood token cost amounts when implementing.
 
 9) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
@@ -584,6 +585,8 @@ Roadmap steps
      - Balance Insight generation rates and research costs across disciplines.
      - Add cross-discipline scenario tests (e.g., mine then herbalism then combat then research in sequence).
      - Post-9.3 balance: review handsize tokens (now defaulting to 5), cap values, and cost card tuning introduced in 9.3. Ensure the cost/benefit ratio across disciplines feels fair after the expanded CardEffects.
+     - Rest card balance: current rest card templates use aggressive recovery values (Stamina cap 400-600, Health cap 300-400). Play-test and adjust if they trivialize stamina management.
+     - Percentage-based cost rebalancing: the percentage-of-gain cost system means stronger cards (higher gain values) automatically cost more material. Tune cost percentages across all GainTokens effects to ensure the cost/benefit curve feels fair.
    - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs. Research costs are proportional to card power.
 
 12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
@@ -668,7 +671,7 @@ A lot of these could be introduced with a Milestone boss encounter or as progres
 - **Herbalism guard token:** A "guard" token that protects plant cards in some way but only exists for a very short period. Not a guaranteed win condition — for example, the next card play leaves half of the cards that would have been removed, chosen at random.
 - **Card forgetting:** A CardEffect that lets the player forget (permanently remove) a full card including all copies, as long as all copies are in the library and not in deck/hand/discard. More powerful effect the more cards are crafted; still a good effect even without crafted cards. This is a way to clean up the library of old unused cards. Requires implementing empty entries in the library vector with ID reuse — critical that existing cards keep their IDs.
 - **Magic CardEffects:** Add magic-themed CardEffects for all disciplines, potentially gated behind research or milestones.
-- **Cooking mechanic:** Expand the rest encounter with a cooking sub-system to make rest more interesting and create demand for Fish and Herbs.
+- **Cooking mechanic:** Expand the rest encounter with a cooking sub-system. With rest now using library cards and rest tokens, cooking could interact with the rest token system — e.g., cooking grants additional rest tokens, modifies rest card effects, or introduces new rest card types. Creates demand for Fish and Plant tokens.
 - **Faction expansion of milestones:** Expand milestones into a faction mechanic with more sense of player choices and possibly a faction discipline deck.
 - **Scouting expansion:** Expand the scouting step to give the user more choice rather than deterministic difficulty increases. It should be possible to shape the difficulty (and rewards) of an encounter and leave the nature of the enemy somewhat random. Maybe choosing 1 out of 3 options. Adding a Scouting discipline deck when a good mechanic is figured out.
 
@@ -676,4 +679,11 @@ Code architecture improvements (future)
 ----------------------------------------
 - **Extend HasDeckCounts to player library cards:** `LibraryCard` uses `CardCounts` (with an extra `library` field) instead of `DeckCounts`. Consider a broader `HasCounts` trait hierarchy or unifying `CardCounts` and `DeckCounts` so player deck draw/shuffle operations can also use generic functions, further reducing duplication in `draw_player_cards_of_kind`.
 - **Generalize ore play-random in mining.rs:** `resolve_ore_play` still has inline logic for picking a random ore card from hand and moving it to discard. Refactor to use `deck_play_random`, matching how combat's `resolve_enemy_play` and fishing's `fish_play_random` were updated.
+- **Fix pre-existing test failures:** `test_play_attack_card_kills_enemy` (resolve_play_tests.rs) and `test_player_kills_enemy_and_combat_ends` (flow_tests.rs) both hardcode card IDs 8, 9, 10 that changed during the card initialization refactoring. These need to discover card IDs dynamically via the API (e.g., query `/library/cards?card_kind=Attack`).
+- **Statistical testing for woodcutting patterns:** The woodcutting multiplier rebalance was calibrated using an external Python Monte Carlo simulation. Consider adding a Rust-native test or benchmark that validates pattern probabilities are within expected ranges, ensuring future deck composition changes don't silently break the probability assumptions.
+
+Known game design gaps (future)
+--------------------------------
+- **Health initialization gap:** Health token is not set at game start (only initialized to 2000 when picking an encounter with Health == 0). If the player picks a rest encounter before their first combat, health starts at 0 and recovery is capped at the rest card's cap value from zero. Consider adding initial Health token to game start balances (like Stamina: 1000).
+- **Rest token progression:** Currently 1–2 rest tokens per encounter are hardcoded. Future upgrades could grant more rest tokens per encounter, making rest more powerful as the game progresses. This parallels how other disciplines improve through card effects and MaxHand increases. Could be gated behind milestones or research.
 
