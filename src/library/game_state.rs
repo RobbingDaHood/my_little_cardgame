@@ -313,6 +313,11 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::Stamina),
             1000,
         );
+        // Starting health
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::Health),
+            1000,
+        );
         // Max handsize tokens (player decks)
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::AttackMaxHand),

@@ -67,14 +67,14 @@ fn hello_world() {
         token_balance_by_type(&actual_combat.enemy_tokens, &TokenType::Health),
         2000
     );
-    // Player should have health token from token_balances (initialized to 2000)
+    // Player should have health token from token_balances (initialized to 1000 at game start)
     let token_resp = client.get("/player/tokens").dispatch();
     assert_eq!(token_resp.status(), Status::Ok);
     let tokens: Vec<my_little_cardgame::player_tokens::TokenBalance> =
         serde_json::from_str(&token_resp.into_string().unwrap()).unwrap();
     assert!(tokens
         .iter()
-        .any(|t| t.token.token_type == TokenType::Health && t.value == 2000));
+        .any(|t| t.token.token_type == TokenType::Health && t.value == 1000));
 }
 
 fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {
