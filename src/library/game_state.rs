@@ -253,6 +253,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     super::disciplines::herbalism::register_herbalism_cards(&mut lib, rng);
     super::disciplines::woodcutting::register_woodcutting_cards(&mut lib, rng);
     super::disciplines::fishing::register_fishing_cards(&mut lib, rng);
+    super::disciplines::rest::register_rest_cards(&mut lib, rng);
 
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
@@ -339,6 +340,10 @@ impl GameState {
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::FishingMaxHand),
+            5,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::RestMaxHand),
             5,
         );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
@@ -638,6 +643,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_fishing_encounter(card_id, &mut rng);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Rest,
+                                } => {
+                                    let _ = gs.start_rest_encounter(card_id, &mut rng);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -646,7 +656,11 @@ impl GameState {
                     }
                 }
                 ActionPayload::PlayCard { card_id } => {
-                    let _ = gs.library.play(*card_id);
+                    // Rest encounters handle library.play() internally
+                    let is_rest = matches!(&gs.current_encounter, Some(EncounterState::Rest(_)));
+                    if !is_rest {
+                        let _ = gs.library.play(*card_id);
+                    }
                     match &gs.current_encounter {
                         Some(EncounterState::Combat(_)) => {
                             let _ = gs.resolve_player_card(*card_id, &mut rng);
@@ -669,6 +683,9 @@ impl GameState {
                         Some(EncounterState::Fishing(_)) => {
                             let _ = gs.resolve_player_fishing_card(*card_id, &mut rng);
                         }
+                        Some(EncounterState::Rest(_)) => {
+                            let _ = gs.resolve_rest_card_play(*card_id, &mut rng);
+                        }
                         None => {}
                     }
                 }
@@ -688,7 +705,11 @@ impl GameState {
                     gs.encounter_phase = super::types::EncounterPhase::NoEncounter;
                 }
                 ActionPayload::AbortEncounter => {
-                    gs.abort_encounter();
+                    if matches!(&gs.current_encounter, Some(EncounterState::Rest(_))) {
+                        gs.abort_rest_encounter();
+                    } else {
+                        gs.abort_encounter();
+                    }
                 }
             }
             match gs.action_log.entries.lock() {
@@ -719,40 +740,37 @@ impl Default for GameState {
 
 pub(crate) fn deck_draw_random<T: HasDeckCounts>(rng: &mut rand_pcg::Lcg64Xsh32, cards: &mut [T]) {
     use rand::RngCore;
-    let total_deck: u32 = cards.iter().map(|c| c.counts().deck).sum();
+    let total_deck: u32 = cards.iter().map(|c| c.deck_count()).sum();
     if total_deck == 0 {
-        let total_discard: u32 = cards.iter().map(|c| c.counts().discard).sum();
+        let total_discard: u32 = cards.iter().map(|c| c.discard_count()).sum();
         if total_discard == 0 {
             return;
         }
         for card in cards.iter_mut() {
-            let counts = card.counts_mut();
-            counts.deck += counts.discard;
-            counts.discard = 0;
+            *card.deck_count_mut() += card.discard_count();
+            *card.discard_count_mut() = 0;
         }
     }
-    let total_deck: u32 = cards.iter().map(|c| c.counts().deck).sum();
+    let total_deck: u32 = cards.iter().map(|c| c.deck_count()).sum();
     if total_deck == 0 {
         return;
     }
     let mut pick = (rng.next_u64() as u32) % total_deck;
     for card in cards.iter_mut() {
-        if pick < card.counts().deck {
-            let counts = card.counts_mut();
-            counts.deck -= 1;
-            counts.hand += 1;
+        if pick < card.deck_count() {
+            *card.deck_count_mut() -= 1;
+            *card.hand_count_mut() += 1;
             return;
         }
-        pick -= card.counts().deck;
+        pick -= card.deck_count();
     }
 }
 
 pub(crate) fn deck_shuffle_hand<T: HasDeckCounts>(rng: &mut rand_pcg::Lcg64Xsh32, cards: &mut [T]) {
-    let target_hand: u32 = cards.iter().map(|c| c.counts().hand).sum();
+    let target_hand: u32 = cards.iter().map(|c| c.hand_count()).sum();
     for card in cards.iter_mut() {
-        let counts = card.counts_mut();
-        counts.deck += counts.hand;
-        counts.hand = 0;
+        *card.deck_count_mut() += card.hand_count();
+        *card.hand_count_mut() = 0;
     }
     for _ in 0..target_hand {
         deck_draw_random(rng, cards);
@@ -765,31 +783,29 @@ pub(crate) fn deck_play_random<T: HasDeckCounts>(
     cards: &mut [T],
 ) -> Option<usize> {
     use rand::RngCore;
-    let total_hand: u32 = cards.iter().map(|c| c.counts().hand).sum();
+    let total_hand: u32 = cards.iter().map(|c| c.hand_count()).sum();
     if total_hand == 0 {
-        let total_discard: u32 = cards.iter().map(|c| c.counts().discard).sum();
+        let total_discard: u32 = cards.iter().map(|c| c.discard_count()).sum();
         if total_discard == 0 {
             return None;
         }
         for card in cards.iter_mut() {
-            let counts = card.counts_mut();
-            counts.hand += counts.discard;
-            counts.discard = 0;
+            *card.hand_count_mut() += card.discard_count();
+            *card.discard_count_mut() = 0;
         }
     }
-    let total_hand: u32 = cards.iter().map(|c| c.counts().hand).sum();
+    let total_hand: u32 = cards.iter().map(|c| c.hand_count()).sum();
     if total_hand == 0 {
         return None;
     }
     let mut pick = (rng.next_u64() as u32) % total_hand;
     for (i, card) in cards.iter_mut().enumerate() {
-        if pick < card.counts().hand {
-            let counts = card.counts_mut();
-            counts.hand -= 1;
-            counts.discard += 1;
+        if pick < card.hand_count() {
+            *card.hand_count_mut() -= 1;
+            *card.discard_count_mut() += 1;
             return Some(i);
         }
-        pick -= card.counts().hand;
+        pick -= card.hand_count();
     }
     None
 }

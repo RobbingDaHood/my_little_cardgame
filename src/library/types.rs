@@ -56,6 +56,9 @@ pub enum TokenType {
     FishingRangeMin,
     FishingRangeMax,
     FishAmount,
+    // Rest encounter tokens
+    RestToken,
+    RestMaxHand,
 }
 
 /// All known token types.
@@ -99,6 +102,8 @@ impl TokenType {
             TokenType::FishingRangeMin,
             TokenType::FishingRangeMax,
             TokenType::FishAmount,
+            TokenType::RestToken,
+            TokenType::RestMaxHand,
         ]
     }
 
@@ -223,7 +228,7 @@ pub struct ConcreteEffectCost {
 }
 
 /// Fixed-amount cost used by gathering discipline cards.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct GatheringCost {
     pub cost_type: TokenType,
@@ -291,6 +296,10 @@ pub enum CardKind {
     },
     Fishing {
         fishing_effect: FishingCardEffect,
+    },
+    Rest {
+        effects: Vec<ConcreteEffect>,
+        rest_token_cost: i64,
     },
     Encounter {
         encounter_kind: EncounterKind,
@@ -463,6 +472,7 @@ pub enum EncounterKind {
     Herbalism { herbalism_def: HerbalismDef },
     Woodcutting { woodcutting_def: WoodcuttingDef },
     Fishing { fishing_def: FishingDef },
+    Rest,
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -495,45 +505,162 @@ pub struct DeckCounts {
     pub discard: u32,
 }
 
-/// Trait for card types that have `DeckCounts` (deck/hand/discard tracking).
+/// Trait for card types that have deck/hand/discard tracking.
+/// Both `DeckCounts` and `CardCounts` implement this, enabling generic
+/// deck operations across encounter-internal and player-owned cards.
 pub trait HasDeckCounts {
-    fn counts(&self) -> &DeckCounts;
-    fn counts_mut(&mut self) -> &mut DeckCounts;
+    fn deck_count(&self) -> u32;
+    fn hand_count(&self) -> u32;
+    fn discard_count(&self) -> u32;
+    fn deck_count_mut(&mut self) -> &mut u32;
+    fn hand_count_mut(&mut self) -> &mut u32;
+    fn discard_count_mut(&mut self) -> &mut u32;
+}
+
+impl HasDeckCounts for DeckCounts {
+    fn deck_count(&self) -> u32 {
+        self.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.discard
+    }
+}
+
+impl HasDeckCounts for CardCounts {
+    fn deck_count(&self) -> u32 {
+        self.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.discard
+    }
 }
 
 impl HasDeckCounts for OreCard {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
 impl HasDeckCounts for FishCard {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
 impl HasDeckCounts for PlantCard {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
 impl HasDeckCounts for EnemyCardDef {
-    fn counts(&self) -> &DeckCounts {
-        &self.counts
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
     }
-    fn counts_mut(&mut self) -> &mut DeckCounts {
-        &mut self.counts
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
+    }
+}
+
+impl HasDeckCounts for LibraryCard {
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
     }
 }
 
@@ -903,6 +1030,15 @@ pub struct FishingEncounterState {
     pub rewards: HashMap<Token, i64>,
 }
 
+/// Runtime state for a rest encounter (play rest cards using rest tokens).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct RestEncounterState {
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    pub rest_tokens: i64,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
@@ -912,6 +1048,7 @@ pub enum EncounterState {
     Herbalism(HerbalismEncounterState),
     Woodcutting(WoodcuttingEncounterState),
     Fishing(FishingEncounterState),
+    Rest(RestEncounterState),
 }
 
 impl EncounterState {
@@ -922,6 +1059,7 @@ impl EncounterState {
             EncounterState::Herbalism(h) => h.encounter_card_id,
             EncounterState::Woodcutting(w) => w.encounter_card_id,
             EncounterState::Fishing(f) => f.encounter_card_id,
+            EncounterState::Rest(r) => r.encounter_card_id,
         }
     }
 
@@ -936,6 +1074,7 @@ impl EncounterState {
             EncounterState::Herbalism(h) => &h.outcome,
             EncounterState::Woodcutting(w) => &w.outcome,
             EncounterState::Fishing(f) => &f.outcome,
+            EncounterState::Rest(r) => &r.outcome,
         }
     }
 }

@@ -461,34 +461,19 @@ Roadmap steps
 - Woodcutting multiplier rebalance: pattern multipliers recalibrated proportional to the statistical probability of each pattern (assuming 8 cards played from a 13-card pool), so rarer patterns yield substantially higher rewards.
 - docs/issues.md batch (10 issues resolved).
 
-9.4) Rest encounter
-   - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic.
-   - Description: A new encounter type where the player picks a rest benefit card.
-     - The starting encounter deck should have ~20% rest encounters.
-     - Rest cards cost a mix of herbs and fish tokens.
-     - Three CardEffect variants:
-       1. Great amount of Stamina recovery — costs both fish and herbs tokens, each with its own cost percentage min/max range.
-       2. Health recovery — similar cost structure with fish and herbs.
-       3. Mixed Stamina + Health recovery — each has a min-max range but generally gives less total than the two specialized variants, providing a benefit to specialization.
-     - All rest CardEffects give great amounts of tokens but have a cap. All CardEffects that grant tokens should have a cap.
-     - 5 different rest cards are rolled from these effects at game initialization.
-     - Each of those 5 cards has 5 copies in the rest deck (25 total cards).
-     - When the encounter starts: draw 5 rest cards from the deck and present them as choices.
-     - The player picks 1 card. That card's effect takes effect immediately and the encounter is won.
-     - The rest deck should contrary to all other decks be mainly filled with cards that have a cost, and only a few without cost.
-   - Implementation checklist:
-     1. Add EncounterKind::Rest { rest_def: RestDef } with rest deck and rewards.
-     2. Add RestCardEffect with recovery values and costs (using range system from 9.1).
-     3. Add CardKind::Rest { rest_effect: RestCardEffect } for rest action cards.
-     4. Add EncounterState::Rest(RestEncounterState) with drawn hand of 5 cards.
-     5. Implement EncounterPlayCard for rest: apply chosen card's effect, mark encounter as won.
-     6. Add rest encounters via the discipline registration pattern (~20% of encounter deck).
-     7. Add scenario test.
-   - Playable acceptance: Rest encounters appear in the encounter deck, player draws 5 rest cards and picks 1, recovery is applied (respecting caps), encounter completes as PlayerWon. Scenario test passes.
-   - Implementation insights from 9.1/9.2:
-     - The ConcreteEffect model is already in place — rest cards should use the same pattern with rolled values from min-max ranges.
-     - Stamina token is already functional and tested as a cost currency (player starts with 1000 Stamina).
-     - The cost pre-validation pattern (preview_costs/preview_gathering_costs with split_gathering_costs) is established and should be reused for rest card costs.
+9.4) Rest encounter ✅ COMPLETED (refactored)
+   - Goal: Add a rest encounter type that allows stamina and health recovery, creating a meaningful pacing mechanic with multi-card play gated by rest tokens.
+   - Description: Rest cards are **player library cards** (`CardKind::Rest`) living in the Library with `CardCounts`, following the same deck/hand/discard pattern as Attack/Defence/Resource cards.
+     - The starting encounter deck has ~20% rest encounters (hand: 4 out of 19 total encounter cards).
+     - 4 PlayerCardEffect templates (2 Stamina recovery, 2 Health recovery) and 5 concrete rest cards are registered at game init, each with 5 copies (25 total in the rest deck).
+     - Rest cards use the `ConcreteEffect`/`GainTokens` pattern with `effect_id` references to `PlayerCardEffect` entries.
+     - Material costs (Fish and Plant) are percentage-of-gain via `CardEffectCost` on effects; the mixed card is cost-free.
+     - At encounter start, rest cards are drawn from the Library deck to hand (up to `RestMaxHand` limit, default 5). The encounter grants 1–2 **rest tokens**.
+     - Playing a rest card costs `rest_token_cost` (0–2) from the encounter's token pool plus material costs.
+     - Multiple cards can be played per encounter. When rest tokens are depleted, the encounter auto-completes as PlayerWon.
+     - The player can abort at any time (always PlayerWon — there is no loss condition).
+     - `EncounterKind::Rest` is a unit variant (no encounter-internal definition needed).
+   - Implementation: Completed with `CardKind::Rest { effects, rest_token_cost }`, `RestEncounterState { rest_tokens }`, `RestToken`/`RestMaxHand` token types, rest.rs discipline module (`register_rest_cards`, `start_rest_encounter`, `resolve_rest_card_play`, `abort_rest_encounter`, `complete_rest_encounter`), action handler integration, replay support, and scenario test. Old types removed: `RestCard`, `RestDef`, `RestCardEffectTemplate`, `RestCostRange`, `RestRecoveryRange`, `ConcreteRestRecovery`.
 
 9.5) Better Mining redesign
    - Goal: Redesign the mining encounter to be about maintaining a light level while mining for yield, creating a risk-vs-reward pacing mechanic where the player decides when to stop.
@@ -496,7 +481,7 @@ Roadmap steps
      - **Core loop**: The player manages three resources during a mining encounter: light level, yield, and stamina. The player can conclude the encounter at any point; the reward is `min(stamina, yield)` and concluding costs that amount of stamina.
      - **Light level**: A new token starting at 300 at the start of each mining encounter.
        - Enemy cards reduce the light level (moderate amount). Most enemy cards reduce both light level and durability; some only reduce one (doing more of it).
-       - Player cards can increase the light level (high amount), but no single player CardEffect both increases light level and does mining power. Later, crafted multi-effect cards could combine both.
+       - Player cards can increase the light level (high amount) with a cap (rolled like all gain effects: cap first, then gain as percentage of cap). Each light-level card also costs a small amount of wood tokens proportional to the gain. No single player CardEffect both increases light level and does mining power. Later, crafted multi-effect cards could combine both.
      - **No enemy health**: The enemy has no health and cannot be killed. The player can only win by ending the encounter. The player loses by running out of durability or having all hand cards unpayable.
      - **Mining power → yield**: When the player plays a "mining power" card (renamed from "damage"), a yield token is accumulated: `yield += mining_power × light_level / 100`. Higher light level means more yield per card played.
      - **Enemy CardEffects**: Because there is no enemy entity to fight, enemy cards cannot have CardEffects that cost stamina. The enemy does have rare cards that remove a small amount of the player's health.
@@ -508,10 +493,13 @@ Roadmap steps
      5. Add "conclude mining" player action: reward = `min(stamina, yield)`, costs that stamina.
      6. Remove enemy health from mining encounters; remove enemy stamina-cost CardEffects.
      7. Add enemy CardEffects that reduce light level (with and without durability damage).
-     8. Add player CardEffects that increase light level.
+     8. Add player CardEffects that increase light level. Each light-level-granting effect should:
+        - Have a max cap rolled first, then gain as a percentage of that cap (consistent with all other gain effects).
+        - Also have a cost in a small amount of wood tokens, proportional to the gain.
      9. Add rare enemy CardEffects that remove small amounts of player health.
      10. Update mining scenario tests for new mechanics.
    - Playable acceptance: Mining encounter starts with light level 300, player plays mining power cards to accumulate yield, player concludes encounter and receives `min(stamina, yield)` ore tokens (costing that stamina). Enemy cards reduce light level and durability. Scenario test passes.
+   - Open items: Define concrete min/max ranges for light level cap, gain percentage, and wood token cost amounts when implementing.
 
 9) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
@@ -597,6 +585,8 @@ Roadmap steps
      - Balance Insight generation rates and research costs across disciplines.
      - Add cross-discipline scenario tests (e.g., mine then herbalism then combat then research in sequence).
      - Post-9.3 balance: review handsize tokens (now defaulting to 5), cap values, and cost card tuning introduced in 9.3. Ensure the cost/benefit ratio across disciplines feels fair after the expanded CardEffects.
+     - Rest card balance: current rest card templates use aggressive recovery values (Stamina cap 400-600, Health cap 300-400). Play-test and adjust if they trivialize stamina management.
+     - Percentage-based cost rebalancing: the percentage-of-gain cost system means stronger cards (higher gain values) automatically cost more material. Tune cost percentages across all GainTokens effects to ensure the cost/benefit curve feels fair.
    - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs. Research costs are proportional to card power.
 
 12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
@@ -681,7 +671,7 @@ A lot of these could be introduced with a Milestone boss encounter or as progres
 - **Herbalism guard token:** A "guard" token that protects plant cards in some way but only exists for a very short period. Not a guaranteed win condition — for example, the next card play leaves half of the cards that would have been removed, chosen at random.
 - **Card forgetting:** A CardEffect that lets the player forget (permanently remove) a full card including all copies, as long as all copies are in the library and not in deck/hand/discard. More powerful effect the more cards are crafted; still a good effect even without crafted cards. This is a way to clean up the library of old unused cards. Requires implementing empty entries in the library vector with ID reuse — critical that existing cards keep their IDs.
 - **Magic CardEffects:** Add magic-themed CardEffects for all disciplines, potentially gated behind research or milestones.
-- **Cooking mechanic:** Expand the rest encounter with a cooking sub-system to make rest more interesting and create demand for Fish and Herbs.
+- **Cooking mechanic:** Expand the rest encounter with a cooking sub-system. With rest now using library cards and rest tokens, cooking could interact with the rest token system — e.g., cooking grants additional rest tokens, modifies rest card effects, or introduces new rest card types. Creates demand for Fish and Plant tokens.
 - **Faction expansion of milestones:** Expand milestones into a faction mechanic with more sense of player choices and possibly a faction discipline deck.
 - **Scouting expansion:** Expand the scouting step to give the user more choice rather than deterministic difficulty increases. It should be possible to shape the difficulty (and rewards) of an encounter and leave the nature of the enemy somewhat random. Maybe choosing 1 out of 3 options. Adding a Scouting discipline deck when a good mechanic is figured out.
 
@@ -689,4 +679,11 @@ Code architecture improvements (future)
 ----------------------------------------
 - **Extend HasDeckCounts to player library cards:** `LibraryCard` uses `CardCounts` (with an extra `library` field) instead of `DeckCounts`. Consider a broader `HasCounts` trait hierarchy or unifying `CardCounts` and `DeckCounts` so player deck draw/shuffle operations can also use generic functions, further reducing duplication in `draw_player_cards_of_kind`.
 - **Generalize ore play-random in mining.rs:** `resolve_ore_play` still has inline logic for picking a random ore card from hand and moving it to discard. Refactor to use `deck_play_random`, matching how combat's `resolve_enemy_play` and fishing's `fish_play_random` were updated.
+- **Fix pre-existing test failures:** `test_play_attack_card_kills_enemy` (resolve_play_tests.rs) and `test_player_kills_enemy_and_combat_ends` (flow_tests.rs) both hardcode card IDs 8, 9, 10 that changed during the card initialization refactoring. These need to discover card IDs dynamically via the API (e.g., query `/library/cards?card_kind=Attack`).
+- **Statistical testing for woodcutting patterns:** The woodcutting multiplier rebalance was calibrated using an external Python Monte Carlo simulation. Consider adding a Rust-native test or benchmark that validates pattern probabilities are within expected ranges, ensuring future deck composition changes don't silently break the probability assumptions.
+
+Known game design gaps (future)
+--------------------------------
+- **Health initialization gap:** Health token is not set at game start (only initialized to 2000 when picking an encounter with Health == 0). If the player picks a rest encounter before their first combat, health starts at 0 and recovery is capped at the rest card's cap value from zero. Consider adding initial Health token to game start balances (like Stamina: 1000).
+- **Rest token progression:** Currently 1–2 rest tokens per encounter are hardcoded. Future upgrades could grant more rest tokens per encounter, making rest more powerful as the game progresses. This parallels how other disciplines improve through card effects and MaxHand increases. Could be gated behind milestones or research.
 

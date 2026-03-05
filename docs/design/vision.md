@@ -56,8 +56,10 @@ The codebase is organized into the following main modules:
 Architectural patterns:
 
 - **Shared vs discipline-specific effects:** Shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines. Discipline-specific effects are registered within their discipline module.
-- **Trait-based deck abstraction:** The `HasDeckCounts` trait provides a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`). Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. Shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods.
+- **Trait-based deck abstraction:** The `HasDeckCounts` trait provides a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`, `LibraryCard`). The trait uses individual accessor methods (`deck_count()`, `hand_count()`, `discard_count()` and `_mut()` variants) instead of returning `&DeckCounts`, allowing both `DeckCounts` and `CardCounts` (which adds a `library` field) to implement it with flat field access. Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. Shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods.
 - **Shared gathering helper:** `GameState::all_gathering_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. Shared logic lives on `GameState` with discipline-specific behavior injected via closures. Combat uses a separate implementation due to its different cost system (`ConcreteEffect` costs vs `GatheringCost`).
+- **Encounter generation at game start:** All encounters (Combat, Mining, Herbalism, Woodcutting, Fishing, Rest) are generated at library initialization using the seeded RNG. Enemy decks contain cards with `ConcreteEffect` entries rolled from `CardEffect` templates, just like player cards. Encounter parameters (HP, durability thresholds, deck compositions) are set at init time — there is no per-encounter randomness beyond shuffling.
+- **Multi-effect evaluation order:** When a card has multiple `ConcreteEffect` entries, they are evaluated sequentially (first to last). Each effect's costs are checked and deducted independently. If a later effect cannot pay its cost, the card play fails for that effect, but effects that already applied are not reverted.
 
 ## Core gameplay elements
 
@@ -88,7 +90,7 @@ The canonical Library stores only structural identifiers (card IDs, types, token
 ### Implementation updates (2026-02-23)
 - Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, Insight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability, Ore, Plant, Lumber, Fish, OreHealth, AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand, MilestoneInsight, FishingRangeMin, FishingRangeMax, FishAmount. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. PersistentCounter is the default lifecycle for all token types, but any token type can use any lifecycle — for example Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`); the old array-of-entries format is still accepted for backward-compatible deserialization.
 - The ScopedToEncounter lifecycle was replaced by FixedTypeDuration { phases, duration }; references to ScopedToEncounter were removed.
-- Encounter state lives in GameState (current_encounter: Option<EncounterState>, encounter_phase: EncounterPhase) and src/combat/ endpoints delegate to GameState methods. EncounterState is an enum with variants Combat(CombatEncounterState), Mining(MiningEncounterState), Herbalism(HerbalismEncounterState), Woodcutting(WoodcuttingEncounterState), and Fishing(FishingEncounterState), each containing encounter-type-specific state. CombatEncounterState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside the encounter state. Turn control is implicit: the player always acts first, then the system auto-resolves enemy play and advances combat phase within the same action.
+- Encounter state lives in GameState (current_encounter: Option<EncounterState>, encounter_phase: EncounterPhase) and src/combat/ endpoints delegate to GameState methods. EncounterState is an enum with variants Combat(CombatEncounterState), Mining(MiningEncounterState), Herbalism(HerbalismEncounterState), Woodcutting(WoodcuttingEncounterState), Fishing(FishingEncounterState), and Rest(RestEncounterState), each containing encounter-type-specific state. CombatEncounterState tracks enemy tokens directly (enemy_tokens field) along with mutable copies of enemy decks and combat metadata; player tokens live on GameState.token_balances, not inside the encounter state. Turn control is implicit: the player always acts first, then the system auto-resolves enemy play and advances combat phase within the same action.
 - Encounter outcome is tracked via an `EncounterOutcome` enum on each encounter state with variants: Undecided, PlayerWon, PlayerLost. GameState maintains `encounter_results: Vec<EncounterOutcome>` — each completed encounter pushes its outcome to this vector. The `/encounter/results` endpoint returns the full history. Encounter completion is determined solely by `outcome != EncounterOutcome::Undecided` (there is no separate `is_finished` field).
 - Dodge and Shield absorption: damage consumes Dodge tokens first, then Shield tokens, before Health is reduced. Dodge expires after the Defending phase (FixedTypeDuration). Shield persists for the encounter (PersistentCounter) but has smaller CardEffect ranges.
 - Drawing additional cards is modelled via the `CardEffectKind::DrawCards { attack, defence, resource }` variant of the `CardEffectKind` enum. `CardEffectKind` has three variants: `GainTokens { target, token_type, cap_min, cap_max, gain_min_percent, gain_max_percent, costs }` for capped token grants (gain is calculated from cap and percentage, balance clamped to ≤ cap; cost_type must not match the gain token_type), `LoseTokens { target, token_type, min, max, costs }` for token loss with positive min/max values representing amounts to lose, and `DrawCards { attack: u32, defence: u32, resource: u32 }` for per-deck-type card draw. Resource cards trigger draws via their effects list, just like attack and defence cards trigger damage/shield via GainTokens/LoseTokens effects. Starting decks draw 1 attack, 1 defence, 2 resource cards per resource play (4 total) for steady pacing. DrawCards is not a token type — it is purely a card effect subtype. Both player and enemy draws happen per deck type with discard recycling per type.
@@ -99,8 +101,12 @@ The canonical Library stores only structural identifiers (card IDs, types, token
   2. Resolve enemy play (one random card matching current CombatPhase from enemy hand)
   3. Advance combat phase (Defending → Attacking → Resourcing → Defending)
   4. Check combat end conditions (either side HP ≤ 0)
-- CardKind::Encounter { kind: EncounterKind } replaces the old CombatEncounter variant. EncounterKind is an enum with variants Combat { combatant_def }, Mining { mining_def }, Herbalism { herbalism_def }, Woodcutting { woodcutting_def }, and Fishing { fishing_def }. CardKind::Mining { mining_effect: MiningCardEffect } is a separate card kind for mining action cards with inline effects (ore_damage, durability_prevent) and `costs: Vec<GatheringCost>` / `gains: Vec<GatheringCost>` vectors for all cost and grant logic. CardKind::Woodcutting and other discipline cards similarly use `costs`/`gains` vectors instead of dedicated fields.
-- Unpayable card rejection: if no effect on a card can have its pre-play costs paid, the card play is rejected with an error and the player must choose another card. If all hand cards for the current discipline are unpayable (every card's pre-play costs exceed token balances), the encounter ends as PlayerLost. This applies to all encounter types: Combat, Mining, Herbalism, Woodcutting, and Fishing. For gathering disciplines, costs are split via `split_gathering_costs()` into pre-play costs (rejected if unaffordable, e.g. Stamina) and post-play costs (durability depletion after card resolves).
+- CardKind taxonomy — the `CardKind` enum classifies all cards:
+  - **Combat action cards:** `CardKind::Attack`, `CardKind::Defence`, `CardKind::Resource` — player combat decks. Each has `effects: Vec<ConcreteEffect>` referencing PlayerCardEffect templates.
+  - **Rest action cards:** `CardKind::Rest { effects: Vec<ConcreteEffect>, rest_token_cost: i64 }` — rest recovery cards. Use ConcreteEffect/GainTokens pattern with PlayerCardEffect references. Material costs (Fish/Plant) are percentage-of-gain via CardEffectCost; `rest_token_cost` is a flat encounter-token cost (0–2).
+  - **Gathering action cards:** `CardKind::Mining { mining_effect }`, `CardKind::Woodcutting { woodcutting_effect }`, `CardKind::Herbalism { herbalism_effect }`, `CardKind::Fishing { fishing_effect }` — discipline-specific action cards with inline effects and `costs: Vec<GatheringCost>` / `gains: Vec<GatheringCost>` vectors.
+  - **Encounter trigger cards:** `CardKind::Encounter { kind: EncounterKind }` — encounter cards drawn to encounter hand. `EncounterKind` variants: `Combat { combatant_def }`, `Mining { mining_def }`, `Herbalism { herbalism_def }`, `Woodcutting { woodcutting_def }`, `Fishing { fishing_def }`, `Rest` (unit variant — no encounter-internal definition).
+- Unpayable card rejection: if no effect on a card can have its pre-play costs paid, the card play is rejected with an error and the player must choose another card. If all hand cards for the current discipline are unpayable (every card's pre-play costs exceed token balances), the encounter ends as PlayerLost. This applies to all encounter types: Combat, Mining, Herbalism, Woodcutting, and Fishing. Rest encounters do not auto-lose from unpayable cards — the player can always abort a rest encounter as PlayerWon. For gathering disciplines, costs are split via `split_gathering_costs()` into pre-play costs (rejected if unaffordable, e.g. Stamina) and post-play costs (durability depletion after card resolves). Rest card costs (Fish/Plant) are percentage-of-gain via the CardEffectCost system.
 - Players cannot abandon combat encounters once started; combat continues until one side is defeated (HP reaches 0). Non-combat encounters (e.g., Mining) may be aborted via the EncounterAbort action, which marks the encounter as PlayerLost, grants no rewards, applies no penalties, and transitions to Scouting phase. EncounterApplyScouting is the action that transitions from post-encounter Scouting phase back to NoEncounter.
 - Scouting after loss: after combat ends (whether the player wins or loses), the game transitions to the Scouting phase. The player can apply scouting regardless of combat outcome. This is intentional — scouting is a post-encounter lifecycle step, not a victory reward.
 - Health initialization: player Health is set to 2000 when picking an encounter only if current Health is 0. Health persists across encounters within a game; it is not reset between encounters.
@@ -142,9 +148,10 @@ Combat is fully reproducible by recording the game's single initial seed and the
         Herbalism(HerbalismEncounterState),
         Woodcutting(WoodcuttingEncounterState),
         Fishing(FishingEncounterState),
+        Rest(RestEncounterState),
     }
     ```
-    Each encounter type has its own state struct because mechanics differ fundamentally. Combat uses 3 decks + phases (Defending/Attacking/Resourcing); mining uses a single deck with no phases; herbalism uses card-characteristic matching with no enemy draws; woodcutting has no enemy deck and uses pattern evaluation; fishing uses card-subtraction with valid-range targeting. The `EncounterState` enum provides helpers like `is_finished()` (checks `outcome != Undecided`) and `encounter_card_id()`.
+    Each encounter type has its own state struct because mechanics differ fundamentally. Combat uses 3 decks + phases (Defending/Attacking/Resourcing); mining uses a single deck with no phases; herbalism uses card-characteristic matching with no enemy draws; woodcutting has no enemy deck and uses pattern evaluation; fishing uses card-subtraction with valid-range targeting; rest is a single-choice encounter (pick 1 of 5 drawn cards for recovery). The `EncounterState` enum provides helpers like `is_finished()` (checks `outcome != Undecided`) and `encounter_card_id()`.
 
   - Mining encounter mechanics (implemented):
     - Single-deck resolution: Player Mining deck contains cards with `ore_damage` (damage to ore node) and `durability_prevent` (reduces incoming durability damage) as a tradeoff. Ore node has an OreDeck with cards dealing 0-3 durability damage (distribution skewed low: ~30% zero, ~40% one, ~20% two, ~10% three).
@@ -154,7 +161,7 @@ Combat is fully reproducible by recording the game's single initial seed and the
     - No phases: Unlike combat's Defending → Attacking → Resourcing cycle, mining resolves one action per turn with no phase rotation.
     - Ore health tracked via `ore_tokens: HashMap<Token, i64>` with OreHealth token (encounter-scoped). Serialized JSON: `"ore_tokens": {"OreHealth": 15}`.
     - MiningDurability: Initialized to 10000 in `GameState::new()` at game start. Persists across all mining encounters and decreases over time. NOT re-initialized per encounter. High initial value (10000) is a placeholder pending repair mechanics.
-    - Endpoints: `/encounter` and `/encounter/results` serve all encounter types. Response JSON includes `encounter_state_type` discriminator field (`"Combat"`, `"Mining"`, `"Herbalism"`, `"Woodcutting"`, or `"Fishing"`).
+    - Endpoints: `/encounter` and `/encounter/results` serve all encounter types. Response JSON includes `encounter_state_type` discriminator field (`"Combat"`, `"Mining"`, `"Herbalism"`, `"Woodcutting"`, `"Fishing"`, or `"Rest"`).
 
 ### Card Effect Architecture (Two-Layer Model)
 
@@ -172,14 +179,20 @@ All values are scaled by ~100x (e.g., damage 500, health 2000, durabilities 1000
 
 ### Cost System
 
-Some card effects have optional costs defined as percentage ranges of the effect value:
-- Each cost entry specifies a cost_type (e.g., Stamina) and min-max percentage.
-- At card creation, cost percentages are rolled and fixed.
-- At play time: cost = rolled_value × rolled_percent / 100.
-- If the player can't pay the full cost, the card cannot be played.
+Card effects use a three-step rolling pipeline to determine values and costs at creation time:
+
+1. **Roll cap:** From the CardEffect template's `cap_min..cap_max` range, producing `rolled_cap` (maximum token balance after grant).
+2. **Roll gain percent:** From `gain_min_percent..gain_max_percent`, producing `rolled_gain_percent`. The concrete gain = `rolled_cap * rolled_gain_percent / 100`, stored as `rolled_value`.
+3. **Roll cost percent:** For each `CardEffectCost { cost_type, min_percent, max_percent }`, roll to produce `ConcreteEffectCost { cost_type, rolled_percent }`. At play time, actual cost = `rolled_value * rolled_percent / 100`.
+
+Token cap mechanic: GainTokens effects have a `rolled_cap` that clamps the target's token balance. When a GainTokens effect is applied, the token balance increases by `rolled_value` but is clamped to not exceed `rolled_cap`. This prevents runaway accumulation — for example, a rest card granting Stamina with cap 500 and gain 400 only restores up to 500 total Stamina, not 400 above current balance.
+
+Additional rules:
+- If the player can't pay the full cost of any effect on a card, the card cannot be played.
 - Cost cards are more powerful but require resource management.
 - Starting decks are weighted toward non-cost cards.
-- Cost system extends to gathering encounters (Mining, Woodcutting stamina costs).
+- Cost system extends to gathering encounters (Mining, Woodcutting stamina costs) via the GatheringCost model.
+- Rest card material costs (Fish/Plant) use the same percentage-of-gain pipeline.
 
 ### Gathering Cost Model
 
@@ -393,8 +406,9 @@ Research candidate generation and card creation
   This system uses the Library's CardEffect pool and makes area evolution an explicit part of every encounter's lifecycle.
 
 - Mining (gathering subtype): focuses on discipline wear and extraction. Uses a single-deck resolution (ore_damage vs durability_prevent tradeoff) with no phases. A planned redesign (roadmap Step 9.5) will replace the current HP-depletion model with a light-level / yield / stamina pacing mechanic where the player decides when to stop mining; yield is calculated as `mining_power × light_level / 100`, and the reward on conclusion is `min(stamina, yield)` costing that stamina. Future refined versions (Step 8.5) will add tiered rewards, stamina costs, and entry costs.
-- Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays up to 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After all plays (or the player chooses to stop early), the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Pattern multipliers are proportional to the statistical probability of achieving each pattern (assuming 8 cards played from a 13-card pool), so rarer patterns yield substantially higher rewards. Each card costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
+- Woodcutting (gathering subtype): focuses on rhythm and pattern-building for greater yields. There is no enemy deck. Player plays up to 8 Woodcutting cards (starting hand of 5, drawing 1 per play). Each card has a ChopType (LightChop, HeavyChop, MediumChop, PrecisionChop, SplitChop) and a numeric value (1-10). Cards can have multiple types and values but start with 1 of each. After all plays (or the player chooses to stop early), the best matching pattern (poker-inspired: flushes, straights, pairs, etc.) determines Lumber reward. Pattern multipliers are calibrated using Monte Carlo simulation (1M draws of 8 from 95 cards) with sqrt inverse-probability scaling: most common patterns (Full Set ~28%, Full House/Long Straight ~19%) get low multipliers (1.0–1.5x), moderate patterns (Triple, Two Pair ~8%) get 2.0x, and rare patterns (Eight of a Kind ~0.009%) get up to 55.0x. Each card costs a small fixed durability; WoodcuttingDurability depletion is a loss condition. The strategic tension is between building patterns and conserving durability.
 - Fishing (gathering subtype): focuses on numeric precision. Each encounter defines a valid_range, max_turns, and win_turns_needed. Each round the player and enemy (fish) play numeric cards; the difference (clamped ≥ 0) must fall within the valid_range to count as a "won" turn. Win enough turns before max_turns to win. Every card costs durability; FishingDurability depletion is a second loss condition.
+- Rest (recovery encounter): a pacing/recovery encounter type. Rest cards are **player library cards** (`CardKind::Rest`) with `CardCounts` (deck/hand/discard/library), following the same pattern as Attack/Defence/Resource cards. 4 PlayerCardEffect templates (2 Stamina recovery, 2 Health recovery) and 5 concrete rest cards are registered at game init, each with 5 copies (25 total in the rest deck). Rest cards use the `ConcreteEffect`/`GainTokens` pattern with `effect_id` references to `PlayerCardEffect` entries. Material costs (Fish and Plant) are percentage-of-gain via `CardEffectCost` on effects; the mixed card is cost-free. At encounter start, rest cards are drawn from the Library deck to hand (up to `RestMaxHand` limit, default 5). The encounter grants 1–2 **rest tokens** — playing a rest card costs `rest_token_cost` (0–2) from the encounter's token pool. Multiple cards can be played per encounter. When rest tokens are depleted the encounter auto-completes as PlayerWon. The player can also abort at any time (always PlayerWon — there is no loss condition). Rest encounters compose ~20% of the encounter deck (hand: 4). `EncounterKind::Rest` is a unit variant (no encounter-internal definition needed). Defined in `src/library/disciplines/rest.rs`.
 
 Design consequences and examples:
 - Different card pools: each subtype has bespoke card families (Knowledge cards, Tool cards, Time cards, Recon cards) so card synergies are meaningful and specific to the activity.
@@ -402,15 +416,24 @@ Design consequences and examples:
 - Different victory metrics: combat uses HP/objective removal; crafting/gathering use quality, yield, or connection strength; learning and the scouting system prioritize gathered information, unlocked library cards, and improved future encounter options.
 - All interactions remain deterministic/replayable via seeds: shuffles and deterministic resolutions preserve reproducibility while enabling diverse mechanical flavors.
 
+Encounter deck composition (current starting game):
+- Combat: 3/19 encounter cards (~16%)
+- Mining: 3/19 (~16%)
+- Herbalism: 3/19 (~16%)
+- Woodcutting: 3/19 (~16%)
+- Fishing: 3/19 (~16%)
+- Rest: 4/19 (~21%) — slightly higher to ensure regular recovery pacing
+
 ### Encounter win/loss patterns
 
-Five distinct win/loss patterns have emerged across implemented encounter types. Future encounter types should reuse or explicitly extend these patterns:
+Six distinct win/loss patterns have emerged across implemented encounter types. Future encounter types should reuse or explicitly extend these patterns:
 
 1. **HP depletion** (Combat, Mining): reduce the encounter target's HP to 0 to win. Lose if the player's relevant HP/durability pool reaches 0. Binary outcome.
 2. **Card narrowing** (Herbalism): win when exactly 1 enemy card remains; lose when 0 remain (over-harvested). The player must be precise — too aggressive play causes a loss. Second loss condition: HerbalismDurability ≤ 0.
 3. **Degree of success / pattern evaluation** (Woodcutting): the encounter always "completes" but the quality of the win (Lumber reward) depends on the best pattern formed from the played cards. Lose only if WoodcuttingDurability ≤ 0 during play.
 4. **Card-subtraction with valid-range targeting** (Fishing): win enough rounds (result within valid_range) before max_turns exhausted. Lose if turns run out or FishingDurability ≤ 0.
-5. **Threshold / quality** (future crafting/provisioning): success if final quality meets recipe threshold; fail otherwise. Not yet implemented.
+5. **Multi-play token-gated recovery** (Rest): draw rest cards from the player's Library rest deck to hand (up to RestMaxHand). The encounter grants 1–2 rest tokens. Each rest card play costs rest_token_cost (0–2) from the token pool plus material costs (Fish/Plant as percentage-of-gain). Multiple cards can be played per encounter. When rest tokens are depleted, the encounter auto-completes as PlayerWon. The player can abort at any time (always PlayerWon). No loss condition.
+6. **Threshold / quality** (future crafting/provisioning): success if final quality meets recipe threshold; fail otherwise. Not yet implemented.
 
 ### Enemy behavior patterns
 
@@ -419,7 +442,7 @@ Encounter types use distinct enemy behavior patterns that future types may reuse
 - **Draw and play** (Combat, Mining): enemy has a deck, draws cards, and plays from hand each turn. Discard recycling when deck is empty.
 - **Fixed hand, no draw** (Herbalism): enemy starts with a fixed hand and never draws. The hand shrinks as the player removes cards via characteristic matching.
 - **Fixed hand, consume on play** (Fishing): enemy has a fixed hand of cards, plays one randomly each turn. The played card is consumed (moved to discard), so the hand shrinks over time.
-- **No enemy deck** (Woodcutting): no enemy or node deck at all. The encounter is purely about the player's card choices. Challenge comes from hand management and pattern construction.
+- **No enemy deck** (Woodcutting, Rest): no enemy or node deck at all. The encounter is purely about the player's card choices. Challenge comes from hand management and pattern construction (Woodcutting) or rest token budgeting and material cost management (Rest).
 
 ### Stamina as cross-discipline cost currency
 
@@ -429,9 +452,16 @@ Stamina is intended as the shared cost currency across all disciplines. It is ea
 
 This subsection is the authoritative token reference. Each token type below lists how it is typically earned, where it may be spent, and whether it can carry structured payload data.
 
+Token scope taxonomy:
+- **Persistent tokens** — live on `GameState.token_balances`, persist across encounters. Examples: Stamina, Fish, Plant, Lumber, Ore, Health, MaxHealth, all MaxHand tokens.
+- **Encounter-scoped tokens** — live on the encounter state struct, reset each encounter. Examples: RestToken (on RestEncounterState.rest_tokens), OreHealth (on MiningEncounterState.ore_tokens), enemy tokens (on CombatEncounterState.enemy_tokens), FishingRangeMin/FishingRangeMax/FishAmount (initialized per encounter).
+- **Durability tokens** — a subclass of persistent tokens that represent resource depletion across encounters. Examples: MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability. These are never reset and decrease over time; reaching 0 triggers encounter loss.
+
 - Stamina (resource counter): Initialized to 1000 at game start. Primary cost currency for cost cards across all disciplines. Generated by: rest encounters, stamina gain card effects, fishing stamina cards. Consumed by: cost cards (Attack, Defence, Mining, Woodcutting, Herbalism, Fishing, future crafting). Spendable: yes (consumed automatically as a pre-play cost on card plays).
 
-- Max handsize tokens (PersistentCounter, initialized to 5): Control how many cards can be drawn into each hand type per draw. Player tokens: AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand. Enemy tokens: EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand. Modifiable by card effects.
+- Max handsize tokens (PersistentCounter, initialized to 5): Control how many cards can be drawn into each hand type per draw. Player tokens: AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, RestMaxHand. Enemy tokens: EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand. Modifiable by card effects.
+
+- RestToken (encounter-scoped counter): Granted at rest encounter start (1–2 tokens). Each rest card play costs `rest_token_cost` (0–2) from the encounter's RestEncounterState.rest_tokens pool. When depleted, the encounter auto-completes as PlayerWon. Not a persistent player token — lives only on the encounter state.
 
 
 
@@ -477,6 +507,7 @@ General rules
 
 ## Reproducibility and single-game seed
 - The game is initialized with a single seed at new-game start; every deck shuffle and random selection is produced deterministically from that initial seeded RNG; recording that seed and deterministic decision inputs allows exact replay of any session, combat, or crafting attempt.
+- Replay discipline branching: the replay system (`GameState::replay()`) re-executes the action log to reconstruct state. Most encounter types use the generic `library.play()` for card resolution, but some disciplines handle card play internally. For example, rest encounters use `resolve_rest_card_play()` which manages rest token deduction and encounter auto-completion — the replay `PlayCard` handler skips the outer `library.play()` call for rest encounters. When adding new encounter types, ensure the replay handler correctly dispatches to the discipline-specific play method.
 
 ## Early game and progression
 
