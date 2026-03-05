@@ -716,6 +716,11 @@ impl GameState {
                         gs.abort_encounter();
                     }
                 }
+                ActionPayload::ConcludeEncounter => {
+                    if matches!(&gs.current_encounter, Some(EncounterState::Mining(_))) {
+                        let _ = gs.conclude_mining_encounter();
+                    }
+                }
             }
             match gs.action_log.entries.lock() {
                 Ok(mut g) => g.push(e.clone()),

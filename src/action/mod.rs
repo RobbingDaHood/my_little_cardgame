@@ -23,6 +23,7 @@ pub enum PlayerActions {
     EncounterPlayCard { card_id: u64 },
     EncounterApplyScouting { card_ids: Vec<usize> },
     EncounterAbort,
+    EncounterConcludeEncounter,
 }
 
 #[openapi]
@@ -440,6 +441,30 @@ pub async fn play(
             }
             let payload = crate::library::types::ActionPayload::AbortEncounter;
             let entry = gs.append_action("EncounterAbort", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterConcludeEncounter => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Mining(_)) => {
+                    match gs.conclude_mining_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(_) => {
+                    return Err(Right(BadRequest(new_status(
+                        "Conclude is not supported for this encounter type".to_string(),
+                    ))));
+                }
+                None => {
+                    return Err(Right(BadRequest(new_status(
+                        "No active encounter to conclude".to_string(),
+                    ))));
+                }
+            }
+            let payload = crate::library::types::ActionPayload::ConcludeEncounter;
+            let entry = gs.append_action("EncounterConcludeEncounter", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
     }

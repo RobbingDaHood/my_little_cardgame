@@ -56,6 +56,10 @@ pub enum TokenType {
     FishingRangeMin,
     FishingRangeMax,
     FishAmount,
+    // Mining encounter-scoped tokens
+    MiningLightLevel,
+    MiningYield,
+    MiningPower,
     // Rest encounter tokens
     RestToken,
     RestMaxHand,
@@ -102,6 +106,9 @@ impl TokenType {
             TokenType::FishingRangeMin,
             TokenType::FishingRangeMax,
             TokenType::FishAmount,
+            TokenType::MiningLightLevel,
+            TokenType::MiningYield,
+            TokenType::MiningPower,
             TokenType::RestToken,
             TokenType::RestMaxHand,
         ]
@@ -313,16 +320,18 @@ pub enum CardKind {
 }
 
 /// Inline effect for Mining discipline cards.
-/// High ore_damage cards have low durability_prevent and vice versa.
+/// All effects expressed through token-based costs/gains vectors.
+/// Resolution logic interprets gain token types: MiningPower triggers yield formula,
+/// MiningLightLevel triggers light level gain with cap.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct MiningCardEffect {
-    pub ore_damage: i64,
-    pub durability_prevent: i64,
     #[serde(default)]
     pub costs: Vec<GatheringCost>,
     #[serde(default)]
     pub gains: Vec<GatheringCost>,
+    #[serde(default)]
+    pub light_level_cap: i64,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -479,20 +488,15 @@ pub enum EncounterKind {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct MiningDef {
-    #[serde(with = "token_map_serde")]
-    #[schemars(with = "token_map_serde::SchemaHelper")]
-    pub initial_tokens: HashMap<Token, i64>,
+    pub initial_light_level: i64,
     pub ore_deck: Vec<OreCard>,
-    #[serde(with = "token_map_serde")]
-    #[schemars(with = "token_map_serde::SchemaHelper")]
-    pub rewards: HashMap<Token, i64>,
 }
 
-/// A card in the ore deck. Each card deals a fixed amount of durability damage.
+/// A card in the ore deck. Each card applies token-based damages to the player.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct OreCard {
-    pub durability_damage: i64,
+    pub damages: Vec<GatheringCost>,
     pub counts: DeckCounts,
 }
 
@@ -896,6 +900,7 @@ pub enum ActionPayload {
     PlayCard { card_id: usize },
     ApplyScouting { card_ids: Vec<usize> },
     AbortEncounter,
+    ConcludeEncounter,
 }
 
 /// Stored action entry in the append-only action log.
@@ -974,13 +979,7 @@ pub struct MiningEncounterState {
     pub round: u64,
     pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
-    #[serde(with = "token_map_serde")]
-    #[schemars(with = "token_map_serde::SchemaHelper")]
-    pub ore_tokens: HashMap<Token, i64>,
     pub ore_deck: Vec<OreCard>,
-    #[serde(with = "token_map_serde")]
-    #[schemars(with = "token_map_serde::SchemaHelper")]
-    pub rewards: HashMap<Token, i64>,
 }
 
 /// Runtime state for an herbalism gathering encounter.
