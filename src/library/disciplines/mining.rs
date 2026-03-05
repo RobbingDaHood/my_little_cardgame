@@ -438,7 +438,7 @@ impl GameState {
     }
 
     /// Finalize a mining encounter: clean up encounter-scoped tokens, record outcome.
-    fn finish_mining_encounter(&mut self, is_win: bool) {
+    pub(crate) fn finish_mining_encounter(&mut self, is_win: bool) {
         let outcome = if is_win {
             EncounterOutcome::PlayerWon
         } else {

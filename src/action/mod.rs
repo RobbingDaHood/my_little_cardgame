@@ -429,6 +429,9 @@ pub async fn play(
                     // Rest encounters always result in PlayerWon on abort
                     gs.abort_rest_encounter();
                 }
+                Some(crate::library::types::EncounterState::Mining(_)) => {
+                    gs.finish_mining_encounter(false);
+                }
                 Some(_) => {
                     // Mark non-combat encounter as lost, go to scouting
                     gs.abort_encounter();
