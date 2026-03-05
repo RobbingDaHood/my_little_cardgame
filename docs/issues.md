@@ -1,18 +1,11 @@
 When the below point states "Roadmap" it means edit the roadmap.md directly.
 
-1. Fundamenatal change: The rest deck is not on the encounter but is a player deck that lives in the library and have counts like all the others. 
-    1. So RestCardEffectTemplate looks like it should be player card effects that can be added to a rest card type.
-1. A change: The rest encounter should have a "rest tokens" all starting with just 1-2 at the beginning. 
-    1. Everytime a rest card is played then it costs at least one rest token. 
-    1. When there are no more rest tokens left or the player stop the encounter then it is marked as won. 
-    1. All player card effect for rest can have between 0-2 rest tokens cost: most are in the middle. 
-    1. The player cannot loose the rest encounter. 
-1. When any CardEffect is a gain effect and have a cost, then the cost have to be a percentage of the gain. 
-    1. So start by rolling the gap which is a number range. 
-    1. Then roll the gain which is a percentage range based on the cap. 
-    1. Then roll the costs which are percentage ranges of the gain (after it is rolled to a number). 
-    1. RestCardEffectTemplate Does not do the above yet, it just rolls the costs as numbers too. 
-        1. Check if other gain cards have the same error. 
+1. Add a 1000 health tokens to the player when initializing the game. 
+1. The rest encounters 1-2 rest tokens, should be a rest encounter card effect. 
+- **Fix pre-existing test failures:** `test_play_attack_card_kills_enemy` (resolve_play_tests.rs) and `test_player_kills_enemy_and_combat_ends` (flow_tests.rs) both hardcode card IDs 8, 9, 10 that changed during the card initialization refactoring. These need to discover card IDs dynamically via the API (e.g., query `/library/cards?card_kind=Attack`).
+- **Statistical testing for woodcutting patterns:** The woodcutting multiplier rebalance was calibrated using an external Python Monte Carlo simulation. Consider adding a Rust-native test or benchmark that validates pattern probabilities are within expected ranges, ensuring future deck composition changes don't silently break the probability assumptions.
+1. Check if some of the "Code architecture improvements (future)" and "Known game design gaps (future)" is already implemented: remove the point if it is. 
+    1. If the point needs updating then do that too. 
 
 # When done with all of this then update vision and roadmap files
 
