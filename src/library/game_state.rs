@@ -594,6 +594,35 @@ impl GameState {
         self.encounter_phase = super::types::EncounterPhase::Scouting;
     }
 
+    /// Check if the player has died (Health <= 0) and apply death consequences:
+    /// lose all gathering material tokens, reset health and stamina, increment deaths counter.
+    pub(crate) fn check_player_death(&mut self) {
+        let health_key = super::types::Token::persistent(super::types::TokenType::Health);
+        let health = self.token_balances.get(&health_key).copied().unwrap_or(0);
+        if health > 0 {
+            return;
+        }
+
+        // Reset gathering material tokens to 0
+        for (token, balance) in &mut self.token_balances {
+            if token.token_type.is_gathering_material() {
+                *balance = 0;
+            }
+        }
+
+        // Reset health and stamina to initial values
+        self.token_balances.insert(health_key, 1000);
+        self.token_balances.insert(
+            super::types::Token::persistent(super::types::TokenType::Stamina),
+            1000,
+        );
+
+        // Increment player deaths counter
+        let deaths_key = super::types::Token::persistent(super::types::TokenType::PlayerDeaths);
+        let deaths = self.token_balances.entry(deaths_key).or_insert(0);
+        *deaths += 1;
+    }
+
     /// Reconstruct state from an existing action log.
     /// The RNG is initialized from the first `SetSeed` entry in the log.
     pub fn replay_from_log(log: &ActionLog) -> Self {

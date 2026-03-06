@@ -61,6 +61,8 @@ pub enum TokenType {
     // Rest encounter tokens
     RestToken,
     RestMaxHand,
+    // Death tracking
+    PlayerDeaths,
 }
 
 /// All known token types.
@@ -107,7 +109,15 @@ impl TokenType {
             TokenType::MiningYield,
             TokenType::RestToken,
             TokenType::RestMaxHand,
+            TokenType::PlayerDeaths,
         ]
+    }
+
+    pub fn is_gathering_material(&self) -> bool {
+        matches!(
+            self,
+            TokenType::Ore | TokenType::Plant | TokenType::Lumber | TokenType::Fish
+        )
     }
 
     pub fn is_durability_cost(&self) -> bool {

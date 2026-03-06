@@ -416,6 +416,7 @@ impl GameState {
             self.encounter_results.push(outcome);
             self.current_encounter = None;
             self.encounter_phase = types::EncounterPhase::Scouting;
+            self.check_player_death();
         }
         self.draw_player_cards_by_type(atk_draws, def_draws, res_draws, rng);
         Ok(())
@@ -526,6 +527,7 @@ impl GameState {
                 self.encounter_results.push(combat.outcome.clone());
                 self.current_encounter = None;
                 self.encounter_phase = types::EncounterPhase::Scouting;
+                self.check_player_death();
             }
         }
         Ok(())

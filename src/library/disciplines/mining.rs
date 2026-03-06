@@ -475,6 +475,7 @@ impl GameState {
         self.encounter_results.push(outcome);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
+        self.check_player_death();
     }
 
     /// Draw one player mining card from deck to hand, recycling discard if needed.
