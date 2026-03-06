@@ -207,6 +207,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     super::disciplines::fishing::register_fishing_cards(&mut lib, rng);
     super::disciplines::rest::register_rest_cards(&mut lib, rng);
     super::disciplines::crafting::register_crafting_cards(&mut lib, rng);
+    super::disciplines::research::register_research_cards(&mut lib, rng);
 
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
@@ -225,6 +226,7 @@ pub struct GameState {
     pub encounter_phase: super::types::EncounterPhase,
     pub last_encounter_result: Option<EncounterOutcome>,
     pub encounter_results: Vec<EncounterOutcome>,
+    pub current_research: Option<super::types::ResearchProject>,
 }
 
 impl GameState {
@@ -332,6 +334,7 @@ impl GameState {
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_encounter_result: None,
             encounter_results: Vec::new(),
+            current_research: None,
         }
     }
 
@@ -644,6 +647,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_crafting_encounter(card_id, &mut rng);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Research { .. },
+                                } => {
+                                    let _ = gs.start_research_encounter(card_id);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -685,6 +693,9 @@ impl GameState {
                         Some(EncounterState::Crafting(_)) => {
                             let _ = gs.resolve_crafting_play_card(*card_id, &mut rng);
                         }
+                        Some(EncounterState::Research(_)) => {
+                            // Research encounters do not support card play
+                        }
                         None => {}
                     }
                 }
@@ -708,6 +719,8 @@ impl GameState {
                         gs.abort_rest_encounter();
                     } else if matches!(&gs.current_encounter, Some(EncounterState::Crafting(_))) {
                         let _ = gs.abort_crafting_encounter();
+                    } else if matches!(&gs.current_encounter, Some(EncounterState::Research(_))) {
+                        gs.abort_research_encounter();
                     } else {
                         gs.abort_encounter();
                     }
@@ -719,6 +732,9 @@ impl GameState {
                     Some(EncounterState::Crafting(_)) => {
                         let _ = gs.conclude_crafting_encounter();
                     }
+                    Some(EncounterState::Research(_)) => {
+                        let _ = gs.conclude_research_encounter();
+                    }
                     _ => {}
                 },
                 ActionPayload::CraftSwap { from_id, to_id } => {
@@ -729,6 +745,18 @@ impl GameState {
                 }
                 ActionPayload::CraftDurability { discipline } => {
                     let _ = gs.resolve_crafting_add_durability(discipline);
+                }
+                ActionPayload::ResearchChooseProject {
+                    discipline,
+                    tier_count,
+                } => {
+                    let _ = gs.research_choose_project(discipline.clone(), *tier_count, &mut rng);
+                }
+                ActionPayload::ResearchSelectCandidate { candidate_index } => {
+                    let _ = gs.research_select_candidate(*candidate_index);
+                }
+                ActionPayload::ResearchProgress { amount } => {
+                    let _ = gs.research_progress(*amount, &mut rng);
                 }
             }
             match gs.action_log.entries.lock() {

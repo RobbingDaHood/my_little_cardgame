@@ -17,17 +17,43 @@ use rand_pcg::Lcg64Xsh32;
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
 #[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
-    NewGame { seed: Option<u64> },
+    NewGame {
+        seed: Option<u64>,
+    },
     // Encounter actions (Step 7)
-    EncounterPickEncounter { card_id: usize },
-    EncounterPlayCard { card_id: u64 },
-    EncounterApplyScouting { card_ids: Vec<usize> },
+    EncounterPickEncounter {
+        card_id: usize,
+    },
+    EncounterPlayCard {
+        card_id: u64,
+    },
+    EncounterApplyScouting {
+        card_ids: Vec<usize>,
+    },
     EncounterAbort,
     EncounterConcludeEncounter,
     // Crafting-specific actions (Step 9.6)
-    EncounterCraftSwap { from_id: usize, to_id: usize },
-    EncounterCraftCard { target_card_id: usize },
-    EncounterCraftDurability { discipline: String },
+    EncounterCraftSwap {
+        from_id: usize,
+        to_id: usize,
+    },
+    EncounterCraftCard {
+        target_card_id: usize,
+    },
+    EncounterCraftDurability {
+        discipline: String,
+    },
+    // Research-specific actions (Step 10)
+    ResearchChooseProject {
+        discipline: crate::library::types::Discipline,
+        tier_count: u32,
+    },
+    ResearchSelectCandidate {
+        candidate_index: usize,
+    },
+    ResearchProgress {
+        amount: i64,
+    },
 }
 
 #[openapi]
@@ -68,6 +94,7 @@ pub async fn play(
             gs.encounter_phase = new_gs.encounter_phase;
             gs.last_encounter_result = None;
             gs.encounter_results.clear();
+            gs.current_research = None;
 
             let payload = crate::library::types::ActionPayload::SetSeed { seed: s };
             let entry = gs.append_action("NewGame", payload);
@@ -161,6 +188,12 @@ pub async fn play(
                 }
                 crate::library::types::EncounterKind::Crafting { .. } => {
                     match gs.start_crafting_encounter(card_id, &mut rng) {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                crate::library::types::EncounterKind::Research { .. } => {
+                    match gs.start_research_encounter(card_id) {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
@@ -404,6 +437,11 @@ pub async fn play(
                         return Err(Right(BadRequest(new_status(e))));
                     }
                 }
+                Some(crate::library::types::EncounterState::Research(_)) => {
+                    return Err(Right(BadRequest(new_status(
+                        "Research encounters do not support playing cards".to_string(),
+                    ))));
+                }
                 None => {
                     return Err(Right(BadRequest(new_status(
                         "No active encounter".to_string(),
@@ -471,6 +509,9 @@ pub async fn play(
                         return Err(Right(BadRequest(new_status(e))));
                     }
                 }
+                Some(crate::library::types::EncounterState::Research(_)) => {
+                    gs.abort_research_encounter();
+                }
                 Some(crate::library::types::EncounterState::Mining(_)) => {
                     gs.finish_mining_encounter(false);
                 }
@@ -517,6 +558,12 @@ pub async fn play(
                 }
                 Some(crate::library::types::EncounterState::Crafting(_)) => {
                     match gs.conclude_crafting_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(crate::library::types::EncounterState::Research(_)) => {
+                    match gs.conclude_research_encounter() {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
@@ -587,6 +634,66 @@ pub async fn play(
                 discipline: discipline.clone(),
             };
             let entry = gs.append_action("EncounterCraftDurability", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::ResearchChooseProject {
+            discipline,
+            tier_count,
+        } => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Research(_)) => {}
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "Not in a research encounter".to_string(),
+                    ))));
+                }
+            }
+            let mut rng = player_data.random_generator_state.lock().await;
+            if let Err(e) = gs.research_choose_project(discipline.clone(), tier_count, &mut rng) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload = crate::library::types::ActionPayload::ResearchChooseProject {
+                discipline,
+                tier_count,
+            };
+            let entry = gs.append_action("ResearchChooseProject", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::ResearchSelectCandidate { candidate_index } => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Research(_)) => {}
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "Not in a research encounter".to_string(),
+                    ))));
+                }
+            }
+            if let Err(e) = gs.research_select_candidate(candidate_index) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload =
+                crate::library::types::ActionPayload::ResearchSelectCandidate { candidate_index };
+            let entry = gs.append_action("ResearchSelectCandidate", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::ResearchProgress { amount } => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Research(_)) => {}
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "Not in a research encounter".to_string(),
+                    ))));
+                }
+            }
+            let mut rng = player_data.random_generator_state.lock().await;
+            if let Err(e) = gs.research_progress(amount, &mut rng) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload = crate::library::types::ActionPayload::ResearchProgress { amount };
+            let entry = gs.append_action("ResearchProgress", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
     }

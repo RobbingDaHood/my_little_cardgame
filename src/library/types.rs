@@ -16,6 +16,7 @@ pub enum Discipline {
     Fishing,
     Rest,
     Crafting,
+    Research,
 }
 
 /// Canonical token identifier enum.
@@ -528,6 +529,7 @@ pub enum EncounterKind {
     Fishing { fishing_def: FishingDef },
     Rest { rest_def: RestDef },
     Crafting { crafting_def: CraftingDef },
+    Research { research_def: ResearchDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -583,6 +585,31 @@ impl HasDeckCounts for EnemyCraftingCard {
 pub struct CraftingDef {
     pub initial_crafting_tokens: i64,
     pub enemy_crafting_deck: Vec<EnemyCraftingCard>,
+}
+
+/// Definition of a research encounter (extensible).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchDef {}
+
+/// A candidate card generated during research — one of 3 options shown to the player.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchCandidate {
+    pub discipline: Discipline,
+    pub effects: Vec<ConcreteEffect>,
+    pub tier_count: u32,
+}
+
+/// Persistent research project state, stored in GameState across encounters.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchProject {
+    pub discipline: Discipline,
+    pub tier_count: u32,
+    pub chosen_card: ResearchCandidate,
+    pub progress: i64,
+    pub total_cost: i64,
 }
 
 /// State of an active craft-a-card mini-game within a crafting encounter.
@@ -1043,15 +1070,40 @@ pub enum TokenLifecycle {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "type")]
 pub enum ActionPayload {
-    SetSeed { seed: u64 },
-    DrawEncounter { encounter_id: String },
-    PlayCard { card_id: usize },
-    ApplyScouting { card_ids: Vec<usize> },
+    SetSeed {
+        seed: u64,
+    },
+    DrawEncounter {
+        encounter_id: String,
+    },
+    PlayCard {
+        card_id: usize,
+    },
+    ApplyScouting {
+        card_ids: Vec<usize>,
+    },
     AbortEncounter,
     ConcludeEncounter,
-    CraftSwap { from_id: usize, to_id: usize },
-    CraftCard { target_card_id: usize },
-    CraftDurability { discipline: String },
+    CraftSwap {
+        from_id: usize,
+        to_id: usize,
+    },
+    CraftCard {
+        target_card_id: usize,
+    },
+    CraftDurability {
+        discipline: String,
+    },
+    ResearchChooseProject {
+        discipline: Discipline,
+        tier_count: u32,
+    },
+    ResearchSelectCandidate {
+        candidate_index: usize,
+    },
+    ResearchProgress {
+        amount: i64,
+    },
 }
 
 /// Stored action entry in the append-only action log.
@@ -1207,6 +1259,15 @@ pub struct CraftingEncounterState {
     pub active_craft: Option<CraftingCraftState>,
 }
 
+/// Runtime state for a research encounter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchEncounterState {
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    pub candidates: Option<Vec<ResearchCandidate>>,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
@@ -1218,6 +1279,7 @@ pub enum EncounterState {
     Fishing(FishingEncounterState),
     Rest(RestEncounterState),
     Crafting(CraftingEncounterState),
+    Research(ResearchEncounterState),
 }
 
 impl EncounterState {
@@ -1230,6 +1292,7 @@ impl EncounterState {
             EncounterState::Fishing(f) => f.encounter_card_id,
             EncounterState::Rest(r) => r.encounter_card_id,
             EncounterState::Crafting(c) => c.encounter_card_id,
+            EncounterState::Research(r) => r.encounter_card_id,
         }
     }
 
@@ -1246,6 +1309,7 @@ impl EncounterState {
             EncounterState::Fishing(f) => &f.outcome,
             EncounterState::Rest(r) => &r.outcome,
             EncounterState::Crafting(c) => &c.outcome,
+            EncounterState::Research(r) => &r.outcome,
         }
     }
 }
