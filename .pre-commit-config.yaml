@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: cargo-fmt
         name: cargo fmt (auto-fix)
-        entry: bash scripts/check_fmt.sh
+        entry: cargo fmt
         language: system
         pass_filenames: false
         always_run: true
