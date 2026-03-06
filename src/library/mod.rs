@@ -17,10 +17,9 @@ pub use game_state::GameState;
 use std::collections::HashMap;
 use types::{CardCounts, CardKind, EncounterKind, LibraryCard};
 
-/// Calculate the crafting cost for a card based on its effects.
+/// Calculate the base cost for a card based on its effects.
 /// Higher rolled values and more effects = higher cost.
-/// Returns material costs spread across Ore, Plant, Lumber, Fish.
-fn calculate_crafting_cost(kind: &CardKind) -> HashMap<types::TokenType, i64> {
+fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
     let mut total_power: i64 = 0;
     let num_effects: i64;
 
@@ -68,29 +67,70 @@ fn calculate_crafting_cost(kind: &CardKind) -> HashMap<types::TokenType, i64> {
         CardKind::Encounter { .. }
         | CardKind::PlayerCardEffect { .. }
         | CardKind::EnemyCardEffect { .. } => {
-            return HashMap::new();
+            return None;
         }
     }
 
     if total_power == 0 {
-        return HashMap::new();
+        return None;
     }
 
     // Superlinear scaling: base_cost = total_power * (1 + num_effects) / 4
-    let base_cost = total_power * (1 + num_effects) / 4;
+    Some(total_power * (1 + num_effects) / 4)
+}
+
+/// Randomly distribute base_cost across a subset of material tokens.
+fn distribute_crafting_cost(
+    base_cost: i64,
+    rng: &mut rand_pcg::Lcg64Xsh32,
+) -> HashMap<types::TokenType, i64> {
+    use game_state::roll_range;
+
     let materials = [
         types::TokenType::Ore,
         types::TokenType::Plant,
         types::TokenType::Lumber,
         types::TokenType::Fish,
     ];
-    let per_material = (base_cost / materials.len() as i64).max(1);
+    let max_per_token = (base_cost * 75) / 100;
 
-    let mut cost = HashMap::new();
-    for mat in &materials {
-        cost.insert(mat.clone(), per_material);
+    let num_tokens = roll_range(rng, 2, 4) as usize;
+
+    // Fisher-Yates shuffle
+    let mut shuffled = materials.to_vec();
+    for i in (1..shuffled.len()).rev() {
+        let j = roll_range(rng, 0, i as i64) as usize;
+        shuffled.swap(i, j);
     }
-    cost
+    let selected: Vec<types::TokenType> = shuffled.into_iter().take(num_tokens).collect();
+
+    let mut remaining = base_cost;
+    let mut costs = HashMap::new();
+
+    for (i, mat) in selected.iter().enumerate() {
+        if i == selected.len() - 1 {
+            costs.insert(mat.clone(), remaining.min(max_per_token).max(1));
+        } else {
+            let min_for_rest = (selected.len() - i - 1) as i64;
+            let available = (remaining - min_for_rest).min(max_per_token);
+            let amount = roll_range(rng, 1, available.max(1));
+            costs.insert(mat.clone(), amount);
+            remaining -= amount;
+        }
+    }
+
+    costs
+}
+
+/// Calculate the crafting cost for a card based on its effects using RNG distribution.
+fn calculate_crafting_cost(
+    kind: &CardKind,
+    rng: &mut rand_pcg::Lcg64Xsh32,
+) -> HashMap<types::TokenType, i64> {
+    match calculate_base_cost(kind) {
+        Some(base_cost) => distribute_crafting_cost(base_cost, rng),
+        None => HashMap::new(),
+    }
 }
 
 /// The Library: canonical collection of all player-owned cards.
@@ -113,7 +153,12 @@ impl Library {
 
     /// Add a card to the library. Returns the card ID (index).
     /// Panics if a GainTokens effect has a cost token_type matching its gain token_type.
-    pub fn add_card(&mut self, kind: CardKind, counts: CardCounts) -> usize {
+    pub fn add_card(
+        &mut self,
+        kind: CardKind,
+        counts: CardCounts,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+    ) -> usize {
         // Validate GainTokens: gain token_type must not match any cost token_type
         let effect_kind = match &kind {
             CardKind::PlayerCardEffect { kind: k, .. }
@@ -134,7 +179,7 @@ impl Library {
             }
         }
         let id = self.cards.len();
-        let crafting_cost = calculate_crafting_cost(&kind);
+        let crafting_cost = calculate_crafting_cost(&kind, rng);
         self.cards.push(LibraryCard {
             kind,
             counts,

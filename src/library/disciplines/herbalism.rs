@@ -5,7 +5,7 @@ use crate::library::types::{
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
-pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // Narrow herbalism card: targets 1 characteristic, low durability cost
     lib.add_card(
         CardKind::Herbalism {
@@ -27,6 +27,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Medium herbalism card: targets 2 characteristics
@@ -53,6 +54,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Broad herbalism card: targets 3 characteristics
@@ -80,6 +82,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Herbalism encounter: Meadow Herb
@@ -151,6 +154,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 3,
             discard: 0,
         },
+        rng,
     );
 
     // MostCommon card — removes the most common characteristic (limit 1)
@@ -182,6 +186,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // LeastCommon card — removes the least common characteristic (limit 1)
@@ -213,6 +218,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // AND-based multi-type card — removes only plants matching ALL listed types
@@ -246,6 +252,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Stamina rest card for herbalism
@@ -271,6 +278,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 }
 

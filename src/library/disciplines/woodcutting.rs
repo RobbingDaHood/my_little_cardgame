@@ -4,7 +4,7 @@ use crate::library::types::{
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
-pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // LightChop card: value 2
     lib.add_card(
         CardKind::Woodcutting {
@@ -25,6 +25,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 2,
             discard: 0,
         },
+        rng,
     );
 
     // HeavyChop card: value 5
@@ -47,6 +48,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // MediumChop card: value 3
@@ -69,6 +71,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // PrecisionChop card: value 7
@@ -91,6 +94,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // Woodcutting encounter: Oak Tree
@@ -112,6 +116,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 3,
             discard: 0,
         },
+        rng,
     );
 
     // Cost Woodcutting card: HeavyChop+LightChop combo, costs stamina
@@ -141,6 +146,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // SplitChop value 4
@@ -163,6 +169,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // LightChop+MediumChop, values 1,6
@@ -185,6 +192,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Cost card: 3 types, 3 values, moderate stamina cost
@@ -218,6 +226,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Cost card: 4 types, 4 values, higher stamina cost
@@ -252,6 +261,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Woodcutting rest card: grants stamina, no chops
@@ -278,6 +288,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 }
 

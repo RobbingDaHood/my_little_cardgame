@@ -66,9 +66,11 @@ pub async fn list_library_cards(
 pub async fn add_test_library_card(
     card: Json<super::types::LibraryCard>,
     game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
+    player_data: &rocket::State<crate::player_data::RandomGeneratorWrapper>,
 ) -> rocket::response::status::Created<String> {
     let mut gs = game_state.lock().await;
-    let id = gs.library.add_card(card.0.kind, card.0.counts);
+    let mut rng = player_data.random_generator_state.lock().await;
+    let id = gs.library.add_card(card.0.kind, card.0.counts, &mut rng);
     rocket::response::status::Created::new(format!("/library/cards/{}", id))
 }
 

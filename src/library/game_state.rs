@@ -101,6 +101,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Player "grant shield" effect (range: 200-400)
@@ -123,6 +124,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Player "grant stamina" effect (range: 150-250)
@@ -145,6 +147,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Player "draw 1 attack, 1 defence, 2 resource" effect
@@ -162,6 +165,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // ---- Shared EnemyCardEffect deck entries (templates with ranges) ----
@@ -184,6 +188,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Enemy "grant shield" effect (range: 150-250)
@@ -206,6 +211,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Enemy "grant stamina" effect (range: 80-120)
@@ -228,6 +234,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Enemy "draw 1 attack, 1 defence, 2 resource" effect
@@ -245,6 +252,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // ---- Discipline-specific cards ----

@@ -4,7 +4,7 @@ use crate::library::types::{
 };
 use crate::library::{GameState, Library};
 
-pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // Mining power card: high power, no cost
     lib.add_card(
         CardKind::Mining {
@@ -23,6 +23,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Balanced mining power card: moderate power
@@ -43,6 +44,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Light level card: restores light, costs lumber
@@ -67,6 +69,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 3,
             discard: 0,
         },
+        rng,
     );
 
     // Mining encounter: Iron Ore
@@ -141,6 +144,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 3,
             discard: 0,
         },
+        rng,
     );
 
     // High power mining card: costs stamina
@@ -165,6 +169,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 2,
             discard: 0,
         },
+        rng,
     );
 
     // High power + high cost
@@ -189,6 +194,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Very high power, highest cost
@@ -213,6 +219,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Large light level card: higher gain, higher lumber cost, higher cap
@@ -237,6 +244,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Mining rest card: grants stamina, no power or light
@@ -257,6 +265,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 }
 

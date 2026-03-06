@@ -5,7 +5,7 @@ use crate::library::types::{
 use crate::library::{GameState, Library};
 use rand::RngCore;
 
-pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // Crafting card: reduces Ore cost, no stamina cost
     lib.add_card(
         CardKind::Crafting {
@@ -24,6 +24,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Crafting card: reduces Plant cost, no stamina cost
@@ -44,6 +45,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Crafting card: reduces Lumber cost, no stamina cost
@@ -64,6 +66,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Crafting card: reduces Fish cost, no stamina cost
@@ -84,6 +87,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Crafting card: reduces multiple costs, costs stamina
@@ -125,6 +129,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Crafting rest card: grants stamina, reduces nothing
@@ -145,6 +150,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Enemy crafting cards: increase material costs
@@ -213,6 +219,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 2,
             discard: 0,
         },
+        rng,
     );
 }
 

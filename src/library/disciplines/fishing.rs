@@ -4,7 +4,7 @@ use crate::library::types::{
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
-pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // Low value fishing card
     lib.add_card(
         CardKind::Fishing {
@@ -24,6 +24,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Medium value fishing card
@@ -45,6 +46,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // High value fishing card
@@ -66,6 +68,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Fishing encounter: River Spot
@@ -124,6 +127,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 3,
             discard: 0,
         },
+        rng,
     );
 
     // Widen range — reduces min value token
@@ -149,6 +153,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // Widen range — increases max value token
@@ -174,6 +179,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // Cost card — narrows range but has multiple values (3 values)
@@ -213,6 +219,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // Increase fish amount
@@ -238,6 +245,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Multi-value but decreases fish amount
@@ -270,6 +278,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Rest card — grants stamina, no values
@@ -295,6 +304,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 1,
             discard: 0,
         },
+        rng,
     );
 
     // Stamina cost card with multiple values
@@ -323,6 +333,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 }
 

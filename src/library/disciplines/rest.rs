@@ -39,6 +39,7 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // 2. Health recovery — costs Fish (15-35%) + Plant (15-35%)
@@ -72,6 +73,7 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // 3. Mixed Stamina + Health — no RestToken cost (free play), lower gains
@@ -94,6 +96,7 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     let mixed_health_effect_id = lib.add_card(
@@ -115,6 +118,7 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Roll concrete rest cards referencing these effect templates.
@@ -144,6 +148,7 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 hand: 0,
                 discard: 0,
             },
+            rng,
         );
     }
 
@@ -163,6 +168,7 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 4,
             discard: 0,
         },
+        rng,
     );
 }
 

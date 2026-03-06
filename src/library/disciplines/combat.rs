@@ -19,6 +19,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Defence card: grants shield to self
@@ -32,6 +33,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Resource card: grants stamina to self, draws cards
@@ -48,6 +50,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 5,
             discard: 0,
         },
+        rng,
     );
 
     // Combat encounter: Gnome — enemy health 2000
@@ -95,6 +98,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 3,
             discard: 0,
         },
+        rng,
     );
 
     // Cost damage PlayerCardEffect (range: 700-900, cost: 30-50% Stamina)
@@ -120,6 +124,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Cost shield PlayerCardEffect (range: 350-550, cost: 30-50% Stamina)
@@ -147,6 +152,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 0,
             discard: 0,
         },
+        rng,
     );
 
     // Cost Attack card: more powerful but costs Stamina
@@ -160,6 +166,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 2,
             discard: 0,
         },
+        rng,
     );
 
     // Cost Defence card: more powerful but costs Stamina
@@ -173,6 +180,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 2,
             discard: 0,
         },
+        rng,
     );
 }
 
