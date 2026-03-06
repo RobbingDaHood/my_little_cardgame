@@ -985,6 +985,9 @@ pub struct MiningEncounterState {
     pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
     pub ore_deck: Vec<OreCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub encounter_tokens: HashMap<Token, i64>,
 }
 
 /// Runtime state for an herbalism gathering encounter.
@@ -1032,6 +1035,9 @@ pub struct FishingEncounterState {
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub rewards: HashMap<Token, i64>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub encounter_tokens: HashMap<Token, i64>,
 }
 
 /// Runtime state for a rest encounter (play rest cards using rest tokens).

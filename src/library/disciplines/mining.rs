@@ -287,17 +287,19 @@ impl GameState {
         crate::library::game_state::deck_shuffle_hand(rng, &mut ore_deck);
 
         // Initialize encounter-scoped tokens
-        let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
-        self.token_balances
-            .insert(light_key, mining_def.initial_light_level);
-        let yield_key = types::Token::persistent(types::TokenType::MiningYield);
-        self.token_balances.insert(yield_key, 0);
+        let mut encounter_tokens = std::collections::HashMap::new();
+        encounter_tokens.insert(
+            types::Token::persistent(types::TokenType::MiningLightLevel),
+            mining_def.initial_light_level,
+        );
+        encounter_tokens.insert(types::Token::persistent(types::TokenType::MiningYield), 0);
 
         let state = MiningEncounterState {
             round: 1,
             encounter_card_id,
             outcome: EncounterOutcome::Undecided,
             ore_deck,
+            encounter_tokens,
         };
         self.current_encounter = Some(EncounterState::Mining(state));
         self.encounter_phase = types::EncounterPhase::InEncounter;
@@ -325,21 +327,25 @@ impl GameState {
         // Check and deduct pre-play costs (stamina, lumber etc.)
         Self::check_and_deduct_gathering_costs(&mining_effect.costs, &mut self.token_balances)?;
 
-        // Process gains by token type
+        // Process gains using encounter tokens for encounter-scoped values
+        let encounter_tokens = match &mut self.current_encounter {
+            Some(EncounterState::Mining(m)) => &mut m.encounter_tokens,
+            _ => return Err("No active mining encounter".to_string()),
+        };
         for gain in &mining_effect.gains {
             match gain.token_type {
                 types::TokenType::MiningPower => {
                     // yield += mining_power × light_level / 100
                     let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
-                    let light_level = self.token_balances.get(&light_key).copied().unwrap_or(0);
+                    let light_level = encounter_tokens.get(&light_key).copied().unwrap_or(0);
                     let yield_increase = gain.amount * light_level / 100;
                     let yield_key = types::Token::persistent(types::TokenType::MiningYield);
-                    let yield_val = self.token_balances.entry(yield_key).or_insert(0);
+                    let yield_val = encounter_tokens.entry(yield_key).or_insert(0);
                     *yield_val += yield_increase;
                 }
                 types::TokenType::MiningLightLevel => {
                     let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
-                    let light_val = self.token_balances.entry(light_key).or_insert(0);
+                    let light_val = encounter_tokens.entry(light_key).or_insert(0);
                     if let Some(cap) = gain.cap {
                         let capped_gain = (cap - *light_val).max(0).min(gain.amount);
                         *light_val += capped_gain;
@@ -348,7 +354,7 @@ impl GameState {
                     }
                 }
                 _ => {
-                    // Direct token addition (e.g., Stamina)
+                    // Direct token addition to player balances (e.g., Stamina)
                     let entry =
                         types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
                     *entry += gain.amount;
@@ -395,11 +401,21 @@ impl GameState {
             mining.ore_deck[played_idx].damages.clone()
         };
 
-        // Apply each damage to player tokens
+        // Apply damages: encounter-scoped tokens go to encounter state, others to player balances
         for damage in &damages {
             let key = types::Token::persistent(damage.token_type.clone());
-            let val = self.token_balances.entry(key).or_insert(0);
-            *val = (*val - damage.amount).max(0);
+            match damage.token_type {
+                types::TokenType::MiningLightLevel | types::TokenType::MiningYield => {
+                    if let Some(EncounterState::Mining(m)) = &mut self.current_encounter {
+                        let val = m.encounter_tokens.entry(key).or_insert(0);
+                        *val = (*val - damage.amount).max(0);
+                    }
+                }
+                _ => {
+                    let val = self.token_balances.entry(key).or_insert(0);
+                    *val = (*val - damage.amount).max(0);
+                }
+            }
         }
 
         // Ore draws a card
@@ -421,15 +437,16 @@ impl GameState {
 
     /// Conclude a mining encounter voluntarily: reward = min(stamina, yield) ore tokens.
     pub fn conclude_mining_encounter(&mut self) -> Result<(), String> {
-        match &self.current_encounter {
-            Some(EncounterState::Mining(m)) if m.outcome == EncounterOutcome::Undecided => {}
+        let mining_yield = match &self.current_encounter {
+            Some(EncounterState::Mining(m)) if m.outcome == EncounterOutcome::Undecided => {
+                let yield_key = types::Token::persistent(types::TokenType::MiningYield);
+                m.encounter_tokens.get(&yield_key).copied().unwrap_or(0)
+            }
             _ => return Err("No active mining encounter to conclude".to_string()),
-        }
+        };
 
         let stamina_key = types::Token::persistent(types::TokenType::Stamina);
-        let yield_key = types::Token::persistent(types::TokenType::MiningYield);
         let stamina = self.token_balances.get(&stamina_key).copied().unwrap_or(0);
-        let mining_yield = self.token_balances.get(&yield_key).copied().unwrap_or(0);
         let reward = stamina.min(mining_yield);
 
         // Deduct stamina cost
@@ -446,7 +463,8 @@ impl GameState {
         Ok(())
     }
 
-    /// Finalize a mining encounter: clean up encounter-scoped tokens, record outcome.
+    /// Finalize a mining encounter: record outcome. Encounter-scoped tokens are
+    /// automatically dropped with the encounter state.
     pub(crate) fn finish_mining_encounter(&mut self, is_win: bool) {
         let outcome = if is_win {
             EncounterOutcome::PlayerWon
@@ -457,14 +475,6 @@ impl GameState {
         self.encounter_results.push(outcome);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
-
-        // Clean up encounter-scoped tokens
-        self.token_balances.insert(
-            types::Token::persistent(types::TokenType::MiningLightLevel),
-            0,
-        );
-        self.token_balances
-            .insert(types::Token::persistent(types::TokenType::MiningYield), 0);
     }
 
     /// Draw one player mining card from deck to hand, recycling discard if needed.

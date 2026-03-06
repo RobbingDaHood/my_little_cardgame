@@ -351,17 +351,17 @@ impl GameState {
         };
         let mut fish_deck = fishing_def.fish_deck;
         crate::library::game_state::deck_shuffle_hand(rng, &mut fish_deck);
-        // Initialize fishing tokens (encounter-scoped, stored in player token_balances)
-        self.token_balances.insert(
+        // Initialize encounter-scoped tokens
+        let mut encounter_tokens = std::collections::HashMap::new();
+        encounter_tokens.insert(
             types::Token::persistent(types::TokenType::FishingRangeMin),
             fishing_def.valid_range_min,
         );
-        self.token_balances.insert(
+        encounter_tokens.insert(
             types::Token::persistent(types::TokenType::FishingRangeMax),
             fishing_def.valid_range_max,
         );
-        self.token_balances
-            .insert(types::Token::persistent(types::TokenType::FishAmount), 1);
+        encounter_tokens.insert(types::Token::persistent(types::TokenType::FishAmount), 1);
         let state = types::FishingEncounterState {
             round: 1,
             encounter_card_id,
@@ -373,6 +373,7 @@ impl GameState {
             valid_range_max: fishing_def.valid_range_max,
             fish_deck,
             rewards: fishing_def.rewards,
+            encounter_tokens,
         };
         self.current_encounter = Some(EncounterState::Fishing(state));
         self.encounter_phase = types::EncounterPhase::InEncounter;
@@ -417,10 +418,24 @@ impl GameState {
             return Ok(());
         }
 
-        // Apply gains
+        // Apply gains: encounter-scoped tokens go to encounter state, others to player balances
         for gain in &fishing_effect.gains {
-            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
-            *entry += gain.amount;
+            match gain.token_type {
+                types::TokenType::FishingRangeMin
+                | types::TokenType::FishingRangeMax
+                | types::TokenType::FishAmount => {
+                    if let Some(EncounterState::Fishing(f)) = &mut self.current_encounter {
+                        let key = types::Token::persistent(gain.token_type.clone());
+                        let entry = f.encounter_tokens.entry(key).or_insert(0);
+                        *entry += gain.amount;
+                    }
+                }
+                _ => {
+                    let entry =
+                        types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
+                    *entry += gain.amount;
+                }
+            }
         }
 
         // If card has no values, skip the fishing duel (utility-only card)
@@ -451,16 +466,24 @@ impl GameState {
             return Ok(());
         }
 
-        // Read current range from tokens
-        let valid_min =
-            types::token_balance_by_type(&self.token_balances, &types::TokenType::FishingRangeMin);
-        let valid_max =
-            types::token_balance_by_type(&self.token_balances, &types::TokenType::FishingRangeMax);
-
-        // Determine fish amount for this turn
-        let fish_amount =
-            types::token_balance_by_type(&self.token_balances, &types::TokenType::FishAmount)
-                .max(1);
+        // Read current range and fish amount from encounter tokens
+        let (valid_min, valid_max, fish_amount) = match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) => {
+                let min_key = types::Token::persistent(types::TokenType::FishingRangeMin);
+                let max_key = types::Token::persistent(types::TokenType::FishingRangeMax);
+                let amount_key = types::Token::persistent(types::TokenType::FishAmount);
+                (
+                    f.encounter_tokens.get(&min_key).copied().unwrap_or(0),
+                    f.encounter_tokens.get(&max_key).copied().unwrap_or(0),
+                    f.encounter_tokens
+                        .get(&amount_key)
+                        .copied()
+                        .unwrap_or(1)
+                        .max(1),
+                )
+            }
+            _ => return Err("No active fishing encounter".to_string()),
+        };
 
         // Auto-resolve fish play: pick random fish card from hand
         let fish_value = Self::fish_play_random(rng, &mut self.current_encounter);
