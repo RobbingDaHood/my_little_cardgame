@@ -580,7 +580,13 @@ Roadmap steps
 12) Finalize edge cases for a repeatable loop and concurrency
    - Goal: Make the loop robust: reshuffle/renew rules, player death and recovery, encounter exhaustion and replacement guarantees, and multi-session concurrency safety.
    - Description: Add tests for deck exhaustion/reshuffle, rules for encounter removal+replacement when decks empty, and concurrency controls for per-session Library encounter mutations.
-   - Playable acceptance: A session can play multiple encounters in sequence without violating invariants; action logs provide a full replay and tests pass.
+   - **No file persistence on the server**: The server must not persist any game state to disk. All state lives in memory for the duration of a session.
+   - **Save games via action log**: Players can query the full action log (`/actions/log`) and store it locally together with the game version code and the initial seed. This is the canonical "save game" format.
+     - Expose a unique version code for each compiled game (e.g., a build hash or semantic version) via a dedicated endpoint (e.g., `/version`). This ensures saved action logs are replayed against the correct game binary.
+     - Players can "load" any saved game by providing the action log, seed, and version to the server, which replays all actions to reconstruct the full game state.
+     - Ensure this load/replay flow is achievable through existing or new endpoints.
+     - **Action log size estimation**: Estimate how large an action log could grow in a typical long session (e.g., 500+ encounters). Evaluate whether loading via a single "load game" player action is viable or whether a dedicated POST endpoint that accepts the action log as a file payload is needed. Document the size thresholds and recommendation.
+   - Playable acceptance: A session can play multiple encounters in sequence without violating invariants; action logs provide a full replay and tests pass. Save/load round-trips work correctly.
    - Notes: Add minimal instrumentation to spot-check correct replacement and token lifecycles.
 
 13) Milestone encounters
@@ -605,8 +611,12 @@ Roadmap steps
    - Notes: This enables designers to tweak game balance without touching Rust code.
 
 15) UX polish, documentation, tools for designers, and release
-   - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors.
+   - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors. Anyone should be able to play the game solely with the exposed documentation.
    - Description: Add designer tooling for encounter/CardEffect creation, telemetry for balancing, and example playthroughs demonstrating reproducibility from seed+action-log.
+   - **New-player tutorial endpoint**: Expose a tutorial for new players at an endpoint (e.g., `/docs/tutorial`), linked from the README.md as a running-server URL. The tutorial should walk a new player through their first game session.
+   - **Rich OpenAPI specification**: The OpenAPI/Swagger documentation should go beyond simple endpoint specifications — it should convey the general mentality and strategic purpose of each discipline and action. Descriptions should explain *why* a player would use an endpoint, not just *what* it does.
+   - **Hints and strategies page**: Expose a "hints" endpoint (e.g., `/docs/hints`) with good strategies, common pitfalls, and tips for each discipline. This helps players discover interesting gameplay patterns.
+   - **Self-sufficient documentation goal**: The combined documentation (tutorial + OpenAPI + hints) must be comprehensive enough that anyone can play the game solely with this documentation, without needing external guides or source code access.
    - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
    - Notes: Tag a release and include release notes linking vision to implemented features.
 

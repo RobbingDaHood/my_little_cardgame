@@ -8,6 +8,7 @@ Developer expectations
 - **All tests must pass before pushing code.** Run `make check` (or `cargo test`) and ensure zero failures. Never accept or commit known test failures. If a test fails, fix the test or the production code before committing. If in doubt about whether to fix a test or the production code, ask the repository owner.
 - Maintain test coverage and fix regressions; CI enforces an 85% coverage threshold.
 - Avoid `unwrap()`/`expect()` in production code; prefer Result propagation or handle poisoned mutexes.
+- **Keep player-facing documentation up to date.** When adding or changing endpoints, gameplay mechanics, or card effects, update the tutorial, OpenAPI descriptions, and hints documentation so they remain accurate and self-sufficient for players.
 - ActionLog concurrency: when recording actions from async contexts prefer `append_async` (or clone the Arc<ActionLog> and call `append_async` after dropping async locks) to avoid blocking async executors; see repository docs for rationale.
 
 Pre-commit hooks
