@@ -467,7 +467,9 @@ pub async fn play(
                     gs.abort_rest_encounter();
                 }
                 Some(crate::library::types::EncounterState::Crafting(_)) => {
-                    gs.abort_crafting_encounter();
+                    if let Err(e) = gs.abort_crafting_encounter() {
+                        return Err(Right(BadRequest(new_status(e))));
+                    }
                 }
                 Some(crate::library::types::EncounterState::Mining(_)) => {
                     gs.finish_mining_encounter(false);

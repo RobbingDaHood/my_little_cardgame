@@ -645,11 +645,22 @@ impl GameState {
     }
 
     /// Abort a crafting encounter. Always results in PlayerWon (no penalty).
-    pub fn abort_crafting_encounter(&mut self) {
+    /// Abort a crafting encounter. Blocked when a craft mini-game is active —
+    /// in that case only a successful craft can end the encounter as a win.
+    pub fn abort_crafting_encounter(&mut self) -> Result<(), String> {
+        if let Some(EncounterState::Crafting(c)) = &self.current_encounter {
+            if c.active_craft.is_some() {
+                return Err(
+                    "Cannot abort while a craft is in progress. Complete or fail the craft first."
+                        .to_string(),
+                );
+            }
+        }
         self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
         self.encounter_results.push(EncounterOutcome::PlayerWon);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
+        Ok(())
     }
 
     pub(crate) fn finish_crafting_encounter(&mut self, is_win: bool) {

@@ -755,7 +755,7 @@ impl GameState {
                     if matches!(&gs.current_encounter, Some(EncounterState::Rest(_))) {
                         gs.abort_rest_encounter();
                     } else if matches!(&gs.current_encounter, Some(EncounterState::Crafting(_))) {
-                        gs.abort_crafting_encounter();
+                        let _ = gs.abort_crafting_encounter();
                     } else {
                         gs.abort_encounter();
                     }
