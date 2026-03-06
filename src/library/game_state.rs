@@ -313,6 +313,11 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::Stamina),
             1000,
         );
+        // Starting health
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::Health),
+            1000,
+        );
         // Max handsize tokens (player decks)
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::AttackMaxHand),
@@ -644,7 +649,7 @@ impl GameState {
                                     let _ = gs.start_fishing_encounter(card_id, &mut rng);
                                 }
                                 CardKind::Encounter {
-                                    encounter_kind: EncounterKind::Rest,
+                                    encounter_kind: EncounterKind::Rest { .. },
                                 } => {
                                     let _ = gs.start_rest_encounter(card_id, &mut rng);
                                 }
@@ -709,6 +714,11 @@ impl GameState {
                         gs.abort_rest_encounter();
                     } else {
                         gs.abort_encounter();
+                    }
+                }
+                ActionPayload::ConcludeEncounter => {
+                    if matches!(&gs.current_encounter, Some(EncounterState::Mining(_))) {
+                        let _ = gs.conclude_mining_encounter();
                     }
                 }
             }

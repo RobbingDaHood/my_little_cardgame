@@ -252,11 +252,24 @@ fn test_player_kills_enemy_and_combat_ends() {
     // Initialize combat (starts in Defending)
     client.post("/tests/combat").dispatch();
 
+    // Discover card IDs dynamically from the library API
+    let find_hand_card = |kind: &str| -> usize {
+        let resp = client
+            .get(format!("/library/cards?location=Hand&card_kind={}", kind))
+            .dispatch();
+        assert_eq!(resp.status(), Status::Ok);
+        let body = resp.into_string().unwrap();
+        let cards: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+        assert!(!cards.is_empty(), "Should have {} cards in hand", kind);
+        cards[0]["id"].as_u64().unwrap() as usize
+    };
+    let defence_id = find_hand_card("Defence");
+    let attack_id = find_hand_card("Attack");
+    let resource_id = find_hand_card("Resource");
+    let phase_cards = [defence_id, attack_id, resource_id];
+
     // Play cards cycling through phases until combat ends
-    // Phase cycle: Defending(9) -> Attacking(8) -> Resourcing(10) -> Defending(9) ...
-    // Card ids: 8=Attack, 9=Defence, 10=Resource
-    let phase_cards = [9, 8, 10]; // Defence, Attack, Resource
-    for (phase_idx, _) in (0..10000).enumerate() {
+    for phase_idx in 0..10000 {
         let card_id = phase_cards[phase_idx % 3];
         let action_json = format!(
             r#"{{ "action_type": "EncounterPlayCard", "card_id": {} }}"#,

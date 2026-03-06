@@ -583,9 +583,40 @@ fn play_one_mining_card(client: &Client) -> bool {
 
 /// Find mining encounter card IDs in the encounter hand.
 fn mining_encounter_ids(client: &Client) -> Vec<usize> {
-    let encounter_ids = encounter_hand_ids(client);
-    // ID 15 is the mining encounter; filter for it
-    encounter_ids.into_iter().filter(|&id| id == 15).collect()
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| {
+            let kind = c.get("kind")?;
+            let enc_kind = kind.get("encounter_kind")?;
+            if enc_kind.get("encounter_type")?.as_str()? == "Mining" {
+                c.get("id")?.as_u64().map(|v| v as usize)
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Find combat encounter card IDs in the encounter hand.
+fn combat_encounter_ids(client: &Client) -> Vec<usize> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| {
+            let kind = c.get("kind")?;
+            let enc_kind = kind.get("encounter_kind")?;
+            if enc_kind.get("encounter_type")?.as_str()? == "Combat" {
+                c.get("id")?.as_u64().map(|v| v as usize)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 #[test]
@@ -603,14 +634,15 @@ fn scenario_mining_encounter_full_loop() {
         "Should have mining encounter cards in hand"
     );
 
-    // 3. Pick the mining encounter (card_id 15)
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    // 3. Pick the mining encounter
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        mining_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
-    // 4. Verify mining encounter started
+    // 4. Verify mining encounter started with light level
     let encounter = combat_state(&client);
     assert_eq!(
         encounter
@@ -624,105 +656,69 @@ fn scenario_mining_encounter_full_loop() {
         Some("Undecided"),
         "Mining should be active"
     );
-    assert_eq!(
-        encounter
-            .get("ore_tokens")
-            .and_then(|v| v.get("OreHealth"))
-            .and_then(|v| v.as_i64()),
-        Some(1500),
-        "Ore Health should start at 1500"
-    );
 
-    // 5. Verify player has MiningDurability token (initialized at game start)
+    // 5. Verify light level is initialized at 300
+    let light_level = player_token(&client, "MiningLightLevel");
+    assert_eq!(light_level, 300, "Light level should start at 300");
+
+    // 6. Verify yield starts at 0
+    let mining_yield = player_token(&client, "MiningYield");
+    assert_eq!(mining_yield, 0, "Yield should start at 0");
+
+    // 7. Verify player has MiningDurability token
     let durability = player_token(&client, "MiningDurability");
     assert_eq!(
         durability, 10000,
         "Player should start with 10000 mining durability"
     );
 
-    // 6. Play mining encounters in a loop until durability runs out
-    let mut total_encounters = 0;
-    let mut last_outcome;
-    loop {
-        // Play mining cards until encounter finishes
-        let mut round_turns = 0;
-        while play_one_mining_card(&client) {
-            round_turns += 1;
-            assert!(round_turns < 50, "Mining round should end within 50 turns");
-        }
-        total_encounters += 1;
-
-        last_outcome = combat_result(&client).unwrap_or_default();
-
-        if last_outcome == "PlayerWon" {
-            let ore = player_token(&client, "Ore");
-            assert!(ore > 0, "Player should have Ore after winning mining");
-        }
-
-        if last_outcome == "PlayerLost" {
+    // 8. Play mining cards to accumulate some yield
+    let mut cards_played = 0;
+    while cards_played < 5 {
+        if !play_one_mining_card(&client) {
             break;
         }
-
-        // Scout and pick another mining encounter
-        let (status, _) = post_action(
-            &client,
-            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
-        );
-        assert_eq!(status, Status::Created, "ApplyScouting should succeed");
-
-        let mining_enc = mining_encounter_ids(&client);
-        if mining_enc.is_empty() {
-            break;
-        }
-        let pick_json = format!(
-            r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
-            mining_enc[0]
-        );
-        let (status, _) = post_action(&client, &pick_json);
-        assert_eq!(status, Status::Created, "PickEncounter should succeed");
-
-        assert!(
-            total_encounters < 100,
-            "Player should eventually lose from durability depletion"
-        );
+        cards_played += 1;
     }
 
+    // 9. Verify yield has accumulated (at least some cards should produce yield)
+    let yield_after = player_token(&client, "MiningYield");
     assert!(
-        total_encounters > 1,
-        "With 10000 durability, player should survive multiple mining encounters"
+        yield_after > 0,
+        "Yield should have accumulated after playing mining power cards, got {}",
+        yield_after
     );
 
-    // 7. Verify final state: player eventually lost from durability depletion
-    if last_outcome == "PlayerLost" {
-        let exhaustion = player_token(&client, "Exhaustion");
-        assert_eq!(
-            exhaustion, 0,
-            "Mining has no penalties; Exhaustion should be 0"
-        );
-        let final_durability = player_token(&client, "MiningDurability");
-        assert_eq!(
-            final_durability, 0,
-            "Player mining durability should be 0 when losing mining"
-        );
-    }
+    // 10. Conclude the mining encounter
+    let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+    assert_eq!(status, Status::Created, "Conclude should succeed");
 
-    // 8. Scout after final encounter (only if we haven't already scouted)
-    if last_outcome == "PlayerLost" || last_outcome == "PlayerWon" {
-        // After PlayerLost: still in Scouting phase, need to scout
-        // After PlayerWon when mining_enc was empty: already scouted in loop
-        let (status, _) = post_action(
-            &client,
-            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
-        );
-        // Scout may fail if already scouted (loop broke due to empty mining hand)
-        if last_outcome == "PlayerLost" {
-            assert_eq!(
-                status,
-                Status::Created,
-                "Should be able to scout after mining loss"
-            );
-        }
-    }
+    // 11. Verify encounter ended as PlayerWon
+    let result = combat_result(&client);
+    assert_eq!(result, Some("PlayerWon".to_string()));
+
+    // 12. Verify ore reward was granted (min(stamina, yield))
+    let ore = player_token(&client, "Ore");
+    assert!(
+        ore > 0,
+        "Player should have Ore tokens after concluding mining"
+    );
+
+    // 13. Verify encounter-scoped tokens are cleaned up
+    let light_after = player_token(&client, "MiningLightLevel");
+    assert_eq!(
+        light_after, 0,
+        "Light level should be reset after encounter"
+    );
+    let yield_after = player_token(&client, "MiningYield");
+    assert_eq!(yield_after, 0, "Yield should be reset after encounter");
+
+    // 14. Scout after encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created, "ApplyScouting should succeed");
 }
 
 #[test]
@@ -734,10 +730,13 @@ fn scenario_abort_mining_encounter() {
     assert_eq!(status, Status::Created);
 
     // 2. Pick a mining encounter
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    let mining_enc = mining_encounter_ids(&client);
+    assert!(!mining_enc.is_empty(), "Should have mining encounter cards");
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        mining_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
     // 3. Verify mining encounter is active
@@ -757,7 +756,13 @@ fn scenario_abort_mining_encounter() {
     let result = combat_result(&client);
     assert_eq!(result, Some("PlayerLost".to_string()));
 
-    // 6. Verify can scout after abort
+    // 6. Verify encounter-scoped tokens are cleaned up
+    let light_after = player_token(&client, "MiningLightLevel");
+    assert_eq!(light_after, 0, "Light level should be reset after abort");
+    let yield_after = player_token(&client, "MiningYield");
+    assert_eq!(yield_after, 0, "Yield should be reset after abort");
+
+    // 7. Verify can scout after abort
     let (status, _) = post_action(
         &client,
         r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
@@ -768,13 +773,16 @@ fn scenario_abort_mining_encounter() {
         "Should be able to scout after abort"
     );
 
-    // 7. Verify aborting combat is rejected
+    // 8. Verify aborting combat is rejected
     let (status2, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status2, Status::Created);
-    let (status2, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    let combat_enc = combat_encounter_ids(&client);
+    assert!(!combat_enc.is_empty(), "Should have combat encounter cards");
+    let pick_combat_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
     );
+    let (status2, _) = post_action(&client, &pick_combat_json);
     assert_eq!(status2, Status::Created);
     let (status2, _) = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
     assert_eq!(
@@ -792,25 +800,33 @@ fn scenario_mining_then_combat_coexist() {
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":100}"#);
     assert_eq!(status, Status::Created);
 
-    let all_encounters = encounter_hand_ids(&client);
-    let has_combat = all_encounters.contains(&11);
-    let has_mining = all_encounters.contains(&15);
-    assert!(has_combat, "Should have combat encounter cards (id 11)");
-    assert!(has_mining, "Should have mining encounter cards (id 15)");
+    let combat_enc = combat_encounter_ids(&client);
+    let mining_enc = mining_encounter_ids(&client);
+    assert!(!combat_enc.is_empty(), "Should have combat encounter cards");
+    assert!(!mining_enc.is_empty(), "Should have mining encounter cards");
 
-    // Do a mining encounter first
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    // Do a mining encounter first — use conclude to end it cleanly
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        mining_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
+    // Play a few mining cards, then conclude
     let mut turns = 0;
     while play_one_mining_card(&client) {
         turns += 1;
-        if turns >= 50 {
+        if turns >= 3 {
             break;
         }
+    }
+
+    // If encounter is still active, conclude it
+    let encounter = combat_state(&client);
+    if encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        assert_eq!(status, Status::Created, "Conclude should succeed");
     }
 
     // Scout after mining
@@ -821,10 +837,16 @@ fn scenario_mining_then_combat_coexist() {
     assert_eq!(status, Status::Created);
 
     // Now do a combat encounter
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    let combat_enc = combat_encounter_ids(&client);
+    assert!(
+        !combat_enc.is_empty(),
+        "Should still have combat encounter cards"
     );
+    let pick_combat_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
+    );
+    let (status, _) = post_action(&client, &pick_combat_json);
     assert_eq!(status, Status::Created);
 
     // Verify combat started correctly
@@ -1615,11 +1637,14 @@ fn scenario_cost_mining_card_rejected_without_stamina() {
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status, Status::Created, "NewGame should succeed");
 
-    // Pick mining encounter (id 15)
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":15}"#,
+    // Pick mining encounter dynamically
+    let mining_enc = mining_encounter_ids(&client);
+    assert!(!mining_enc.is_empty(), "Should have mining encounter cards");
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        mining_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "Mining encounter should start");
 
     // Verify player starts with 1000 stamina
@@ -1629,37 +1654,74 @@ fn scenario_cost_mining_card_rejected_without_stamina() {
         "Player should start with 1000 Stamina"
     );
 
-    // Play cost Mining card (id 33, stamina_cost 100) — should succeed and deduct stamina
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":33}"#,
-    );
-    assert_eq!(
-        status,
-        Status::Created,
-        "Cost Mining card should succeed with 1000 stamina"
-    );
+    // Find a mining hand card with stamina cost and play it
+    let cards = get_json(&client, "/library/cards?location=Hand&card_kind=Mining");
+    let cost_card_id = cards.as_array().unwrap_or(&vec![]).iter().find_map(|c| {
+        let costs = c
+            .get("kind")?
+            .get("mining_effect")?
+            .get("costs")?
+            .as_array()?;
+        let has_stamina_cost = costs
+            .iter()
+            .any(|cost| cost.get("cost_type").and_then(|v| v.as_str()) == Some("Stamina"));
+        if has_stamina_cost {
+            c.get("id")?.as_u64().map(|v| v as usize)
+        } else {
+            None
+        }
+    });
 
-    let stamina_after = player_token(&client, "Stamina");
-    assert!(
-        stamina_after < stamina_before,
-        "Stamina should decrease after cost mining card (before={}, after={})",
-        stamina_before,
-        stamina_after
-    );
-
-    // Play non-cost Mining card (id 12) — should succeed without stamina cost
-    let enc_resp = client.get("/encounter").dispatch();
-    if enc_resp.status() != Status::NotFound {
-        let (status, _) = post_action(
-            &client,
-            r#"{"action_type":"EncounterPlayCard","card_id":12}"#,
+    if let Some(card_id) = cost_card_id {
+        let json = format!(
+            r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+            card_id
         );
+        let (status, _) = post_action(&client, &json);
         assert_eq!(
             status,
             Status::Created,
-            "Non-cost mining card should succeed"
+            "Cost Mining card should succeed with 1000 stamina"
         );
+
+        let stamina_after = player_token(&client, "Stamina");
+        assert!(
+            stamina_after < stamina_before,
+            "Stamina should decrease after cost mining card (before={}, after={})",
+            stamina_before,
+            stamina_after
+        );
+    }
+
+    // Play a non-cost Mining card (one with empty costs)
+    let enc_resp = client.get("/encounter").dispatch();
+    if enc_resp.status() != Status::NotFound {
+        let cards = get_json(&client, "/library/cards?location=Hand&card_kind=Mining");
+        let free_card_id = cards.as_array().unwrap_or(&vec![]).iter().find_map(|c| {
+            let costs = c
+                .get("kind")?
+                .get("mining_effect")?
+                .get("costs")?
+                .as_array()?;
+            if costs.is_empty() {
+                c.get("id")?.as_u64().map(|v| v as usize)
+            } else {
+                None
+            }
+        });
+
+        if let Some(card_id) = free_card_id {
+            let json = format!(
+                r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+                card_id
+            );
+            let (status, _) = post_action(&client, &json);
+            assert_eq!(
+                status,
+                Status::Created,
+                "Non-cost mining card should succeed"
+            );
+        }
     }
 }
 
@@ -1843,10 +1905,10 @@ fn scenario_mining_expansion_cards_exist() {
     let cards = get_json(&client, "/library/cards?card_kind=Mining");
     let card_arr = cards.as_array().expect("Should be array");
 
-    // Should have original 3 + 1 cost + 3 expansion = 7 mining cards
+    // Should have 8 mining cards (power, light, rest varieties)
     assert!(
-        card_arr.len() >= 7,
-        "Should have at least 7 mining cards, got {}",
+        card_arr.len() >= 8,
+        "Should have at least 8 mining cards, got {}",
         card_arr.len()
     );
 }

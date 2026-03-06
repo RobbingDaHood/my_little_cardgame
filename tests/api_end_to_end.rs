@@ -25,9 +25,9 @@ struct CountsJson {
 fn hello_world() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
-    // Verify Library cards are initialized (6 PlayerCardEffect + 4 EnemyCardEffect + Attack, Defence, Resource, CombatEncounter + 3 Mining + 1 MiningEncounter + 3 Herbalism + 1 HerbalismEncounter + 4 Woodcutting + 1 WoodcuttingEncounter + 3 Fishing + 1 FishingEncounter + 2 cost Attack/Defence + 1 cost Mining + 1 cost Woodcutting + 4 RestPlayerCardEffect + 5 RestCards + 1 RestEncounter)
+    // Verify Library cards are initialized (includes all combat, mining, herbalism, woodcutting, fishing, rest cards)
     let library_cards = get_library_cards(&client);
-    assert_eq!(64, library_cards.len());
+    assert_eq!(65, library_cards.len());
 
     // Verify card counts: attack/defence have deck:15 hand:5, resource has deck:35 hand:5
     for card in &library_cards[8..10] {
@@ -67,14 +67,14 @@ fn hello_world() {
         token_balance_by_type(&actual_combat.enemy_tokens, &TokenType::Health),
         2000
     );
-    // Player should have health token from token_balances (initialized to 2000)
+    // Player should have health token from token_balances (initialized to 1000 at game start)
     let token_resp = client.get("/player/tokens").dispatch();
     assert_eq!(token_resp.status(), Status::Ok);
     let tokens: Vec<my_little_cardgame::player_tokens::TokenBalance> =
         serde_json::from_str(&token_resp.into_string().unwrap()).unwrap();
     assert!(tokens
         .iter()
-        .any(|t| t.token.token_type == TokenType::Health && t.value == 2000));
+        .any(|t| t.token.token_type == TokenType::Health && t.value == 1000));
 }
 
 fn get_library_cards(client: &Client) -> Vec<LibraryCardJson> {
