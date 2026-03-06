@@ -546,6 +546,20 @@ impl GameState {
     }
 
     /// Finalize a woodcutting encounter: grant pattern-scaled rewards on win.
+    /// Conclude a woodcutting encounter voluntarily: grant rewards if any accumulated.
+    pub fn conclude_woodcutting_encounter(&mut self) -> Result<(), String> {
+        match &self.current_encounter {
+            Some(EncounterState::Woodcutting(w)) if w.outcome == EncounterOutcome::Undecided => {
+                if w.base_rewards.values().all(|&v| v <= 0) {
+                    return Err("No rewards accumulated; abort the encounter instead".to_string());
+                }
+            }
+            _ => return Err("No active woodcutting encounter to conclude".to_string()),
+        }
+        self.finish_woodcutting_encounter(true);
+        Ok(())
+    }
+
     fn finish_woodcutting_encounter(&mut self, is_win: bool) {
         if is_win {
             let (base_rewards, multiplier) = match &self.current_encounter {

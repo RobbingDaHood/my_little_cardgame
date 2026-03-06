@@ -522,6 +522,20 @@ impl GameState {
             .collect()
     }
 
+    /// Conclude an herbalism encounter voluntarily: grant rewards if any accumulated.
+    pub fn conclude_herbalism_encounter(&mut self) -> Result<(), String> {
+        match &self.current_encounter {
+            Some(EncounterState::Herbalism(h)) if h.outcome == EncounterOutcome::Undecided => {
+                if h.rewards.values().all(|&v| v <= 0) {
+                    return Err("No rewards accumulated; abort the encounter instead".to_string());
+                }
+            }
+            _ => return Err("No active herbalism encounter to conclude".to_string()),
+        }
+        self.finish_herbalism_encounter(true);
+        Ok(())
+    }
+
     fn finish_herbalism_encounter(&mut self, is_win: bool) {
         if is_win {
             let rewards = match &self.current_encounter {

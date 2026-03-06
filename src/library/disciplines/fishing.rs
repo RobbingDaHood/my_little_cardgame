@@ -573,6 +573,20 @@ impl GameState {
         }
     }
 
+    /// Conclude a fishing encounter voluntarily: grant rewards if any accumulated.
+    pub fn conclude_fishing_encounter(&mut self) -> Result<(), String> {
+        match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) if f.outcome == EncounterOutcome::Undecided => {
+                if f.rewards.values().all(|&v| v <= 0) {
+                    return Err("No rewards accumulated; abort the encounter instead".to_string());
+                }
+            }
+            _ => return Err("No active fishing encounter to conclude".to_string()),
+        }
+        self.finish_fishing_encounter(true);
+        Ok(())
+    }
+
     fn finish_fishing_encounter(&mut self, is_win: bool) {
         if is_win {
             let rewards = match &self.current_encounter {

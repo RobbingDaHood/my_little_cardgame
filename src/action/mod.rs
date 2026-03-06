@@ -455,6 +455,24 @@ pub async fn play(
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
                 }
+                Some(crate::library::types::EncounterState::Herbalism(_)) => {
+                    match gs.conclude_herbalism_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(crate::library::types::EncounterState::Woodcutting(_)) => {
+                    match gs.conclude_woodcutting_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(crate::library::types::EncounterState::Fishing(_)) => {
+                    match gs.conclude_fishing_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
                 Some(_) => {
                     return Err(Right(BadRequest(new_status(
                         "Conclude is not supported for this encounter type".to_string(),
