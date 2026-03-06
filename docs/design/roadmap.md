@@ -475,7 +475,7 @@ Roadmap steps
      - `EncounterKind::Rest` is a unit variant (no encounter-internal definition needed).
    - Implementation: Completed with `CardKind::Rest { effects, rest_token_cost }`, `RestEncounterState { rest_tokens }`, `RestToken`/`RestMaxHand` token types, rest.rs discipline module (`register_rest_cards`, `start_rest_encounter`, `resolve_rest_card_play`, `abort_rest_encounter`, `complete_rest_encounter`), action handler integration, replay support, and scenario test. Old types removed: `RestCard`, `RestDef`, `RestCardEffectTemplate`, `RestCostRange`, `RestRecoveryRange`, `ConcreteRestRecovery`.
 
-9.5) Better Mining redesign
+9.5) Better Mining redesign — ✅ COMPLETED
    - Goal: Redesign the mining encounter to be about maintaining a light level while mining for yield, creating a risk-vs-reward pacing mechanic where the player decides when to stop.
    - Description:
      - **Core loop**: The player manages three resources during a mining encounter: light level, yield, and stamina. The player can conclude the encounter at any point; the reward is `min(stamina, yield)` and concluding costs that amount of stamina.
@@ -485,22 +485,8 @@ Roadmap steps
      - **No enemy health**: The enemy has no health and cannot be killed. The player can only win by ending the encounter. The player loses by running out of durability or having all hand cards unpayable.
      - **Mining power → yield**: When the player plays a "mining power" card (renamed from "damage"), a yield token is accumulated: `yield += mining_power × light_level / 100`. Higher light level means more yield per card played.
      - **Enemy CardEffects**: Because there is no enemy entity to fight, enemy cards cannot have CardEffects that cost stamina. The enemy does have rare cards that remove a small amount of the player's health.
-   - Implementation checklist:
-     1. Add `MiningLightLevel` token type (initial value 300 per encounter).
-     2. Add `MiningYield` token type (accumulates during encounter).
-     3. Rename mining "damage" to "mining power" in CardEffects and API responses.
-     4. Implement yield calculation: `mining_power × light_level / 100` on mining power card play.
-     5. Add "conclude mining" player action: reward = `min(stamina, yield)`, costs that stamina.
-     6. Remove enemy health from mining encounters; remove enemy stamina-cost CardEffects.
-     7. Add enemy CardEffects that reduce light level (with and without durability damage).
-     8. Add player CardEffects that increase light level. Each light-level-granting effect should:
-        - Have a max cap rolled first, then gain as a percentage of that cap (consistent with all other gain effects).
-        - Also have a cost in a small amount of wood tokens, proportional to the gain.
-     9. Add rare enemy CardEffects that remove small amounts of player health.
-     10. Update mining scenario tests for new mechanics.
-   - Playable acceptance: Mining encounter starts with light level 300, player plays mining power cards to accumulate yield, player concludes encounter and receives `min(stamina, yield)` ore tokens (costing that stamina). Enemy cards reduce light level and durability. Scenario test passes.
-   - Open items: Define concrete min/max ranges for light level cap, gain percentage, and wood token cost amounts when implementing.
    - Implementation: Completed. Mining now uses a fully token-based system: `MiningCardEffect` has `costs`/`gains` (Vec<GatheringCost>) and `light_level_cap`; `OreCard` has `damages` (Vec<GatheringCost>). `MiningDef` has `initial_light_level` (300) and `ore_deck`. New token types: `MiningLightLevel`, `MiningYield`, `MiningPower` (all encounter-scoped, reset to 0 on encounter end). Yield formula: `mining_power × light_level / 100`. Conclude action: `EncounterConcludeEncounter` grants `min(stamina, yield)` Ore tokens. Loss conditions: `MiningDurability ≤ 0` or all hand cards unpayable. 8 player mining cards (power, light, rest varieties) + 1 encounter definition. All scenario tests pass.
+   - **Post-cleanup summary (Step 9.5 post-cleanup pass):** This step included a significant cleanup pass affecting areas beyond mining: token restructuring (TokenType enum consolidation, encounter-scoped token migration from global token_balances to encounter_tokens), player death mechanic implementation (material reset, Health/Stamina restore, PlayerDeaths counter), EncounterConcludeEncounter standardized across all gathering disciplines (Mining, Herbalism, Woodcutting, Fishing), dynamic test ID migration (tests no longer rely on hardcoded card IDs), and documentation updates (vision.md/roadmap.md consolidation).
 
 9.6) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
@@ -523,6 +509,7 @@ Roadmap steps
 
 10) Research encounters and card discovery
    - Goal: Implement Research as a first-class encounter type where players invest Insight tokens to discover and create new cards for their library.
+   - **Implementation note**: Insight infrastructure is already partially in place — `MilestoneInsight` and `Insight` token types exist in the TokenType enum. The CardEffectKind::Insight variant and discipline tags remain to be implemented.
    - Description:
      - **CardEffect discipline tags**: Every CardEffect has a set of discipline tags (e.g., Combat, Mining, Herbalism, Woodcutting, Fishing) that determine which card types can use that effect. This enables effects to be shared across disciplines when appropriate.
        - Generalize the "Durability" card effects so they can be used across all gathering mechanics. When a durability card effect is played, the discipline context of the encounter determines which durability pool (MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability) is affected.
@@ -579,6 +566,7 @@ Roadmap steps
 
 12) Finalize edge cases for a repeatable loop and concurrency
    - Goal: Make the loop robust: reshuffle/renew rules, player death and recovery, encounter exhaustion and replacement guarantees, and multi-session concurrency safety.
+   - **Implementation note**: Player death and recovery is now implemented (Step 9.5 post-cleanup). When Health ≤ 0: gathering materials reset to 0, Health/Stamina restore to 1000, PlayerDeaths incremented, cards preserved. Remaining work: deck exhaustion/reshuffle edge cases, encounter replacement guarantees, concurrency controls, and save/load mechanics.
    - Description: Add tests for deck exhaustion/reshuffle, rules for encounter removal+replacement when decks empty, and concurrency controls for per-session Library encounter mutations.
    - **No file persistence on the server**: The server must not persist any game state to disk. All state lives in memory for the duration of a session.
    - **Save games via action log**: Players can query the full action log (`/actions/log`) and store it locally together with the game version code and the initial seed. This is the canonical "save game" format.
@@ -591,6 +579,7 @@ Roadmap steps
 
 13) Milestone encounters
    - Goal: Implement milestone encounters as the primary progression system tied to CardEffects.
+   - **Implementation note**: The `PlayerDeaths` token (incremented on each death) could factor into milestone difficulty scaling — e.g., milestones become harder after more deaths, or certain milestones unlock only after surviving a death threshold.
    - Description:
      - Each interesting CardEffect has a corresponding milestone encounter.
      - When a milestone is beaten, a more powerful version of the milestone is created that rewards the next tier of that CardEffect.
@@ -602,6 +591,7 @@ Roadmap steps
 
 14) Configuration externalization
    - Goal: Move all game configuration into JSON files loaded at compile time.
+   - **Implementation note**: The current card registration pattern is hardcoded in Rust discipline modules (`src/library/disciplines/combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`). Each module calls `register_*` functions to add CardEffect templates and cards to the Library. This is the specific code being externalized into JSON configuration files.
    - Description:
      - All initial library cards, tokens, and other configuration are defined in JSON files.
      - A new `configurations/` folder at the repository root organizes config by discipline and a general section.
@@ -694,4 +684,14 @@ Known game design gaps (future)
 --------------------------------
 - ~~**Health initialization gap:**~~ Resolved — Health token is now set to 1000 at game start in `new_with_rng()`.
 - **Rest token progression:** Currently 1–2 rest tokens per encounter are hardcoded. Future upgrades could grant more rest tokens per encounter, making rest more powerful as the game progresses. This parallels how other disciplines improve through card effects and MaxHand increases. Could be gated behind milestones or research.
+
+Technical debt and cleanup tracking
+------------------------------------
+Items that accumulate during development and should be addressed periodically:
+
+- **Hardcoded card IDs in tests:** Tests that use hardcoded card IDs (e.g., `card_id: 11`) break when card registration order changes. Prefer dynamic ID discovery via API queries. Scenario tests now use dynamic IDs; some older flow/resolve tests may still have fragile ID references.
+- **Outdated type names in docs:** As types are renamed or restructured (e.g., `GatheringCost` → `TokenAmount`, `durability_cost` → `costs`), documentation and comments may lag behind. Periodic sweeps should update stale references.
+- **Undocumented encounter patterns:** When new encounter types or patterns are added, they should be documented in vision.md (encounter template section) and tested with scenario tests. Gaps between implementation and documentation accumulate as tech debt.
+- **unwrap() calls in production code:** Currently 5 `unwrap()` calls exist in `src/action/persistence.rs` and `src/library/game_state.rs`. These should be replaced with proper error handling over time per the no-unwrap policy.
+- **Test endpoint dependency:** Some tests in `tests/flow_tests.rs` and `tests/resolve_play_tests.rs` still use `/tests/combat` instead of production endpoints. Track and migrate these as features make test endpoints redundant.
 
