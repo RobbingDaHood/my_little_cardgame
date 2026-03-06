@@ -86,21 +86,65 @@ fn combat_result(client: &Client) -> Option<String> {
     }
 }
 
-/// Play one full round (Defence → Attack → Resource) using the default
-/// card IDs: 9 = Defence, 8 = Attack, 10 = Resource.
+/// Find hand card IDs of a given card_kind (e.g. "Defence", "Attack", "Resource").
+fn hand_card_ids_by_kind(client: &Client, kind: &str) -> Vec<usize> {
+    let cards = get_json(
+        client,
+        &format!("/library/cards?location=Hand&card_kind={}", kind),
+    );
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
+/// Find a hand card of the given kind that has non-empty `rolled_costs` in its effects.
+fn cost_card_id(client: &Client, kind: &str) -> usize {
+    let cards = get_json(
+        client,
+        &format!("/library/cards?location=Hand&card_kind={}", kind),
+    );
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .find_map(|c| {
+            let effects = c.get("kind")?.get("effects")?.as_array()?;
+            let has_cost = effects.iter().any(|e| {
+                e.get("rolled_costs")
+                    .and_then(|c| c.as_array())
+                    .map(|costs| !costs.is_empty())
+                    .unwrap_or(false)
+            });
+            if has_cost {
+                c.get("id")?.as_u64().map(|v| v as usize)
+            } else {
+                None
+            }
+        })
+        .expect("Should find a cost card in hand")
+}
+
+/// Play one full round (Defence → Attack → Resource) using dynamically
+/// discovered card IDs.
 /// Returns true if combat is still active after the round.
 fn play_one_round(client: &Client) -> bool {
-    let cards = [9, 8, 10]; // Defence, Attack, Resource
-    for card_id in &cards {
+    let kinds = ["Defence", "Attack", "Resource"];
+    for kind in &kinds {
+        let card_ids = hand_card_ids_by_kind(client, kind);
+        if card_ids.is_empty() {
+            return false;
+        }
         let json = format!(
             r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-            card_id
+            card_ids[0]
         );
         let (status, _) = post_action(client, &json);
         if status != Status::Created {
             return false;
         }
-        // Check if combat ended
         let combat = combat_state(client);
         if combat.get("outcome").and_then(|v| v.as_str()) != Some("Undecided") {
             return false;
@@ -124,11 +168,14 @@ fn scenario_player_wins_combat_then_picks_next_encounter() {
         "Should have encounter cards in hand"
     );
 
-    // 3. Pick the Gnome encounter (card_id 11)
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    // 3. Pick a combat encounter dynamically
+    let combat_enc = combat_encounter_ids(&client);
+    assert!(!combat_enc.is_empty(), "Should have combat encounter cards");
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
     // 4. Verify combat started
@@ -186,10 +233,12 @@ fn scenario_full_loop_new_game_combat_scout_combat() {
     assert_eq!(status, Status::Created);
 
     // First combat
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    let combat_enc = combat_encounter_ids(&client);
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
     let mut rounds = 0;
@@ -271,10 +320,12 @@ fn scenario_enemy_wins_combat() {
         );
         assert_eq!(status, Status::Created);
 
-        let (status, _) = post_action(
-            &client,
-            r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+        let combat_enc = combat_encounter_ids(&client);
+        let pick_json = format!(
+            r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+            combat_enc[0]
         );
+        let (status, _) = post_action(&client, &pick_json);
         assert_eq!(status, Status::Created);
 
         let mut rounds = 0;
@@ -328,16 +379,20 @@ fn scenario_action_log_records_full_game() {
     post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
 
     // Pick encounter
-    post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    let combat_enc = combat_encounter_ids(&client);
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
     );
+    post_action(&client, &pick_json);
 
-    // Play one round
-    post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":9}"#,
+    // Play one card
+    let def_ids = hand_card_ids_by_kind(&client, "Defence");
+    let play_json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        def_ids[0]
     );
+    post_action(&client, &play_json);
 
     // Verify action log captured all actions
     let log = get_json(&client, "/actions/log");
@@ -419,10 +474,12 @@ fn scenario_player_draw_cards_per_type() {
     // Start game and enter combat
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status, Status::Created);
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    let combat_enc = combat_encounter_ids(&client);
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
     // Initial counts: Attack(8) deck=15 hand=5, Defence(9) deck=15 hand=5, Resource(10) deck=35 hand=5
@@ -431,22 +488,28 @@ fn scenario_player_draw_cards_per_type() {
     let (res_deck_before, res_hand_before, _) = player_card_counts(&client, 10);
 
     // Combat starts in Defending phase. Play defence first, then attack.
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":9}"#,
+    let def_ids = hand_card_ids_by_kind(&client, "Defence");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        def_ids[0]
     );
+    let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created);
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":8}"#,
+    let atk_ids = hand_card_ids_by_kind(&client, "Attack");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        atk_ids[0]
     );
+    let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created);
 
-    // Now in Resourcing phase. Play resource card (id 10) which draws 1 atk, 1 def, 2 res.
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":10}"#,
+    // Now in Resourcing phase. Play resource card which draws 1 atk, 1 def, 2 res.
+    let res_ids = hand_card_ids_by_kind(&client, "Resource");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        res_ids[0]
     );
+    let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created);
 
     let (atk_deck_after, atk_hand_after, _) = player_card_counts(&client, 8);
@@ -493,10 +556,12 @@ fn scenario_enemy_draws_per_type() {
 
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status, Status::Created);
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    let combat_enc = combat_encounter_ids(&client);
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
     // Record enemy deck totals before any round
@@ -898,9 +963,21 @@ fn play_one_herbalism_card(client: &Client) -> bool {
 
 /// Find herbalism encounter card IDs in the encounter hand.
 fn herbalism_encounter_ids(client: &Client) -> Vec<usize> {
-    let encounter_ids = encounter_hand_ids(client);
-    // ID 19 is the herbalism encounter; filter for it
-    encounter_ids.into_iter().filter(|&id| id == 19).collect()
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| {
+            let kind = c.get("kind")?;
+            let enc_kind = kind.get("encounter_kind")?;
+            if enc_kind.get("encounter_type")?.as_str()? == "Herbalism" {
+                c.get("id")?.as_u64().map(|v| v as usize)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 #[test]
@@ -918,11 +995,12 @@ fn scenario_herbalism_encounter_full_loop() {
         "Should have herbalism encounter cards in hand"
     );
 
-    // 3. Pick the herbalism encounter (card_id 19)
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":19}"#,
+    // 3. Pick the herbalism encounter dynamically
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        herb_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
     // 4. Verify herbalism encounter started
@@ -1087,9 +1165,21 @@ fn play_one_woodcutting_card(client: &Client) -> bool {
 }
 
 fn woodcutting_encounter_ids(client: &Client) -> Vec<usize> {
-    let encounter_ids = encounter_hand_ids(client);
-    // Woodcutting encounter card id is 24
-    encounter_ids.into_iter().filter(|&id| id == 24).collect()
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| {
+            let kind = c.get("kind")?;
+            let enc_kind = kind.get("encounter_kind")?;
+            if enc_kind.get("encounter_type")?.as_str()? == "Woodcutting" {
+                c.get("id")?.as_u64().map(|v| v as usize)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 #[test]
@@ -1105,10 +1195,11 @@ fn scenario_woodcutting_encounter_full_loop() {
         "Should have woodcutting encounter cards in hand"
     );
 
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":24}"#,
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        wc_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
     let encounter = combat_state(&client);
@@ -1256,10 +1347,16 @@ fn scenario_abort_woodcutting_encounter() {
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status, Status::Created);
 
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":24}"#,
+    let wc_enc = woodcutting_encounter_ids(&client);
+    assert!(
+        !wc_enc.is_empty(),
+        "Should have woodcutting encounter cards"
     );
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        wc_enc[0]
+    );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
     let encounter = combat_state(&client);
@@ -1301,9 +1398,21 @@ fn fishing_hand_card_ids(client: &Client) -> Vec<usize> {
 }
 
 fn fishing_encounter_ids(client: &Client) -> Vec<usize> {
-    let encounter_ids = encounter_hand_ids(client);
-    // Fishing encounter card id is 28
-    encounter_ids.into_iter().filter(|&id| id == 28).collect()
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| {
+            let kind = c.get("kind")?;
+            let enc_kind = kind.get("encounter_kind")?;
+            if enc_kind.get("encounter_type")?.as_str()? == "Fishing" {
+                c.get("id")?.as_u64().map(|v| v as usize)
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 fn play_one_fishing_card(client: &Client) -> bool {
@@ -1337,10 +1446,11 @@ fn scenario_fishing_encounter_full_loop() {
         "Should have fishing encounter cards in hand"
     );
 
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":28}"#,
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        fc_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
     let encounter = combat_state(&client);
@@ -1478,10 +1588,13 @@ fn scenario_abort_fishing_encounter() {
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status, Status::Created);
 
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":28}"#,
+    let fc_enc = fishing_encounter_ids(&client);
+    assert!(!fc_enc.is_empty(), "Should have fishing encounter cards");
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        fc_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
     let encounter = combat_state(&client);
@@ -1520,15 +1633,11 @@ fn scenario_cost_card_rejected_without_stamina() {
     assert_eq!(status, Status::Created, "NewGame should succeed");
 
     // Pick combat encounter
-    let enc_ids = encounter_hand_ids(&client);
-    assert!(!enc_ids.is_empty(), "Should have encounter cards");
-    let combat_id = enc_ids
-        .iter()
-        .find(|&&id| id == 11)
-        .expect("Combat encounter card 11 should be in hand");
+    let combat_enc = combat_encounter_ids(&client);
+    assert!(!combat_enc.is_empty(), "Should have combat encounter cards");
     let pick_json = format!(
         r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
-        combat_id
+        combat_enc[0]
     );
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
@@ -1540,14 +1649,16 @@ fn scenario_cost_card_rejected_without_stamina() {
         "Player should start with 1000 Stamina"
     );
 
-    // Play cost Defence card (id 32) — it has a stamina cost effect.
+    // Play cost Defence card — it has a stamina cost effect.
     // With multi-effect evaluation, the card always succeeds:
     // - If stamina is sufficient, the cost is paid and the effect applies
     // - If stamina is insufficient, the costly effect is skipped
-    let (status, _body) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
+    let cost_def_id = cost_card_id(&client, "Defence");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        cost_def_id
     );
+    let (status, _body) = post_action(&client, &json);
     assert_eq!(
         status,
         Status::Created,
@@ -1572,32 +1683,42 @@ fn scenario_cost_card_deducts_stamina() {
     assert_eq!(status, Status::Created, "NewGame should succeed");
 
     // Pick combat encounter
-    let pick_json = r#"{"action_type":"EncounterPickEncounter","card_id":11}"#;
-    let (status, _) = post_action(&client, pick_json);
+    let combat_enc = combat_encounter_ids(&client);
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
+    );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
     // Play a full round to get stamina: Defence → Attack → Resource
-    // Defence phase: play non-cost Defence (id 9)
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":9}"#,
+    // Defence phase: play non-cost Defence
+    let def_ids = hand_card_ids_by_kind(&client, "Defence");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        def_ids[0]
     );
+    let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created, "Defence card should succeed");
     // Auto-advance: enemy plays, phase → Attacking
 
-    // Attack phase: play non-cost Attack (id 8)
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":8}"#,
+    // Attack phase: play non-cost Attack
+    let atk_ids = hand_card_ids_by_kind(&client, "Attack");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        atk_ids[0]
     );
+    let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created, "Attack card should succeed");
     // Auto-advance: enemy plays, phase → Resourcing
 
-    // Resource phase: play Resource (id 10) — grants stamina
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":10}"#,
+    // Resource phase: play Resource — grants stamina
+    let res_ids = hand_card_ids_by_kind(&client, "Resource");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        res_ids[0]
     );
+    let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created, "Resource card should succeed");
     // Auto-advance: phase → Defending
 
@@ -1609,11 +1730,13 @@ fn scenario_cost_card_deducts_stamina() {
         stamina_after_resource
     );
 
-    // Defending phase again: play cost Defence card (id 32) — should succeed now
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPlayCard","card_id":32}"#,
+    // Defending phase again: play cost Defence card — should succeed now
+    let cost_def_id = cost_card_id(&client, "Defence");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        cost_def_id
     );
+    let (status, _) = post_action(&client, &json);
     assert_eq!(
         status,
         Status::Created,
@@ -1815,10 +1938,12 @@ fn scenario_combat_victory_grants_milestone_insight() {
 
     // Start game and enter combat
     post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
-    post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":11}"#,
+    let combat_enc = combat_encounter_ids(&client);
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_enc[0]
     );
+    post_action(&client, &pick_json);
 
     // Before combat ends, MilestoneInsight should be 0
     assert_eq!(
@@ -1942,11 +2067,14 @@ fn scenario_fishing_encounter_initializes_range_tokens() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     post_action(&client, r#"{"action_type":"NewGame","seed":600}"#);
 
-    // Pick fishing encounter (card 28)
-    let (status, _) = post_action(
-        &client,
-        r#"{"action_type":"EncounterPickEncounter","card_id":28}"#,
+    // Pick fishing encounter dynamically
+    let fc_enc = fishing_encounter_ids(&client);
+    assert!(!fc_enc.is_empty(), "Should have fishing encounter cards");
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        fc_enc[0]
     );
+    let (status, _) = post_action(&client, &pick_json);
     assert_eq!(
         status,
         Status::Created,
