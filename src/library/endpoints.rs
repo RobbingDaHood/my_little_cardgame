@@ -49,6 +49,7 @@ pub async fn list_library_cards(
             Some("Encounter") => matches!(c.kind, CardKind::Encounter { .. }),
             Some("PlayerCardEffect") => matches!(c.kind, CardKind::PlayerCardEffect { .. }),
             Some("EnemyCardEffect") => matches!(c.kind, CardKind::EnemyCardEffect { .. }),
+            Some("Crafting") => matches!(c.kind, CardKind::Crafting { .. }),
             _ => true,
         })
         .map(|(id, c)| LibraryCardWithId {
