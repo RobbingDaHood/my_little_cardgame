@@ -105,7 +105,6 @@ impl TokenType {
             TokenType::FishAmount,
             TokenType::MiningLightLevel,
             TokenType::MiningYield,
-            TokenType::MiningPower,
             TokenType::RestToken,
             TokenType::RestMaxHand,
         ]

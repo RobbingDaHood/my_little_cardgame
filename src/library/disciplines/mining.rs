@@ -292,8 +292,6 @@ impl GameState {
             .insert(light_key, mining_def.initial_light_level);
         let yield_key = types::Token::persistent(types::TokenType::MiningYield);
         self.token_balances.insert(yield_key, 0);
-        let power_key = types::Token::persistent(types::TokenType::MiningPower);
-        self.token_balances.insert(power_key, 0);
 
         let state = MiningEncounterState {
             round: 1,
@@ -467,8 +465,6 @@ impl GameState {
         );
         self.token_balances
             .insert(types::Token::persistent(types::TokenType::MiningYield), 0);
-        self.token_balances
-            .insert(types::Token::persistent(types::TokenType::MiningPower), 0);
     }
 
     /// Draw one player mining card from deck to hand, recycling discard if needed.
