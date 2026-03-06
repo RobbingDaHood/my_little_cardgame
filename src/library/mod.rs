@@ -148,6 +148,16 @@ impl Library {
         self.cards.get(card_id)
     }
 
+    /// Increment the library copy count of an existing card by the given amount.
+    pub fn increment_library_count(&mut self, card_id: usize, count: u32) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        card.counts.library += count;
+        Ok(())
+    }
+
     /// Draw a card: move one copy from deck → hand.
     pub fn draw(&mut self, card_id: usize) -> Result<(), String> {
         let card = self

@@ -611,21 +611,10 @@ impl GameState {
                 *self.token_balances.entry(key).or_insert(0) -= cost;
             }
 
-            // Duplicate the target card in the library with 1 library copy
-            let target_card = self
-                .library
-                .get(craft.target_card_id)
-                .ok_or("Target card no longer exists")?
-                .clone();
-            self.library.add_card(
-                target_card.kind,
-                CardCounts {
-                    library: 1,
-                    deck: 0,
-                    hand: 0,
-                    discard: 0,
-                },
-            );
+            // Add a library copy of the target card
+            self.library
+                .increment_library_count(craft.target_card_id, 1)
+                .map_err(|e| format!("Failed to add crafted card: {e}"))?;
         }
 
         self.finish_crafting_encounter(true);
@@ -657,18 +646,11 @@ impl GameState {
                 *self.token_balances.entry(key).or_insert(0) -= cost;
             }
 
-            if let Some(target_card) = self.library.get(target_id).cloned() {
-                self.library.add_card(
-                    target_card.kind,
-                    CardCounts {
-                        library: 1,
-                        deck: 0,
-                        hand: 0,
-                        discard: 0,
-                    },
-                );
+            if self.library.increment_library_count(target_id, 1).is_ok() {
+                self.finish_crafting_encounter(true);
+            } else {
+                self.finish_crafting_encounter(false);
             }
-            self.finish_crafting_encounter(true);
         } else {
             self.finish_crafting_encounter(false);
         }
