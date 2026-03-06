@@ -437,16 +437,33 @@ fn scenario_action_log_records_full_game() {
     }
 }
 
-/// Helper: extract (deck, hand, discard) counts for a player card by library index.
-fn player_card_counts(client: &Client, card_index: usize) -> (u32, u32, u32) {
-    let cards = get_json(client, "/library/cards");
-    let card = &cards.as_array().expect("cards array")[card_index];
-    let counts = card.get("counts").expect("counts");
-    (
-        counts["deck"].as_u64().unwrap_or(0) as u32,
-        counts["hand"].as_u64().unwrap_or(0) as u32,
-        counts["discard"].as_u64().unwrap_or(0) as u32,
-    )
+/// Helper: sum (deck, hand, discard) counts across ALL cards of a given kind.
+fn total_counts_by_kind(client: &Client, kind: &str) -> (u32, u32, u32) {
+    let cards = get_json(client, &format!("/library/cards?card_kind={}", kind));
+    let empty = vec![];
+    let arr = cards.as_array().unwrap_or(&empty);
+    let mut deck_total = 0u32;
+    let mut hand_total = 0u32;
+    let mut discard_total = 0u32;
+    for card in arr {
+        if let Some(counts) = card.get("counts") {
+            deck_total += counts["deck"].as_u64().unwrap_or(0) as u32;
+            hand_total += counts["hand"].as_u64().unwrap_or(0) as u32;
+            discard_total += counts["discard"].as_u64().unwrap_or(0) as u32;
+        }
+    }
+    (deck_total, hand_total, discard_total)
+}
+
+/// Helper: read an encounter-scoped token from `/encounter`'s `encounter_tokens` field.
+fn encounter_token(client: &Client, token_type_name: &str) -> i64 {
+    let encounter = combat_state(client);
+    encounter
+        .get("encounter_tokens")
+        .and_then(|v| v.as_object())
+        .and_then(|obj| obj.get(token_type_name))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
 }
 
 /// Helper: sum (deck, hand, discard) across all entries of an enemy deck from combat state.
@@ -482,10 +499,10 @@ fn scenario_player_draw_cards_per_type() {
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created);
 
-    // Initial counts: Attack(8) deck=15 hand=5, Defence(9) deck=15 hand=5, Resource(10) deck=35 hand=5
-    let (atk_deck_before, atk_hand_before, _) = player_card_counts(&client, 8);
-    let (def_deck_before, def_hand_before, _) = player_card_counts(&client, 9);
-    let (res_deck_before, res_hand_before, _) = player_card_counts(&client, 10);
+    // Initial counts summed across all cards of each kind (includes cost variants)
+    let (atk_deck_before, atk_hand_before, _) = total_counts_by_kind(&client, "Attack");
+    let (def_deck_before, def_hand_before, _) = total_counts_by_kind(&client, "Defence");
+    let (res_deck_before, res_hand_before, _) = total_counts_by_kind(&client, "Resource");
 
     // Combat starts in Defending phase. Play defence first, then attack.
     let def_ids = hand_card_ids_by_kind(&client, "Defence");
@@ -512,40 +529,40 @@ fn scenario_player_draw_cards_per_type() {
     let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created);
 
-    let (atk_deck_after, atk_hand_after, _) = player_card_counts(&client, 8);
-    let (def_deck_after, def_hand_after, _) = player_card_counts(&client, 9);
-    let (res_deck_after, res_hand_after, res_discard_after) = player_card_counts(&client, 10);
+    let (atk_deck_after, atk_hand_after, atk_discard_after) =
+        total_counts_by_kind(&client, "Attack");
+    let (def_deck_after, def_hand_after, def_discard_after) =
+        total_counts_by_kind(&client, "Defence");
+    let (res_deck_after, res_hand_after, res_discard_after) =
+        total_counts_by_kind(&client, "Resource");
 
-    // Attack: -1 played, +1 drawn from deck
+    // Attack: played 1 (to discard), but hand already above MaxHand so no draw
     assert_eq!(
         atk_hand_after,
-        atk_hand_before - 1 + 1,
-        "Attack hand: -1 played, +1 drawn"
+        atk_hand_before - 1,
+        "Attack hand: -1 played (no draw, above MaxHand)"
     );
-    assert_eq!(atk_deck_after, atk_deck_before - 1, "Attack deck: -1 drawn");
+    assert_eq!(atk_deck_after, atk_deck_before, "Attack deck: no draw");
+    assert_eq!(atk_discard_after, 1, "Attack discard: 1 played card");
 
-    // Defence: -1 played, +1 drawn from deck
+    // Defence: played 1 (to discard), but hand already above MaxHand so no draw
     assert_eq!(
         def_hand_after,
-        def_hand_before - 1 + 1,
-        "Defence hand: -1 played, +1 drawn"
+        def_hand_before - 1,
+        "Defence hand: -1 played (no draw, above MaxHand)"
     );
-    assert_eq!(
-        def_deck_after,
-        def_deck_before - 1,
-        "Defence deck: -1 drawn"
-    );
+    assert_eq!(def_deck_after, def_deck_before, "Defence deck: no draw");
+    assert_eq!(def_discard_after, 1, "Defence discard: 1 played card");
 
-    // Resource: -1 played to discard, +2 drawn from deck
+    // Resource: played 1 (to discard), drew 1 from deck (hand back to MaxHand)
     assert_eq!(
-        res_hand_after,
-        res_hand_before - 1 + 2,
-        "Resource hand: -1 played, +2 drawn"
+        res_hand_after, res_hand_before,
+        "Resource hand: -1 played, +1 drawn (capped at MaxHand)"
     );
     assert_eq!(
         res_deck_after,
-        res_deck_before - 2,
-        "Resource deck: -2 drawn"
+        res_deck_before - 1,
+        "Resource deck: -1 drawn"
     );
     assert_eq!(res_discard_after, 1, "Resource discard: 1 played card");
 }
@@ -723,11 +740,11 @@ fn scenario_mining_encounter_full_loop() {
     );
 
     // 5. Verify light level is initialized at 300
-    let light_level = player_token(&client, "MiningLightLevel");
+    let light_level = encounter_token(&client, "MiningLightLevel");
     assert_eq!(light_level, 300, "Light level should start at 300");
 
     // 6. Verify yield starts at 0
-    let mining_yield = player_token(&client, "MiningYield");
+    let mining_yield = encounter_token(&client, "MiningYield");
     assert_eq!(mining_yield, 0, "Yield should start at 0");
 
     // 7. Verify player has MiningDurability token
@@ -747,7 +764,7 @@ fn scenario_mining_encounter_full_loop() {
     }
 
     // 9. Verify yield has accumulated (at least some cards should produce yield)
-    let yield_after = player_token(&client, "MiningYield");
+    let yield_after = encounter_token(&client, "MiningYield");
     assert!(
         yield_after > 0,
         "Yield should have accumulated after playing mining power cards, got {}",
@@ -1855,73 +1872,119 @@ fn scenario_cost_cards_exist_in_starting_decks() {
     let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
     assert_eq!(status, Status::Created, "NewGame should succeed");
 
-    // Check that cost Attack card (id 31) exists in the library
-    let cards = get_json(&client, "/library/cards?card_kind=Attack");
-    let card_ids: Vec<u64> = cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
-        .collect();
-    assert!(
-        card_ids.contains(&8),
-        "Non-cost Attack card (8) should be in library"
-    );
-    assert!(
-        card_ids.contains(&31),
-        "Cost Attack card (31) should be in library"
-    );
-
-    // Check that cost Defence card (id 32) exists
-    let cards = get_json(&client, "/library/cards?card_kind=Defence");
-    let card_ids: Vec<u64> = cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
-        .collect();
-    assert!(
-        card_ids.contains(&9),
-        "Non-cost Defence card (9) should be in library"
-    );
-    assert!(
-        card_ids.contains(&32),
-        "Cost Defence card (32) should be in library"
-    );
-
-    // Check that cost Mining card (id 33) exists
-    let cards = get_json(&client, "/library/cards?card_kind=Mining");
-    let card_ids: Vec<u64> = cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
-        .collect();
-    assert!(
-        card_ids.contains(&33),
-        "Cost Mining card (33) should be in library"
-    );
-
-    // Check that cost Woodcutting card (id 34) exists
-    let cards = get_json(&client, "/library/cards?card_kind=Woodcutting");
-    let card_ids: Vec<u64> = cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
-        .collect();
-    assert!(
-        card_ids.contains(&34),
-        "Cost Woodcutting card (34) should be in library"
-    );
-
-    // Verify cost cards have fewer copies than non-cost cards
+    // Check that both cost and non-cost Attack cards exist, identified dynamically
     let attack_cards = get_json(&client, "/library/cards?card_kind=Attack");
-    let attack_arr = attack_cards.as_array().unwrap();
-    let non_cost_attack = attack_arr.iter().find(|c| c["id"] == 8).unwrap();
-    let cost_attack = attack_arr.iter().find(|c| c["id"] == 31).unwrap();
-    let non_cost_deck = non_cost_attack["counts"]["deck"].as_u64().unwrap_or(0);
-    let cost_deck = cost_attack["counts"]["deck"].as_u64().unwrap_or(0);
+    let attack_arr = attack_cards.as_array().expect("Attack cards array");
+    assert!(
+        attack_arr.len() >= 2,
+        "Should have at least 2 Attack cards (cost and non-cost), got {}",
+        attack_arr.len()
+    );
+    let cost_attack = attack_arr.iter().find(|c| {
+        c.get("kind")
+            .and_then(|k| k.get("effects"))
+            .and_then(|e| e.as_array())
+            .map(|effects| {
+                effects.iter().any(|e| {
+                    e.get("rolled_costs")
+                        .and_then(|c| c.as_array())
+                        .map(|costs| !costs.is_empty())
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false)
+    });
+    let non_cost_attack = attack_arr.iter().find(|c| {
+        c.get("kind")
+            .and_then(|k| k.get("effects"))
+            .and_then(|e| e.as_array())
+            .map(|effects| {
+                effects.iter().all(|e| {
+                    e.get("rolled_costs")
+                        .and_then(|c| c.as_array())
+                        .map(|costs| costs.is_empty())
+                        .unwrap_or(true)
+                })
+            })
+            .unwrap_or(true)
+    });
+    assert!(cost_attack.is_some(), "Should have a cost Attack card");
+    assert!(
+        non_cost_attack.is_some(),
+        "Should have a non-cost Attack card"
+    );
+
+    // Check that both cost and non-cost Defence cards exist
+    let defence_cards = get_json(&client, "/library/cards?card_kind=Defence");
+    let defence_arr = defence_cards.as_array().expect("Defence cards array");
+    assert!(
+        defence_arr.len() >= 2,
+        "Should have at least 2 Defence cards (cost and non-cost), got {}",
+        defence_arr.len()
+    );
+    let cost_defence = defence_arr.iter().find(|c| {
+        c.get("kind")
+            .and_then(|k| k.get("effects"))
+            .and_then(|e| e.as_array())
+            .map(|effects| {
+                effects.iter().any(|e| {
+                    e.get("rolled_costs")
+                        .and_then(|c| c.as_array())
+                        .map(|costs| !costs.is_empty())
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false)
+    });
+    assert!(cost_defence.is_some(), "Should have a cost Defence card");
+
+    // Check that at least one cost Mining card exists (has Stamina in costs)
+    let mining_cards = get_json(&client, "/library/cards?card_kind=Mining");
+    let mining_arr = mining_cards.as_array().expect("Mining cards array");
+    let cost_mining = mining_arr.iter().find(|c| {
+        c.get("kind")
+            .and_then(|k| k.get("mining_effect"))
+            .and_then(|me| me.get("costs"))
+            .and_then(|costs| costs.as_array())
+            .map(|costs| {
+                costs
+                    .iter()
+                    .any(|cost| cost.get("token_type").and_then(|t| t.as_str()) == Some("Stamina"))
+            })
+            .unwrap_or(false)
+    });
+    assert!(
+        cost_mining.is_some(),
+        "Should have at least one cost Mining card (with Stamina cost)"
+    );
+
+    // Check that at least one cost Woodcutting card exists (has Stamina in costs)
+    let woodcutting_cards = get_json(&client, "/library/cards?card_kind=Woodcutting");
+    let woodcutting_arr = woodcutting_cards
+        .as_array()
+        .expect("Woodcutting cards array");
+    let cost_woodcutting = woodcutting_arr.iter().find(|c| {
+        c.get("kind")
+            .and_then(|k| k.get("woodcutting_effect"))
+            .and_then(|we| we.get("costs"))
+            .and_then(|costs| costs.as_array())
+            .map(|costs| {
+                costs
+                    .iter()
+                    .any(|cost| cost.get("token_type").and_then(|t| t.as_str()) == Some("Stamina"))
+            })
+            .unwrap_or(false)
+    });
+    assert!(
+        cost_woodcutting.is_some(),
+        "Should have at least one cost Woodcutting card (with Stamina cost)"
+    );
+
+    // Verify cost cards have fewer deck copies than non-cost cards
+    let cost_atk = cost_attack.unwrap();
+    let non_cost_atk = non_cost_attack.unwrap();
+    let non_cost_deck = non_cost_atk["counts"]["deck"].as_u64().unwrap_or(0);
+    let cost_deck = cost_atk["counts"]["deck"].as_u64().unwrap_or(0);
     assert!(
         cost_deck < non_cost_deck,
         "Cost Attack should have fewer deck copies ({}) than non-cost ({})",
@@ -2043,7 +2106,7 @@ fn scenario_max_handsize_tokens_initialized() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
     post_action(&client, r#"{"action_type":"NewGame","seed":500}"#);
 
-    // Verify max handsize tokens are initialized to 10
+    // Verify max handsize tokens are initialized to 5
     for token_name in &[
         "AttackMaxHand",
         "DefenceMaxHand",
@@ -2055,8 +2118,8 @@ fn scenario_max_handsize_tokens_initialized() {
     ] {
         let val = player_token(&client, token_name);
         assert_eq!(
-            val, 10,
-            "{} should be initialized to 10, got {}",
+            val, 5,
+            "{} should be initialized to 5, got {}",
             token_name, val
         );
     }
@@ -2081,10 +2144,10 @@ fn scenario_fishing_encounter_initializes_range_tokens() {
         "Pick fishing encounter should succeed"
     );
 
-    // After starting fishing encounter, range tokens should be set
-    let range_min = player_token(&client, "FishingRangeMin");
-    let range_max = player_token(&client, "FishingRangeMax");
-    let fish_amount = player_token(&client, "FishAmount");
+    // After starting fishing encounter, range tokens should be set in encounter_tokens
+    let range_min = encounter_token(&client, "FishingRangeMin");
+    let range_max = encounter_token(&client, "FishingRangeMax");
+    let fish_amount = encounter_token(&client, "FishAmount");
 
     assert!(
         range_min > 0,
