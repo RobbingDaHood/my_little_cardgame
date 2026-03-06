@@ -4,12 +4,12 @@ This file guides Copilot CLI sessions and other assistive agents working on this
 
 Build, test, and lint commands
 
-- **Primary validation command**: `make check` — runs formatting (auto-fix), clippy, build, and tests (skipping known failures) in one pass. Reports all errors at the end.
+- **Primary validation command**: `make check` — runs formatting (auto-fix), clippy, build, and tests in one pass. Reports all errors at the end.
 - Run (development server): `cargo run` (server listens on http://localhost:8000 by default).
 - Run a single test by name: `cargo test <test_name>` (substring matching supported).
 - Run tests with visible output: `cargo test -- --nocapture`.
 - Pre-commit hooks auto-run `cargo fmt` (auto-fix) and `cargo clippy` on every commit. Tests are validated via `make check`.
-- Known test failures are documented in `docs/design/known_failures.md` — respect that list and do not investigate or try to fix those failures unless explicitly asked. `make check` skips them automatically.
+- **All tests must pass before pushing code.** Never accept or commit known test failures. If a test fails, fix the test or the production code before committing. If in doubt, ask the repository owner.
 
 Key files and types (quick reference)
 

@@ -9,7 +9,7 @@ Run the unified check command:
 make check
 ```
 
-This runs all validations in one pass (format, clippy, build, tests) and reports all errors at the end. Known test failures (listed in `docs/design/known_failures.md`) are automatically skipped.
+This runs all validations in one pass (format, clippy, build, tests) and reports all errors at the end. All tests must pass — never accept or commit known test failures.
 
 If any check fails, fix the issue and re-run `make check` until it passes.
 

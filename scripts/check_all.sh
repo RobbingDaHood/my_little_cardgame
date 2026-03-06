@@ -44,30 +44,10 @@ else
   echo "  ✓ build passed"
 fi
 
-# --- 4. Tests (skip known failures) ---
-# Known failures are listed in docs/design/known_failures.md
-# We read test names to skip from that file if it exists.
-SKIP_ARGS=""
-KNOWN_FAILURES_FILE="docs/design/known_failures.md"
-if [ -f "$KNOWN_FAILURES_FILE" ]; then
-  # Extract test names from lines like "- `test_name`" or "- `test_name` —"
-  while IFS= read -r line; do
-    test_name=$(echo "$line" | grep -oP '(?<=`)[a-zA-Z_][a-zA-Z0-9_]*(?=`)' | head -1)
-    if [ -n "$test_name" ]; then
-      SKIP_ARGS="$SKIP_ARGS --skip $test_name"
-    fi
-  done < <(grep -E '^\s*-\s*`[a-zA-Z_]' "$KNOWN_FAILURES_FILE")
-fi
-
+# --- 4. Tests ---
 echo ""
 echo "=== cargo test ==="
-if [ -n "$SKIP_ARGS" ]; then
-  echo "  (skipping known failures: see $KNOWN_FAILURES_FILE)"
-  # shellcheck disable=SC2086
-  cargo test -- $SKIP_ARGS 2>&1
-else
-  cargo test 2>&1
-fi
+cargo test 2>&1
 TEST_EXIT=$?
 if [ $TEST_EXIT -ne 0 ]; then
   FAILURES+=("cargo test")
