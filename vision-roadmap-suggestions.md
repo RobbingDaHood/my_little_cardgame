@@ -1,33 +1,35 @@
-# Vision & Roadmap Suggestions — Crafting Cost RNG Distribution
+# Vision & Roadmap Suggestions — Step 10 Research & Crafting Fixes
 
 ## What was implemented
 
-- **RNG-based crafting cost distribution**: Crafting costs are now randomly distributed across 2–4 material types (Ore, Plant, Lumber, Fish) instead of being split equally across all 4.
-- **Distribution constraints**: No single material exceeds 75% of base cost; each selected material gets at least 1; minimum 2 different materials per card.
-- **Fisher-Yates shuffle** using `roll_range` for deterministic material selection via seeded RNG.
-- **`add_card` now accepts RNG**: All callers (game_state, all 7 discipline files, test endpoint, test files) updated to pass through `&mut rng`.
-- **`_rng` → `rng`**: Five discipline register functions (mining, herbalism, woodcutting, fishing, crafting) now use their RNG parameter.
+- **Research encounters (Step 10)**: Full research lifecycle — discipline tags, Insight card effect, research encounter with choose/progress/complete actions, deterministic candidate generation, persistent research state.
+- **Crafting fixes**: Card deduplication, merged conclude/auto_conclude into `finish_active_craft()`, abort blocking during active craft, variable cost distribution (2–4 tokens, Fisher-Yates, 75% cap).
+- **Enemy card effect refactoring**: All enemy card types now carry `effects: Vec<ConcreteEffect>`. EnemyCardEffects moved to discipline modules. `validate_card_effects()` validates across all encounter types.
+- **Discipline enum**: `Discipline` enum (8 variants) with `discipline_tags` on CardEffect entries and `card_effects_for_discipline()` filtering.
 
 ## Suggestions for vision.md
 
-- Consider documenting the crafting cost distribution algorithm as a game design decision — the randomness creates card variety and makes crafting more strategic since players can't predict exact material needs.
-- The 75% cap and 2–4 token selection could be exposed as configurable game parameters in the future.
+- The vision describes "Durability card effects are generalized — the discipline context determines which durability pool is affected" but this was deferred. Consider either updating the vision to reflect the per-discipline approach as the long-term design, or creating a specific roadmap item for durability generalization.
+- Consider documenting that researched cards are currently always Attack type — the vision implies discipline-appropriate card kinds. Either update the vision to note this simplification or add a roadmap item.
+- The vision mentions Insight as "per-discipline" but the current implementation uses a single shared Insight token. Clarify whether per-discipline Insight pools are still planned or if the shared pool is the intended design.
+- Consider documenting the Discipline enum in the "Core gameplay elements" section since it's now a first-class type used across the codebase.
 
 ## Suggestions for roadmap.md
 
-- Add a task for making crafting cost parameters (min/max tokens, cap percentage) configurable via game config rather than hardcoded constants.
-- Consider adding a "crafting cost preview" endpoint so players can see estimated costs before committing to craft.
-- The `calculate_base_cost` / `distribute_crafting_cost` split opens the door for alternative distribution strategies (e.g., weighted by discipline type) as a future enhancement.
-- **Abort always PlayerWon** — no penalty for early exit
-- **7 scenario integration tests** covering all crafting flows
+- Add a roadmap item for **Insight in gathering encounters** — currently only Combat and Rest process Insight effects. This limits the strategic depth of Insight cards in Mining, Herbalism, Woodcutting, Fishing, and Crafting.
+- Add a roadmap item for **discipline-to-card-kind mapping in research** — researched cards should produce the appropriate card kind (Defence, Resource, Mining card, etc.) based on the discipline being researched.
+- Consider a roadmap item for **research encounter accessibility** — the research encounter starts in the deck (not hand), making it hard to discover early. Options: start in hand, add a dedicated "research" action outside encounters, or increase draw probability.
+- The crafting abort-blocking behavior (can't abort during active craft mini-game) should be mentioned in the vision's crafting section as a design decision.
+- Consider adding a roadmap item for **enemy card effect balancing** — now that all enemy types have registered effects, a balancing pass could ensure the effects create meaningful encounters across all disciplines.
 
 ## What was deferred / not yet implemented
 
-- **Stamina/Health cost crafting cards**: The roadmap says "Stamina and Health tokens should be usable in CardEffects with costs within crafting" — the current implementation uses CraftingToken as the only cost for crafting cards. A future pass should add some crafting cards that cost Stamina or Health for stronger cost-reduction effects.
-- **Card modification/enhancement**: The roadmap mentions "create, modify, and enhance cards" but only creation (copy) is implemented. Modification and enhancement could be future crafting sub-actions.
-- **Scaling crafting encounters**: Only one crafting encounter definition exists. Future work could add encounter variants with different enemy deck compositions, initial token amounts, or material cost multipliers.
-
-## Suggested roadmap.md updates
+- **Generalized durability effects**: Per-discipline durability tokens kept separate (MiningDurability, HerbalismDurability, etc.) instead of a context-sensitive generalized effect.
+- **Non-Attack researched cards**: All researched cards are Attack cards regardless of discipline.
+- **Insight in gathering encounters**: Only Combat and Rest encounters resolve Insight effects.
+- **Research encounter in starting hand**: Currently in deck only, reducing early-game accessibility.
+- **Stamina/Health cost crafting cards**: Roadmap says these should be usable but only CraftingToken is used as cost.
+- **Card modification/enhancement**: Only creation (copy) is implemented for crafting.
 
 ### Step 9.6 — Mark as implemented with notes
 

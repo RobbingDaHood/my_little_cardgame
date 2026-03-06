@@ -488,7 +488,7 @@ Roadmap steps
    - Implementation: Completed. Mining now uses a fully token-based system: `MiningCardEffect` has `costs`/`gains` (Vec<GatheringCost>) and `light_level_cap`; `OreCard` has `damages` (Vec<GatheringCost>). `MiningDef` has `initial_light_level` (300) and `ore_deck`. New token types: `MiningLightLevel`, `MiningYield`, `MiningPower` (all encounter-scoped, reset to 0 on encounter end). Yield formula: `mining_power × light_level / 100`. Conclude action: `EncounterConcludeEncounter` grants `min(stamina, yield)` Ore tokens. Loss conditions: `MiningDurability ≤ 0` or all hand cards unpayable. 8 player mining cards (power, light, rest varieties) + 1 encounter definition. All scenario tests pass.
    - **Post-cleanup summary (Step 9.5 post-cleanup pass):** This step included a significant cleanup pass affecting areas beyond mining: token restructuring (TokenType enum consolidation, encounter-scoped token migration from global token_balances to encounter_tokens), player death mechanic implementation (material reset, Health/Stamina restore, PlayerDeaths counter), EncounterConcludeEncounter standardized across all gathering disciplines (Mining, Herbalism, Woodcutting, Fishing), dynamic test ID migration (tests no longer rely on hardcoded card IDs), and documentation updates (vision.md/roadmap.md consolidation).
 
-9.6) Crafting encounters and discipline
+9.6) Crafting encounters and discipline — ✅ COMPLETED (with post-implementation fixes)
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
    - Description: A crafting encounter provides a pool of "Crafting tokens" (initially ~10) that the player spends on various crafting actions:
      - 1 token: Replace a card between the deck/discard pile and the library. Choose two cards: one moves from deck/discard to library, and the other does the opposite. Cannot move from hand. Only applies to player cards, not area/encounter cards. Cards must be available for swap.
@@ -506,8 +506,14 @@ Roadmap steps
    - Playable acceptance: Can resolve a craft encounter, produces a Library card copy (visible via GET /library), and demonstrates cost evaluation based on card effects; crafted cards are never directly inserted into player decks.
    - Notes: Start with a single crafting encounter type to prove the flow; ensure crafting is the primary economy sink and costs scale with card quality.
    - Stamina and Health tokens should be usable in CardEffects with costs within the crafting discipline, same deck mix as other discipline cards (mostly no-cost, some cost cards) in the initial deck.
+   - Post-implementation fixes (done alongside Step 10):
+     - **Crafted card deduplication:** Crafting now increments the `library` count of the existing card instead of creating a new Library entry with a duplicate definition.
+     - **Merged conclude/auto_conclude:** Extracted shared craft conclusion logic into `finish_active_craft()` helper, eliminating duplication between manual conclude and auto-conclude paths.
+     - **Block abort during active craft:** `abort_crafting_encounter` now returns an error if a craft mini-game is in progress; the player must conclude or complete the craft first.
+     - **Variable crafting cost distribution:** Costs are now distributed randomly across 2–4 material tokens (max 75% per token) using Fisher-Yates shuffle with seeded RNG, replacing fixed even distribution.
+     - **Enemy card effects:** `EnemyCraftingCard` now has `effects: Vec<ConcreteEffect>` referencing registered EnemyCardEffect entries (4 crafting-specific effects). See enemy card effect refactoring notes under Step 10.
 
-10) Research encounters and card discovery
+10) Research encounters and card discovery — ✅ COMPLETED
    - Goal: Implement Research as a first-class encounter type where players invest Insight tokens to discover and create new cards for their library.
    - **Implementation note**: Insight infrastructure is already partially in place — `MilestoneInsight` and `Insight` token types exist in the TokenType enum. The CardEffectKind::Insight variant and discipline tags remain to be implemented.
    - Description:
@@ -542,6 +548,25 @@ Roadmap steps
             - The current research and its progress are cleared.
    - Playable acceptance: Research encounters are playable end-to-end. Players can choose a discipline, generate candidates, select a research project, make progress payments, and complete research to produce new Library cards. All rolls are deterministic via the game seed. Scenario tests verify the full research flow.
    - Notes: CardEffect discipline tags and the Insight card effect are prerequisites that should be implemented early in this step. The research encounter builds on these foundations and on the range system from Step 9.1.
+   - Implementation results:
+     - **Discipline enum and tags:** `Discipline` enum (Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research) added. `discipline_tags: Vec<Discipline>` field on `LibraryCard` for PlayerCardEffect and EnemyCardEffect entries. `Library::card_effects_for_discipline()` filters effects by discipline tag.
+     - **CardEffectKind::Insight:** New variant that grants Insight tokens (min-max roll). A shared Insight `PlayerCardEffect` is registered with all discipline tags. Insight Resource cards added to the combat starting deck.
+     - **Research types:** `ResearchDef`, `ResearchCandidate`, `ResearchProject`, `ResearchEncounterState` structs in `types.rs`. `EncounterKind::Research { research_def }` variant.
+     - **Research state:** `current_research: Option<ResearchProject>` persisted in `GameState` across encounters.
+     - **Research encounter lifecycle:** start → choose project (discipline, tier_count) → pay start cost → generate 3 candidates → select candidate → progress payments → complete → new Library card.
+     - **Cost formulas:** Start cost = `10 × 2^(tier-1)`, completion cost = `20 × 2^(tier-1)`, 33% cap per payment.
+     - **Candidate generation:** 3 candidates generated from discipline-tagged CardEffects with independent rolls per tier. Same CardEffect can appear multiple times.
+     - **6 new scenario tests:** Full research loop, swap project, insufficient Insight, abort research, crafting abort blocking, crafting card deduplication.
+     - **Enemy card effect refactoring (cross-cutting):**
+       - All enemy card types (`OreCard`, `PlantCard`, `FishCard`, `EnemyCraftingCard`) now have `effects: Vec<ConcreteEffect>` referencing EnemyCardEffect entries.
+       - Combat EnemyCardEffects moved from `game_state.rs` to `combat.rs`. New EnemyCardEffects registered: Mining (5), Herbalism (2), Fishing (4), Crafting (4).
+       - `validate_card_effects()` extended to validate enemy effects across all encounter types (not just combat).
+     - **Encounter deck composition:** 1 research encounter added to starting deck (deck position, not hand).
+   - Deferred items:
+     - **Generalized durability effects:** Kept per-discipline durability tokens (MiningDurability, HerbalismDurability, etc.) instead of generalizing to a single context-sensitive durability effect. The cost of abstraction outweighed the benefit at this stage.
+     - **Non-Attack researched cards:** All researched cards are currently Attack cards regardless of the research discipline. Future work should map discipline to the appropriate card kind.
+     - **Insight in gathering encounters:** Insight card resolution only works in Combat and Rest encounters currently. Other disciplines do not process Insight effects.
+     - **Research encounter card in starting hand:** The research encounter card starts in the deck (not the hand), making it hard to reach in the early game. Consider adding it to the hand or increasing encounter draw rates.
 
 11) Simple post-encounter scouting
    - Goal: Replace the current no-op scouting with a simple encounter-modification step that always happens after an encounter is concluded.
@@ -656,7 +681,7 @@ Appendix: Minimum ticket examples for the first 8 steps
 - Encounter tracking: Track encounter cards via Library CardCounts (deck/hand/discard), implement draw/resolve/replace and CardEffect replacement pipeline.
 - Combat refactor: Implement CombatState and resolution using seeded RNG and output deterministic logs recorded to the ActionLog.
 - Encounter loop: Implement the encounter loop via POST /action (pick encounter, play cards, advance phases, scouting), include replacement and scouting as part of the lifecycle.
-- Research: Implement CardEffect discipline tags, Insight card effect, research encounter with choose/progress actions, and deterministic card generation recorded to the ActionLog.
+- Research: ✅ Implemented CardEffect discipline tags, Insight card effect, research encounter with choose/progress actions, and deterministic card generation recorded to the ActionLog. Enemy card effects refactored across all disciplines.
 - Merchants: Implement MerchantOffers and Barter decks, deterministic visits, and barter flows recorded to the ActionLog.
 
 CardEffect ideas (future)
