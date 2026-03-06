@@ -107,3 +107,53 @@ Consider adding a follow-up sub-step:
 - The scouting system can now generate previews for all enemy card types. Consider adding a roadmap step for implementing scouting UI/API that leverages these effect references.
 - Consider a future task to remove the legacy fields (`damages`, `value`, `increases`) once resolution logic is fully migrated to use the effect system.
 - The EnemyCardEffect registration pattern per discipline keeps card data co-located with its resolution logic. If the number of effects grows significantly, consider a shared registry or data-driven configuration file.
+
+---
+
+# Vision & Roadmap Suggestions — Research Encounter & Crafting Fix Tests
+
+## What was implemented
+
+- **6 new scenario integration tests** covering the Research encounter system and crafting fixes:
+  1. `scenario_research_encounter_full_loop` — Full flow: choose project (tier 1), select candidate, optional progress, conclude, scout.
+  2. `scenario_research_choose_and_swap_project` — Choose project, select candidate, conclude, verify project persistence.
+  3. `scenario_research_insufficient_insight` — Verify insufficient Insight error when choosing a project with 0 Insight.
+  4. `scenario_research_abort` — Abort a research encounter, verify PlayerWon, verify scouting.
+  5. `scenario_crafting_abort_blocked_during_active_craft` — Verify abort is blocked while a craft mini-game is active.
+  6. `scenario_crafting_card_deduplication` — Verify crafting increments existing card's library count rather than creating a new card.
+- **Helper functions** added: `research_encounter_ids`, `win_combat_and_scout`, `play_one_round_prefer_insight`, `deplete_encounters_until_research`, `start_game_accumulate_insight_and_pick_research`.
+- All 40 tests pass (`make check` clean).
+
+## Findings during implementation
+
+### Critical: Research encounter card inaccessible in early game
+
+The Research encounter card starts with `deck: 1, hand: 0`, while all other encounter types start with `hand: 2-4`. The encounter draw system (`encounter_draw_to_hand`) only draws from deck when the hand count is below Foresight (default 3). Since the starting encounter hand has ~21 cards across 7 encounter types, the research card can never be drawn until ~19 other encounters are consumed. This means:
+
+1. **Players must play/abort 19+ encounters** before Research becomes available.
+2. **Encounter cards don't recycle from discard to deck**, so the encounter hand depletes permanently.
+3. This makes Research a very late-game encounter, which may not be the intended design.
+
+### Critical: Insufficient Insight generation for Research
+
+Research tier 1 costs 10 Insight (choose) + 20 Insight (progress) = 30 total. However, Insight generation is extremely limited:
+
+1. **Combat Insight Resource cards** (2 copies, deck only) generate 1-5 Insight per play, but are rarely drawn because the Resource hand is always full (5/5 main Resource cards).
+2. **Best case across 3 combats**: ~10 Insight (with seed 7777 and targeted Insight card play).
+3. **No other encounter type generates Insight** — gathering disciplines don't have Insight card effects.
+4. **MilestoneInsight (100 per combat win) is a different token** and cannot be used for research.
+
+This means completing a full research project (30 Insight) is currently impossible in a single game.
+
+## Suggestions for vision.md
+
+- Clarify the intended Insight economy: how much Insight should be available per game, and what fraction should go to Research vs other potential uses.
+- Document the "encounter hand depletion → new encounter types appear" mechanic as an intentional late-game progression system, or flag it as a gap to address.
+
+## Suggestions for roadmap.md
+
+- **High priority**: Move the Research encounter card to `hand: 1` (or `hand: 2`) so it's accessible from game start, consistent with other encounter types.
+- **High priority**: Increase Insight generation — either increase Insight Resource card starting hand count, add Insight generation to gathering encounters, or make MilestoneInsight convertible to Insight.
+- Consider adding a test endpoint `POST /tests/tokens` that sets token balances directly — this would enable comprehensive research flow testing without depending on the full combat→Insight pipeline.
+- Add a follow-up task to write research completion tests once the Insight economy is rebalanced.
+- The `play_one_round_prefer_insight` test helper revealed that Insight Resource cards (with 1 effect) are identifiable by effect count vs main Resource cards (2 effects). This heuristic may break if card designs change — consider adding explicit card metadata for testability.
