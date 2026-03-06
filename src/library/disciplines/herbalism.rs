@@ -10,8 +10,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::HerbalismDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::HerbalismDurability,
                     amount: 100,
                 }],
                 match_mode: types::HerbalismMatchMode::Or {
@@ -32,8 +32,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::HerbalismDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::HerbalismDurability,
                     amount: 100,
                 }],
                 match_mode: types::HerbalismMatchMode::Or {
@@ -57,8 +57,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::HerbalismDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::HerbalismDurability,
                     amount: 100,
                 }],
                 match_mode: types::HerbalismMatchMode::Or {
@@ -155,12 +155,12 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 150,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::HerbalismDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::HerbalismDurability,
                         amount: 100,
                     },
                 ],
@@ -184,12 +184,12 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 150,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::HerbalismDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::HerbalismDurability,
                         amount: 100,
                     },
                 ],
@@ -213,12 +213,12 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 100,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::HerbalismDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::HerbalismDurability,
                         amount: 100,
                     },
                 ],
@@ -243,13 +243,13 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::HerbalismDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::HerbalismDurability,
                     amount: 50,
                 }],
                 match_mode: types::HerbalismMatchMode::Or { types: vec![] },
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 200,
                 }],
             },
@@ -319,8 +319,7 @@ impl GameState {
         };
 
         // Split costs into pre-play (reject if unaffordable) and post-play (durability)
-        let (pre_play_costs, post_play_costs) =
-            types::split_gathering_costs(&herbalism_effect.costs);
+        let (pre_play_costs, post_play_costs) = types::split_token_amounts(&herbalism_effect.costs);
         if !pre_play_costs.is_empty() {
             Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
         }
@@ -328,7 +327,7 @@ impl GameState {
         // Apply durability costs (depletes encounter, doesn't reject card)
         let mut durability_depleted = false;
         for cost in &post_play_costs {
-            let key = types::Token::persistent(cost.cost_type.clone());
+            let key = types::Token::persistent(cost.token_type.clone());
             let durability = self.token_balances.entry(key).or_insert(0);
             *durability = (*durability - cost.amount).max(0);
             if *durability <= 0 {
@@ -343,7 +342,7 @@ impl GameState {
 
         // Apply gains
         for gain in &herbalism_effect.gains {
-            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
+            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
             *entry += gain.amount;
         }
 

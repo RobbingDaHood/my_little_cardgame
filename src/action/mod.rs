@@ -329,7 +329,7 @@ pub async fn play(
                         &lib_card.kind
                     {
                         let (pre_play_costs, _) =
-                            crate::library::types::split_gathering_costs(&woodcutting_effect.costs);
+                            crate::library::types::split_token_amounts(&woodcutting_effect.costs);
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
                             &pre_play_costs,
                             &gs.token_balances,

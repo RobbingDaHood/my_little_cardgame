@@ -11,8 +11,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             woodcutting_effect: types::WoodcuttingCardEffect {
                 chop_types: vec![types::ChopType::LightChop],
                 chop_values: vec![2],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::WoodcuttingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
                 }],
                 gains: vec![],
@@ -32,8 +32,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             woodcutting_effect: types::WoodcuttingCardEffect {
                 chop_types: vec![types::ChopType::HeavyChop],
                 chop_values: vec![5],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::WoodcuttingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
                 }],
                 gains: vec![],
@@ -53,8 +53,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             woodcutting_effect: types::WoodcuttingCardEffect {
                 chop_types: vec![types::ChopType::MediumChop],
                 chop_values: vec![3],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::WoodcuttingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
                 }],
                 gains: vec![],
@@ -74,8 +74,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             woodcutting_effect: types::WoodcuttingCardEffect {
                 chop_types: vec![types::ChopType::PrecisionChop],
                 chop_values: vec![7],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::WoodcuttingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
                 }],
                 gains: vec![],
@@ -117,12 +117,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![types::ChopType::HeavyChop, types::ChopType::LightChop],
                 chop_values: vec![5, 3],
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 100,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::WoodcuttingDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::WoodcuttingDurability,
                         amount: 100,
                     },
                 ],
@@ -143,8 +143,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             woodcutting_effect: types::WoodcuttingCardEffect {
                 chop_types: vec![types::ChopType::SplitChop],
                 chop_values: vec![4],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::WoodcuttingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
                 }],
                 gains: vec![],
@@ -164,8 +164,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             woodcutting_effect: types::WoodcuttingCardEffect {
                 chop_types: vec![types::ChopType::LightChop, types::ChopType::MediumChop],
                 chop_values: vec![1, 6],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::WoodcuttingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
                 }],
                 gains: vec![],
@@ -190,12 +190,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 ],
                 chop_values: vec![3, 5, 7],
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 150,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::WoodcuttingDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::WoodcuttingDurability,
                         amount: 100,
                     },
                 ],
@@ -222,12 +222,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 ],
                 chop_values: vec![2, 4, 6, 8],
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 250,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::WoodcuttingDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::WoodcuttingDurability,
                         amount: 100,
                     },
                 ],
@@ -248,12 +248,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             woodcutting_effect: types::WoodcuttingCardEffect {
                 chop_types: vec![],
                 chop_values: vec![],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::WoodcuttingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::WoodcuttingDurability,
                     amount: 50,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 200,
                 }],
             },
@@ -455,19 +455,19 @@ impl GameState {
 
         // Split costs into pre-play (reject if unaffordable) and post-play (durability)
         let (pre_play_costs, post_play_costs) =
-            types::split_gathering_costs(&woodcutting_effect.costs);
+            types::split_token_amounts(&woodcutting_effect.costs);
         Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
 
         // Apply gains
         for gain in &woodcutting_effect.gains {
-            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
+            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
             *entry += gain.amount;
         }
 
         // Deduct durability costs (depletes encounter, doesn't reject card)
         let mut durability_depleted = false;
         for cost in &post_play_costs {
-            let key = types::Token::persistent(cost.cost_type.clone());
+            let key = types::Token::persistent(cost.token_type.clone());
             let durability = self.token_balances.entry(key).or_insert(0);
             *durability = (*durability - cost.amount).max(0);
             if *durability <= 0 {

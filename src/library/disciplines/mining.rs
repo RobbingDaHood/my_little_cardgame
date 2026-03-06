@@ -10,8 +10,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
                 costs: vec![],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 500,
                 }],
                 light_level_cap: 0,
@@ -30,8 +30,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
                 costs: vec![],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 300,
                 }],
                 light_level_cap: 0,
@@ -49,12 +49,12 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Lumber,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Lumber,
                     amount: 15,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningLightLevel,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningLightLevel,
                     amount: 200,
                 }],
                 light_level_cap: 500,
@@ -76,8 +76,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                     initial_light_level: 300,
                     ore_deck: vec![
                         types::OreCard {
-                            damages: vec![types::GatheringCost {
-                                cost_type: types::TokenType::MiningLightLevel,
+                            damages: vec![types::TokenAmount {
+                                token_type: types::TokenType::MiningLightLevel,
                                 amount: 30,
                             }],
                             counts: types::DeckCounts {
@@ -88,12 +88,12 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                         },
                         types::OreCard {
                             damages: vec![
-                                types::GatheringCost {
-                                    cost_type: types::TokenType::MiningLightLevel,
+                                types::TokenAmount {
+                                    token_type: types::TokenType::MiningLightLevel,
                                     amount: 50,
                                 },
-                                types::GatheringCost {
-                                    cost_type: types::TokenType::MiningDurability,
+                                types::TokenAmount {
+                                    token_type: types::TokenType::MiningDurability,
                                     amount: 100,
                                 },
                             ],
@@ -104,8 +104,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                             },
                         },
                         types::OreCard {
-                            damages: vec![types::GatheringCost {
-                                cost_type: types::TokenType::MiningDurability,
+                            damages: vec![types::TokenAmount {
+                                token_type: types::TokenType::MiningDurability,
                                 amount: 200,
                             }],
                             counts: types::DeckCounts {
@@ -115,8 +115,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                             },
                         },
                         types::OreCard {
-                            damages: vec![types::GatheringCost {
-                                cost_type: types::TokenType::Health,
+                            damages: vec![types::TokenAmount {
+                                token_type: types::TokenType::Health,
                                 amount: 75,
                             }],
                             counts: types::DeckCounts {
@@ -141,12 +141,12 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 100,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 800,
                 }],
                 light_level_cap: 0,
@@ -164,12 +164,12 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 200,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 600,
                 }],
                 light_level_cap: 0,
@@ -187,12 +187,12 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 300,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 1000,
                 }],
                 light_level_cap: 0,
@@ -210,12 +210,12 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Lumber,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Lumber,
                     amount: 25,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningLightLevel,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningLightLevel,
                     amount: 350,
                 }],
                 light_level_cap: 600,
@@ -234,8 +234,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
                 costs: vec![],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 200,
                 }],
                 light_level_cap: 0,
@@ -319,7 +319,7 @@ impl GameState {
 
         // Process gains by token type
         for gain in &mining_effect.gains {
-            match gain.cost_type {
+            match gain.token_type {
                 types::TokenType::MiningPower => {
                     // yield += mining_power × light_level / 100
                     let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
@@ -341,7 +341,7 @@ impl GameState {
                 _ => {
                     // Direct token addition (e.g., Stamina)
                     let entry =
-                        types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
+                        types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
                     *entry += gain.amount;
                 }
             }
@@ -388,7 +388,7 @@ impl GameState {
 
         // Apply each damage to player tokens
         for damage in &damages {
-            let key = types::Token::persistent(damage.cost_type.clone());
+            let key = types::Token::persistent(damage.token_type.clone());
             let val = self.token_balances.entry(key).or_insert(0);
             *val = (*val - damage.amount).max(0);
         }

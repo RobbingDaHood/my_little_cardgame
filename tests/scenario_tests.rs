@@ -1664,7 +1664,7 @@ fn scenario_cost_mining_card_rejected_without_stamina() {
             .as_array()?;
         let has_stamina_cost = costs
             .iter()
-            .any(|cost| cost.get("cost_type").and_then(|v| v.as_str()) == Some("Stamina"));
+            .any(|cost| cost.get("token_type").and_then(|v| v.as_str()) == Some("Stamina"));
         if has_stamina_cost {
             c.get("id")?.as_u64().map(|v| v as usize)
         } else {

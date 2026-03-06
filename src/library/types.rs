@@ -124,15 +124,15 @@ impl TokenType {
 
 /// Split gathering costs into pre-play costs (reject card if unaffordable)
 /// and post-play costs (durability — deplete encounter after play).
-pub fn split_gathering_costs(costs: &[GatheringCost]) -> (Vec<GatheringCost>, Vec<GatheringCost>) {
+pub fn split_token_amounts(costs: &[TokenAmount]) -> (Vec<TokenAmount>, Vec<TokenAmount>) {
     let pre_play = costs
         .iter()
-        .filter(|c| !c.cost_type.is_durability_cost())
+        .filter(|c| !c.token_type.is_durability_cost())
         .cloned()
         .collect();
     let post_play = costs
         .iter()
-        .filter(|c| c.cost_type.is_durability_cost())
+        .filter(|c| c.token_type.is_durability_cost())
         .cloned()
         .collect();
     (pre_play, post_play)
@@ -202,7 +202,7 @@ pub enum CardEffectKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CardEffectCost {
-    pub cost_type: TokenType,
+    pub token_type: TokenType,
     pub min_percent: u32,
     pub max_percent: u32,
 }
@@ -227,15 +227,15 @@ pub struct ConcreteEffect {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct ConcreteEffectCost {
-    pub cost_type: TokenType,
+    pub token_type: TokenType,
     pub rolled_percent: u32,
 }
 
-/// Fixed-amount cost used by gathering discipline cards.
+/// A fixed amount of a token type, used in costs and gains of gathering discipline cards.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
-pub struct GatheringCost {
-    pub cost_type: TokenType,
+pub struct TokenAmount {
+    pub token_type: TokenType,
     pub amount: i64,
 }
 
@@ -324,9 +324,9 @@ pub enum CardKind {
 #[serde(crate = "rocket::serde")]
 pub struct MiningCardEffect {
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
+    pub gains: Vec<TokenAmount>,
     #[serde(default)]
     pub light_level_cap: i64,
 }
@@ -368,10 +368,10 @@ pub enum HerbalismMatchMode {
 #[serde(crate = "rocket::serde")]
 pub struct HerbalismCardEffect {
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     pub match_mode: HerbalismMatchMode,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
+    pub gains: Vec<TokenAmount>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
@@ -411,9 +411,9 @@ pub struct WoodcuttingCardEffect {
     pub chop_types: Vec<ChopType>,
     pub chop_values: Vec<u32>,
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
+    pub gains: Vec<TokenAmount>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -442,9 +442,9 @@ pub struct WoodcuttingDef {
 pub struct FishingCardEffect {
     pub values: Vec<i64>,
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
+    pub gains: Vec<TokenAmount>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.
@@ -501,7 +501,7 @@ pub struct RestDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct OreCard {
-    pub damages: Vec<GatheringCost>,
+    pub damages: Vec<TokenAmount>,
     pub counts: DeckCounts,
 }
 

@@ -107,7 +107,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                 min: 700,
                 max: 900,
                 costs: vec![types::CardEffectCost {
-                    cost_type: types::TokenType::Stamina,
+                    token_type: types::TokenType::Stamina,
                     min_percent: 30,
                     max_percent: 50,
                 }],
@@ -134,7 +134,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                 gain_min_percent: 100,
                 gain_max_percent: 100,
                 costs: vec![types::CardEffectCost {
-                    cost_type: types::TokenType::Stamina,
+                    token_type: types::TokenType::Stamina,
                     min_percent: 30,
                     max_percent: 50,
                 }],

@@ -48,7 +48,7 @@ pub(crate) fn roll_concrete_effect(
             let costs = costs
                 .iter()
                 .map(|c| ConcreteEffectCost {
-                    cost_type: c.cost_type.clone(),
+                    token_type: c.token_type.clone(),
                     rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
                 })
                 .collect();
@@ -61,7 +61,7 @@ pub(crate) fn roll_concrete_effect(
             let costs = costs
                 .iter()
                 .map(|c| ConcreteEffectCost {
-                    cost_type: c.cost_type.clone(),
+                    token_type: c.token_type.clone(),
                     rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
                 })
                 .collect();
@@ -394,7 +394,7 @@ impl GameState {
             for cost in &effect.rolled_costs {
                 let cost_amount =
                     (effect.rolled_value.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
-                let entry = super::types::token_entry_by_type(token_balances, &cost.cost_type);
+                let entry = super::types::token_entry_by_type(token_balances, &cost.token_type);
                 *entry -= cost_amount;
             }
         }
@@ -411,15 +411,15 @@ impl GameState {
             for cost in &effect.rolled_costs {
                 let cost_amount =
                     (effect.rolled_value.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
-                *total_costs.entry(cost.cost_type.clone()).or_insert(0) += cost_amount;
+                *total_costs.entry(cost.token_type.clone()).or_insert(0) += cost_amount;
             }
         }
-        for (cost_type, cost_amount) in &total_costs {
-            let balance = super::types::token_balance_by_type(token_balances, cost_type);
+        for (token_type, cost_amount) in &total_costs {
+            let balance = super::types::token_balance_by_type(token_balances, token_type);
             if balance < *cost_amount {
                 return Err(format!(
                     "Insufficient {:?}: need {} but have {}",
-                    cost_type, cost_amount, balance
+                    token_type, cost_amount, balance
                 ));
             }
         }
@@ -428,13 +428,13 @@ impl GameState {
 
     /// Check and deduct a list of gathering costs. All costs must be affordable.
     pub(crate) fn check_and_deduct_gathering_costs(
-        costs: &[super::types::GatheringCost],
+        costs: &[super::types::TokenAmount],
         token_balances: &mut HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
         Self::preview_gathering_costs(costs, token_balances)?;
         for cost in costs {
             if cost.amount > 0 {
-                let entry = super::types::token_entry_by_type(token_balances, &cost.cost_type);
+                let entry = super::types::token_entry_by_type(token_balances, &cost.token_type);
                 *entry -= cost.amount;
             }
         }
@@ -443,18 +443,18 @@ impl GameState {
 
     /// Check if player can afford gathering costs without deducting.
     pub fn preview_gathering_costs(
-        costs: &[super::types::GatheringCost],
+        costs: &[super::types::TokenAmount],
         token_balances: &HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
         for cost in costs {
             if cost.amount <= 0 {
                 continue;
             }
-            let balance = super::types::token_balance_by_type(token_balances, &cost.cost_type);
+            let balance = super::types::token_balance_by_type(token_balances, &cost.token_type);
             if balance < cost.amount {
                 return Err(format!(
                     "Insufficient {:?}: need {} but have {}",
-                    cost.cost_type, cost.amount, balance
+                    cost.token_type, cost.amount, balance
                 ));
             }
         }
@@ -463,7 +463,7 @@ impl GameState {
 
     pub(crate) fn all_gathering_hand_cards_unpayable(
         &self,
-        cost_extractor: impl Fn(&super::types::CardKind) -> Option<&Vec<super::types::GatheringCost>>,
+        cost_extractor: impl Fn(&super::types::CardKind) -> Option<&Vec<super::types::TokenAmount>>,
     ) -> bool {
         let hand_cards: Vec<_> = self
             .library
@@ -476,7 +476,7 @@ impl GameState {
         }
         hand_cards.iter().all(|card| {
             let costs = cost_extractor(&card.kind).unwrap();
-            let (pre_play_costs, _) = super::types::split_gathering_costs(costs);
+            let (pre_play_costs, _) = super::types::split_token_amounts(costs);
             if pre_play_costs.is_empty() {
                 return false;
             }
