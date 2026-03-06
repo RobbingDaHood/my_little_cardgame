@@ -393,6 +393,82 @@ impl Library {
                         }
                     }
                 }
+                CardKind::Encounter {
+                    encounter_kind: EncounterKind::Mining { mining_def },
+                } => {
+                    for ore_card in &mining_def.ore_deck {
+                        for effect in &ore_card.effects {
+                            match self.cards.get(effect.effect_id) {
+                                Some(ref_card)
+                                    if matches!(
+                                        ref_card.kind,
+                                        CardKind::EnemyCardEffect { .. }
+                                    ) => {}
+                                _ => errors.push(format!(
+                                    "OreCard in card {} has effect referencing invalid EnemyCardEffect {}",
+                                    id, effect.effect_id
+                                )),
+                            }
+                        }
+                    }
+                }
+                CardKind::Encounter {
+                    encounter_kind: EncounterKind::Herbalism { herbalism_def },
+                } => {
+                    for plant_card in &herbalism_def.plant_hand {
+                        for effect in &plant_card.effects {
+                            match self.cards.get(effect.effect_id) {
+                                Some(ref_card)
+                                    if matches!(
+                                        ref_card.kind,
+                                        CardKind::EnemyCardEffect { .. }
+                                    ) => {}
+                                _ => errors.push(format!(
+                                    "PlantCard in card {} has effect referencing invalid EnemyCardEffect {}",
+                                    id, effect.effect_id
+                                )),
+                            }
+                        }
+                    }
+                }
+                CardKind::Encounter {
+                    encounter_kind: EncounterKind::Fishing { fishing_def },
+                } => {
+                    for fish_card in &fishing_def.fish_deck {
+                        for effect in &fish_card.effects {
+                            match self.cards.get(effect.effect_id) {
+                                Some(ref_card)
+                                    if matches!(
+                                        ref_card.kind,
+                                        CardKind::EnemyCardEffect { .. }
+                                    ) => {}
+                                _ => errors.push(format!(
+                                    "FishCard in card {} has effect referencing invalid EnemyCardEffect {}",
+                                    id, effect.effect_id
+                                )),
+                            }
+                        }
+                    }
+                }
+                CardKind::Encounter {
+                    encounter_kind: EncounterKind::Crafting { crafting_def },
+                } => {
+                    for crafting_card in &crafting_def.enemy_crafting_deck {
+                        for effect in &crafting_card.effects {
+                            match self.cards.get(effect.effect_id) {
+                                Some(ref_card)
+                                    if matches!(
+                                        ref_card.kind,
+                                        CardKind::EnemyCardEffect { .. }
+                                    ) => {}
+                                _ => errors.push(format!(
+                                    "EnemyCraftingCard in card {} has effect referencing invalid EnemyCardEffect {}",
+                                    id, effect.effect_id
+                                )),
+                            }
+                        }
+                    }
+                }
                 _ => {}
             }
         }

@@ -5,7 +5,61 @@ use crate::library::types::{
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
+use crate::library::game_state::roll_concrete_effect;
+
 pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // ---- Herbalism EnemyCardEffect templates ----
+
+    // Plant passive effect: small gain (single-characteristic plants)
+    let plant_small_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Plant,
+                cap_min: 50,
+                cap_max: 100,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // Plant passive effect: medium gain (dual-characteristic plants)
+    let plant_medium_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Plant,
+                cap_min: 100,
+                cap_max: 200,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // ---- Player herbalism cards ----
+
     // Narrow herbalism card: targets 1 characteristic, low durability cost
     lib.add_card(
         CardKind::Herbalism {
@@ -93,6 +147,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     plant_hand: vec![
                         types::PlantCard {
                             characteristics: vec![types::PlantCharacteristic::Fragile],
+                            effects: vec![roll_concrete_effect(rng, plant_small_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -104,6 +159,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                                 types::PlantCharacteristic::Thorny,
                                 types::PlantCharacteristic::Aromatic,
                             ],
+                            effects: vec![roll_concrete_effect(rng, plant_medium_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -115,6 +171,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                                 types::PlantCharacteristic::Bitter,
                                 types::PlantCharacteristic::Luminous,
                             ],
+                            effects: vec![roll_concrete_effect(rng, plant_medium_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -126,6 +183,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                                 types::PlantCharacteristic::Fragile,
                                 types::PlantCharacteristic::Thorny,
                             ],
+                            effects: vec![roll_concrete_effect(rng, plant_medium_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -134,6 +192,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                         },
                         types::PlantCard {
                             characteristics: vec![types::PlantCharacteristic::Luminous],
+                            effects: vec![roll_concrete_effect(rng, plant_small_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,

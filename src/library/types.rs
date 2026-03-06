@@ -409,6 +409,8 @@ pub struct HerbalismCardEffect {
 #[serde(crate = "rocket::serde")]
 pub struct PlantCard {
     pub characteristics: Vec<PlantCharacteristic>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 
@@ -482,6 +484,8 @@ pub struct FishingCardEffect {
 #[serde(crate = "rocket::serde")]
 pub struct FishCard {
     pub value: i64,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 
@@ -533,6 +537,8 @@ pub struct RestDef {
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCraftingCard {
     pub increases: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 
@@ -583,6 +589,8 @@ pub struct CraftingCraftState {
 #[serde(crate = "rocket::serde")]
 pub struct OreCard {
     pub damages: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 

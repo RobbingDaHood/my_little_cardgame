@@ -4,7 +4,108 @@ use crate::library::types::{
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
+use crate::library::game_state::roll_concrete_effect;
+
 pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // ---- Fishing EnemyCardEffect templates ----
+
+    // Fish value effect (low): 50-150
+    let fish_low_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Fish,
+                cap_min: 50,
+                cap_max: 150,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // Fish value effect (medium): 200-400
+    let fish_medium_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Fish,
+                cap_min: 200,
+                cap_max: 400,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // Fish value effect (high): 400-600
+    let fish_high_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Fish,
+                cap_min: 400,
+                cap_max: 600,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // Fish value effect (very high): 600-800
+    let fish_very_high_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Fish,
+                cap_min: 600,
+                cap_max: 800,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // ---- Player fishing cards ----
     // Low value fishing card
     lib.add_card(
         CardKind::Fishing {
@@ -83,6 +184,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     fish_deck: vec![
                         types::FishCard {
                             value: 100,
+                            effects: vec![roll_concrete_effect(rng, fish_low_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 6,
@@ -91,6 +193,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                         },
                         types::FishCard {
                             value: 300,
+                            effects: vec![roll_concrete_effect(rng, fish_medium_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 6,
@@ -99,6 +202,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                         },
                         types::FishCard {
                             value: 500,
+                            effects: vec![roll_concrete_effect(rng, fish_high_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 4,
@@ -107,6 +211,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                         },
                         types::FishCard {
                             value: 700,
+                            effects: vec![roll_concrete_effect(rng, fish_very_high_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 2,

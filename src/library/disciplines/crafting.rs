@@ -5,7 +5,109 @@ use crate::library::types::{
 use crate::library::{GameState, Library};
 use rand::RngCore;
 
+use crate::library::game_state::roll_concrete_effect;
+
 pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // ---- Crafting EnemyCardEffect templates ----
+
+    // Enemy cost increase: Ore (10-30)
+    let enemy_ore_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Ore,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // Enemy cost increase: Plant (10-30)
+    let enemy_plant_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Plant,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // Enemy cost increase: Lumber (10-30)
+    let enemy_lumber_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Lumber,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // Enemy cost increase: Fish (10-30)
+    let enemy_fish_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Fish,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+    );
+
+    // ---- Player crafting cards ----
+
     // Crafting card: reduces Ore cost, no stamina cost
     lib.add_card(
         CardKind::Crafting {
@@ -160,6 +262,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             amount: 20,
             cap: None,
         }],
+        effects: vec![roll_concrete_effect(rng, enemy_ore_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
@@ -172,6 +275,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             amount: 20,
             cap: None,
         }],
+        effects: vec![roll_concrete_effect(rng, enemy_plant_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
@@ -184,6 +288,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             amount: 20,
             cap: None,
         }],
+        effects: vec![roll_concrete_effect(rng, enemy_lumber_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
@@ -196,6 +301,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             amount: 20,
             cap: None,
         }],
+        effects: vec![roll_concrete_effect(rng, enemy_fish_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
