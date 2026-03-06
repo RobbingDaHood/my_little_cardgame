@@ -1,15 +1,8 @@
-All items from the original issues list have been resolved. This file tracks new issues as they arise.
+When the below point states "Roadmap" it means edit the roadmap.md directly.
 
-## Resolved (reference)
 
-The following items were completed during the post-9.5 cleanup:
+# When done with all of this then update vision and roadmap files
 
-1. ✅ Fixed all 7 known test failures and removed `docs/design/known_failures.md` infrastructure. Updated instructions to enforce zero-tolerance for failing tests.
-2. ✅ Added persistence/save-game items to roadmap Step 12.
-3. ✅ Removed redundant `scripts/check_fmt.sh`.
-4. ✅ Added documentation items to roadmap Step 15 (tutorial, OpenAPI, hints, self-sufficient docs).
-5. ✅ Vision.md and roadmap.md updated with all suggestions from vision-roadmap-suggestions.md.
+If I instructed you to do something that you could not read from those two files (Except instructions above to edit the roadmap or vision files directly), then change those files so it is more clear. 
 
-## Current issues
-
-(none)
+Also, make general improvement to both files.
