@@ -329,7 +329,7 @@ pub async fn play(
                         &lib_card.kind
                     {
                         let (pre_play_costs, _) =
-                            crate::library::types::split_gathering_costs(&woodcutting_effect.costs);
+                            crate::library::types::split_token_amounts(&woodcutting_effect.costs);
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
                             &pre_play_costs,
                             &gs.token_balances,
@@ -451,6 +451,24 @@ pub async fn play(
             match &gs.current_encounter {
                 Some(crate::library::types::EncounterState::Mining(_)) => {
                     match gs.conclude_mining_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(crate::library::types::EncounterState::Herbalism(_)) => {
+                    match gs.conclude_herbalism_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(crate::library::types::EncounterState::Woodcutting(_)) => {
+                    match gs.conclude_woodcutting_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                Some(crate::library::types::EncounterState::Fishing(_)) => {
+                    match gs.conclude_fishing_encounter() {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }

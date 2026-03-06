@@ -249,51 +249,112 @@ fn test_player_card_damages_enemy() {
 fn test_player_kills_enemy_and_combat_ends() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
-    // Initialize combat (starts in Defending)
-    client.post("/tests/combat").dispatch();
+    // Start a proper game so combat has correct state
+    let action_json = r#"{"action_type":"NewGame","seed":42}"#;
+    let resp = client
+        .post("/action")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
+        .body(action_json)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Created);
 
-    // Discover card IDs dynamically from the library API
-    let find_hand_card = |kind: &str| -> usize {
+    // Pick a combat encounter dynamically
+    let enc_resp = client
+        .get("/library/cards?location=Hand&card_kind=Encounter")
+        .dispatch();
+    let enc_cards: Vec<serde_json::Value> =
+        serde_json::from_str(&enc_resp.into_string().unwrap()).unwrap();
+    let combat_card_id = enc_cards
+        .iter()
+        .find_map(|c| {
+            let et = c
+                .get("kind")?
+                .get("encounter_kind")?
+                .get("encounter_type")?
+                .as_str()?;
+            if et == "Combat" {
+                c.get("id")?.as_u64()
+            } else {
+                None
+            }
+        })
+        .expect("Should have a combat encounter card");
+    let pick_json = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        combat_card_id
+    );
+    let resp = client
+        .post("/action")
+        .header(Header {
+            name: Uncased::from("Content-Type"),
+            value: Cow::from("application/json"),
+        })
+        .body(&pick_json)
+        .dispatch();
+    assert_eq!(resp.status(), Status::Created);
+
+    // Play rounds (rediscovering card IDs each phase) until combat ends
+    let play_card = |kind: &str| -> Status {
         let resp = client
             .get(format!("/library/cards?location=Hand&card_kind={}", kind))
             .dispatch();
-        assert_eq!(resp.status(), Status::Ok);
-        let body = resp.into_string().unwrap();
-        let cards: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
-        assert!(!cards.is_empty(), "Should have {} cards in hand", kind);
-        cards[0]["id"].as_u64().unwrap() as usize
-    };
-    let defence_id = find_hand_card("Defence");
-    let attack_id = find_hand_card("Attack");
-    let resource_id = find_hand_card("Resource");
-    let phase_cards = [defence_id, attack_id, resource_id];
-
-    // Play cards cycling through phases until combat ends
-    for phase_idx in 0..10000 {
-        let card_id = phase_cards[phase_idx % 3];
-        let action_json = format!(
-            r#"{{ "action_type": "EncounterPlayCard", "card_id": {} }}"#,
+        if resp.status() != Status::Ok {
+            return resp.status();
+        }
+        let cards: Vec<serde_json::Value> =
+            serde_json::from_str(&resp.into_string().unwrap_or_default()).unwrap_or_default();
+        if cards.is_empty() {
+            return Status::NotFound;
+        }
+        let card_id = cards[0]["id"].as_u64().unwrap();
+        let json = format!(
+            r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
             card_id
         );
-        let resp = client
+        client
             .post("/action")
             .header(Header {
                 name: Uncased::from("Content-Type"),
                 value: Cow::from("application/json"),
             })
-            .body(&action_json)
-            .dispatch();
-        if resp.status() != Status::Created {
-            break;
+            .body(&json)
+            .dispatch()
+            .status()
+    };
+
+    for _ in 0..80 {
+        for kind in &["Defence", "Attack", "Resource"] {
+            let status = play_card(kind);
+            if status != Status::Created {
+                break;
+            }
+            let combat_resp = client.get("/encounter").dispatch();
+            if combat_resp.status() == Status::NotFound {
+                break;
+            }
+            let combat: serde_json::Value =
+                serde_json::from_str(&combat_resp.into_string().unwrap_or_default())
+                    .unwrap_or_default();
+            if combat.get("outcome").and_then(|v| v.as_str()) != Some("Undecided") {
+                break;
+            }
         }
-        // Check if combat ended
         let combat_resp = client.get("/encounter").dispatch();
         if combat_resp.status() == Status::NotFound {
             break;
         }
+        let combat: serde_json::Value =
+            serde_json::from_str(&combat_resp.into_string().unwrap_or_default())
+                .unwrap_or_default();
+        if combat.get("outcome").and_then(|v| v.as_str()) != Some("Undecided") {
+            break;
+        }
     }
 
-    // Combat should be ended (GET /combat -> 404)
+    // Combat should be ended (GET /encounter -> 404)
     let resp = client.get("/encounter").dispatch();
     assert_eq!(resp.status(), Status::NotFound);
 

@@ -2,8 +2,8 @@ repos:
   - repo: local
     hooks:
       - id: cargo-fmt
-        name: cargo fmt --check
-        entry: bash scripts/check_fmt.sh
+        name: cargo fmt (auto-fix)
+        entry: cargo fmt
         language: system
         pass_filenames: false
         always_run: true
@@ -13,3 +13,6 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+
+# Run all hooks even if one fails — report all errors at once
+fail_fast: false

@@ -49,9 +49,9 @@ impl Library {
         {
             for cost in costs {
                 assert!(
-                    cost.cost_type != *token_type,
-                    "GainTokens cannot have a cost_type ({:?}) matching its gain token_type ({:?})",
-                    cost.cost_type,
+                    cost.token_type != *token_type,
+                    "GainTokens cannot have a token_type ({:?}) matching its gain token_type ({:?})",
+                    cost.token_type,
                     token_type
                 );
             }

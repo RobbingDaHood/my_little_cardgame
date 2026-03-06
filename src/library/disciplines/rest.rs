@@ -20,12 +20,12 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 gain_max_percent: 100,
                 costs: vec![
                     CardEffectCost {
-                        cost_type: types::TokenType::Fish,
+                        token_type: types::TokenType::Fish,
                         min_percent: 10,
                         max_percent: 30,
                     },
                     CardEffectCost {
-                        cost_type: types::TokenType::Plant,
+                        token_type: types::TokenType::Plant,
                         min_percent: 10,
                         max_percent: 30,
                     },
@@ -53,12 +53,12 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 gain_max_percent: 100,
                 costs: vec![
                     CardEffectCost {
-                        cost_type: types::TokenType::Fish,
+                        token_type: types::TokenType::Fish,
                         min_percent: 15,
                         max_percent: 35,
                     },
                     CardEffectCost {
-                        cost_type: types::TokenType::Plant,
+                        token_type: types::TokenType::Plant,
                         min_percent: 15,
                         max_percent: 35,
                     },

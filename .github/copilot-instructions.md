@@ -4,25 +4,31 @@ This file guides Copilot CLI sessions and other assistive agents working on this
 
 Build, test, and lint commands
 
-- Build: `cargo build --release` (or `cargo build` for dev).
+- **Primary validation command**: `make check` — runs formatting (auto-fix), clippy, build, and tests in one pass. Reports all errors at the end.
 - Run (development server): `cargo run` (server listens on http://localhost:8000 by default).
-- Run full test suite: `cargo test`.
-- Run a single test by name: `cargo test <test_name>` (use a substring of the test function name).
+- Run a single test by name: `cargo test <test_name>` (substring matching supported).
 - Run tests with visible output: `cargo test -- --nocapture`.
-- Lint with Clippy: `cargo clippy --all-targets --all-features -- -D warnings`.
-- Format: `cargo fmt`.
-- Use `/pre-commit-checks` skill to run all pre-commit checks.
+- Pre-commit hooks auto-run `cargo fmt` (auto-fix) and `cargo clippy` on every commit. Tests are validated via `make check`.
+- **All tests must pass before pushing code.** Never accept or commit known test failures. If a test fails, fix the test or the production code before committing. If in doubt, ask the repository owner.
+
+Key files and types (quick reference)
+
+- `src/library/types.rs` — all core types: TokenType enum, TokenAmount, CardKind, MiningCardEffect, EncounterState structs, CombatPhase, EncounterOutcome, ActionPayload
+- `src/library/game_state.rs` — GameState struct, initialization, token balances, encounter phase management, player death mechanic
+- `src/library/disciplines/` — per-discipline modules (combat.rs, mining.rs, herbalism.rs, woodcutting.rs, fishing.rs): encounter logic, card registration, conclude/finish methods
+- `src/action/mod.rs` — action handler dispatch (PlayerActions enum match)
+- `src/library/endpoints.rs` — HTTP route handlers
+- `src/lib.rs` — library entry point, route mounting
+- `src/main.rs` — binary entry, Rocket launch
+- `tests/scenario_tests.rs` — integration tests exercising full gameplay loops
+- `tests/flow_tests.rs` — combat flow integration tests
 
 High-level architecture
 
 - Project is a Rust web API built with Rocket exposing REST endpoints for cards, decks, and combat.
 - Core crates and layout:
-  - `src/lib.rs` — library entry point exposing the public API used by the binary.
-  - `src/main.rs` — binary entry that mounts Rocket routes and serves the OpenAPI/Swagger UI.
   - `src/library/` — core domain module: types, game state, combat resolution, encounter loop, token registry, action log, and HTTP endpoints.
-  - `src/combat/` — combat state endpoints and simulation.
   - `src/action/` — player action handling and request processing.
-  - `src/area_deck/` — area/encounter deck endpoints.
   - `src/player_data.rs` — player state and persistence logic.
   - `src/player_tokens.rs` — player token balance endpoint.
   - `src/status_messages.rs` — standardized API response messages.
@@ -75,7 +81,7 @@ Notes for Copilot sessions
 - Prefer reading `README.md` and `src/` modules before making changes; the README contains useful usage and testing commands.
 - When adding or changing endpoints, update both `src/lib.rs` and `src/main.rs` and add an integration test under `tests/`.
 - Keep changes minimal. 
-- Before every commit, use the `/pre-commit-checks` skill to run all required checks. Do not commit unless every check passes.
+- Before every commit, run `make check` to validate all checks pass. Pre-commit hooks provide a fast safety net (fmt + clippy) on commit.
 
 Suggest changes to vision.md and roadmap.md
 

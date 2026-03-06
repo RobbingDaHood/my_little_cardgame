@@ -10,11 +10,11 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
                 costs: vec![],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 500,
+                    cap: None,
                 }],
-                light_level_cap: 0,
             },
         },
         CardCounts {
@@ -30,11 +30,11 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
                 costs: vec![],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 300,
+                    cap: None,
                 }],
-                light_level_cap: 0,
             },
         },
         CardCounts {
@@ -49,15 +49,16 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Lumber,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Lumber,
                     amount: 15,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningLightLevel,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningLightLevel,
                     amount: 200,
+                    cap: Some(500),
                 }],
-                light_level_cap: 500,
             },
         },
         CardCounts {
@@ -76,9 +77,10 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                     initial_light_level: 300,
                     ore_deck: vec![
                         types::OreCard {
-                            damages: vec![types::GatheringCost {
-                                cost_type: types::TokenType::MiningLightLevel,
+                            damages: vec![types::TokenAmount {
+                                token_type: types::TokenType::MiningLightLevel,
                                 amount: 30,
+                                cap: None,
                             }],
                             counts: types::DeckCounts {
                                 deck: 0,
@@ -88,13 +90,15 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                         },
                         types::OreCard {
                             damages: vec![
-                                types::GatheringCost {
-                                    cost_type: types::TokenType::MiningLightLevel,
+                                types::TokenAmount {
+                                    token_type: types::TokenType::MiningLightLevel,
                                     amount: 50,
+                                    cap: None,
                                 },
-                                types::GatheringCost {
-                                    cost_type: types::TokenType::MiningDurability,
+                                types::TokenAmount {
+                                    token_type: types::TokenType::MiningDurability,
                                     amount: 100,
+                                    cap: None,
                                 },
                             ],
                             counts: types::DeckCounts {
@@ -104,9 +108,10 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                             },
                         },
                         types::OreCard {
-                            damages: vec![types::GatheringCost {
-                                cost_type: types::TokenType::MiningDurability,
+                            damages: vec![types::TokenAmount {
+                                token_type: types::TokenType::MiningDurability,
                                 amount: 200,
+                                cap: None,
                             }],
                             counts: types::DeckCounts {
                                 deck: 0,
@@ -115,9 +120,10 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                             },
                         },
                         types::OreCard {
-                            damages: vec![types::GatheringCost {
-                                cost_type: types::TokenType::Health,
+                            damages: vec![types::TokenAmount {
+                                token_type: types::TokenType::Health,
                                 amount: 75,
+                                cap: None,
                             }],
                             counts: types::DeckCounts {
                                 deck: 0,
@@ -141,15 +147,16 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 100,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 800,
+                    cap: None,
                 }],
-                light_level_cap: 0,
             },
         },
         CardCounts {
@@ -164,15 +171,16 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 200,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 600,
+                    cap: None,
                 }],
-                light_level_cap: 0,
             },
         },
         CardCounts {
@@ -187,15 +195,16 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 300,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningPower,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
                     amount: 1000,
+                    cap: None,
                 }],
-                light_level_cap: 0,
             },
         },
         CardCounts {
@@ -210,15 +219,16 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
     lib.add_card(
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Lumber,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Lumber,
                     amount: 25,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::MiningLightLevel,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningLightLevel,
                     amount: 350,
+                    cap: Some(600),
                 }],
-                light_level_cap: 600,
             },
         },
         CardCounts {
@@ -234,11 +244,11 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
         CardKind::Mining {
             mining_effect: types::MiningCardEffect {
                 costs: vec![],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 200,
+                    cap: None,
                 }],
-                light_level_cap: 0,
             },
         },
         CardCounts {
@@ -277,19 +287,19 @@ impl GameState {
         crate::library::game_state::deck_shuffle_hand(rng, &mut ore_deck);
 
         // Initialize encounter-scoped tokens
-        let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
-        self.token_balances
-            .insert(light_key, mining_def.initial_light_level);
-        let yield_key = types::Token::persistent(types::TokenType::MiningYield);
-        self.token_balances.insert(yield_key, 0);
-        let power_key = types::Token::persistent(types::TokenType::MiningPower);
-        self.token_balances.insert(power_key, 0);
+        let mut encounter_tokens = std::collections::HashMap::new();
+        encounter_tokens.insert(
+            types::Token::persistent(types::TokenType::MiningLightLevel),
+            mining_def.initial_light_level,
+        );
+        encounter_tokens.insert(types::Token::persistent(types::TokenType::MiningYield), 0);
 
         let state = MiningEncounterState {
             round: 1,
             encounter_card_id,
             outcome: EncounterOutcome::Undecided,
             ore_deck,
+            encounter_tokens,
         };
         self.current_encounter = Some(EncounterState::Mining(state));
         self.encounter_phase = types::EncounterPhase::InEncounter;
@@ -317,31 +327,36 @@ impl GameState {
         // Check and deduct pre-play costs (stamina, lumber etc.)
         Self::check_and_deduct_gathering_costs(&mining_effect.costs, &mut self.token_balances)?;
 
-        // Process gains by token type
+        // Process gains using encounter tokens for encounter-scoped values
+        let encounter_tokens = match &mut self.current_encounter {
+            Some(EncounterState::Mining(m)) => &mut m.encounter_tokens,
+            _ => return Err("No active mining encounter".to_string()),
+        };
         for gain in &mining_effect.gains {
-            match gain.cost_type {
+            match gain.token_type {
                 types::TokenType::MiningPower => {
                     // yield += mining_power × light_level / 100
                     let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
-                    let light_level = self.token_balances.get(&light_key).copied().unwrap_or(0);
+                    let light_level = encounter_tokens.get(&light_key).copied().unwrap_or(0);
                     let yield_increase = gain.amount * light_level / 100;
                     let yield_key = types::Token::persistent(types::TokenType::MiningYield);
-                    let yield_val = self.token_balances.entry(yield_key).or_insert(0);
+                    let yield_val = encounter_tokens.entry(yield_key).or_insert(0);
                     *yield_val += yield_increase;
                 }
                 types::TokenType::MiningLightLevel => {
-                    // Increase light level with cap
                     let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
-                    let light_val = self.token_balances.entry(light_key).or_insert(0);
-                    *light_val += gain.amount;
-                    if mining_effect.light_level_cap > 0 {
-                        *light_val = (*light_val).min(mining_effect.light_level_cap);
+                    let light_val = encounter_tokens.entry(light_key).or_insert(0);
+                    if let Some(cap) = gain.cap {
+                        let capped_gain = (cap - *light_val).max(0).min(gain.amount);
+                        *light_val += capped_gain;
+                    } else {
+                        *light_val += gain.amount;
                     }
                 }
                 _ => {
-                    // Direct token addition (e.g., Stamina)
+                    // Direct token addition to player balances (e.g., Stamina)
                     let entry =
-                        types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
+                        types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
                     *entry += gain.amount;
                 }
             }
@@ -386,11 +401,21 @@ impl GameState {
             mining.ore_deck[played_idx].damages.clone()
         };
 
-        // Apply each damage to player tokens
+        // Apply damages: encounter-scoped tokens go to encounter state, others to player balances
         for damage in &damages {
-            let key = types::Token::persistent(damage.cost_type.clone());
-            let val = self.token_balances.entry(key).or_insert(0);
-            *val = (*val - damage.amount).max(0);
+            let key = types::Token::persistent(damage.token_type.clone());
+            match damage.token_type {
+                types::TokenType::MiningLightLevel | types::TokenType::MiningYield => {
+                    if let Some(EncounterState::Mining(m)) = &mut self.current_encounter {
+                        let val = m.encounter_tokens.entry(key).or_insert(0);
+                        *val = (*val - damage.amount).max(0);
+                    }
+                }
+                _ => {
+                    let val = self.token_balances.entry(key).or_insert(0);
+                    *val = (*val - damage.amount).max(0);
+                }
+            }
         }
 
         // Ore draws a card
@@ -412,15 +437,16 @@ impl GameState {
 
     /// Conclude a mining encounter voluntarily: reward = min(stamina, yield) ore tokens.
     pub fn conclude_mining_encounter(&mut self) -> Result<(), String> {
-        match &self.current_encounter {
-            Some(EncounterState::Mining(m)) if m.outcome == EncounterOutcome::Undecided => {}
+        let mining_yield = match &self.current_encounter {
+            Some(EncounterState::Mining(m)) if m.outcome == EncounterOutcome::Undecided => {
+                let yield_key = types::Token::persistent(types::TokenType::MiningYield);
+                m.encounter_tokens.get(&yield_key).copied().unwrap_or(0)
+            }
             _ => return Err("No active mining encounter to conclude".to_string()),
-        }
+        };
 
         let stamina_key = types::Token::persistent(types::TokenType::Stamina);
-        let yield_key = types::Token::persistent(types::TokenType::MiningYield);
         let stamina = self.token_balances.get(&stamina_key).copied().unwrap_or(0);
-        let mining_yield = self.token_balances.get(&yield_key).copied().unwrap_or(0);
         let reward = stamina.min(mining_yield);
 
         // Deduct stamina cost
@@ -437,7 +463,8 @@ impl GameState {
         Ok(())
     }
 
-    /// Finalize a mining encounter: clean up encounter-scoped tokens, record outcome.
+    /// Finalize a mining encounter: record outcome. Encounter-scoped tokens are
+    /// automatically dropped with the encounter state.
     pub(crate) fn finish_mining_encounter(&mut self, is_win: bool) {
         let outcome = if is_win {
             EncounterOutcome::PlayerWon
@@ -448,16 +475,7 @@ impl GameState {
         self.encounter_results.push(outcome);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
-
-        // Clean up encounter-scoped tokens
-        self.token_balances.insert(
-            types::Token::persistent(types::TokenType::MiningLightLevel),
-            0,
-        );
-        self.token_balances
-            .insert(types::Token::persistent(types::TokenType::MiningYield), 0);
-        self.token_balances
-            .insert(types::Token::persistent(types::TokenType::MiningPower), 0);
+        self.check_player_death();
     }
 
     /// Draw one player mining card from deck to hand, recycling discard if needed.

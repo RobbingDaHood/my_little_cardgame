@@ -475,7 +475,7 @@ Roadmap steps
      - `EncounterKind::Rest` is a unit variant (no encounter-internal definition needed).
    - Implementation: Completed with `CardKind::Rest { effects, rest_token_cost }`, `RestEncounterState { rest_tokens }`, `RestToken`/`RestMaxHand` token types, rest.rs discipline module (`register_rest_cards`, `start_rest_encounter`, `resolve_rest_card_play`, `abort_rest_encounter`, `complete_rest_encounter`), action handler integration, replay support, and scenario test. Old types removed: `RestCard`, `RestDef`, `RestCardEffectTemplate`, `RestCostRange`, `RestRecoveryRange`, `ConcreteRestRecovery`.
 
-9.5) Better Mining redesign
+9.5) Better Mining redesign — ✅ COMPLETED
    - Goal: Redesign the mining encounter to be about maintaining a light level while mining for yield, creating a risk-vs-reward pacing mechanic where the player decides when to stop.
    - Description:
      - **Core loop**: The player manages three resources during a mining encounter: light level, yield, and stamina. The player can conclude the encounter at any point; the reward is `min(stamina, yield)` and concluding costs that amount of stamina.
@@ -485,24 +485,10 @@ Roadmap steps
      - **No enemy health**: The enemy has no health and cannot be killed. The player can only win by ending the encounter. The player loses by running out of durability or having all hand cards unpayable.
      - **Mining power → yield**: When the player plays a "mining power" card (renamed from "damage"), a yield token is accumulated: `yield += mining_power × light_level / 100`. Higher light level means more yield per card played.
      - **Enemy CardEffects**: Because there is no enemy entity to fight, enemy cards cannot have CardEffects that cost stamina. The enemy does have rare cards that remove a small amount of the player's health.
-   - Implementation checklist:
-     1. Add `MiningLightLevel` token type (initial value 300 per encounter).
-     2. Add `MiningYield` token type (accumulates during encounter).
-     3. Rename mining "damage" to "mining power" in CardEffects and API responses.
-     4. Implement yield calculation: `mining_power × light_level / 100` on mining power card play.
-     5. Add "conclude mining" player action: reward = `min(stamina, yield)`, costs that stamina.
-     6. Remove enemy health from mining encounters; remove enemy stamina-cost CardEffects.
-     7. Add enemy CardEffects that reduce light level (with and without durability damage).
-     8. Add player CardEffects that increase light level. Each light-level-granting effect should:
-        - Have a max cap rolled first, then gain as a percentage of that cap (consistent with all other gain effects).
-        - Also have a cost in a small amount of wood tokens, proportional to the gain.
-     9. Add rare enemy CardEffects that remove small amounts of player health.
-     10. Update mining scenario tests for new mechanics.
-   - Playable acceptance: Mining encounter starts with light level 300, player plays mining power cards to accumulate yield, player concludes encounter and receives `min(stamina, yield)` ore tokens (costing that stamina). Enemy cards reduce light level and durability. Scenario test passes.
-   - Open items: Define concrete min/max ranges for light level cap, gain percentage, and wood token cost amounts when implementing.
    - Implementation: Completed. Mining now uses a fully token-based system: `MiningCardEffect` has `costs`/`gains` (Vec<GatheringCost>) and `light_level_cap`; `OreCard` has `damages` (Vec<GatheringCost>). `MiningDef` has `initial_light_level` (300) and `ore_deck`. New token types: `MiningLightLevel`, `MiningYield`, `MiningPower` (all encounter-scoped, reset to 0 on encounter end). Yield formula: `mining_power × light_level / 100`. Conclude action: `EncounterConcludeEncounter` grants `min(stamina, yield)` Ore tokens. Loss conditions: `MiningDurability ≤ 0` or all hand cards unpayable. 8 player mining cards (power, light, rest varieties) + 1 encounter definition. All scenario tests pass.
+   - **Post-cleanup summary (Step 9.5 post-cleanup pass):** This step included a significant cleanup pass affecting areas beyond mining: token restructuring (TokenType enum consolidation, encounter-scoped token migration from global token_balances to encounter_tokens), player death mechanic implementation (material reset, Health/Stamina restore, PlayerDeaths counter), EncounterConcludeEncounter standardized across all gathering disciplines (Mining, Herbalism, Woodcutting, Fishing), dynamic test ID migration (tests no longer rely on hardcoded card IDs), and documentation updates (vision.md/roadmap.md consolidation).
 
-9) Crafting encounters and discipline
+9.6) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
    - Description: A crafting encounter provides a pool of "Crafting tokens" (initially ~10) that the player spends on various crafting actions:
      - 1 token: Replace a card between the deck/discard pile and the library. Choose two cards: one moves from deck/discard to library, and the other does the opposite. Cannot move from hand. Only applies to player cards, not area/encounter cards. Cards must be available for swap.
@@ -523,6 +509,7 @@ Roadmap steps
 
 10) Research encounters and card discovery
    - Goal: Implement Research as a first-class encounter type where players invest Insight tokens to discover and create new cards for their library.
+   - **Implementation note**: Insight infrastructure is already partially in place — `MilestoneInsight` and `Insight` token types exist in the TokenType enum. The CardEffectKind::Insight variant and discipline tags remain to be implemented.
    - Description:
      - **CardEffect discipline tags**: Every CardEffect has a set of discipline tags (e.g., Combat, Mining, Herbalism, Woodcutting, Fishing) that determine which card types can use that effect. This enables effects to be shared across disciplines when appropriate.
        - Generalize the "Durability" card effects so they can be used across all gathering mechanics. When a durability card effect is played, the discipline context of the encounter determines which durability pool (MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability) is affected.
@@ -577,62 +564,72 @@ Roadmap steps
    - Playable acceptance: After an encounter, X scouting options are generated and presented. Player must choose one. The selected encounter replaces the original in the Library. Scenario tests verify the scouting flow.
    - Notes: Keep initial choices small and data-driven. Up to this point all encounters just added the same encounter back into the encounter Library with no changes.
 
-11.5) Gathering balance pass
-   - Goal: After all gathering disciplines, research, and post-encounter scouting are implemented, perform a dedicated balance and tuning pass.
-   - Description:
-     - Normalize durability init values (all currently 100 — may need differentiation per discipline).
-     - Balance reward token amounts across disciplines (Ore, Plant, Lumber, Fish should have comparable value-per-encounter).
-     - Tune encounter card counts and difficulty distributions.
-     - Balance Insight generation rates and research costs across disciplines.
-     - Add cross-discipline scenario tests (e.g., mine then herbalism then combat then research in sequence).
-     - Post-9.3 balance: review handsize tokens (now defaulting to 5), cap values, and cost card tuning introduced in 9.3. Ensure the cost/benefit ratio across disciplines feels fair after the expanded CardEffects.
-     - Rest card balance: current rest card templates use aggressive recovery values (Stamina cap 400-600, Health cap 300-400). Play-test and adjust if they trivialize stamina management.
-     - Percentage-based cost rebalancing: the percentage-of-gain cost system means stronger cards (higher gain values) automatically cost more material. Tune cost percentages across all GainTokens effects to ensure the cost/benefit curve feels fair.
-   - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs. Research costs are proportional to card power.
+12) Finalize edge cases for a repeatable loop and concurrency
+   - Goal: Make the loop robust: reshuffle/renew rules, player death and recovery, encounter exhaustion and replacement guarantees, and multi-session concurrency safety.
+   - **Implementation note**: Player death and recovery is now implemented (Step 9.5 post-cleanup). When Health ≤ 0: gathering materials reset to 0, Health/Stamina restore to 1000, PlayerDeaths incremented, cards preserved. Remaining work: deck exhaustion/reshuffle edge cases, encounter replacement guarantees, concurrency controls, and save/load mechanics.
+   - Description: Add tests for deck exhaustion/reshuffle, rules for encounter removal+replacement when decks empty, and concurrency controls for per-session Library encounter mutations.
+   - **No file persistence on the server**: The server must not persist any game state to disk. All state lives in memory for the duration of a session.
+   - **Save games via action log**: Players can query the full action log (`/actions/log`) and store it locally together with the game version code and the initial seed. This is the canonical "save game" format.
+     - Expose a unique version code for each compiled game (e.g., a build hash or semantic version) via a dedicated endpoint (e.g., `/version`). This ensures saved action logs are replayed against the correct game binary.
+     - Players can "load" any saved game by providing the action log, seed, and version to the server, which replays all actions to reconstruct the full game state.
+     - Ensure this load/replay flow is achievable through existing or new endpoints.
+     - **Action log size estimation**: Estimate how large an action log could grow in a typical long session (e.g., 500+ encounters). Evaluate whether loading via a single "load game" player action is viable or whether a dedicated POST endpoint that accepts the action log as a file payload is needed. Document the size thresholds and recommendation.
+   - Playable acceptance: A session can play multiple encounters in sequence without violating invariants; action logs provide a full replay and tests pass. Save/load round-trips work correctly.
+   - Notes: Add minimal instrumentation to spot-check correct replacement and token lifecycles.
 
-12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
+13) Milestone encounters
+   - Goal: Implement milestone encounters as the primary progression system tied to CardEffects.
+   - **Implementation note**: The `PlayerDeaths` token (incremented on each death) could factor into milestone difficulty scaling — e.g., milestones become harder after more deaths, or certain milestones unlock only after surviving a death threshold.
+   - Description:
+     - Each interesting CardEffect has a corresponding milestone encounter.
+     - When a milestone is beaten, a more powerful version of the milestone is created that rewards the next tier of that CardEffect.
+     - Some milestones reward tokens like "max hand size" increases.
+     - Some milestones require beating other milestones first to obtain a "token key" prerequisite.
+     - A full list of CardEffects eligible for milestones will be compiled when this step begins.
+   - Playable acceptance: Players can play milestone encounters, earn rewards, unlock higher tiers, and prerequisite chains work correctly.
+   - Notes: Start with a small set of milestones to prove the system before expanding to all CardEffects.
+
+14) Configuration externalization
+   - Goal: Move all game configuration into JSON files loaded at compile time.
+   - **Implementation note**: The current card registration pattern is hardcoded in Rust discipline modules (`src/library/disciplines/combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`). Each module calls `register_*` functions to add CardEffect templates and cards to the Library. This is the specific code being externalized into JSON configuration files.
+   - Description:
+     - All initial library cards, tokens, and other configuration are defined in JSON files.
+     - A new `configurations/` folder at the repository root organizes config by discipline and a general section.
+     - Structure: `configurations/general/`, `configurations/mining/`, `configurations/herbalism/`, `configurations/woodcutting/`, `configurations/fishing/`, `configurations/combat/`, `configurations/crafting/`, etc.
+     - Configuration is baked into the compiled binary — a compiled game cannot change these values, but developers can adjust them before compiling.
+   - Playable acceptance: All card definitions, initial token values, and encounter parameters come from JSON config files. Changing a config file and recompiling produces a game with the updated values.
+   - Notes: This enables designers to tweak game balance without touching Rust code.
+
+15) UX polish, documentation, tools for designers, and release
+   - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors. Anyone should be able to play the game solely with the exposed documentation.
+   - Description: Add designer tooling for encounter/CardEffect creation, telemetry for balancing, and example playthroughs demonstrating reproducibility from seed+action-log.
+   - **New-player tutorial endpoint**: Expose a tutorial for new players at an endpoint (e.g., `/docs/tutorial`), linked from the README.md as a running-server URL. The tutorial should walk a new player through their first game session.
+   - **Rich OpenAPI specification**: The OpenAPI/Swagger documentation should go beyond simple endpoint specifications — it should convey the general mentality and strategic purpose of each discipline and action. Descriptions should explain *why* a player would use an endpoint, not just *what* it does.
+   - **Hints and strategies page**: Expose a "hints" endpoint (e.g., `/docs/hints`) with good strategies, common pitfalls, and tips for each discipline. This helps players discover interesting gameplay patterns.
+   - **Self-sufficient documentation goal**: The combined documentation (tutorial + OpenAPI + hints) must be comprehensive enough that anyone can play the game solely with this documentation, without needing external guides or source code access.
+   - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
+   - Notes: Tag a release and include release notes linking vision to implemented features.
+
+16) Balancing setup
+   - Goal: Establish automated tools and processes for balance testing and tuning.
+   - Description:
+     - Define balancing goals for each discipline.
+     - Build a mutating runner that tries different strategies and documents whether they are all viable for reaching specific goals, ensuring multiple paths to victory.
+     - Scope initially to balancing each discipline individually: verify multiple strategies per discipline are viable and interesting.
+     - Define expected outcomes per encounter per tier and expected fail/success rates.
+     - Run the balancing tools and collect data.
+     - Analyze data and make adjustments.
+   - Playable acceptance: Automated balance runners produce data showing strategy viability across disciplines. Results inform configuration adjustments.
+   - Notes: Keep the runner deterministic (seeded) for reproducible balance analysis.
+
+Ideas and future possibilities
+------------------------------
+Implement Trading and Merchants (MerchantOffers + Barter workflow)
    - Goal: Model merchants as decks (MerchantOffers, Barter) and deterministic merchant interactions that mirror vision.md's barter mechanics.
    - Description: Implement MerchantOffers deck and Barter deck support. Merchant interactions deterministically draw a MerchantOfferPool, present offers, then draw MerchantBargainDraw barter cards and allow choosing up to MerchantLeverage to modify the selected offer. Barter cards can change offered_token, requested_token, rate, fee, or attach conditions. All draws, choices, and resulting token transfers are recorded in the ActionLog so merchant interactions are reproducible.
    - Playable acceptance: A /merchant/{id}/visit endpoint returns deterministic offers derived from the session seed; applying barter choices updates player tokens and is recorded.
    - Notes: Start with a single merchant and simple barter cards; expand to dynamic merchant inventory later.
-
-13) Finalize edge cases for a repeatable loop and concurrency
-   - Goal: Make the loop robust: reshuffle/renew rules, player death and recovery, encounter exhaustion and replacement guarantees, and multi-session concurrency safety.
-   - Description: Add tests for deck exhaustion/reshuffle, rules for encounter removal+replacement when decks empty, and concurrency controls for per-session Library encounter mutations.
-   - Playable acceptance: A session can play multiple encounters in sequence without violating invariants; action logs provide a full replay and tests pass.
-   - Notes: Add minimal instrumentation to spot-check correct replacement and token lifecycles.
-
-14) Add persistent player progression, library-driven deck-building, and upgrades
-   - Goal: Add persistence for player state, deck composition, tokens, and a simple upgrade/shop flow; allow adding Library cards to player decks subject to constraints.
-   - Description: Implement file-backed or DB-backed player-store, endpoints for deck-editing, and a small upgrade flow that consumes tokens to unlock Library cards or add copies to decks.
-   - Playable acceptance: Player progress persists across runs; players can add Library items to decks and token spends are recorded in the ActionLog.
-   - Notes: Keep persistence implementation pluggable and optional for tests.
-
-
-15) Add resource management, camp mechanics, and short-term tokens
-   - Goal: Add resources (Rations, Durability, Exhaustion) and camp actions (rest, craft, short-scout) that consume or restore resources and interact with scouting/replacement.
-   - Description: Implement resource counters with lifecycle types and camp endpoints that modify player/discipline state and log actions.
-   - Playable acceptance: Camp endpoint effects are visible in subsequent encounters and token lifecycles behave as specified.
-   - Notes: Keep resource pools constrained to create meaningful trade-offs.
-
-16) Implement varied enemy AI, conditional card effects, and targeting
-   - Goal: Add enemy behaviors and richer card effect syntax (conditions, triggers, target selectors) while keeping deterministic resolution and action logging.
-   - Description: Provide behavior profiles for enemies and expand the card schema; cover interactions with momentum, status tokens, and conditional triggers.
-     - Enemy AI cost awareness: Currently enemies pick cards randomly regardless of costs (deferred from 9.3). This step should include making enemies check cost affordability when selecting cards, falling back to random if none are affordable.
-   - Playable acceptance: New cards and behaviors are playable and deterministic given the same seed; unit tests cover conditional resolution.
-   - Notes: Keep scripting sandboxed and composable.
-
-17) Introduce persistent world/meta-progression and milestone systems
-   - Goal: Track area clears, milestones, and unlocks; implement milestone rewards that grant CardEffect-Choice/CardEffect-Picks and long-lived tokens.
-   - Description: Persist campaign state, add milestone flows, and ensure progression tokens are granted and recorded in the ActionLog.
-   - Playable acceptance: A simple campaign unlock path is playable and tokens/unlocks persist across sessions.
-   - Notes: Provide tools for resetting campaigns for testing.
-
-18) UX polish, documentation, tools for designers, and release
-   - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors.
-   - Description: Add designer tooling for encounter/CardEffect creation, telemetry for balancing, and example playthroughs demonstrating reproducibility from seed+action-log.
-   - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
-   - Notes: Tag a release and include release notes linking vision to implemented features.
+   - Note: We need to determine both whether trading is needed for the game loop and what the unique gameplay of the barter mini-game should be before implementing.
 
 Implementation guidelines and priorities
 --------------------------------------
@@ -687,4 +684,14 @@ Known game design gaps (future)
 --------------------------------
 - ~~**Health initialization gap:**~~ Resolved — Health token is now set to 1000 at game start in `new_with_rng()`.
 - **Rest token progression:** Currently 1–2 rest tokens per encounter are hardcoded. Future upgrades could grant more rest tokens per encounter, making rest more powerful as the game progresses. This parallels how other disciplines improve through card effects and MaxHand increases. Could be gated behind milestones or research.
+
+Technical debt and cleanup tracking
+------------------------------------
+Items that accumulate during development and should be addressed periodically:
+
+- **Hardcoded card IDs in tests:** Tests that use hardcoded card IDs (e.g., `card_id: 11`) break when card registration order changes. Prefer dynamic ID discovery via API queries. Scenario tests now use dynamic IDs; some older flow/resolve tests may still have fragile ID references.
+- **Outdated type names in docs:** As types are renamed or restructured (e.g., `GatheringCost` → `TokenAmount`, `durability_cost` → `costs`), documentation and comments may lag behind. Periodic sweeps should update stale references.
+- **Undocumented encounter patterns:** When new encounter types or patterns are added, they should be documented in vision.md (encounter template section) and tested with scenario tests. Gaps between implementation and documentation accumulate as tech debt.
+- **unwrap() calls in production code:** Currently 5 `unwrap()` calls exist in `src/action/persistence.rs` and `src/library/game_state.rs`. These should be replaced with proper error handling over time per the no-unwrap policy.
+- **Test endpoint dependency:** Some tests in `tests/flow_tests.rs` and `tests/resolve_play_tests.rs` still use `/tests/combat` instead of production endpoints. Track and migrate these as features make test endpoints redundant.
 

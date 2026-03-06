@@ -10,9 +10,10 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
         CardKind::Fishing {
             fishing_effect: types::FishingCardEffect {
                 values: vec![200],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -30,9 +31,10 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
         CardKind::Fishing {
             fishing_effect: types::FishingCardEffect {
                 values: vec![400],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -50,9 +52,10 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
         CardKind::Fishing {
             fishing_effect: types::FishingCardEffect {
                 values: vec![700],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -128,13 +131,15 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
         CardKind::Fishing {
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingRangeMin,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingRangeMin,
                     amount: -150,
+                    cap: None,
                 }],
             },
         },
@@ -151,13 +156,15 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
         CardKind::Fishing {
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingRangeMax,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingRangeMax,
                     amount: 150,
+                    cap: None,
                 }],
             },
         },
@@ -175,23 +182,27 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             fishing_effect: types::FishingCardEffect {
                 values: vec![100, 350, 600],
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 150,
+                        cap: None,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::FishingDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::FishingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::FishingRangeMin,
+                    types::TokenAmount {
+                        token_type: types::TokenType::FishingRangeMin,
                         amount: 50,
+                        cap: None,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::FishingRangeMax,
+                    types::TokenAmount {
+                        token_type: types::TokenType::FishingRangeMax,
                         amount: -50,
+                        cap: None,
                     },
                 ],
             },
@@ -209,13 +220,15 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
         CardKind::Fishing {
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishAmount,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishAmount,
                     amount: 1,
+                    cap: None,
                 }],
             },
         },
@@ -233,18 +246,21 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             fishing_effect: types::FishingCardEffect {
                 values: vec![150, 400, 650],
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 100,
+                        cap: None,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::FishingDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::FishingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishAmount,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishAmount,
                     amount: -1,
+                    cap: None,
                 }],
             },
         },
@@ -261,13 +277,15 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
         CardKind::Fishing {
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
-                costs: vec![types::GatheringCost {
-                    cost_type: types::TokenType::FishingDurability,
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::FishingDurability,
                     amount: 50,
+                    cap: None,
                 }],
-                gains: vec![types::GatheringCost {
-                    cost_type: types::TokenType::Stamina,
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
                     amount: 200,
+                    cap: None,
                 }],
             },
         },
@@ -285,13 +303,15 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
             fishing_effect: types::FishingCardEffect {
                 values: vec![50, 250, 500, 750],
                 costs: vec![
-                    types::GatheringCost {
-                        cost_type: types::TokenType::Stamina,
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
                         amount: 200,
+                        cap: None,
                     },
-                    types::GatheringCost {
-                        cost_type: types::TokenType::FishingDurability,
+                    types::TokenAmount {
+                        token_type: types::TokenType::FishingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![],
@@ -331,17 +351,17 @@ impl GameState {
         };
         let mut fish_deck = fishing_def.fish_deck;
         crate::library::game_state::deck_shuffle_hand(rng, &mut fish_deck);
-        // Initialize fishing tokens (encounter-scoped, stored in player token_balances)
-        self.token_balances.insert(
+        // Initialize encounter-scoped tokens
+        let mut encounter_tokens = std::collections::HashMap::new();
+        encounter_tokens.insert(
             types::Token::persistent(types::TokenType::FishingRangeMin),
             fishing_def.valid_range_min,
         );
-        self.token_balances.insert(
+        encounter_tokens.insert(
             types::Token::persistent(types::TokenType::FishingRangeMax),
             fishing_def.valid_range_max,
         );
-        self.token_balances
-            .insert(types::Token::persistent(types::TokenType::FishAmount), 1);
+        encounter_tokens.insert(types::Token::persistent(types::TokenType::FishAmount), 1);
         let state = types::FishingEncounterState {
             round: 1,
             encounter_card_id,
@@ -353,6 +373,7 @@ impl GameState {
             valid_range_max: fishing_def.valid_range_max,
             fish_deck,
             rewards: fishing_def.rewards,
+            encounter_tokens,
         };
         self.current_encounter = Some(EncounterState::Fishing(state));
         self.encounter_phase = types::EncounterPhase::InEncounter;
@@ -376,7 +397,7 @@ impl GameState {
         };
 
         // Split costs into pre-play (reject if unaffordable) and post-play (durability)
-        let (pre_play_costs, post_play_costs) = types::split_gathering_costs(&fishing_effect.costs);
+        let (pre_play_costs, post_play_costs) = types::split_token_amounts(&fishing_effect.costs);
         if !pre_play_costs.is_empty() {
             Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
         }
@@ -384,7 +405,7 @@ impl GameState {
         // Deduct durability costs (depletes encounter, doesn't reject card)
         let mut durability_depleted = false;
         for cost in &post_play_costs {
-            let key = types::Token::persistent(cost.cost_type.clone());
+            let key = types::Token::persistent(cost.token_type.clone());
             let durability = self.token_balances.entry(key).or_insert(0);
             *durability = (*durability - cost.amount).max(0);
             if *durability <= 0 {
@@ -397,10 +418,24 @@ impl GameState {
             return Ok(());
         }
 
-        // Apply gains
+        // Apply gains: encounter-scoped tokens go to encounter state, others to player balances
         for gain in &fishing_effect.gains {
-            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.cost_type);
-            *entry += gain.amount;
+            match gain.token_type {
+                types::TokenType::FishingRangeMin
+                | types::TokenType::FishingRangeMax
+                | types::TokenType::FishAmount => {
+                    if let Some(EncounterState::Fishing(f)) = &mut self.current_encounter {
+                        let key = types::Token::persistent(gain.token_type.clone());
+                        let entry = f.encounter_tokens.entry(key).or_insert(0);
+                        *entry += gain.amount;
+                    }
+                }
+                _ => {
+                    let entry =
+                        types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
+                    *entry += gain.amount;
+                }
+            }
         }
 
         // If card has no values, skip the fishing duel (utility-only card)
@@ -431,16 +466,24 @@ impl GameState {
             return Ok(());
         }
 
-        // Read current range from tokens
-        let valid_min =
-            types::token_balance_by_type(&self.token_balances, &types::TokenType::FishingRangeMin);
-        let valid_max =
-            types::token_balance_by_type(&self.token_balances, &types::TokenType::FishingRangeMax);
-
-        // Determine fish amount for this turn
-        let fish_amount =
-            types::token_balance_by_type(&self.token_balances, &types::TokenType::FishAmount)
-                .max(1);
+        // Read current range and fish amount from encounter tokens
+        let (valid_min, valid_max, fish_amount) = match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) => {
+                let min_key = types::Token::persistent(types::TokenType::FishingRangeMin);
+                let max_key = types::Token::persistent(types::TokenType::FishingRangeMax);
+                let amount_key = types::Token::persistent(types::TokenType::FishAmount);
+                (
+                    f.encounter_tokens.get(&min_key).copied().unwrap_or(0),
+                    f.encounter_tokens.get(&max_key).copied().unwrap_or(0),
+                    f.encounter_tokens
+                        .get(&amount_key)
+                        .copied()
+                        .unwrap_or(1)
+                        .max(1),
+                )
+            }
+            _ => return Err("No active fishing encounter".to_string()),
+        };
 
         // Auto-resolve fish play: pick random fish card from hand
         let fish_value = Self::fish_play_random(rng, &mut self.current_encounter);
@@ -528,6 +571,20 @@ impl GameState {
             }
             None => 0,
         }
+    }
+
+    /// Conclude a fishing encounter voluntarily: grant rewards if any accumulated.
+    pub fn conclude_fishing_encounter(&mut self) -> Result<(), String> {
+        match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) if f.outcome == EncounterOutcome::Undecided => {
+                if f.rewards.values().all(|&v| v <= 0) {
+                    return Err("No rewards accumulated; abort the encounter instead".to_string());
+                }
+            }
+            _ => return Err("No active fishing encounter to conclude".to_string()),
+        }
+        self.finish_fishing_encounter(true);
+        Ok(())
     }
 
     fn finish_fishing_encounter(&mut self, is_win: bool) {

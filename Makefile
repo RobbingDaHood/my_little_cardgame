@@ -1,4 +1,7 @@
-.PHONY: coverage
+.PHONY: coverage check
+
+check:
+	bash scripts/check_all.sh
 
 coverage:
 	rustup component add llvm-tools-preview

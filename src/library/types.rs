@@ -36,8 +36,6 @@ pub enum TokenType {
     Plant,
     Lumber,
     Fish,
-    // Encounter-scoped tokens
-    OreHealth,
     // Max handsize tokens (player decks)
     AttackMaxHand,
     DefenceMaxHand,
@@ -63,6 +61,8 @@ pub enum TokenType {
     // Rest encounter tokens
     RestToken,
     RestMaxHand,
+    // Death tracking
+    PlayerDeaths,
 }
 
 /// All known token types.
@@ -91,7 +91,6 @@ impl TokenType {
             TokenType::Plant,
             TokenType::Lumber,
             TokenType::Fish,
-            TokenType::OreHealth,
             TokenType::AttackMaxHand,
             TokenType::DefenceMaxHand,
             TokenType::ResourceMaxHand,
@@ -108,10 +107,17 @@ impl TokenType {
             TokenType::FishAmount,
             TokenType::MiningLightLevel,
             TokenType::MiningYield,
-            TokenType::MiningPower,
             TokenType::RestToken,
             TokenType::RestMaxHand,
+            TokenType::PlayerDeaths,
         ]
+    }
+
+    pub fn is_gathering_material(&self) -> bool {
+        matches!(
+            self,
+            TokenType::Ore | TokenType::Plant | TokenType::Lumber | TokenType::Fish
+        )
     }
 
     pub fn is_durability_cost(&self) -> bool {
@@ -127,15 +133,15 @@ impl TokenType {
 
 /// Split gathering costs into pre-play costs (reject card if unaffordable)
 /// and post-play costs (durability — deplete encounter after play).
-pub fn split_gathering_costs(costs: &[GatheringCost]) -> (Vec<GatheringCost>, Vec<GatheringCost>) {
+pub fn split_token_amounts(costs: &[TokenAmount]) -> (Vec<TokenAmount>, Vec<TokenAmount>) {
     let pre_play = costs
         .iter()
-        .filter(|c| !c.cost_type.is_durability_cost())
+        .filter(|c| !c.token_type.is_durability_cost())
         .cloned()
         .collect();
     let post_play = costs
         .iter()
-        .filter(|c| c.cost_type.is_durability_cost())
+        .filter(|c| c.token_type.is_durability_cost())
         .cloned()
         .collect();
     (pre_play, post_play)
@@ -205,7 +211,7 @@ pub enum CardEffectKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CardEffectCost {
-    pub cost_type: TokenType,
+    pub token_type: TokenType,
     pub min_percent: u32,
     pub max_percent: u32,
 }
@@ -230,16 +236,19 @@ pub struct ConcreteEffect {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct ConcreteEffectCost {
-    pub cost_type: TokenType,
+    pub token_type: TokenType,
     pub rolled_percent: u32,
 }
 
-/// Fixed-amount cost used by gathering discipline cards.
+/// A fixed amount of a token type, used in costs and gains of gathering discipline cards.
+/// When used as a gain, `cap` limits the maximum accumulated value of this token type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
-pub struct GatheringCost {
-    pub cost_type: TokenType,
+pub struct TokenAmount {
+    pub token_type: TokenType,
     pub amount: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cap: Option<i64>,
 }
 
 /// Who a card effect targets.
@@ -322,16 +331,14 @@ pub enum CardKind {
 /// Inline effect for Mining discipline cards.
 /// All effects expressed through token-based costs/gains vectors.
 /// Resolution logic interprets gain token types: MiningPower triggers yield formula,
-/// MiningLightLevel triggers light level gain with cap.
+/// MiningLightLevel triggers light level gain with per-gain cap.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct MiningCardEffect {
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
-    #[serde(default)]
-    pub light_level_cap: i64,
+    pub gains: Vec<TokenAmount>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -371,10 +378,10 @@ pub enum HerbalismMatchMode {
 #[serde(crate = "rocket::serde")]
 pub struct HerbalismCardEffect {
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     pub match_mode: HerbalismMatchMode,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
+    pub gains: Vec<TokenAmount>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
@@ -414,9 +421,9 @@ pub struct WoodcuttingCardEffect {
     pub chop_types: Vec<ChopType>,
     pub chop_values: Vec<u32>,
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
+    pub gains: Vec<TokenAmount>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -445,9 +452,9 @@ pub struct WoodcuttingDef {
 pub struct FishingCardEffect {
     pub values: Vec<i64>,
     #[serde(default)]
-    pub costs: Vec<GatheringCost>,
+    pub costs: Vec<TokenAmount>,
     #[serde(default)]
-    pub gains: Vec<GatheringCost>,
+    pub gains: Vec<TokenAmount>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.
@@ -504,7 +511,7 @@ pub struct RestDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct OreCard {
-    pub damages: Vec<GatheringCost>,
+    pub damages: Vec<TokenAmount>,
     pub counts: DeckCounts,
 }
 
@@ -988,6 +995,9 @@ pub struct MiningEncounterState {
     pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
     pub ore_deck: Vec<OreCard>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub encounter_tokens: HashMap<Token, i64>,
 }
 
 /// Runtime state for an herbalism gathering encounter.
@@ -1035,6 +1045,9 @@ pub struct FishingEncounterState {
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub rewards: HashMap<Token, i64>,
+    #[serde(with = "token_map_serde")]
+    #[schemars(with = "token_map_serde::SchemaHelper")]
+    pub encounter_tokens: HashMap<Token, i64>,
 }
 
 /// Runtime state for a rest encounter (play rest cards using rest tokens).
