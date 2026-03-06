@@ -14,7 +14,84 @@ pub use endpoints::{
 };
 pub use game_state::GameState;
 
+use std::collections::HashMap;
 use types::{CardCounts, CardKind, EncounterKind, LibraryCard};
+
+/// Calculate the crafting cost for a card based on its effects.
+/// Higher rolled values and more effects = higher cost.
+/// Returns material costs spread across Ore, Plant, Lumber, Fish.
+fn calculate_crafting_cost(kind: &CardKind) -> HashMap<types::TokenType, i64> {
+    let mut total_power: i64 = 0;
+    let num_effects: i64;
+
+    match kind {
+        CardKind::Attack { effects }
+        | CardKind::Defence { effects }
+        | CardKind::Resource { effects }
+        | CardKind::Rest { effects, .. } => {
+            num_effects = effects.len() as i64;
+            for effect in effects {
+                total_power += effect.rolled_value.abs();
+            }
+        }
+        CardKind::Mining { mining_effect } => {
+            num_effects = mining_effect.gains.len() as i64;
+            for gain in &mining_effect.gains {
+                total_power += gain.amount.abs();
+            }
+        }
+        CardKind::Herbalism { herbalism_effect } => {
+            num_effects = 1;
+            for gain in &herbalism_effect.gains {
+                total_power += gain.amount.abs();
+            }
+        }
+        CardKind::Woodcutting { woodcutting_effect } => {
+            num_effects = woodcutting_effect.chop_values.len() as i64;
+            for &val in &woodcutting_effect.chop_values {
+                total_power += val as i64;
+            }
+        }
+        CardKind::Fishing { fishing_effect } => {
+            num_effects = fishing_effect.values.len() as i64;
+            for &val in &fishing_effect.values {
+                total_power += val.abs();
+            }
+        }
+        CardKind::Crafting { crafting_effect } => {
+            num_effects = crafting_effect.reductions.len() as i64;
+            for r in &crafting_effect.reductions {
+                total_power += r.amount.abs();
+            }
+        }
+        // Non-player cards have no crafting cost
+        CardKind::Encounter { .. }
+        | CardKind::PlayerCardEffect { .. }
+        | CardKind::EnemyCardEffect { .. } => {
+            return HashMap::new();
+        }
+    }
+
+    if total_power == 0 {
+        return HashMap::new();
+    }
+
+    // Superlinear scaling: base_cost = total_power * (1 + num_effects) / 4
+    let base_cost = total_power * (1 + num_effects) / 4;
+    let materials = [
+        types::TokenType::Ore,
+        types::TokenType::Plant,
+        types::TokenType::Lumber,
+        types::TokenType::Fish,
+    ];
+    let per_material = (base_cost / materials.len() as i64).max(1);
+
+    let mut cost = HashMap::new();
+    for mat in &materials {
+        cost.insert(mat.clone(), per_material);
+    }
+    cost
+}
 
 /// The Library: canonical collection of all player-owned cards.
 /// Index in the Vec = card ID. Per vision "card location model and counts".
@@ -57,7 +134,12 @@ impl Library {
             }
         }
         let id = self.cards.len();
-        self.cards.push(LibraryCard { kind, counts });
+        let crafting_cost = calculate_crafting_cost(&kind);
+        self.cards.push(LibraryCard {
+            kind,
+            counts,
+            crafting_cost,
+        });
         id
     }
 
