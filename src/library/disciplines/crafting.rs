@@ -583,74 +583,62 @@ impl GameState {
     /// Conclude the crafting encounter. If a craft is in progress, check if the
     /// player can pay the final costs. If yes, create a copy of the card in the library.
     pub fn conclude_crafting_encounter(&mut self) -> Result<(), String> {
-        // Extract craft info before mutating
-        let craft_info = match &self.current_encounter {
-            Some(EncounterState::Crafting(c)) if c.outcome == EncounterOutcome::Undecided => {
-                c.active_craft.clone()
-            }
+        match &self.current_encounter {
+            Some(EncounterState::Crafting(c)) if c.outcome == EncounterOutcome::Undecided => {}
             _ => return Err("No active crafting encounter to conclude".to_string()),
         };
 
-        if let Some(craft) = craft_info {
-            // Check if player can pay the final material costs
-            for (token_type, &cost) in &craft.current_costs {
-                let key = types::Token::persistent(token_type.clone());
-                let balance = self.token_balances.get(&key).copied().unwrap_or(0);
-                if balance < cost {
-                    self.finish_crafting_encounter(true);
-                    return Err(format!(
-                        "Cannot pay final cost: need {} {:?}, have {}. Craft failed, encounter concluded.",
-                        cost, token_type, balance
-                    ));
-                }
-            }
-
-            // Pay costs
-            for (token_type, cost) in &craft.current_costs {
-                let key = types::Token::persistent(token_type.clone());
-                *self.token_balances.entry(key).or_insert(0) -= cost;
-            }
-
-            // Add a library copy of the target card
-            self.library
-                .increment_library_count(craft.target_card_id, 1)
-                .map_err(|e| format!("Failed to add crafted card: {e}"))?;
-        }
-
-        self.finish_crafting_encounter(true);
+        self.finish_active_craft();
         Ok(())
     }
 
     /// Auto-conclude when crafting tokens run out during a craft mini-game.
     fn auto_conclude_craft(&mut self) {
-        // Collect craft info before mutating
-        let (can_pay, craft_costs, target_id) =
-            if let Some(EncounterState::Crafting(c)) = &self.current_encounter {
-                if let Some(ref craft) = c.active_craft {
-                    let can_pay = craft.current_costs.iter().all(|(token_type, &cost)| {
-                        let key = types::Token::persistent(token_type.clone());
-                        self.token_balances.get(&key).copied().unwrap_or(0) >= cost
-                    });
-                    (can_pay, craft.current_costs.clone(), craft.target_card_id)
-                } else {
-                    self.finish_crafting_encounter(true);
-                    return;
-                }
-            } else {
-                return;
-            };
+        if !matches!(&self.current_encounter, Some(EncounterState::Crafting(_))) {
+            return;
+        }
 
-        if can_pay {
-            for (token_type, cost) in &craft_costs {
-                let key = types::Token::persistent(token_type.clone());
-                *self.token_balances.entry(key).or_insert(0) -= cost;
-            }
+        self.finish_active_craft();
+    }
 
-            if self.library.increment_library_count(target_id, 1).is_ok() {
+    /// Shared logic for finishing an active craft (used by both conclude and auto-conclude).
+    /// If there is an active craft, attempt to pay costs and add the crafted card.
+    /// If no active craft, just finish the encounter as a win.
+    fn finish_active_craft(&mut self) {
+        let craft_info = match &self.current_encounter {
+            Some(EncounterState::Crafting(c)) => c.active_craft.clone(),
+            _ => {
                 self.finish_crafting_encounter(true);
-            } else {
-                self.finish_crafting_encounter(false);
+                return;
             }
+        };
+
+        let Some(craft) = craft_info else {
+            self.finish_crafting_encounter(true);
+            return;
+        };
+
+        let can_pay = craft.current_costs.iter().all(|(token_type, &cost)| {
+            let key = types::Token::persistent(token_type.clone());
+            self.token_balances.get(&key).copied().unwrap_or(0) >= cost
+        });
+
+        if !can_pay {
+            self.finish_crafting_encounter(false);
+            return;
+        }
+
+        for (token_type, cost) in &craft.current_costs {
+            let key = types::Token::persistent(token_type.clone());
+            *self.token_balances.entry(key).or_insert(0) -= cost;
+        }
+
+        if self
+            .library
+            .increment_library_count(craft.target_card_id, 1)
+            .is_ok()
+        {
+            self.finish_crafting_encounter(true);
         } else {
             self.finish_crafting_encounter(false);
         }
