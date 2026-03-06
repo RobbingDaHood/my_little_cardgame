@@ -27,22 +27,22 @@ fn hello_world() {
 
     // Verify Library cards are initialized (includes all combat, mining, herbalism, woodcutting, fishing, rest, crafting cards)
     let library_cards = get_library_cards(&client);
-    assert_eq!(87, library_cards.len());
+    assert_eq!(89, library_cards.len());
 
     // Verify card counts: attack/defence have deck:15 hand:5, resource has deck:35 hand:5
-    for card in &library_cards[8..10] {
+    for card in &library_cards[9..11] {
         assert_eq!(card.counts.deck, 15);
         assert_eq!(card.counts.hand, 5);
         assert_eq!(card.counts.discard, 0);
     }
-    assert_eq!(library_cards[10].counts.deck, 35);
-    assert_eq!(library_cards[10].counts.hand, 5);
+    assert_eq!(library_cards[11].counts.deck, 35);
+    assert_eq!(library_cards[11].counts.hand, 5);
 
     // Verify card kinds
-    assert_eq!(library_cards[8].kind["card_kind"], "Attack");
-    assert_eq!(library_cards[9].kind["card_kind"], "Defence");
-    assert_eq!(library_cards[10].kind["card_kind"], "Resource");
-    assert_eq!(library_cards[11].kind["card_kind"], "Encounter");
+    assert_eq!(library_cards[9].kind["card_kind"], "Attack");
+    assert_eq!(library_cards[10].kind["card_kind"], "Defence");
+    assert_eq!(library_cards[11].kind["card_kind"], "Resource");
+    assert_eq!(library_cards[12].kind["card_kind"], "Encounter");
 
     // Verify combat not initialized yet
     assert_eq!(get_combat(&client), None);

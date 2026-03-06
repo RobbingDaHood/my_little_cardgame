@@ -67,6 +67,10 @@ pub(crate) fn roll_concrete_effect(
                 .collect();
             (value, costs, None, None)
         }
+        Some(super::types::CardEffectKind::Insight { min, max }) => {
+            let value = roll_range(rng, min, max);
+            (value, vec![], None, None)
+        }
         _ => (0, vec![], None, None),
     };
     ConcreteEffect {
@@ -102,6 +106,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             discard: 0,
         },
         rng,
+        vec![super::types::Discipline::Combat],
     );
 
     // Player "grant shield" effect (range: 200-400)
@@ -125,6 +130,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             discard: 0,
         },
         rng,
+        vec![super::types::Discipline::Combat],
     );
 
     // Player "grant stamina" effect (range: 150-250)
@@ -148,6 +154,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             discard: 0,
         },
         rng,
+        vec![super::types::Discipline::Combat],
     );
 
     // Player "draw 1 attack, 1 defence, 2 resource" effect
@@ -166,6 +173,30 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             discard: 0,
         },
         rng,
+        vec![super::types::Discipline::Combat],
+    );
+
+    // Shared Insight PlayerCardEffect (range: 1-5)
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: super::types::CardEffectKind::Insight { min: 1, max: 5 },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![
+            super::types::Discipline::Combat,
+            super::types::Discipline::Mining,
+            super::types::Discipline::Herbalism,
+            super::types::Discipline::Woodcutting,
+            super::types::Discipline::Fishing,
+            super::types::Discipline::Rest,
+            super::types::Discipline::Crafting,
+        ],
     );
 
     // ---- Discipline-specific cards ----

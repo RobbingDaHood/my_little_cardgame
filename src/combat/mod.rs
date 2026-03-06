@@ -46,7 +46,7 @@ pub async fn initialize_combat(
         );
     }
     let mut rng = player_data.random_generator_state.lock().await;
-    let _ = gs.start_combat(11, &mut rng);
+    let _ = gs.start_combat(12, &mut rng);
     Created::new("/tests/combat")
 }
 

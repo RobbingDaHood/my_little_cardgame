@@ -6,6 +6,18 @@ fn default_persistent_lifecycle() -> TokenLifecycle {
     TokenLifecycle::PersistentCounter
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum Discipline {
+    Combat,
+    Mining,
+    Herbalism,
+    Woodcutting,
+    Fishing,
+    Rest,
+    Crafting,
+}
+
 /// Canonical token identifier enum.
 /// Each variant is a well-known token with associated lifecycle semantics.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -210,6 +222,8 @@ pub enum CardEffectKind {
         defence: u32,
         resource: u32,
     },
+    /// Grant Insight tokens: rolls a value from min..max range.
+    Insight { min: i64, max: i64 },
 }
 
 /// Cost definition on a CardEffect template: a percentage range of the effect value.
@@ -794,6 +808,8 @@ pub struct LibraryCard {
     #[serde(default, with = "token_type_map_serde")]
     #[schemars(with = "token_type_map_serde::SchemaHelper")]
     pub crafting_cost: HashMap<TokenType, i64>,
+    #[serde(default)]
+    pub discipline_tags: Vec<Discipline>,
 }
 
 /// A token instance: token type + lifecycle. Used as key in token balance maps.

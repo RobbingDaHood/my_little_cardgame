@@ -32,6 +32,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Plant passive effect: medium gain (dual-characteristic plants)
@@ -56,6 +57,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // ---- Player herbalism cards ----
@@ -82,6 +84,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Medium herbalism card: targets 2 characteristics
@@ -109,6 +112,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Broad herbalism card: targets 3 characteristics
@@ -137,6 +141,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Herbalism encounter: Meadow Herb
@@ -214,6 +219,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![],
     );
 
     // MostCommon card — removes the most common characteristic (limit 1)
@@ -246,6 +252,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // LeastCommon card — removes the least common characteristic (limit 1)
@@ -278,6 +285,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // AND-based multi-type card — removes only plants matching ALL listed types
@@ -312,6 +320,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Stamina rest card for herbalism
@@ -338,6 +347,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Herbalism],
     );
 }
 

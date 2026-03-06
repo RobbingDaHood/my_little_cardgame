@@ -26,6 +26,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // HeavyChop card: value 5
@@ -49,6 +50,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // MediumChop card: value 3
@@ -72,6 +74,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // PrecisionChop card: value 7
@@ -95,6 +98,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Woodcutting encounter: Oak Tree
@@ -117,6 +121,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![],
     );
 
     // Cost Woodcutting card: HeavyChop+LightChop combo, costs stamina
@@ -147,6 +152,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // SplitChop value 4
@@ -170,6 +176,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // LightChop+MediumChop, values 1,6
@@ -193,6 +200,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Cost card: 3 types, 3 values, moderate stamina cost
@@ -227,6 +235,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Cost card: 4 types, 4 values, higher stamina cost
@@ -262,6 +271,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Woodcutting rest card: grants stamina, no chops
@@ -289,6 +299,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Woodcutting],
     );
 }
 

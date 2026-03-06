@@ -29,6 +29,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Ore light damage (medium): 40-60
@@ -51,6 +52,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Ore durability damage (medium): 80-120
@@ -73,6 +75,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Ore durability damage (heavy): 150-250
@@ -95,6 +98,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Ore health damage: 50-100
@@ -117,6 +121,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // ---- Player mining cards ----
@@ -140,6 +145,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Balanced mining power card: moderate power
@@ -161,6 +167,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Light level card: restores light, costs lumber
@@ -186,6 +193,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Mining encounter: Iron Ore
@@ -268,6 +276,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![],
     );
 
     // High power mining card: costs stamina
@@ -293,6 +302,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // High power + high cost
@@ -318,6 +328,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Very high power, highest cost
@@ -343,6 +354,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Large light level card: higher gain, higher lumber cost, higher cap
@@ -368,6 +380,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 
     // Mining rest card: grants stamina, no power or light
@@ -389,6 +402,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Mining],
     );
 }
 

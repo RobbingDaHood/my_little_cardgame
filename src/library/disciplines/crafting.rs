@@ -32,6 +32,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Enemy cost increase: Plant (10-30)
@@ -56,6 +57,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Enemy cost increase: Lumber (10-30)
@@ -80,6 +82,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Enemy cost increase: Fish (10-30)
@@ -104,6 +107,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // ---- Player crafting cards ----
@@ -127,6 +131,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces Plant cost, no stamina cost
@@ -148,6 +153,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces Lumber cost, no stamina cost
@@ -169,6 +175,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces Fish cost, no stamina cost
@@ -190,6 +197,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces multiple costs, costs stamina
@@ -232,6 +240,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting rest card: grants stamina, reduces nothing
@@ -253,6 +262,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Enemy crafting cards: increase material costs
@@ -326,6 +336,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
             discard: 0,
         },
         rng,
+        vec![],
     );
 }
 

@@ -70,7 +70,9 @@ pub async fn add_test_library_card(
 ) -> rocket::response::status::Created<String> {
     let mut gs = game_state.lock().await;
     let mut rng = player_data.random_generator_state.lock().await;
-    let id = gs.library.add_card(card.0.kind, card.0.counts, &mut rng);
+    let id = gs
+        .library
+        .add_card(card.0.kind, card.0.counts, &mut rng, card.0.discipline_tags);
     rocket::response::status::Created::new(format!("/library/cards/{}", id))
 }
 

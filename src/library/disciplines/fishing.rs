@@ -31,6 +31,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Fish value effect (medium): 200-400
@@ -55,6 +56,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Fish value effect (high): 400-600
@@ -79,6 +81,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Fish value effect (very high): 600-800
@@ -103,6 +106,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // ---- Player fishing cards ----
@@ -126,6 +130,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Medium value fishing card
@@ -148,6 +153,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // High value fishing card
@@ -170,6 +176,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Fishing encounter: River Spot
@@ -233,6 +240,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![],
     );
 
     // Widen range — reduces min value token
@@ -259,6 +267,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Widen range — increases max value token
@@ -285,6 +294,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Cost card — narrows range but has multiple values (3 values)
@@ -325,6 +335,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Increase fish amount
@@ -351,6 +362,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Multi-value but decreases fish amount
@@ -384,6 +396,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Rest card — grants stamina, no values
@@ -410,6 +423,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 
     // Stamina cost card with multiple values
@@ -439,6 +453,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             discard: 0,
         },
         rng,
+        vec![types::Discipline::Fishing],
     );
 }
 

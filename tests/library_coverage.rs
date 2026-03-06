@@ -40,6 +40,7 @@ fn library_draw_and_play_and_return() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     let id = lib.add_card(
         CardKind::Attack {
@@ -58,6 +59,7 @@ fn library_draw_and_play_and_return() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
 
     // Draw moves from deck to hand
@@ -94,6 +96,7 @@ fn library_draw_error_when_deck_empty() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     assert!(lib.draw(id).is_err());
 }
@@ -111,6 +114,7 @@ fn library_play_error_when_hand_empty() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     assert!(lib.play(id).is_err());
 }
@@ -128,6 +132,7 @@ fn library_return_to_library_error_when_discard_empty() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     assert!(lib.return_to_library(id).is_err());
 }
@@ -145,6 +150,7 @@ fn library_add_to_deck_error_when_library_insufficient() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     assert!(lib.add_to_deck(id, 5).is_err());
 }
@@ -162,6 +168,7 @@ fn library_hand_cards_returns_cards_in_hand() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     lib.add_card(
         CardKind::Defence { effects: vec![] },
@@ -172,6 +179,7 @@ fn library_hand_cards_returns_cards_in_hand() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     let hand = lib.hand_cards();
     assert_eq!(hand.len(), 1);
@@ -191,6 +199,7 @@ fn library_cards_matching_filters_by_predicate() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     lib.add_card(
         CardKind::Defence { effects: vec![] },
@@ -201,6 +210,7 @@ fn library_cards_matching_filters_by_predicate() {
             discard: 0,
         },
         &mut rng,
+        vec![],
     );
     let attacks = lib.cards_matching(|kind| matches!(kind, CardKind::Attack { .. }));
     assert_eq!(attacks.len(), 1);
@@ -215,19 +225,19 @@ fn library_draw_nonexistent_card_returns_error() {
 #[test]
 fn game_state_draw_random_cards() {
     let mut gs = GameState::new();
-    // Library starts with Attack having deck:15 hand:5 (now at index 8)
-    let initial_hand = gs.library.cards[8].counts.hand;
-    let initial_deck = gs.library.cards[8].counts.deck;
+    // Library starts with Attack having deck:15 hand:5 (now at index 9)
+    let initial_hand = gs.library.cards[9].counts.hand;
+    let initial_deck = gs.library.cards[9].counts.deck;
     assert!(initial_deck > 0);
     // draw_random_cards is private, but we can test it via resolve_player_card
-    // playing a resource card (id 10) triggers draw_count=1
+    // playing a resource card (id 11) triggers draw_count=1
     gs.token_balances
         .insert(Token::persistent(TokenType::Health), 2000);
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
-    let _ = gs.start_combat(11, &mut rng);
+    let _ = gs.start_combat(12, &mut rng);
     let _ = gs.advance_combat_phase(); // Defending -> Attacking
     let _ = gs.advance_combat_phase(); // Attacking -> Resourcing
-    let _ = gs.resolve_player_card(10, &mut rng); // Resource card draws 1
+    let _ = gs.resolve_player_card(11, &mut rng); // Resource card draws 1
                                                   // Check that total cards in hand changed
     let total_hand: u32 = gs.library.cards.iter().map(|c| c.counts.hand).sum();
     assert!(total_hand >= initial_hand); // drew at least 1 card

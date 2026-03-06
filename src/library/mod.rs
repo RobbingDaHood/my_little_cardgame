@@ -158,6 +158,7 @@ impl Library {
         kind: CardKind,
         counts: CardCounts,
         rng: &mut rand_pcg::Lcg64Xsh32,
+        discipline_tags: Vec<types::Discipline>,
     ) -> usize {
         // Validate GainTokens: gain token_type must not match any cost token_type
         let effect_kind = match &kind {
@@ -184,6 +185,7 @@ impl Library {
             kind,
             counts,
             crafting_cost,
+            discipline_tags,
         });
         id
     }
@@ -272,6 +274,20 @@ impl Library {
             }
             _ => None,
         }
+    }
+
+    pub fn card_effects_for_discipline(
+        &self,
+        discipline: &types::Discipline,
+    ) -> Vec<(usize, &LibraryCard)> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                matches!(c.kind, CardKind::PlayerCardEffect { .. })
+                    && c.discipline_tags.contains(discipline)
+            })
+            .collect()
     }
 
     /// All cards currently on hand.
