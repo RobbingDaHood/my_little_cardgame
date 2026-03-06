@@ -61,6 +61,9 @@ pub enum TokenType {
     // Rest encounter tokens
     RestToken,
     RestMaxHand,
+    // Crafting encounter tokens
+    CraftingToken,
+    CraftingMaxHand,
     // Death tracking
     PlayerDeaths,
 }
@@ -109,6 +112,8 @@ impl TokenType {
             TokenType::MiningYield,
             TokenType::RestToken,
             TokenType::RestMaxHand,
+            TokenType::CraftingToken,
+            TokenType::CraftingMaxHand,
             TokenType::PlayerDeaths,
         ]
     }
@@ -317,6 +322,9 @@ pub enum CardKind {
         effects: Vec<ConcreteEffect>,
         rest_token_cost: i64,
     },
+    Crafting {
+        crafting_effect: CraftingCardEffect,
+    },
     Encounter {
         encounter_kind: EncounterKind,
     },
@@ -339,6 +347,18 @@ pub struct MiningCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+}
+
+/// Inline effect for Crafting discipline cards.
+/// Gains reduce material costs of an active craft (gathering token types: Ore, Plant, Lumber, Fish).
+/// Costs may include Stamina or Health.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct CraftingCardEffect {
+    #[serde(default)]
+    pub costs: Vec<TokenAmount>,
+    #[serde(default)]
+    pub reductions: Vec<TokenAmount>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -489,6 +509,7 @@ pub enum EncounterKind {
     Woodcutting { woodcutting_def: WoodcuttingDef },
     Fishing { fishing_def: FishingDef },
     Rest { rest_def: RestDef },
+    Crafting { crafting_def: CraftingDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -505,6 +526,56 @@ pub struct MiningDef {
 pub struct RestDef {
     pub rest_token_min: i64,
     pub rest_token_max: i64,
+}
+
+/// An enemy crafting card that increases material costs.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct EnemyCraftingCard {
+    pub increases: Vec<TokenAmount>,
+    pub counts: DeckCounts,
+}
+
+impl HasDeckCounts for EnemyCraftingCard {
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
+    }
+}
+
+/// Definition of a crafting encounter.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct CraftingDef {
+    pub initial_crafting_tokens: i64,
+    pub enemy_crafting_deck: Vec<EnemyCraftingCard>,
+}
+
+/// State of an active craft-a-card mini-game within a crafting encounter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct CraftingCraftState {
+    pub target_card_id: usize,
+    #[serde(with = "token_type_map_serde")]
+    #[schemars(with = "token_type_map_serde::SchemaHelper")]
+    pub original_costs: HashMap<TokenType, i64>,
+    #[serde(with = "token_type_map_serde")]
+    #[schemars(with = "token_type_map_serde::SchemaHelper")]
+    pub current_costs: HashMap<TokenType, i64>,
 }
 
 /// A card in the ore deck. Each card applies token-based damages to the player.
@@ -710,6 +781,11 @@ pub struct EnemyCardDef {
 pub struct LibraryCard {
     pub kind: CardKind,
     pub counts: CardCounts,
+    /// Material cost to craft a copy of this card. Computed at creation time.
+    /// Only meaningful for player cards (Attack, Defence, Resource, Mining, etc.).
+    #[serde(default, with = "token_type_map_serde")]
+    #[schemars(with = "token_type_map_serde::SchemaHelper")]
+    pub crafting_cost: HashMap<TokenType, i64>,
 }
 
 /// A token instance: token type + lifecycle. Used as key in token balance maps.
@@ -875,6 +951,39 @@ pub mod token_map_serde_u64 {
         }
     }
 }
+
+/// Serde helper to serialize/deserialize `HashMap<TokenType, i64>` as a compact JSON map.
+pub mod token_type_map_serde {
+    use super::{HashMap, TokenType};
+    use rocket::serde::{self, Deserialize, Serialize};
+    use std::collections::BTreeMap;
+
+    pub type SchemaHelper = BTreeMap<String, i64>;
+
+    pub fn serialize<S>(map: &HashMap<TokenType, i64>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let compact: BTreeMap<String, i64> =
+            map.iter().map(|(k, v)| (format!("{:?}", k), *v)).collect();
+        compact.serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<TokenType, i64>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let map: BTreeMap<String, i64> = BTreeMap::deserialize(deserializer)?;
+        let mut result = HashMap::new();
+        for (k, v) in map {
+            let token_type: TokenType =
+                serde_json::from_str(&format!("\"{}\"", k)).map_err(serde::de::Error::custom)?;
+            result.insert(token_type, v);
+        }
+        Ok(result)
+    }
+}
+
 pub fn token_balance_by_type(map: &HashMap<Token, i64>, tt: &TokenType) -> i64 {
     map.iter()
         .filter(|(k, _)| k.token_type == *tt)
@@ -916,6 +1025,9 @@ pub enum ActionPayload {
     ApplyScouting { card_ids: Vec<usize> },
     AbortEncounter,
     ConcludeEncounter,
+    CraftSwap { from_id: usize, to_id: usize },
+    CraftCard { target_card_id: usize },
+    CraftDurability { discipline: String },
 }
 
 /// Stored action entry in the append-only action log.
@@ -1059,6 +1171,18 @@ pub struct RestEncounterState {
     pub rest_tokens: i64,
 }
 
+/// Runtime state for a crafting encounter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct CraftingEncounterState {
+    pub round: u64,
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    pub crafting_tokens: i64,
+    pub enemy_crafting_deck: Vec<EnemyCraftingCard>,
+    pub active_craft: Option<CraftingCraftState>,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
@@ -1069,6 +1193,7 @@ pub enum EncounterState {
     Woodcutting(WoodcuttingEncounterState),
     Fishing(FishingEncounterState),
     Rest(RestEncounterState),
+    Crafting(CraftingEncounterState),
 }
 
 impl EncounterState {
@@ -1080,6 +1205,7 @@ impl EncounterState {
             EncounterState::Woodcutting(w) => w.encounter_card_id,
             EncounterState::Fishing(f) => f.encounter_card_id,
             EncounterState::Rest(r) => r.encounter_card_id,
+            EncounterState::Crafting(c) => c.encounter_card_id,
         }
     }
 
@@ -1095,6 +1221,7 @@ impl EncounterState {
             EncounterState::Woodcutting(w) => &w.outcome,
             EncounterState::Fishing(f) => &f.outcome,
             EncounterState::Rest(r) => &r.outcome,
+            EncounterState::Crafting(c) => &c.outcome,
         }
     }
 }

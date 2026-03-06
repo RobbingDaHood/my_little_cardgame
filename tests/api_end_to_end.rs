@@ -25,9 +25,9 @@ struct CountsJson {
 fn hello_world() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
 
-    // Verify Library cards are initialized (includes all combat, mining, herbalism, woodcutting, fishing, rest cards)
+    // Verify Library cards are initialized (includes all combat, mining, herbalism, woodcutting, fishing, rest, crafting cards)
     let library_cards = get_library_cards(&client);
-    assert_eq!(65, library_cards.len());
+    assert_eq!(72, library_cards.len());
 
     // Verify card counts: attack/defence have deck:15 hand:5, resource has deck:35 hand:5
     for card in &library_cards[8..10] {

@@ -254,6 +254,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     super::disciplines::woodcutting::register_woodcutting_cards(&mut lib, rng);
     super::disciplines::fishing::register_fishing_cards(&mut lib, rng);
     super::disciplines::rest::register_rest_cards(&mut lib, rng);
+    super::disciplines::crafting::register_crafting_cards(&mut lib, rng);
 
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
@@ -349,6 +350,10 @@ impl GameState {
         );
         balances.insert(
             super::types::Token::persistent(super::types::TokenType::RestMaxHand),
+            5,
+        );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::CraftingMaxHand),
             5,
         );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
@@ -682,6 +687,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_rest_encounter(card_id, &mut rng);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Crafting { .. },
+                                } => {
+                                    let _ = gs.start_crafting_encounter(card_id, &mut rng);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -720,6 +730,9 @@ impl GameState {
                         Some(EncounterState::Rest(_)) => {
                             let _ = gs.resolve_rest_card_play(*card_id, &mut rng);
                         }
+                        Some(EncounterState::Crafting(_)) => {
+                            let _ = gs.resolve_crafting_play_card(*card_id, &mut rng);
+                        }
                         None => {}
                     }
                 }
@@ -741,14 +754,29 @@ impl GameState {
                 ActionPayload::AbortEncounter => {
                     if matches!(&gs.current_encounter, Some(EncounterState::Rest(_))) {
                         gs.abort_rest_encounter();
+                    } else if matches!(&gs.current_encounter, Some(EncounterState::Crafting(_))) {
+                        gs.abort_crafting_encounter();
                     } else {
                         gs.abort_encounter();
                     }
                 }
-                ActionPayload::ConcludeEncounter => {
-                    if matches!(&gs.current_encounter, Some(EncounterState::Mining(_))) {
+                ActionPayload::ConcludeEncounter => match &gs.current_encounter {
+                    Some(EncounterState::Mining(_)) => {
                         let _ = gs.conclude_mining_encounter();
                     }
+                    Some(EncounterState::Crafting(_)) => {
+                        let _ = gs.conclude_crafting_encounter();
+                    }
+                    _ => {}
+                },
+                ActionPayload::CraftSwap { from_id, to_id } => {
+                    let _ = gs.resolve_crafting_swap(*from_id, *to_id);
+                }
+                ActionPayload::CraftCard { target_card_id } => {
+                    let _ = gs.resolve_crafting_start_craft(*target_card_id);
+                }
+                ActionPayload::CraftDurability { discipline } => {
+                    let _ = gs.resolve_crafting_add_durability(discipline);
                 }
             }
             match gs.action_log.entries.lock() {

@@ -1,4 +1,5 @@
 pub(crate) mod combat;
+pub(crate) mod crafting;
 pub(crate) mod fishing;
 pub(crate) mod herbalism;
 pub(crate) mod mining;

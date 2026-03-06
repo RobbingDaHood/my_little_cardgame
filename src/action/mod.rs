@@ -24,6 +24,10 @@ pub enum PlayerActions {
     EncounterApplyScouting { card_ids: Vec<usize> },
     EncounterAbort,
     EncounterConcludeEncounter,
+    // Crafting-specific actions (Step 9.6)
+    EncounterCraftSwap { from_id: usize, to_id: usize },
+    EncounterCraftCard { target_card_id: usize },
+    EncounterCraftDurability { discipline: String },
 }
 
 #[openapi]
@@ -151,6 +155,12 @@ pub async fn play(
                 }
                 crate::library::types::EncounterKind::Rest { .. } => {
                     match gs.start_rest_encounter(card_id, &mut rng) {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                crate::library::types::EncounterKind::Crafting { .. } => {
+                    match gs.start_crafting_encounter(card_id, &mut rng) {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
@@ -367,6 +377,33 @@ pub async fn play(
                     // Handled above before library card lookup
                     unreachable!()
                 }
+                Some(crate::library::types::EncounterState::Crafting(_)) => {
+                    // Validate card is a Crafting card
+                    if !matches!(
+                        lib_card.kind,
+                        crate::library::types::CardKind::Crafting { .. }
+                    ) {
+                        return Err(Right(BadRequest(new_status(format!(
+                            "Card {} is not a Crafting card (required for crafting encounter)",
+                            card_id
+                        )))));
+                    }
+                    // Pre-check costs before playing
+                    if let crate::library::types::CardKind::Crafting { crafting_effect } =
+                        &lib_card.kind
+                    {
+                        if let Err(e) = crate::library::GameState::preview_gathering_costs(
+                            &crafting_effect.costs,
+                            &gs.token_balances,
+                        ) {
+                            return Err(Right(BadRequest(new_status(e))));
+                        }
+                    }
+                    let mut rng = player_data.random_generator_state.lock().await;
+                    if let Err(e) = gs.resolve_crafting_play_card(card_id as usize, &mut rng) {
+                        return Err(Right(BadRequest(new_status(e))));
+                    }
+                }
                 None => {
                     return Err(Right(BadRequest(new_status(
                         "No active encounter".to_string(),
@@ -429,6 +466,9 @@ pub async fn play(
                     // Rest encounters always result in PlayerWon on abort
                     gs.abort_rest_encounter();
                 }
+                Some(crate::library::types::EncounterState::Crafting(_)) => {
+                    gs.abort_crafting_encounter();
+                }
                 Some(crate::library::types::EncounterState::Mining(_)) => {
                     gs.finish_mining_encounter(false);
                 }
@@ -473,6 +513,12 @@ pub async fn play(
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
                 }
+                Some(crate::library::types::EncounterState::Crafting(_)) => {
+                    match gs.conclude_crafting_encounter() {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
                 Some(_) => {
                     return Err(Right(BadRequest(new_status(
                         "Conclude is not supported for this encounter type".to_string(),
@@ -486,6 +532,59 @@ pub async fn play(
             }
             let payload = crate::library::types::ActionPayload::ConcludeEncounter;
             let entry = gs.append_action("EncounterConcludeEncounter", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterCraftSwap { from_id, to_id } => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Crafting(_)) => {}
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "Not in a crafting encounter".to_string(),
+                    ))));
+                }
+            }
+            if let Err(e) = gs.resolve_crafting_swap(from_id, to_id) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload = crate::library::types::ActionPayload::CraftSwap { from_id, to_id };
+            let entry = gs.append_action("EncounterCraftSwap", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterCraftCard { target_card_id } => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Crafting(_)) => {}
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "Not in a crafting encounter".to_string(),
+                    ))));
+                }
+            }
+            if let Err(e) = gs.resolve_crafting_start_craft(target_card_id) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload = crate::library::types::ActionPayload::CraftCard { target_card_id };
+            let entry = gs.append_action("EncounterCraftCard", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::EncounterCraftDurability { discipline } => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Crafting(_)) => {}
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "Not in a crafting encounter".to_string(),
+                    ))));
+                }
+            }
+            if let Err(e) = gs.resolve_crafting_add_durability(&discipline) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload = crate::library::types::ActionPayload::CraftDurability {
+                discipline: discipline.clone(),
+            };
+            let entry = gs.append_action("EncounterCraftDurability", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
     }
