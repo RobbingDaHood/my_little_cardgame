@@ -36,8 +36,6 @@ pub enum TokenType {
     Plant,
     Lumber,
     Fish,
-    // Encounter-scoped tokens
-    OreHealth,
     // Max handsize tokens (player decks)
     AttackMaxHand,
     DefenceMaxHand,
@@ -91,7 +89,6 @@ impl TokenType {
             TokenType::Plant,
             TokenType::Lumber,
             TokenType::Fish,
-            TokenType::OreHealth,
             TokenType::AttackMaxHand,
             TokenType::DefenceMaxHand,
             TokenType::ResourceMaxHand,
