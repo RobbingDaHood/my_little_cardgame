@@ -13,6 +13,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::HerbalismDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 match_mode: types::HerbalismMatchMode::Or {
                     types: vec![types::PlantCharacteristic::Fragile],
@@ -35,6 +36,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::HerbalismDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 match_mode: types::HerbalismMatchMode::Or {
                     types: vec![
@@ -60,6 +62,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::HerbalismDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 match_mode: types::HerbalismMatchMode::Or {
                     types: vec![
@@ -158,10 +161,12 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 150,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::HerbalismDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 match_mode: types::HerbalismMatchMode::MostCommon {
@@ -187,10 +192,12 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 150,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::HerbalismDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 match_mode: types::HerbalismMatchMode::LeastCommon {
@@ -216,10 +223,12 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 100,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::HerbalismDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 match_mode: types::HerbalismMatchMode::And {
@@ -246,11 +255,13 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::HerbalismDurability,
                     amount: 50,
+                    cap: None,
                 }],
                 match_mode: types::HerbalismMatchMode::Or { types: vec![] },
                 gains: vec![types::TokenAmount {
                     token_type: types::TokenType::Stamina,
                     amount: 200,
+                    cap: None,
                 }],
             },
         },

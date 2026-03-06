@@ -14,6 +14,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -35,6 +36,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -56,6 +58,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -77,6 +80,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -120,10 +124,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 100,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::WoodcuttingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![],
@@ -146,6 +152,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -167,6 +174,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::WoodcuttingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -193,10 +201,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 150,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::WoodcuttingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![],
@@ -225,10 +235,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 250,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::WoodcuttingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![],
@@ -251,10 +263,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::WoodcuttingDurability,
                     amount: 50,
+                    cap: None,
                 }],
                 gains: vec![types::TokenAmount {
                     token_type: types::TokenType::Stamina,
                     amount: 200,
+                    cap: None,
                 }],
             },
         },

@@ -232,11 +232,14 @@ pub struct ConcreteEffectCost {
 }
 
 /// A fixed amount of a token type, used in costs and gains of gathering discipline cards.
+/// When used as a gain, `cap` limits the maximum accumulated value of this token type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct TokenAmount {
     pub token_type: TokenType,
     pub amount: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cap: Option<i64>,
 }
 
 /// Who a card effect targets.
@@ -319,7 +322,7 @@ pub enum CardKind {
 /// Inline effect for Mining discipline cards.
 /// All effects expressed through token-based costs/gains vectors.
 /// Resolution logic interprets gain token types: MiningPower triggers yield formula,
-/// MiningLightLevel triggers light level gain with cap.
+/// MiningLightLevel triggers light level gain with per-gain cap.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct MiningCardEffect {
@@ -327,8 +330,6 @@ pub struct MiningCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
-    #[serde(default)]
-    pub light_level_cap: i64,
 }
 
 /// Plant characteristics used by Herbalism encounters.

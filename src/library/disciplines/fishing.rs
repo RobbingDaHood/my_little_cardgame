@@ -13,6 +13,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -33,6 +34,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -53,6 +55,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![],
             },
@@ -131,10 +134,12 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingRangeMin,
                     amount: -150,
+                    cap: None,
                 }],
             },
         },
@@ -154,10 +159,12 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingRangeMax,
                     amount: 150,
+                    cap: None,
                 }],
             },
         },
@@ -178,20 +185,24 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 150,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::FishingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![
                     types::TokenAmount {
                         token_type: types::TokenType::FishingRangeMin,
                         amount: 50,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::FishingRangeMax,
                         amount: -50,
+                        cap: None,
                     },
                 ],
             },
@@ -212,10 +223,12 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingDurability,
                     amount: 100,
+                    cap: None,
                 }],
                 gains: vec![types::TokenAmount {
                     token_type: types::TokenType::FishAmount,
                     amount: 1,
+                    cap: None,
                 }],
             },
         },
@@ -236,15 +249,18 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 100,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::FishingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![types::TokenAmount {
                     token_type: types::TokenType::FishAmount,
                     amount: -1,
+                    cap: None,
                 }],
             },
         },
@@ -264,10 +280,12 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                 costs: vec![types::TokenAmount {
                     token_type: types::TokenType::FishingDurability,
                     amount: 50,
+                    cap: None,
                 }],
                 gains: vec![types::TokenAmount {
                     token_type: types::TokenType::Stamina,
                     amount: 200,
+                    cap: None,
                 }],
             },
         },
@@ -288,10 +306,12 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg
                     types::TokenAmount {
                         token_type: types::TokenType::Stamina,
                         amount: 200,
+                        cap: None,
                     },
                     types::TokenAmount {
                         token_type: types::TokenType::FishingDurability,
                         amount: 100,
+                        cap: None,
                     },
                 ],
                 gains: vec![],
