@@ -502,7 +502,7 @@ Roadmap steps
    - Open items: Define concrete min/max ranges for light level cap, gain percentage, and wood token cost amounts when implementing.
    - Implementation: Completed. Mining now uses a fully token-based system: `MiningCardEffect` has `costs`/`gains` (Vec<GatheringCost>) and `light_level_cap`; `OreCard` has `damages` (Vec<GatheringCost>). `MiningDef` has `initial_light_level` (300) and `ore_deck`. New token types: `MiningLightLevel`, `MiningYield`, `MiningPower` (all encounter-scoped, reset to 0 on encounter end). Yield formula: `mining_power × light_level / 100`. Conclude action: `EncounterConcludeEncounter` grants `min(stamina, yield)` Ore tokens. Loss conditions: `MiningDurability ≤ 0` or all hand cards unpayable. 8 player mining cards (power, light, rest varieties) + 1 encounter definition. All scenario tests pass.
 
-9) Crafting encounters and discipline
+9.6) Crafting encounters and discipline
    - Goal: Implement crafting as a discipline encounter type that uses crafting tokens and gathering materials to create, modify, and enhance cards.
    - Description: A crafting encounter provides a pool of "Crafting tokens" (initially ~10) that the player spends on various crafting actions:
      - 1 token: Replace a card between the deck/discard pile and the library. Choose two cards: one moves from deck/discard to library, and the other does the opposite. Cannot move from hand. Only applies to player cards, not area/encounter cards. Cards must be available for swap.
@@ -577,62 +577,59 @@ Roadmap steps
    - Playable acceptance: After an encounter, X scouting options are generated and presented. Player must choose one. The selected encounter replaces the original in the Library. Scenario tests verify the scouting flow.
    - Notes: Keep initial choices small and data-driven. Up to this point all encounters just added the same encounter back into the encounter Library with no changes.
 
-11.5) Gathering balance pass
-   - Goal: After all gathering disciplines, research, and post-encounter scouting are implemented, perform a dedicated balance and tuning pass.
-   - Description:
-     - Normalize durability init values (all currently 100 — may need differentiation per discipline).
-     - Balance reward token amounts across disciplines (Ore, Plant, Lumber, Fish should have comparable value-per-encounter).
-     - Tune encounter card counts and difficulty distributions.
-     - Balance Insight generation rates and research costs across disciplines.
-     - Add cross-discipline scenario tests (e.g., mine then herbalism then combat then research in sequence).
-     - Post-9.3 balance: review handsize tokens (now defaulting to 5), cap values, and cost card tuning introduced in 9.3. Ensure the cost/benefit ratio across disciplines feels fair after the expanded CardEffects.
-     - Rest card balance: current rest card templates use aggressive recovery values (Stamina cap 400-600, Health cap 300-400). Play-test and adjust if they trivialize stamina management.
-     - Percentage-based cost rebalancing: the percentage-of-gain cost system means stronger cards (higher gain values) automatically cost more material. Tune cost percentages across all GainTokens effects to ensure the cost/benefit curve feels fair.
-   - Playable acceptance: Cross-discipline scenario tests pass. Reward amounts feel balanced across disciplines. Durability values create meaningful multi-encounter arcs. Research costs are proportional to card power.
-
-12) Implement Trading and Merchants (MerchantOffers + Barter workflow)
-   - Goal: Model merchants as decks (MerchantOffers, Barter) and deterministic merchant interactions that mirror vision.md's barter mechanics.
-   - Description: Implement MerchantOffers deck and Barter deck support. Merchant interactions deterministically draw a MerchantOfferPool, present offers, then draw MerchantBargainDraw barter cards and allow choosing up to MerchantLeverage to modify the selected offer. Barter cards can change offered_token, requested_token, rate, fee, or attach conditions. All draws, choices, and resulting token transfers are recorded in the ActionLog so merchant interactions are reproducible.
-   - Playable acceptance: A /merchant/{id}/visit endpoint returns deterministic offers derived from the session seed; applying barter choices updates player tokens and is recorded.
-   - Notes: Start with a single merchant and simple barter cards; expand to dynamic merchant inventory later.
-
-13) Finalize edge cases for a repeatable loop and concurrency
+12) Finalize edge cases for a repeatable loop and concurrency
    - Goal: Make the loop robust: reshuffle/renew rules, player death and recovery, encounter exhaustion and replacement guarantees, and multi-session concurrency safety.
    - Description: Add tests for deck exhaustion/reshuffle, rules for encounter removal+replacement when decks empty, and concurrency controls for per-session Library encounter mutations.
    - Playable acceptance: A session can play multiple encounters in sequence without violating invariants; action logs provide a full replay and tests pass.
    - Notes: Add minimal instrumentation to spot-check correct replacement and token lifecycles.
 
-14) Add persistent player progression, library-driven deck-building, and upgrades
-   - Goal: Add persistence for player state, deck composition, tokens, and a simple upgrade/shop flow; allow adding Library cards to player decks subject to constraints.
-   - Description: Implement file-backed or DB-backed player-store, endpoints for deck-editing, and a small upgrade flow that consumes tokens to unlock Library cards or add copies to decks.
-   - Playable acceptance: Player progress persists across runs; players can add Library items to decks and token spends are recorded in the ActionLog.
-   - Notes: Keep persistence implementation pluggable and optional for tests.
+13) Milestone encounters
+   - Goal: Implement milestone encounters as the primary progression system tied to CardEffects.
+   - Description:
+     - Each interesting CardEffect has a corresponding milestone encounter.
+     - When a milestone is beaten, a more powerful version of the milestone is created that rewards the next tier of that CardEffect.
+     - Some milestones reward tokens like "max hand size" increases.
+     - Some milestones require beating other milestones first to obtain a "token key" prerequisite.
+     - A full list of CardEffects eligible for milestones will be compiled when this step begins.
+   - Playable acceptance: Players can play milestone encounters, earn rewards, unlock higher tiers, and prerequisite chains work correctly.
+   - Notes: Start with a small set of milestones to prove the system before expanding to all CardEffects.
 
+14) Configuration externalization
+   - Goal: Move all game configuration into JSON files loaded at compile time.
+   - Description:
+     - All initial library cards, tokens, and other configuration are defined in JSON files.
+     - A new `configurations/` folder at the repository root organizes config by discipline and a general section.
+     - Structure: `configurations/general/`, `configurations/mining/`, `configurations/herbalism/`, `configurations/woodcutting/`, `configurations/fishing/`, `configurations/combat/`, `configurations/crafting/`, etc.
+     - Configuration is baked into the compiled binary — a compiled game cannot change these values, but developers can adjust them before compiling.
+   - Playable acceptance: All card definitions, initial token values, and encounter parameters come from JSON config files. Changing a config file and recompiling produces a game with the updated values.
+   - Notes: This enables designers to tweak game balance without touching Rust code.
 
-15) Add resource management, camp mechanics, and short-term tokens
-   - Goal: Add resources (Rations, Durability, Exhaustion) and camp actions (rest, craft, short-scout) that consume or restore resources and interact with scouting/replacement.
-   - Description: Implement resource counters with lifecycle types and camp endpoints that modify player/discipline state and log actions.
-   - Playable acceptance: Camp endpoint effects are visible in subsequent encounters and token lifecycles behave as specified.
-   - Notes: Keep resource pools constrained to create meaningful trade-offs.
-
-16) Implement varied enemy AI, conditional card effects, and targeting
-   - Goal: Add enemy behaviors and richer card effect syntax (conditions, triggers, target selectors) while keeping deterministic resolution and action logging.
-   - Description: Provide behavior profiles for enemies and expand the card schema; cover interactions with momentum, status tokens, and conditional triggers.
-     - Enemy AI cost awareness: Currently enemies pick cards randomly regardless of costs (deferred from 9.3). This step should include making enemies check cost affordability when selecting cards, falling back to random if none are affordable.
-   - Playable acceptance: New cards and behaviors are playable and deterministic given the same seed; unit tests cover conditional resolution.
-   - Notes: Keep scripting sandboxed and composable.
-
-17) Introduce persistent world/meta-progression and milestone systems
-   - Goal: Track area clears, milestones, and unlocks; implement milestone rewards that grant CardEffect-Choice/CardEffect-Picks and long-lived tokens.
-   - Description: Persist campaign state, add milestone flows, and ensure progression tokens are granted and recorded in the ActionLog.
-   - Playable acceptance: A simple campaign unlock path is playable and tokens/unlocks persist across sessions.
-   - Notes: Provide tools for resetting campaigns for testing.
-
-18) UX polish, documentation, tools for designers, and release
+15) UX polish, documentation, tools for designers, and release
    - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors.
    - Description: Add designer tooling for encounter/CardEffect creation, telemetry for balancing, and example playthroughs demonstrating reproducibility from seed+action-log.
    - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
    - Notes: Tag a release and include release notes linking vision to implemented features.
+
+16) Balancing setup
+   - Goal: Establish automated tools and processes for balance testing and tuning.
+   - Description:
+     - Define balancing goals for each discipline.
+     - Build a mutating runner that tries different strategies and documents whether they are all viable for reaching specific goals, ensuring multiple paths to victory.
+     - Scope initially to balancing each discipline individually: verify multiple strategies per discipline are viable and interesting.
+     - Define expected outcomes per encounter per tier and expected fail/success rates.
+     - Run the balancing tools and collect data.
+     - Analyze data and make adjustments.
+   - Playable acceptance: Automated balance runners produce data showing strategy viability across disciplines. Results inform configuration adjustments.
+   - Notes: Keep the runner deterministic (seeded) for reproducible balance analysis.
+
+Ideas and future possibilities
+------------------------------
+Implement Trading and Merchants (MerchantOffers + Barter workflow)
+   - Goal: Model merchants as decks (MerchantOffers, Barter) and deterministic merchant interactions that mirror vision.md's barter mechanics.
+   - Description: Implement MerchantOffers deck and Barter deck support. Merchant interactions deterministically draw a MerchantOfferPool, present offers, then draw MerchantBargainDraw barter cards and allow choosing up to MerchantLeverage to modify the selected offer. Barter cards can change offered_token, requested_token, rate, fee, or attach conditions. All draws, choices, and resulting token transfers are recorded in the ActionLog so merchant interactions are reproducible.
+   - Playable acceptance: A /merchant/{id}/visit endpoint returns deterministic offers derived from the session seed; applying barter choices updates player tokens and is recorded.
+   - Notes: Start with a single merchant and simple barter cards; expand to dynamic merchant inventory later.
+   - Note: We need to determine both whether trading is needed for the game loop and what the unique gameplay of the barter mini-game should be before implementing.
 
 Implementation guidelines and priorities
 --------------------------------------
