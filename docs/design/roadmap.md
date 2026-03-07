@@ -377,7 +377,7 @@ Roadmap steps
      - Initial handsize tokens should be set to reasonable defaults at game start.
 
      **Token caps (max thresholds):**
-     - All CardEffects that grant a resource back (e.g., Stamina, Shield, Dodge, etc.) have a `cap` field (min/max range on the template, rolled to a concrete value). If adding the granted amount would exceed the cap, the value is clamped.
+     - All CardEffects that grant a resource back (e.g., Stamina, Shield, Dodge, etc.) have a `cap` field (min/max range on the template, rolled to a concrete value). Caps limit the gain from a single card effect, not the total token balance.
      - At least two types of resourcing cards in the player deck: one with a high cap (grants less resource) and one with a low cap (grants more resource). They can both reference the same CardEffect template with a range. This creates a strategic choice.
 
      **Multi-effect evaluation:**
@@ -430,7 +430,7 @@ Roadmap steps
    - Playable acceptance: All disciplines have expanded CardEffects with caps, costs, and handsize tokens. Multi-effect evaluation works correctly (first-to-last, partial success). Enemy AI respects cost affordability. Scenario tests cover new mechanics.
    - Implementation results:
      - Duration field on ChangeTokens (now split into GainTokens/LoseTokens) with TokenLifecycle, backward-compatible via serde defaults
-     - Cap (cap_min/cap_max) and gain_percent (gain_min_percent/gain_max_percent) on GainTokens; rolled to concrete values, applied as clamp during token grants. LoseTokens uses positive min/max for amount to lose.
+     - Cap (cap_min/cap_max) and gain_percent (gain_min_percent/gain_max_percent) on GainTokens; rolled to concrete values. Caps limit the gain from a single effect, not the total balance. LoseTokens uses positive min/max for amount to lose.
      - 10 max handsize tokens (AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand) initialized to 10; enforced during draws without disrupting RNG sequence (later changed to 5 in post-9.3)
      - Multi-effect evaluation: effects evaluated sequentially per card, each pays its own cost, partial success allowed
      - Generalized cost structure: GatheringCost { cost_type, amount } vec on all gathering card types; merge_gathering_costs combines explicit costs with legacy inline fields (later simplified: dedicated fields removed, all costs in costs vec)

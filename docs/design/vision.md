@@ -176,7 +176,7 @@ Death is designed as a meaningful setback (loss of gathered materials) without b
 - `gains: Vec<TokenAmount>` — rewards and token grants on gathering cards
 - `damages: Vec<TokenAmount>` — enemy/ore card damage vectors
 
-The optional `cap` field specifies a per-gain cap — when present, the gain is clamped so the token balance does not exceed the cap value. This is the unifying type that makes all gathering card effects consistent across Mining, Herbalism, Woodcutting, and Fishing.
+The optional `cap` field specifies a per-gain cap — when present, the gain from a single card effect is limited to at most the cap value. The total token balance may exceed the cap. This is the unifying type that makes all gathering card effects consistent across Mining, Herbalism, Woodcutting, and Fishing.
 
 ### Card Effect Architecture (Two-Layer Model)
 
@@ -196,11 +196,11 @@ All values are scaled by ~100x (e.g., damage 500, health 2000, durabilities 1000
 
 Card effects use a three-step rolling pipeline to determine values and costs at creation time:
 
-1. **Roll cap:** From the CardEffect template's `cap_min..cap_max` range, producing `rolled_cap` (maximum token balance after grant).
+1. **Roll cap:** From the CardEffect template's `cap_min..cap_max` range, producing `rolled_cap` (maximum gain from the effect).
 2. **Roll gain percent:** From `gain_min_percent..gain_max_percent`, producing `rolled_gain_percent`. The concrete gain = `rolled_cap * rolled_gain_percent / 100`, stored as `rolled_value`.
 3. **Roll cost percent:** For each `CardEffectCost { cost_type, min_percent, max_percent }`, roll to produce `ConcreteEffectCost { cost_type, rolled_percent }`. At play time, actual cost = `rolled_value * rolled_percent / 100`.
 
-Token cap mechanic: GainTokens effects have a `rolled_cap` that clamps the target's token balance. When a GainTokens effect is applied, the token balance increases by `rolled_value` but is clamped to not exceed `rolled_cap`. This prevents runaway accumulation — for example, a rest card granting Stamina with cap 500 and gain 400 only restores up to 500 total Stamina, not 400 above current balance.
+Token cap mechanic: GainTokens effects have a `rolled_cap` that limits the gain from a single card effect. The gain = `rolled_cap * rolled_gain_percent / 100`. The total token balance may exceed the cap — caps prevent excessive single-effect grants, not total accumulation.
 
 Additional rules:
 - If the player can't pay the full cost of any effect on a card, the card cannot be played.
@@ -211,7 +211,7 @@ Additional rules:
 
 ### Gathering Token Amount Model
 
-`TokenAmount { token_type: TokenType, amount: i64, cap: Option<i64> }` is a shared struct used across all gathering disciplines for both `costs: Vec<TokenAmount>` and `gains: Vec<TokenAmount>` vectors. The optional `cap` field specifies a per-gain cap — when present, the gain is clamped so the token balance does not exceed the cap value. This is the key unifying type that makes all gathering card effects consistent.
+`TokenAmount { token_type: TokenType, amount: i64, cap: Option<i64> }` is a shared struct used across all gathering disciplines for both `costs: Vec<TokenAmount>` and `gains: Vec<TokenAmount>` vectors. The optional `cap` field limits the gain from a single card effect — the amount granted is capped at the cap value, but the total token balance may exceed it. This is the key unifying type that makes all gathering card effects consistent.
 
 Gathering card costs are classified into two categories at resolution time:
 - **Pre-play costs** (e.g., Stamina): checked before the card is played; if the player cannot afford them, the card play is rejected. `TokenType::is_durability_cost()` returns `false` for these.
