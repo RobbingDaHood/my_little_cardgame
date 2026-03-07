@@ -642,8 +642,6 @@ pub struct ResearchCandidate {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct ResearchProject {
-    pub discipline: Discipline,
-    pub tier_count: u32,
     pub chosen_card: ResearchCandidate,
     pub progress: i64,
     pub total_cost: i64,

@@ -139,8 +139,6 @@ impl GameState {
         let total_cost = 20_i64 * (1i64 << (tier_count - 1));
 
         self.current_research = Some(types::ResearchProject {
-            discipline: chosen.discipline.clone(),
-            tier_count,
             chosen_card: chosen,
             progress: 0,
             total_cost,
@@ -175,7 +173,8 @@ impl GameState {
         let remaining_cost = project.total_cost - project.progress;
         // Cap at 33% of total cost
         let max_per_action = (project.total_cost + 2) / 3;
-        let insight_token = types::TokenType::insight_for_discipline(&project.discipline);
+        let insight_token =
+            types::TokenType::insight_for_discipline(&project.chosen_card.discipline);
         let insight_key = types::Token::persistent(insight_token);
         let available = self.token_balances.get(&insight_key).copied().unwrap_or(0);
 
@@ -214,7 +213,7 @@ impl GameState {
                     discard: 0,
                 },
                 rng,
-                vec![finished.discipline.clone()],
+                vec![finished.chosen_card.discipline.clone()],
             );
         }
 
