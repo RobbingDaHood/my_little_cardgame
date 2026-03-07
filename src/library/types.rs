@@ -611,8 +611,6 @@ pub struct RestDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCraftingCard {
-    pub increases: Vec<TokenAmount>,
-    #[serde(default)]
     pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
@@ -686,8 +684,6 @@ pub struct CraftingCraftState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct OreCard {
-    pub damages: Vec<TokenAmount>,
-    #[serde(default)]
     pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }

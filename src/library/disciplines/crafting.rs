@@ -351,11 +351,6 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
 
     // Enemy crafting cards: increase material costs
     let enemy_ore = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Ore,
-            amount: 20,
-            cap: None,
-        }],
         effects: vec![roll_concrete_effect(rng, enemy_ore_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
@@ -364,11 +359,6 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
         },
     };
     let enemy_plant = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Plant,
-            amount: 20,
-            cap: None,
-        }],
         effects: vec![roll_concrete_effect(rng, enemy_plant_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
@@ -377,11 +367,6 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
         },
     };
     let enemy_lumber = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Lumber,
-            amount: 20,
-            cap: None,
-        }],
         effects: vec![roll_concrete_effect(rng, enemy_lumber_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
@@ -390,11 +375,6 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
         },
     };
     let enemy_fish = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Fish,
-            amount: 20,
-            cap: None,
-        }],
         effects: vec![roll_concrete_effect(rng, enemy_fish_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
@@ -751,19 +731,19 @@ impl GameState {
 
     /// Enemy plays a random crafting card, increasing material costs.
     fn resolve_enemy_crafting_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        if let Some(EncounterState::Crafting(c)) = &mut self.current_encounter {
-            if c.active_craft.is_none() {
-                return;
-            }
+        // Extract effects from chosen card (mutable borrow scope)
+        let effects = {
+            let c = match &mut self.current_encounter {
+                Some(EncounterState::Crafting(c)) if c.active_craft.is_some() => c,
+                _ => return,
+            };
 
-            // Pick a random enemy card from deck
             let total_in_deck: u32 = c
                 .enemy_crafting_deck
                 .iter()
                 .map(|card| card.counts.deck)
                 .sum();
             if total_in_deck == 0 {
-                // Reshuffle discard → deck
                 for card in &mut c.enemy_crafting_deck {
                     card.counts.deck += card.counts.discard;
                     card.counts.discard = 0;
@@ -782,19 +762,35 @@ impl GameState {
                 }
             }
 
-            if let Some(idx) = chosen_idx {
-                let increases = c.enemy_crafting_deck[idx].increases.clone();
-                c.enemy_crafting_deck[idx].counts.deck -= 1;
-                c.enemy_crafting_deck[idx].counts.discard += 1;
+            match chosen_idx {
+                Some(idx) => {
+                    let fx = c.enemy_crafting_deck[idx].effects.clone();
+                    c.enemy_crafting_deck[idx].counts.deck -= 1;
+                    c.enemy_crafting_deck[idx].counts.discard += 1;
+                    fx
+                }
+                None => return,
+            }
+        };
 
-                // Apply increases to craft costs (no cap on increases)
-                if let Some(ref mut craft) = c.active_craft {
-                    for increase in &increases {
-                        *craft
-                            .current_costs
-                            .entry(increase.token_type.clone())
-                            .or_insert(0) += increase.amount;
-                    }
+        // Resolve effects via library and apply increases to craft costs
+        let mut resolved: Vec<(types::TokenType, i64)> = Vec::new();
+        for effect in &effects {
+            if let Some(types::CardEffectKind::GainTokens { token_type, .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let grant_amount = match (effect.rolled_cap, effect.rolled_gain_percent) {
+                    (Some(cap), Some(pct)) => cap * pct as i64 / 100,
+                    _ => effect.rolled_value,
+                };
+                resolved.push((token_type.clone(), grant_amount));
+            }
+        }
+
+        if let Some(EncounterState::Crafting(c)) = &mut self.current_encounter {
+            if let Some(ref mut craft) = c.active_craft {
+                for (token_type, amount) in resolved {
+                    *craft.current_costs.entry(token_type).or_insert(0) += amount;
                 }
             }
         }

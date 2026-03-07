@@ -207,11 +207,6 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     initial_light_level: 300,
                     ore_deck: vec![
                         types::OreCard {
-                            damages: vec![types::TokenAmount {
-                                token_type: types::TokenType::MiningLightLevel,
-                                amount: 30,
-                                cap: None,
-                            }],
                             effects: vec![roll_concrete_effect(rng, ore_light_small_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
@@ -220,18 +215,6 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                             },
                         },
                         types::OreCard {
-                            damages: vec![
-                                types::TokenAmount {
-                                    token_type: types::TokenType::MiningLightLevel,
-                                    amount: 50,
-                                    cap: None,
-                                },
-                                types::TokenAmount {
-                                    token_type: types::TokenType::Durability,
-                                    amount: 100,
-                                    cap: None,
-                                },
-                            ],
                             effects: vec![
                                 roll_concrete_effect(rng, ore_light_medium_id, lib),
                                 roll_concrete_effect(rng, ore_durability_medium_id, lib),
@@ -243,11 +226,6 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                             },
                         },
                         types::OreCard {
-                            damages: vec![types::TokenAmount {
-                                token_type: types::TokenType::Durability,
-                                amount: 200,
-                                cap: None,
-                            }],
                             effects: vec![roll_concrete_effect(rng, ore_durability_heavy_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
@@ -256,11 +234,6 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                             },
                         },
                         types::OreCard {
-                            damages: vec![types::TokenAmount {
-                                token_type: types::TokenType::Health,
-                                amount: 75,
-                                cap: None,
-                            }],
                             effects: vec![roll_concrete_effect(rng, ore_health_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
@@ -603,10 +576,10 @@ impl GameState {
         })
     }
 
-    /// Ore plays a random card from hand, applying token-based damages.
+    /// Ore plays a random card from hand, applying ConcreteEffect-based damages.
     /// Then draws a card from deck to hand.
     fn resolve_ore_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        let damages = {
+        let effects = {
             let mining = match &mut self.current_encounter {
                 Some(EncounterState::Mining(m)) => m,
                 _ => return,
@@ -617,25 +590,30 @@ impl GameState {
                     None => return,
                 };
             mining.round += 1;
-            mining.ore_deck[played_idx].damages.clone()
+            mining.ore_deck[played_idx].effects.clone()
         };
 
-        // Apply damages: encounter-scoped tokens go to encounter state, others to player balances
-        for damage in &damages {
-            let resolved_type = damage
-                .token_type
-                .resolve_durability(&types::Discipline::Mining);
-            let key = types::Token::persistent(resolved_type);
-            match damage.token_type {
-                types::TokenType::MiningLightLevel | types::TokenType::MiningYield => {
-                    if let Some(EncounterState::Mining(m)) = &mut self.current_encounter {
-                        let val = m.encounter_tokens.entry(key).or_insert(0);
-                        *val = (*val - damage.amount).max(0);
+        for effect in &effects {
+            let kind = match self.library.resolve_effect(effect.effect_id) {
+                Some(resolved) => resolved,
+                None => continue,
+            };
+
+            if let types::CardEffectKind::LoseTokens { token_type, .. } = &kind {
+                let resolved_type = token_type.resolve_durability(&types::Discipline::Mining);
+                let key = types::Token::persistent(resolved_type.clone());
+                let damage = effect.rolled_value;
+                match resolved_type {
+                    types::TokenType::MiningLightLevel | types::TokenType::MiningYield => {
+                        if let Some(EncounterState::Mining(m)) = &mut self.current_encounter {
+                            let val = m.encounter_tokens.entry(key).or_insert(0);
+                            *val = (*val - damage).max(0);
+                        }
                     }
-                }
-                _ => {
-                    let val = self.token_balances.entry(key).or_insert(0);
-                    *val = (*val - damage.amount).max(0);
+                    _ => {
+                        let val = self.token_balances.entry(key).or_insert(0);
+                        *val = (*val - damage).max(0);
+                    }
                 }
             }
         }
