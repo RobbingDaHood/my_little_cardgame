@@ -836,7 +836,7 @@ pub struct LibraryCard {
     #[schemars(with = "token_type_map_serde::SchemaHelper")]
     pub crafting_cost: HashMap<TokenType, i64>,
     #[serde(default)]
-    pub discipline_tags: Vec<Discipline>,
+    pub valid_discipline_types: Vec<Discipline>,
 }
 
 /// A token instance: token type + lifecycle. Used as key in token balance maps.

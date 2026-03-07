@@ -5,7 +5,7 @@
 - **Research encounters (Step 10)**: Full research lifecycle — discipline tags, Insight card effect, research encounter with choose/progress/complete actions, deterministic candidate generation, persistent research state.
 - **Crafting fixes**: Card deduplication, merged conclude/auto_conclude into `finish_active_craft()`, abort blocking during active craft, variable cost distribution (2–4 tokens, Fisher-Yates, 75% cap).
 - **Enemy card effect refactoring**: All enemy card types now carry `effects: Vec<ConcreteEffect>`. EnemyCardEffects moved to discipline modules. `validate_card_effects()` validates across all encounter types.
-- **Discipline enum**: `Discipline` enum (8 variants) with `discipline_tags` on CardEffect entries and `card_effects_for_discipline()` filtering.
+- **Discipline enum**: `Discipline` enum (8 variants) with `valid_discipline_types` on CardEffect entries and `card_effects_for_discipline()` filtering.
 
 ## Suggestions for vision.md
 
@@ -64,7 +64,7 @@ Consider adding a follow-up sub-step:
 ## What was implemented
 
 - **Discipline enum**: New `Discipline` enum in `types.rs` with variants for all seven disciplines (Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting).
-- **discipline_tags on LibraryCard**: Every library card now carries `discipline_tags: Vec<Discipline>` indicating which research disciplines can use that card/effect. Encounter cards use `vec![]` (no discipline).
+- **valid_discipline_types on LibraryCard**: Every library card now carries `valid_discipline_types: Vec<Discipline>` indicating which research disciplines can use that card/effect. Encounter cards use `vec![]` (no discipline).
 - **add_card updated**: `Library::add_card()` accepts discipline tags; all callers across 7 discipline files, game_state, endpoints, and tests updated.
 - **card_effects_for_discipline()**: New method on Library filters PlayerCardEffect entries by discipline tag, enabling the future research encounter to query available effects.
 - **CardEffectKind::Insight**: New variant `Insight { min, max }` that grants Insight tokens when played. Handled in `roll_concrete_effect`, combat `apply_card_effects`, and rest `resolve_rest_card_play`.

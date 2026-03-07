@@ -549,7 +549,7 @@ Roadmap steps
    - Playable acceptance: Research encounters are playable end-to-end. Players can choose a discipline, generate candidates, select a research project, make progress payments, and complete research to produce new Library cards. All rolls are deterministic via the game seed. Scenario tests verify the full research flow.
    - Notes: CardEffect discipline tags and the Insight card effect are prerequisites that should be implemented early in this step. The research encounter builds on these foundations and on the range system from Step 9.1.
    - Implementation results:
-     - **Discipline enum and tags:** `Discipline` enum (Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research) added. `discipline_tags: Vec<Discipline>` field on `LibraryCard` for PlayerCardEffect and EnemyCardEffect entries. `Library::card_effects_for_discipline()` filters effects by discipline tag.
+     - **Discipline enum and tags:** `Discipline` enum (Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research) added. `valid_discipline_types: Vec<Discipline>` field on `LibraryCard` for PlayerCardEffect and EnemyCardEffect entries. `Library::card_effects_for_discipline()` filters effects by discipline tag.
      - **CardEffectKind::Insight:** New variant that grants Insight tokens (min-max roll). A shared Insight `PlayerCardEffect` is registered with all discipline tags. Insight Resource cards added to the combat starting deck.
      - **Research types:** `ResearchDef`, `ResearchCandidate`, `ResearchProject`, `ResearchEncounterState` structs in `types.rs`. `EncounterKind::Research { research_def }` variant.
      - **Research state:** `current_research: Option<ResearchProject>` persisted in `GameState` across encounters.
