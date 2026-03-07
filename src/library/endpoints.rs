@@ -60,25 +60,6 @@ pub async fn list_library_cards(
     Json(cards)
 }
 
-/// Test endpoint: add a card to the Library with specified kind and counts.
-#[openapi]
-#[post("/tests/library/cards", data = "<card>")]
-pub async fn add_test_library_card(
-    card: Json<super::types::LibraryCard>,
-    game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
-    player_data: &rocket::State<crate::player_data::RandomGeneratorWrapper>,
-) -> rocket::response::status::Created<String> {
-    let mut gs = game_state.lock().await;
-    let mut rng = player_data.random_generator_state.lock().await;
-    let id = gs.library.add_card(
-        card.0.kind,
-        card.0.counts,
-        &mut rng,
-        card.0.valid_discipline_types,
-    );
-    rocket::response::status::Created::new(format!("/library/cards/{}", id))
-}
-
 /// A single card effect entry with its library ID.
 #[derive(
     Debug, Clone, rocket::serde::Serialize, rocket::serde::Deserialize, rocket_okapi::JsonSchema,
