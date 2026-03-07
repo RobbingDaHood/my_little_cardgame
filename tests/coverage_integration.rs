@@ -163,7 +163,7 @@ fn play_card_without_combat_returns_error() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }
@@ -218,7 +218,7 @@ fn play_finish_scouting_after_combat_win() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":10}"#)
             .dispatch();
         // Advance to Attacking
         client.post("/tests/combat/advance").dispatch();
@@ -226,7 +226,7 @@ fn play_finish_scouting_after_combat_win() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
             .dispatch();
         // Advance to Resourcing
         client.post("/tests/combat/advance").dispatch();
@@ -304,7 +304,7 @@ fn encounter_play_card_action() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":10}"#)
         .dispatch();
     assert_eq!(response.status(), Status::Created);
 }
@@ -323,7 +323,7 @@ fn encounter_apply_scouting_action() {
         client
             .post("/action")
             .header(ContentType::JSON)
-            .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
+            .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
             .dispatch();
         client.post("/tests/combat/advance").dispatch();
         client.post("/tests/combat/enemy_play").dispatch();
@@ -387,7 +387,7 @@ fn play_card_in_combat_with_wrong_phase() {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
-        .body(r#"{"action_type":"EncounterPlayCard","card_id":8}"#)
+        .body(r#"{"action_type":"EncounterPlayCard","card_id":9}"#)
         .dispatch();
     assert_eq!(response.status(), Status::BadRequest);
 }

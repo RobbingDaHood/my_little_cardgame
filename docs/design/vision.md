@@ -55,7 +55,7 @@ The codebase is organized into the following main modules:
 
 Architectural patterns:
 
-- **Shared vs discipline-specific effects:** Shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines. Discipline-specific effects are registered within their discipline module.
+- **Shared vs discipline-specific effects:** Shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines. Discipline-specific effects are registered within their discipline module. **Implementation note (Step 10):** All enemy card types (`OreCard`, `PlantCard`, `FishCard`, `EnemyCraftingCard`) now carry `effects: Vec<ConcreteEffect>` referencing EnemyCardEffect entries — not just combat enemy cards. Combat EnemyCardEffects moved to `combat.rs`; discipline-specific EnemyCardEffects registered in each discipline module (Mining 5, Herbalism 2, Fishing 4, Crafting 4). `validate_card_effects()` validates enemy effects across all encounter types.
 - **Trait-based deck abstraction:** The `HasDeckCounts` trait provides a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`, `LibraryCard`). The trait uses individual accessor methods (`deck_count()`, `hand_count()`, `discard_count()` and `_mut()` variants) instead of returning `&DeckCounts`, allowing both `DeckCounts` and `CardCounts` (which adds a `library` field) to implement it with flat field access. Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. Shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods.
 - **Shared gathering helper:** `GameState::all_gathering_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. Shared logic lives on `GameState` with discipline-specific behavior injected via closures. Combat uses a separate implementation due to its different cost system (`ConcreteEffect` costs vs `TokenAmount`).
 - **Encounter generation at game start:** All encounters (Combat, Mining, Herbalism, Woodcutting, Fishing, Rest) are generated at library initialization using the seeded RNG. Enemy decks contain cards with `ConcreteEffect` entries rolled from `CardEffect` templates, just like player cards. Encounter parameters (HP, durability thresholds, deck compositions) are set at init time — there is no per-encounter randomness beyond shuffling.
@@ -72,7 +72,7 @@ Deck types (examples):
 - Library: a canonical collection of all cards accessible via the library endpoint; any card present in the library can be added to a deck provided the deck is of the appropriate type (deck-type constraints apply)
 
   - Library implementation notes: Card definitions use `effects: Vec<ConcreteEffect>` where each ConcreteEffect stores an `effect_id` (reference to a CardEffect entry in the Library by index), a `rolled_value` (fixed value rolled from the CardEffect's min-max range at creation time), and optional `rolled_costs: Vec<ConcreteEffectCost>` with rolled percentage values. Effect data lives on `PlayerCardEffect` and `EnemyCardEffect` library entries which hold `kind: CardEffectKind` directly. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; new cards must always be appended to the end to preserve stable IDs. CardKind (enum, serde tag `"card_kind"`) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, Encounter{kind: EncounterKind}, PlayerCardEffect{kind: CardEffectKind}, EnemyCardEffect{kind: CardEffectKind}). EncounterKind is an enum starting with Combat { combatant_def }; enemy card definitions are embedded inline within Encounter definitions rather than as separate Library references.
-  - The Library contains two CardEffect "decks": PlayerCardEffect cards (used during research to generate new player cards) and EnemyCardEffect cards (used during the post-encounter scouting phase to generate new encounters). Every card effect on action/enemy cards references a CardEffect deck entry via `effects: Vec<ConcreteEffect>`, where each ConcreteEffect contains the effect_id reference, rolled_value, and optional rolled_costs. API responses show full effect values, not references. All card effects on player cards must reference a valid PlayerCardEffect entry; all effects on enemy cards must reference a valid EnemyCardEffect entry (validated at Library initialization).
+  - The Library contains two CardEffect "decks": PlayerCardEffect cards (used during research to generate new player cards) and EnemyCardEffect cards (used during the post-encounter scouting phase to generate new encounters). Every card effect on action/enemy cards references a CardEffect deck entry via `effects: Vec<ConcreteEffect>`, where each ConcreteEffect contains the effect_id reference, rolled_value, and optional rolled_costs. API responses show full effect values, not references. All card effects on player cards must reference a valid PlayerCardEffect entry; all effects on enemy cards must reference a valid EnemyCardEffect entry (validated at Library initialization). **Implementation note (Step 10):** CardEffect entries now carry `discipline_tags: Vec<Discipline>` enabling filtering by discipline. `Library::card_effects_for_discipline()` returns effects matching a given discipline. The `Discipline` enum covers: Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research.
 
 
 The Player's decks (Attack, Defence, Resource etc.) are fixed and initialized at game start. Only the Library manages the canonical card definitions and the internal deck representation. The API does not expose deck-creation or deck-deletion endpoints; player deck composition is managed only through adding Library cards to decks via the deck-management flow.
@@ -239,9 +239,9 @@ Other gathering professions follow the same model: lumber nodes draw from a `Lum
 
 - Crafting is resolved as a discipline-specific encounter: choose a recipe (from the Recipe deck or Library) and resolve the craft using the relevant discipline deck (Fabrication/Weaponcraft for physical items and tools, Provisioning for consumables and reagents, Woodcutting for node-sourced inputs, etc.). The discipline deck supplies action cards and choices that determine success, quality, and side-effects.
 
-- Library-only placement: crafted card copies are always placed into the Library when completed; crafting never inserts cards directly into player decks. Players add Library cards into decks later via normal deck-management flows and subject to deck-type constraints.
+- Library-only placement: crafted card copies are always placed into the Library when completed; crafting never inserts cards directly into player decks. Players add Library cards into decks later via normal deck-management flows and subject to deck-type constraints. **Implementation note (Step 10 fixes):** Crafting now increments the existing card's `library` count instead of creating a duplicate Library entry (deduplication fix).
 
-- Crafting cost and scaling: every card has an intrinsic crafting cost that scales with the number and rarity of attached CardEffects and with how favorable the CardEffect numeric rolls were (higher-quality variants cost more to reproduce). Consumable resources are drawn from inventory decks to pay base costs.
+- Crafting cost and scaling: every card has an intrinsic crafting cost that scales with the number and rarity of attached CardEffects and with how favorable the CardEffect numeric rolls were (higher-quality variants cost more to reproduce). Consumable resources are drawn from inventory decks to pay base costs. **Implementation note (Step 10 fixes):** Costs are now distributed randomly across 2–4 material tokens (max 75% per token) using Fisher-Yates shuffle with seeded RNG, replacing fixed even distribution.
 
 - CardEffect constraints: CardEffect types are fixed once created; crafting cannot change CardEffect types or categories. Crafting can, however, reroll or refine numeric values of CardEffects (at resource/token cost and risk) and improve or reduce variance using dedicated tokens.
 
@@ -266,9 +266,9 @@ High-level flow
 
 Canonical token list, generators, and uses
 
-- CurrentResearch (structured): stored in GameState; contains discipline, tier_count, chosen_card, progress, total_cost. Use: authoritative pointer to the active research project and its progress; not spendable. Cleared when research completes or player swaps to a new project.
+- CurrentResearch (structured): stored in GameState as `current_research: Option<ResearchProject>`; contains discipline, tier_count, chosen_card, progress, total_cost. Use: authoritative pointer to the active research project and its progress; not spendable. Cleared when research completes or player swaps to a new project. ✅ Implemented in Step 10.
 
-- Insight (per-discipline): primarily generated by Insight card effects on player cards across all disciplines (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, Fishing, etc.). Insight effects grant 1-5 Insight tokens when played but provide no other encounter benefit. Spendable: yes. Use: start research projects (exponential cost by tier), progress research (up to 33% of cost per action), pay entry for Milestone attempts.
+- Insight (per-discipline): primarily generated by Insight card effects on player cards across all disciplines (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, Fishing, etc.). Insight effects grant 1-5 Insight tokens when played but provide no other encounter benefit. Spendable: yes. Use: start research projects (exponential cost by tier), progress research (up to 33% of cost per action), pay entry for Milestone attempts. ✅ Implemented in Step 10 (CardEffectKind::Insight with min-max roll; currently resolved in Combat and Rest encounters only).
 
 - Renown (per-discipline): generated by showy or taunting plays across combat/gathering/crafting and some milestone rewards. Spendable: yes. Use: spend at merchants or for special reputation-based offers and discounts.
 
@@ -335,7 +335,7 @@ Discipline → primary tokens/materials produced (summary)
 - Fabrication / Bowcraft: consumes Lumber/Plank to produce tools, handles, and refined wooden components.
 - Provisioning: consumes Herbs/Reagents to produce Reagent/Tincture tokens and consumable card definitions.
 - Provisioning: consumes Ingredients; produces Ration tokens, consumables, or buff cards.
-- Research / Learning: consumes Insight to start and complete research; produces new card definitions in the Library. CardEffect discipline tags determine which effects are available for each discipline's research.
+- Research / Learning: ✅ Implemented (Step 10). Consumes Insight to start and complete research; produces new card definitions in the Library. CardEffect discipline tags determine which effects are available for each discipline's research.
 - Scouting / Recon (system): generates Foresight and other reconnaissance benefits, and can affect resource yields; scouting is a post-resolution/area-update subsystem applied as part of an encounter's lifecycle rather than a standalone encounter type. Scouting preview count = 1 + Foresight token count. Additional scouting parameters (pool modifier) may be derived from other tokens.
 
 - Milestones / Challenge systems: primary source for CardEffect-Choice, CardEffect-Picks, rare Refinement/Stability, and Key tokens.
@@ -388,25 +388,30 @@ Examples of how they can differ while staying pure cards-and-tokens:
 
 - Provisioning (gathering/crafting subtype): focuses on combining ingredients and time/temperature/chemical mechanics represented with token counters. Ingredient cards have freshness and flavour tokens; Provisioning action cards consume ingredient tokens and may consume or produce Ration tokens depending on specific card rules. Sequencing and timing cards (HeatUp, Stir, Rest, Distill) modify quality multipliers. Provisioning produces Ration tokens, reagents, consumables, or buffs rather than raw loot.
 
-- Learning / Research (interaction subtype): focused on research progression rather than a one-off encounter. The player maintains a current research project in their GameState; at a research encounter the player can start a new project (choosing discipline, tier count, and paying Insight) or progress the current one (paying Insight toward completion). Three candidate cards are generated when starting a project, and the player picks one. Completing research adds a new card definition to the Library.
+- Learning / Research (interaction subtype): ✅ Implemented in Step 10. Focused on research progression rather than a one-off encounter. The player maintains a current research project in their GameState; at a research encounter the player can start a new project (choosing discipline, tier count, and paying Insight) or progress the current one (paying Insight toward completion). Three candidate cards are generated when starting a project, and the player picks one. Completing research adds a new card definition to the Library.
 
 - Research encounters are the act of choosing and advancing research: the player selects a discipline to research, a tier count (number of card effects), and pays Insight to generate candidates. Progressing research costs up to 33% of the total cost per action (paid in Insight). Research projects are long-form: they persist in GameState across encounters until completed or swapped.
 
 - Example - Research tradeoff: the player must choose between playing Insight-generating cards during regular encounters (sacrificing immediate encounter power) to stockpile Insight, and spending that Insight efficiently at research encounters. Higher-tier research produces more powerful cards but costs exponentially more Insight.
 
 - CardEffect discipline tags: every CardEffect carries discipline tags (e.g., Combat, Mining, Herbalism) that determine which card types may use that effect. Research candidate generation draws from CardEffects matching the chosen discipline's tags, enabling cross-discipline effects where appropriate. Durability card effects are generalized — the discipline context determines which durability pool is affected.
+  - **Implementation note (Step 10):** Discipline tags are implemented as `discipline_tags: Vec<Discipline>` on LibraryCard for PlayerCardEffect and EnemyCardEffect entries. Generalized durability effects were **deferred** — per-discipline durability tokens (MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability) remain separate rather than using a context-sensitive generalized effect.
 
 - Insight card effect: a CardEffectKind::Insight variant can be added to any player card type. It grants 1-5 Insight tokens when played but provides no other encounter benefit. Each starting deck includes cards with Insight effects (granting 3 Insight each), creating a strategic choice between encounter performance and research fuel.
+  - **Implementation note (Step 10):** `CardEffectKind::Insight` implemented with min-max roll. A shared Insight `PlayerCardEffect` is registered with all discipline tags. Insight Resource cards added to the combat starting deck. **Current limitation:** Insight card resolution only works in Combat and Rest encounters; other disciplines do not yet process Insight effects.
 
 - Completing research adds a new card to the Library with zero copies in any zone. The card's effects are drawn from CardEffects matching the discipline, with values rolled from each CardEffect's min-max range. The same CardEffect can appear multiple times on a card with independent rolls.
+  - **Implementation note (Step 10):** Researched cards are currently always `CardKind::Attack` regardless of the research discipline. Mapping discipline to the appropriate card kind is deferred.
 
-Research candidate generation and card creation
+Research candidate generation and card creation — ✅ IMPLEMENTED (Step 10)
 
 - Candidate generation: when starting a new research project, the game generates three candidate cards. For each candidate: select CardEffects matching the chosen discipline's tags, roll a value between each effect's min and max (using the range system), add one effect per chosen tier. The same CardEffect can appear multiple times with new independent rolls.
 
-- Research costs: starting a project costs Insight exponentially scaled by tier count (starting at 10). Completing research costs Insight exponentially scaled by tier count (starting at 20, payable in installments of up to 33% per action).
+- Research costs: starting a project costs Insight exponentially scaled by tier count (starting at 10, formula: `10 × 2^(tier-1)`). Completing research costs Insight exponentially scaled by tier count (starting at 20, formula: `20 × 2^(tier-1)`, payable in installments of up to 33% per action).
 
-- Research state: GameState stores the current research project (discipline, tier count, candidate cards, chosen card, progress, total cost). This persists across encounters until the research is completed or the player swaps to a new project at a research encounter.
+- Research state: GameState stores the current research project (discipline, tier count, candidate cards, chosen card, progress, total cost). This persists across encounters until the research is completed or the player swaps to a new project at a research encounter. Implemented as `current_research: Option<ResearchProject>` on `GameState`.
+
+- Research types: `ResearchDef`, `ResearchCandidate`, `ResearchProject`, `ResearchEncounterState` in `types.rs`. `EncounterKind::Research { research_def }` variant added.
 
 - Reproducibility: all candidate generation rolls are deterministically derived from the game's single initial seed and recorded so the exact card outcomes can be reproduced.
 
@@ -432,12 +437,13 @@ Design consequences and examples:
 - All interactions remain deterministic/replayable via seeds: shuffles and deterministic resolutions preserve reproducibility while enabling diverse mechanical flavors.
 
 Encounter deck composition (current starting game):
-- Combat: 3/19 encounter cards (~16%)
-- Mining: 3/19 (~16%)
-- Herbalism: 3/19 (~16%)
-- Woodcutting: 3/19 (~16%)
-- Fishing: 3/19 (~16%)
-- Rest: 4/19 (~21%) — slightly higher to ensure regular recovery pacing
+- Combat: 3/20 encounter cards (~15%)
+- Mining: 3/20 (~15%)
+- Herbalism: 3/20 (~15%)
+- Woodcutting: 3/20 (~15%)
+- Fishing: 3/20 (~15%)
+- Rest: 4/20 (~20%) — slightly higher to ensure regular recovery pacing
+- Research: 1/20 (~5%) — in deck (not hand), harder to reach early game
 
 ### Encounter win/loss patterns
 
@@ -553,7 +559,7 @@ This design lets the game grow from simple beginnings to rich systems while pres
 
 - New-definition uniqueness: when a crafted or researched outcome changes the card definition (for example different CardEffect numeric values produce a distinct card definition), a new Library entry must be created for that distinct definition with its own counts. Library entry identity is therefore based on the card definition rather than a human-visible name.
 
-- Research cards in the Library: Completed research adds a new card definition to the Library with 0 copies in any zone. The card's CardEffects are drawn from the Library's CardEffect pool (filtered by discipline tags) with values rolled from each CardEffect's min-max range. The new Library entry is available for future deck composition, crafting, or further research cycles.
+- Research cards in the Library: ✅ Implemented in Step 10. Completed research adds a new card definition to the Library with 0 copies in any zone. The card's CardEffects are drawn from the Library's CardEffect pool (filtered by discipline tags) with values rolled from each CardEffect's min-max range. The new Library entry is available for future deck composition, crafting, or further research cycles. **Current limitation:** all researched cards are `CardKind::Attack` regardless of discipline.
 
 - Example: a count vector of [4,2,1,1] on the Library entry for "Basic Axe (v2)" means the player has 8 copies total: 4 are stored in the Library inventory, 2 are currently in the Attack deck, 1 is in the player's hand, and 1 is in the discard pile.
 
@@ -760,7 +766,7 @@ Concrete examples
 - Failure: spoiled dish (lower quality Rations) or minor Exhaustion.
 - Win/Lose: success if final dish meets quality thresholds.
 
-10) Research / Learning (long-form encounters)
+10) Research / Learning (long-form encounters) — ✅ IMPLEMENTED (Step 10)
 
 - Encounter fields: discipline, tier_count, current_research (project, progress, cost), candidate_cards.
 - Pre-start: visible current research status (if any) and available disciplines.
@@ -773,6 +779,7 @@ Concrete examples
 - Rewards: new card definitions added to the Library (with 0 copies in any zone). Players acquire copies through other mechanics.
 - Failure: swapping research abandons the current project's progress. No other failure condition.
 - Win/Lose: completing research (progress reaches cost) is a success; there is no loss condition for research encounters themselves.
+- Implementation notes: 1 research encounter card in the starting deck (deck position, not in hand — making it harder to reach early game). 6 scenario tests cover full loop, swap project, insufficient Insight, abort, crafting abort blocking, and crafting dedup. All researched cards are currently Attack type regardless of discipline (deferred: discipline-to-card-kind mapping).
 
 11) Scouting / Recon (system)
 

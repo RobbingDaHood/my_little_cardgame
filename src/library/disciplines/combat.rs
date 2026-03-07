@@ -8,6 +8,103 @@ use std::collections::HashMap;
 use crate::library::game_state::roll_concrete_effect;
 
 pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // ---- Combat EnemyCardEffect templates ----
+
+    // Enemy "deal damage" effect (range: 200-400)
+    let enemy_damage_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Health,
+                min: 200,
+                max: 400,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // Enemy "grant shield" effect (range: 150-250)
+    let enemy_shield_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Shield,
+                cap_min: 150,
+                cap_max: 250,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // Enemy "grant stamina" effect (range: 80-120)
+    let enemy_stamina_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Stamina,
+                cap_min: 80,
+                cap_max: 120,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // Enemy "draw 1 attack, 1 defence, 2 resource" effect
+    let enemy_draw_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::DrawCards {
+                attack: 1,
+                defence: 1,
+                resource: 2,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // ---- Player combat cards ----
+
     // Attack card: deals damage to opponent
     lib.add_card(
         CardKind::Attack {
@@ -19,6 +116,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Combat],
     );
 
     // Defence card: grants shield to self
@@ -32,6 +131,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Combat],
     );
 
     // Resource card: grants stamina to self, draws cards
@@ -48,6 +149,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Combat],
     );
 
     // Combat encounter: Gnome — enemy health 2000
@@ -60,7 +163,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                         (types::Token::persistent(types::TokenType::MaxHealth), 2000),
                     ]),
                     attack_deck: vec![types::EnemyCardDef {
-                        effects: vec![roll_concrete_effect(rng, 4, lib)],
+                        effects: vec![roll_concrete_effect(rng, enemy_damage_id, lib)],
                         counts: types::DeckCounts {
                             deck: 0,
                             hand: 10,
@@ -68,7 +171,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                         },
                     }],
                     defence_deck: vec![types::EnemyCardDef {
-                        effects: vec![roll_concrete_effect(rng, 5, lib)],
+                        effects: vec![roll_concrete_effect(rng, enemy_shield_id, lib)],
                         counts: types::DeckCounts {
                             deck: 0,
                             hand: 10,
@@ -77,8 +180,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     }],
                     resource_deck: vec![types::EnemyCardDef {
                         effects: vec![
-                            roll_concrete_effect(rng, 6, lib),
-                            roll_concrete_effect(rng, 7, lib),
+                            roll_concrete_effect(rng, enemy_stamina_id, lib),
+                            roll_concrete_effect(rng, enemy_draw_id, lib),
                         ],
                         counts: types::DeckCounts {
                             deck: 0,
@@ -95,6 +198,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 3,
             discard: 0,
         },
+        rng,
+        vec![],
     );
 
     // Cost damage PlayerCardEffect (range: 700-900, cost: 30-50% Stamina)
@@ -120,6 +225,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Combat],
     );
 
     // Cost shield PlayerCardEffect (range: 350-550, cost: 30-50% Stamina)
@@ -147,6 +254,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Combat],
     );
 
     // Cost Attack card: more powerful but costs Stamina
@@ -160,6 +269,8 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 2,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Combat],
     );
 
     // Cost Defence card: more powerful but costs Stamina
@@ -173,6 +284,23 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
             hand: 2,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // Insight Resource card: grants Insight tokens instead of combat benefit
+    lib.add_card(
+        CardKind::Resource {
+            effects: vec![roll_concrete_effect(rng, 4, lib)],
+        },
+        CardCounts {
+            library: 0,
+            deck: 2,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
     );
 }
 
@@ -199,6 +327,11 @@ fn apply_card_effects(
                 target, token_type, ..
             } => (target, token_type, true),
             types::CardEffectKind::DrawCards { .. } => continue,
+            types::CardEffectKind::Insight { .. } => {
+                let entry = types::token_entry_by_type(player_tokens, &types::TokenType::Insight);
+                *entry += effect.rolled_value;
+                continue;
+            }
         };
 
         let target_tokens = match (target, is_player) {

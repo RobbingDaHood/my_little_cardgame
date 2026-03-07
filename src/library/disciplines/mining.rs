@@ -4,7 +4,128 @@ use crate::library::types::{
 };
 use crate::library::{GameState, Library};
 
-pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+use crate::library::game_state::roll_concrete_effect;
+
+pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // ---- Mining EnemyCardEffect templates ----
+
+    // Ore light damage (small): 20-40
+    let ore_light_small_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::MiningLightLevel,
+                min: 20,
+                max: 40,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Mining],
+    );
+
+    // Ore light damage (medium): 40-60
+    let ore_light_medium_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::MiningLightLevel,
+                min: 40,
+                max: 60,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Mining],
+    );
+
+    // Ore durability damage (medium): 80-120
+    let ore_durability_medium_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::MiningDurability,
+                min: 80,
+                max: 120,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Mining],
+    );
+
+    // Ore durability damage (heavy): 150-250
+    let ore_durability_heavy_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::MiningDurability,
+                min: 150,
+                max: 250,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Mining],
+    );
+
+    // Ore health damage: 50-100
+    let ore_health_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Health,
+                min: 50,
+                max: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Mining],
+    );
+
+    // ---- Player mining cards ----
+
     // Mining power card: high power, no cost
     lib.add_card(
         CardKind::Mining {
@@ -23,6 +144,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 
     // Balanced mining power card: moderate power
@@ -43,6 +166,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 
     // Light level card: restores light, costs lumber
@@ -67,6 +192,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 3,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 
     // Mining encounter: Iron Ore
@@ -82,6 +209,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                                 amount: 30,
                                 cap: None,
                             }],
+                            effects: vec![roll_concrete_effect(rng, ore_light_small_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 6,
@@ -101,6 +229,10 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                                     cap: None,
                                 },
                             ],
+                            effects: vec![
+                                roll_concrete_effect(rng, ore_light_medium_id, lib),
+                                roll_concrete_effect(rng, ore_durability_medium_id, lib),
+                            ],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 8,
@@ -113,6 +245,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                                 amount: 200,
                                 cap: None,
                             }],
+                            effects: vec![roll_concrete_effect(rng, ore_durability_heavy_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 4,
@@ -125,6 +258,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
                                 amount: 75,
                                 cap: None,
                             }],
+                            effects: vec![roll_concrete_effect(rng, ore_health_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 2,
@@ -141,6 +275,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 3,
             discard: 0,
         },
+        rng,
+        vec![],
     );
 
     // High power mining card: costs stamina
@@ -165,6 +301,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 2,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 
     // High power + high cost
@@ -189,6 +327,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 
     // Very high power, highest cost
@@ -213,6 +353,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 
     // Large light level card: higher gain, higher lumber cost, higher cap
@@ -237,6 +379,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 
     // Mining rest card: grants stamina, no power or light
@@ -257,6 +401,8 @@ pub(crate) fn register_mining_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg6
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Mining],
     );
 }
 

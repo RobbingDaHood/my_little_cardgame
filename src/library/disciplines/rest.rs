@@ -39,6 +39,8 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Rest],
     );
 
     // 2. Health recovery — costs Fish (15-35%) + Plant (15-35%)
@@ -72,6 +74,8 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Rest],
     );
 
     // 3. Mixed Stamina + Health — no RestToken cost (free play), lower gains
@@ -94,6 +98,8 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Rest],
     );
 
     let mixed_health_effect_id = lib.add_card(
@@ -115,6 +121,8 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Rest],
     );
 
     // Roll concrete rest cards referencing these effect templates.
@@ -144,6 +152,8 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 hand: 0,
                 discard: 0,
             },
+            rng,
+            vec![types::Discipline::Rest],
         );
     }
 
@@ -163,6 +173,8 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             hand: 4,
             discard: 0,
         },
+        rng,
+        vec![],
     );
 }
 
@@ -260,27 +272,36 @@ impl GameState {
         // Check and deduct costs from player token_balances
         GameState::check_and_deduct_costs(&effects, &mut self.token_balances)?;
 
-        // Apply GainTokens effects
+        // Apply GainTokens/Insight effects
         for effect in &effects {
             let effect_kind = self.library.resolve_effect(effect.effect_id);
-            if let Some(CardEffectKind::GainTokens {
-                token_type,
-                duration,
-                ..
-            }) = effect_kind
-            {
-                let token = types::Token {
-                    token_type: token_type.clone(),
-                    lifecycle: duration.clone(),
-                };
-                let entry = self.token_balances.entry(token).or_insert(0);
-                *entry += effect.rolled_value;
-                // Cap the token balance at rolled_cap
-                if let Some(cap) = effect.rolled_cap {
-                    if *entry > cap {
-                        *entry = cap;
+            match effect_kind {
+                Some(CardEffectKind::GainTokens {
+                    token_type,
+                    duration,
+                    ..
+                }) => {
+                    let token = types::Token {
+                        token_type: token_type.clone(),
+                        lifecycle: duration.clone(),
+                    };
+                    let entry = self.token_balances.entry(token).or_insert(0);
+                    *entry += effect.rolled_value;
+                    // Cap the token balance at rolled_cap
+                    if let Some(cap) = effect.rolled_cap {
+                        if *entry > cap {
+                            *entry = cap;
+                        }
                     }
                 }
+                Some(CardEffectKind::Insight { .. }) => {
+                    let entry = types::token_entry_by_type(
+                        &mut self.token_balances,
+                        &types::TokenType::Insight,
+                    );
+                    *entry += effect.rolled_value;
+                }
+                _ => {}
             }
         }
 

@@ -67,6 +67,10 @@ pub(crate) fn roll_concrete_effect(
                 .collect();
             (value, costs, None, None)
         }
+        Some(super::types::CardEffectKind::Insight { min, max }) => {
+            let value = roll_range(rng, min, max);
+            (value, vec![], None, None)
+        }
         _ => (0, vec![], None, None),
     };
     ConcreteEffect {
@@ -101,6 +105,8 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![super::types::Discipline::Combat],
     );
 
     // Player "grant shield" effect (range: 200-400)
@@ -123,6 +129,8 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![super::types::Discipline::Combat],
     );
 
     // Player "grant stamina" effect (range: 150-250)
@@ -145,6 +153,8 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![super::types::Discipline::Combat],
     );
 
     // Player "draw 1 attack, 1 defence, 2 resource" effect
@@ -162,21 +172,14 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![super::types::Discipline::Combat],
     );
 
-    // ---- Shared EnemyCardEffect deck entries (templates with ranges) ----
-
-    // Enemy "deal damage" effect (range: 200-400)
+    // Shared Insight PlayerCardEffect (range: 1-5)
     lib.add_card(
-        CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::LoseTokens {
-                target: super::types::EffectTarget::OnOpponent,
-                token_type: super::types::TokenType::Health,
-                min: 200,
-                max: 400,
-                costs: vec![],
-                duration: super::types::TokenLifecycle::PersistentCounter,
-            },
+        CardKind::PlayerCardEffect {
+            kind: super::types::CardEffectKind::Insight { min: 1, max: 5 },
         },
         CardCounts {
             library: 1,
@@ -184,67 +187,16 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
             hand: 0,
             discard: 0,
         },
-    );
-
-    // Enemy "grant shield" effect (range: 150-250)
-    lib.add_card(
-        CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::GainTokens {
-                target: super::types::EffectTarget::OnSelf,
-                token_type: super::types::TokenType::Shield,
-                cap_min: 150,
-                cap_max: 250,
-                gain_min_percent: 100,
-                gain_max_percent: 100,
-                costs: vec![],
-                duration: super::types::TokenLifecycle::PersistentCounter,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-    );
-
-    // Enemy "grant stamina" effect (range: 80-120)
-    lib.add_card(
-        CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::GainTokens {
-                target: super::types::EffectTarget::OnSelf,
-                token_type: super::types::TokenType::Stamina,
-                cap_min: 80,
-                cap_max: 120,
-                gain_min_percent: 100,
-                gain_max_percent: 100,
-                costs: vec![],
-                duration: super::types::TokenLifecycle::PersistentCounter,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-    );
-
-    // Enemy "draw 1 attack, 1 defence, 2 resource" effect
-    lib.add_card(
-        CardKind::EnemyCardEffect {
-            kind: super::types::CardEffectKind::DrawCards {
-                attack: 1,
-                defence: 1,
-                resource: 2,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
+        rng,
+        vec![
+            super::types::Discipline::Combat,
+            super::types::Discipline::Mining,
+            super::types::Discipline::Herbalism,
+            super::types::Discipline::Woodcutting,
+            super::types::Discipline::Fishing,
+            super::types::Discipline::Rest,
+            super::types::Discipline::Crafting,
+        ],
     );
 
     // ---- Discipline-specific cards ----
@@ -255,6 +207,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     super::disciplines::fishing::register_fishing_cards(&mut lib, rng);
     super::disciplines::rest::register_rest_cards(&mut lib, rng);
     super::disciplines::crafting::register_crafting_cards(&mut lib, rng);
+    super::disciplines::research::register_research_cards(&mut lib, rng);
 
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
@@ -273,6 +226,7 @@ pub struct GameState {
     pub encounter_phase: super::types::EncounterPhase,
     pub last_encounter_result: Option<EncounterOutcome>,
     pub encounter_results: Vec<EncounterOutcome>,
+    pub current_research: Option<super::types::ResearchProject>,
 }
 
 impl GameState {
@@ -380,6 +334,7 @@ impl GameState {
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_encounter_result: None,
             encounter_results: Vec::new(),
+            current_research: None,
         }
     }
 
@@ -692,6 +647,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_crafting_encounter(card_id, &mut rng);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Research { .. },
+                                } => {
+                                    let _ = gs.start_research_encounter(card_id);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -733,6 +693,9 @@ impl GameState {
                         Some(EncounterState::Crafting(_)) => {
                             let _ = gs.resolve_crafting_play_card(*card_id, &mut rng);
                         }
+                        Some(EncounterState::Research(_)) => {
+                            // Research encounters do not support card play
+                        }
                         None => {}
                     }
                 }
@@ -755,7 +718,9 @@ impl GameState {
                     if matches!(&gs.current_encounter, Some(EncounterState::Rest(_))) {
                         gs.abort_rest_encounter();
                     } else if matches!(&gs.current_encounter, Some(EncounterState::Crafting(_))) {
-                        gs.abort_crafting_encounter();
+                        let _ = gs.abort_crafting_encounter();
+                    } else if matches!(&gs.current_encounter, Some(EncounterState::Research(_))) {
+                        gs.abort_research_encounter();
                     } else {
                         gs.abort_encounter();
                     }
@@ -767,6 +732,9 @@ impl GameState {
                     Some(EncounterState::Crafting(_)) => {
                         let _ = gs.conclude_crafting_encounter();
                     }
+                    Some(EncounterState::Research(_)) => {
+                        let _ = gs.conclude_research_encounter();
+                    }
                     _ => {}
                 },
                 ActionPayload::CraftSwap { from_id, to_id } => {
@@ -777,6 +745,18 @@ impl GameState {
                 }
                 ActionPayload::CraftDurability { discipline } => {
                     let _ = gs.resolve_crafting_add_durability(discipline);
+                }
+                ActionPayload::ResearchChooseProject {
+                    discipline,
+                    tier_count,
+                } => {
+                    let _ = gs.research_choose_project(discipline.clone(), *tier_count, &mut rng);
+                }
+                ActionPayload::ResearchSelectCandidate { candidate_index } => {
+                    let _ = gs.research_select_candidate(*candidate_index);
+                }
+                ActionPayload::ResearchProgress { amount } => {
+                    let _ = gs.research_progress(*amount, &mut rng);
                 }
             }
             match gs.action_log.entries.lock() {
