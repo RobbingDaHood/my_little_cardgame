@@ -9,8 +9,9 @@ pub mod game_state;
 pub mod types;
 
 pub use endpoints::{
-    add_test_library_card, list_card_effects, list_library_cards,
-    okapi_add_operation_for_list_card_effects_, CardEffectEntry, CardEffectsResponse,
+    add_test_library_card, get_possible_actions, list_card_effects, list_library_cards,
+    okapi_add_operation_for_get_possible_actions_, okapi_add_operation_for_list_card_effects_,
+    CardEffectEntry, CardEffectsResponse,
 };
 pub use game_state::GameState;
 

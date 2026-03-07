@@ -3448,3 +3448,105 @@ fn scenario_crafting_card_deduplication() {
         }
     }
 }
+
+/// Test: GET /actions/possible returns valid actions at each game state.
+#[test]
+fn scenario_possible_actions_endpoint() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    // Before new game: only NewGame should be available
+    let actions = get_json(&client, "/actions/possible");
+    let action_types: Vec<&str> = actions
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|a| a.get("action_type").and_then(|v| v.as_str()))
+        .collect();
+    assert!(
+        action_types.contains(&"NewGame"),
+        "NewGame should always be available"
+    );
+
+    // Start a new game
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created);
+
+    // After NewGame: should have EncounterPickEncounter
+    let actions = get_json(&client, "/actions/possible");
+    let action_types: Vec<&str> = actions
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|a| a.get("action_type").and_then(|v| v.as_str()))
+        .collect();
+    assert!(
+        action_types.contains(&"EncounterPickEncounter"),
+        "Should be able to pick encounter after new game. Actions: {:?}",
+        action_types
+    );
+
+    // Pick the first encounter card from the possible actions
+    let pick_action = actions
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| {
+            a.get("action_type")
+                .and_then(|v| v.as_str())
+                .map(|s| s == "EncounterPickEncounter")
+                .unwrap_or(false)
+        })
+        .unwrap();
+    let card_ids = pick_action
+        .get("playable_card_ids")
+        .and_then(|v| v.as_array())
+        .unwrap();
+    assert!(
+        !card_ids.is_empty(),
+        "Should have encounter cards to pick from"
+    );
+    let first_encounter_id = card_ids[0].as_u64().unwrap();
+
+    // Pick the encounter
+    let (status, _) = post_action(
+        &client,
+        &format!(
+            r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+            first_encounter_id
+        ),
+    );
+    assert_eq!(status, Status::Created);
+
+    // In encounter: should have EncounterPlayCard with playable card IDs
+    let actions = get_json(&client, "/actions/possible");
+    let action_types: Vec<&str> = actions
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|a| a.get("action_type").and_then(|v| v.as_str()))
+        .collect();
+    assert!(
+        action_types.contains(&"EncounterPlayCard"),
+        "Should be able to play cards in encounter. Actions: {:?}",
+        action_types
+    );
+    let play_action = actions
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| {
+            a.get("action_type")
+                .and_then(|v| v.as_str())
+                .map(|s| s == "EncounterPlayCard")
+                .unwrap_or(false)
+        })
+        .unwrap();
+    let play_card_ids = play_action
+        .get("playable_card_ids")
+        .and_then(|v| v.as_array())
+        .unwrap();
+    assert!(
+        !play_card_ids.is_empty(),
+        "Should have cards to play in encounter"
+    );
+}

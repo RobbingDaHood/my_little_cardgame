@@ -59,8 +59,10 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::combat::okapi_add_operation_for_initialize_combat_;
     use crate::combat::{get_encounter, get_encounter_results, initialize_combat};
     use crate::library::add_test_library_card;
+    use crate::library::get_possible_actions;
     use crate::library::list_card_effects;
     use crate::library::list_library_cards;
+    use crate::library::okapi_add_operation_for_get_possible_actions_;
     use crate::library::okapi_add_operation_for_list_card_effects_;
     use crate::player_tokens::get_player_tokens;
     use crate::player_tokens::okapi_add_operation_for_get_player_tokens_;
@@ -83,6 +85,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 get_encounter_results,
                 list_card_effects,
                 list_actions_log,
+                get_possible_actions,
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))
