@@ -493,8 +493,7 @@ impl GameState {
                     let light_key = types::Token::persistent(types::TokenType::MiningLightLevel);
                     let light_val = encounter_tokens.entry(light_key).or_insert(0);
                     if let Some(cap) = gain.cap {
-                        let capped_gain = (cap - *light_val).max(0).min(gain.amount);
-                        *light_val += capped_gain;
+                        *light_val += gain.amount.min(cap);
                     } else {
                         *light_val += gain.amount;
                     }

@@ -374,14 +374,9 @@ fn apply_card_effects(
                 *entry = (*entry - damage).max(0);
             }
         } else {
-            // GainTokens: granted = cap * gain_percent / 100, clamped so balance <= cap
+            // GainTokens: gain = cap * gain_percent / 100, cap limits the gain not the total
             let grant_amount = match (effect.rolled_cap, effect.rolled_gain_percent) {
-                (Some(cap), Some(pct)) => {
-                    let raw_gain = cap * pct as i64 / 100;
-                    let key = types::Token::persistent(token_type.clone());
-                    let current = target_tokens.get(&key).copied().unwrap_or(0);
-                    raw_gain.min((cap - current).max(0))
-                }
+                (Some(cap), Some(pct)) => cap * pct as i64 / 100,
                 _ => effect.rolled_value,
             };
             let entry = target_tokens

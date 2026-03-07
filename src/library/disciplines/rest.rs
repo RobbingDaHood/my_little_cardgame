@@ -287,12 +287,6 @@ impl GameState {
                     };
                     let entry = self.token_balances.entry(token).or_insert(0);
                     *entry += effect.rolled_value;
-                    // Cap the token balance at rolled_cap
-                    if let Some(cap) = effect.rolled_cap {
-                        if *entry > cap {
-                            *entry = cap;
-                        }
-                    }
                 }
                 Some(CardEffectKind::Insight { .. }) => {
                     let entry = types::token_entry_by_type(
