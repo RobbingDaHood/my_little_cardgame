@@ -443,7 +443,7 @@ Encounter deck composition (current starting game):
 - Woodcutting: 3/20 (~15%)
 - Fishing: 3/20 (~15%)
 - Rest: 4/20 (~20%) — slightly higher to ensure regular recovery pacing
-- Research: 1/20 (~5%) — in deck (not hand), harder to reach early game
+- Research: 1/20 (~5%)
 
 ### Encounter win/loss patterns
 
@@ -779,7 +779,7 @@ Concrete examples
 - Rewards: new card definitions added to the Library (with 0 copies in any zone). Players acquire copies through other mechanics.
 - Failure: swapping research abandons the current project's progress. No other failure condition.
 - Win/Lose: completing research (progress reaches cost) is a success; there is no loss condition for research encounters themselves.
-- Implementation notes: 1 research encounter card in the starting deck (deck position, not in hand — making it harder to reach early game). 6 scenario tests cover full loop, swap project, insufficient Insight, abort, crafting abort blocking, and crafting dedup. All researched cards are currently Attack type regardless of discipline (deferred: discipline-to-card-kind mapping).
+- Implementation notes: 1 research encounter card in the starting deck. 6 scenario tests cover full loop, swap project, insufficient Insight, abort, crafting abort blocking, and crafting dedup. All researched cards are currently Attack type regardless of discipline (deferred: discipline-to-card-kind mapping).
 
 11) Scouting / Recon (system)
 

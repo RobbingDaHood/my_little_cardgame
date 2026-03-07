@@ -561,12 +561,12 @@ Roadmap steps
        - All enemy card types (`OreCard`, `PlantCard`, `FishCard`, `EnemyCraftingCard`) now have `effects: Vec<ConcreteEffect>` referencing EnemyCardEffect entries.
        - Combat EnemyCardEffects moved from `game_state.rs` to `combat.rs`. New EnemyCardEffects registered: Mining (5), Herbalism (2), Fishing (4), Crafting (4).
        - `validate_card_effects()` extended to validate enemy effects across all encounter types (not just combat).
-     - **Encounter deck composition:** 1 research encounter added to starting deck (deck position, not hand).
+     - **Encounter deck composition:** 1 research encounter added to starting deck.
    - Deferred items:
      - **Generalized durability effects:** Kept per-discipline durability tokens (MiningDurability, HerbalismDurability, etc.) instead of generalizing to a single context-sensitive durability effect. The cost of abstraction outweighed the benefit at this stage.
      - **Non-Attack researched cards:** All researched cards are currently Attack cards regardless of the research discipline. Future work should map discipline to the appropriate card kind.
      - **Insight in gathering encounters:** Insight card resolution only works in Combat and Rest encounters currently. Other disciplines do not process Insight effects.
-     - **Research encounter card in starting hand:** The research encounter card starts in the deck (not the hand), making it hard to reach in the early game. Consider adding it to the hand or increasing encounter draw rates.
+     - **Research encounter card position:** The research encounter card's starting position (deck vs hand) is determined by the seed and is not a design concern.
 
 11) Simple post-encounter scouting
    - Goal: Replace the current no-op scouting with a simple encounter-modification step that always happens after an encounter is concluded.
