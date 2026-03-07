@@ -1,5 +1,5 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
     HerbalismEncounterState,
 };
 use crate::library::{GameState, Library};
@@ -75,6 +75,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     types: vec![types::PlantCharacteristic::Fragile],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -103,6 +104,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     ],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -132,6 +134,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     ],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -243,6 +246,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     types: vec![],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -276,6 +280,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     types: vec![],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -311,6 +316,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     ],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -338,6 +344,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     amount: 200,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -432,6 +439,18 @@ impl GameState {
         for gain in &herbalism_effect.gains {
             let entry = types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
             *entry += gain.amount;
+        }
+
+        // Process Insight effects
+        for effect in &herbalism_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Herbalism);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
+            }
         }
 
         // Remove plant cards based on match mode

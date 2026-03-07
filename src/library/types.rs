@@ -399,6 +399,8 @@ pub struct MiningCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Inline effect for Crafting discipline cards.
@@ -411,6 +413,8 @@ pub struct CraftingCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub reductions: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -454,6 +458,8 @@ pub struct HerbalismCardEffect {
     pub match_mode: HerbalismMatchMode,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
@@ -498,6 +504,8 @@ pub struct WoodcuttingCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -529,6 +537,8 @@ pub struct FishingCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.

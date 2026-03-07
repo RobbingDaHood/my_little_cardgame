@@ -1,5 +1,5 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
     MiningEncounterState,
 };
 use crate::library::{GameState, Library};
@@ -136,6 +136,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 500,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -158,6 +159,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 300,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -184,6 +186,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 200,
                     cap: Some(500),
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -293,6 +296,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 800,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -319,6 +323,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 600,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -345,6 +350,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 1000,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -371,6 +377,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 350,
                     cap: Some(600),
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -393,6 +400,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                     amount: 200,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -504,6 +512,18 @@ impl GameState {
                         types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
                     *entry += gain.amount;
                 }
+            }
+        }
+
+        // Process Insight effects
+        for effect in &mining_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Mining);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
             }
         }
 

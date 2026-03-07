@@ -1,6 +1,6 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, CraftingCraftState, CraftingEncounterState, DeckCounts,
-    EncounterKind, EncounterOutcome, EncounterState, EnemyCraftingCard, TokenAmount,
+    self, CardCounts, CardEffectKind, CardKind, CraftingCraftState, CraftingEncounterState,
+    DeckCounts, EncounterKind, EncounterOutcome, EncounterState, EnemyCraftingCard, TokenAmount,
 };
 use crate::library::{GameState, Library};
 use rand::RngCore;
@@ -122,6 +122,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -144,6 +145,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -166,6 +168,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -188,6 +191,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -231,6 +235,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                         cap: None,
                     },
                 ],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -253,6 +258,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                     amount: 100,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -631,6 +637,18 @@ impl GameState {
             // Deduct 1 crafting token for the turn
             c.crafting_tokens -= 1;
             c.round += 1;
+        }
+
+        // Process Insight effects
+        for effect in &crafting_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Crafting);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
+            }
         }
 
         // Play the card (hand → discard)

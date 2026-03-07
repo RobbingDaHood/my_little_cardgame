@@ -1,5 +1,5 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
 };
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
@@ -121,6 +121,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -144,6 +145,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -167,6 +169,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -258,6 +261,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     amount: -150,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -285,6 +289,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     amount: 150,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -326,6 +331,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                         cap: None,
                     },
                 ],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -353,6 +359,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     amount: 1,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -387,6 +394,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     amount: -1,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -414,6 +422,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     amount: 200,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -444,6 +453,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                     },
                 ],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -566,6 +576,18 @@ impl GameState {
                         types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
                     *entry += gain.amount;
                 }
+            }
+        }
+
+        // Process Insight effects
+        for effect in &fishing_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Fishing);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
             }
         }
 

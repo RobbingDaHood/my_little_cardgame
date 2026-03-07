@@ -159,3 +159,32 @@ This means completing a full research project (30 Insight) is currently impossib
 - Consider adding a test endpoint `POST /tests/tokens` that sets token balances directly — this would enable comprehensive research flow testing without depending on the full combat→Insight pipeline.
 - Add a follow-up task to write research completion tests once the Insight economy is rebalanced.
 - The `play_one_round_prefer_insight` test helper revealed that Insight Resource cards (with 1 effect) are identifiable by effect count vs main Resource cards (2 effects). This heuristic may break if card designs change — consider adding explicit card metadata for testability.
+
+---
+
+# Vision & Roadmap Suggestions — Insight Effects in Gathering Disciplines
+
+## What was implemented
+
+- **`effects: Vec<ConcreteEffect>` added to all 5 gathering card effect structs**: `MiningCardEffect`, `HerbalismCardEffect`, `WoodcuttingCardEffect`, `FishingCardEffect`, and `CraftingCardEffect` now carry an optional `effects` field (defaulting to empty via `#[serde(default)]`).
+- **Insight effect processing in all 5 disciplines**: Each `resolve_player_*_card()` function now processes `ConcreteEffect` entries, matching `CardEffectKind::Insight` and granting the discipline-appropriate Insight token via `TokenType::insight_for_discipline()`.
+- **No changes to Combat or Rest**: These already handled Insight correctly.
+- **All 40 existing tests pass**: No behavioral changes to existing cards (all current cards have empty `effects` vectors).
+
+## Design decisions
+
+- **ConcreteEffect approach over TokenAmount**: Rather than adding Insight as a fixed `TokenAmount` gain, the `ConcreteEffect` approach was chosen because it supports rolled min/max ranges (dynamic values), matching Combat and Rest's Insight behavior exactly.
+- **Field added to structs, not CardKind variants**: The `effects` field lives on the domain-specific card effect structs rather than the `CardKind` enum variants, keeping the card data co-located with domain logic.
+- **Uses `insight_for_discipline()` helper**: Each discipline uses the centralized helper instead of hardcoding the Insight token type, ensuring consistency if new disciplines are added.
+
+## Suggestions for vision.md
+
+- Update the Insight section to note that all disciplines now support Insight card effects, not just Combat and Rest. The vision previously noted this as a gap.
+- Document that gathering discipline cards can carry both domain-specific effects (gains/costs/reductions) AND generic ConcreteEffects (Insight, and potentially future effect types). This dual-effect model is now a cross-cutting architectural pattern.
+
+## Suggestions for roadmap.md
+
+- **Mark "Insight in gathering encounters" as implemented** — the previous suggestions file noted this as a deferred item and high-priority roadmap addition.
+- **Next step: Register Insight cards for gathering disciplines** — the infrastructure is in place, but no gathering discipline cards currently carry Insight effects. Card registration changes (adding Insight ConcreteEffects to specific gathering cards) are needed to activate the feature in gameplay.
+- Consider adding scenario tests that verify Insight generation from gathering encounters once cards with Insight effects are registered.
+- The `effects` field on gathering card effect structs also opens the door for future non-Insight ConcreteEffects (e.g., GainTokens, LoseTokens) to be added to gathering cards, potentially simplifying the per-discipline gain resolution logic over time.

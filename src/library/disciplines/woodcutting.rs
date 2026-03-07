@@ -1,5 +1,5 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
 };
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
@@ -17,6 +17,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -41,6 +42,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -65,6 +67,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -89,6 +92,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -143,6 +147,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     },
                 ],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -167,6 +172,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -191,6 +197,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -226,6 +233,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     },
                 ],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -262,6 +270,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     },
                 ],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -290,6 +299,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                     amount: 200,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -498,6 +508,18 @@ impl GameState {
         for gain in &woodcutting_effect.gains {
             let entry = types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
             *entry += gain.amount;
+        }
+
+        // Process Insight effects
+        for effect in &woodcutting_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Woodcutting);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
+            }
         }
 
         // Deduct durability costs (depletes encounter, doesn't reject card)
