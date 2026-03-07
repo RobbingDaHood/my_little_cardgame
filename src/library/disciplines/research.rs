@@ -70,7 +70,8 @@ impl GameState {
         // Cost: 10 * 2^(tier_count - 1)
         let insight_cost = 10_i64 * (1i64 << (tier_count - 1));
 
-        let insight_key = types::Token::persistent(types::TokenType::Insight);
+        let insight_token = types::TokenType::insight_for_discipline(&discipline);
+        let insight_key = types::Token::persistent(insight_token);
         let balance = self.token_balances.get(&insight_key).copied().unwrap_or(0);
         if balance < insight_cost {
             return Err(format!(
@@ -174,7 +175,8 @@ impl GameState {
         let remaining_cost = project.total_cost - project.progress;
         // Cap at 33% of total cost
         let max_per_action = (project.total_cost + 2) / 3;
-        let insight_key = types::Token::persistent(types::TokenType::Insight);
+        let insight_token = types::TokenType::insight_for_discipline(&project.discipline);
+        let insight_key = types::Token::persistent(insight_token);
         let available = self.token_balances.get(&insight_key).copied().unwrap_or(0);
 
         let actual = amount

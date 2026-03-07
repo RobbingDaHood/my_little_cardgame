@@ -11,13 +11,13 @@ use std::thread;
 fn direct_balance_modifies_balance() {
     let mut gs = GameState::new();
     assert_eq!(
-        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
+        token_balance_by_type(&gs.token_balances, &TokenType::CombatInsight),
         0
     );
     gs.token_balances
-        .insert(Token::persistent(TokenType::Insight), 10);
+        .insert(Token::persistent(TokenType::CombatInsight), 10);
     assert_eq!(
-        token_balance_by_type(&gs.token_balances, &TokenType::Insight),
+        token_balance_by_type(&gs.token_balances, &TokenType::CombatInsight),
         10
     );
 }

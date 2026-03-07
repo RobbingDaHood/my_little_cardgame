@@ -253,7 +253,7 @@ fn replay_from_log_handles_set_seed() {
     let replayed = GameState::replay_from_log(&log_clone);
     // After replay, state should be freshly initialized (SetSeed resets)
     assert_eq!(
-        token_balance_by_type(&replayed.token_balances, &TokenType::Insight),
+        token_balance_by_type(&replayed.token_balances, &TokenType::CombatInsight),
         0
     );
 }

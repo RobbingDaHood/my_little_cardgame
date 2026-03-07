@@ -2929,7 +2929,7 @@ fn start_game_accumulate_insight_and_pick_research(client: &Client, seed: u64) -
         "Should have research encounter cards in hand after depleting encounter hand"
     );
 
-    let insight = player_token(client, "Insight");
+    let insight = player_token(client, "CombatInsight");
     let research_enc = research_encounter_ids(client);
 
     let pick_json = format!(
@@ -3014,7 +3014,7 @@ fn scenario_research_encounter_full_loop() {
     );
 
     // Verify Insight was deducted (tier 1 costs 10)
-    let insight_after_choose = player_token(&client, "Insight");
+    let insight_after_choose = player_token(&client, "CombatInsight");
     assert_eq!(
         insight_after_choose,
         insight_before - 10,
@@ -3055,7 +3055,7 @@ fn scenario_research_encounter_full_loop() {
         );
         // May succeed or fail depending on available Insight
         if status == Status::Created {
-            let insight_after_progress = player_token(&client, "Insight");
+            let insight_after_progress = player_token(&client, "CombatInsight");
             assert!(
                 insight_after_progress < insight_after_choose,
                 "Insight should decrease after progress"
@@ -3143,7 +3143,7 @@ fn scenario_research_choose_and_swap_project() {
     }
 
     // If available, start a second research encounter
-    let insight_now = player_token(&client, "Insight");
+    let insight_now = player_token(&client, "CombatInsight");
     let pick_json = format!(
         r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
         research_enc[0]
@@ -3220,7 +3220,7 @@ fn scenario_research_insufficient_insight() {
     assert_eq!(status, Status::Created);
 
     // Verify Insight is 0
-    let insight = player_token(&client, "Insight");
+    let insight = player_token(&client, "CombatInsight");
     assert_eq!(insight, 0, "Should start with 0 Insight");
 
     // Deplete encounter hand to get research card

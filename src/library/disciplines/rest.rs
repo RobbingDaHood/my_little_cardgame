@@ -297,7 +297,7 @@ impl GameState {
                 Some(CardEffectKind::Insight { .. }) => {
                     let entry = types::token_entry_by_type(
                         &mut self.token_balances,
-                        &types::TokenType::Insight,
+                        &types::TokenType::RestInsight,
                     );
                     *entry += effect.rolled_value;
                 }

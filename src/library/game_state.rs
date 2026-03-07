@@ -176,7 +176,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
         vec![super::types::Discipline::Combat],
     );
 
-    // Shared Insight PlayerCardEffect (range: 1-5)
+    // Insight PlayerCardEffect (range: 1-5, valid for all disciplines)
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: super::types::CardEffectKind::Insight { min: 1, max: 5 },

@@ -32,7 +32,14 @@ pub enum TokenType {
     Dodge,
     Mana,
     // Persistent/meta tokens
-    Insight,
+    CombatInsight,
+    MiningInsight,
+    HerbalismInsight,
+    WoodcuttingInsight,
+    FishingInsight,
+    RestInsight,
+    CraftingInsight,
+    ResearchInsight,
     Renown,
     Refinement,
     Stability,
@@ -91,7 +98,14 @@ impl TokenType {
             TokenType::Stamina,
             TokenType::Dodge,
             TokenType::Mana,
-            TokenType::Insight,
+            TokenType::CombatInsight,
+            TokenType::MiningInsight,
+            TokenType::HerbalismInsight,
+            TokenType::WoodcuttingInsight,
+            TokenType::FishingInsight,
+            TokenType::RestInsight,
+            TokenType::CraftingInsight,
+            TokenType::ResearchInsight,
             TokenType::Renown,
             TokenType::Refinement,
             TokenType::Stability,
@@ -146,6 +160,29 @@ impl TokenType {
                 | TokenType::WoodcuttingDurability
                 | TokenType::FishingDurability
         )
+    }
+
+    pub fn insight_for_discipline(discipline: &Discipline) -> TokenType {
+        match discipline {
+            Discipline::Combat => TokenType::CombatInsight,
+            Discipline::Mining => TokenType::MiningInsight,
+            Discipline::Herbalism => TokenType::HerbalismInsight,
+            Discipline::Woodcutting => TokenType::WoodcuttingInsight,
+            Discipline::Fishing => TokenType::FishingInsight,
+            Discipline::Rest => TokenType::RestInsight,
+            Discipline::Crafting => TokenType::CraftingInsight,
+            Discipline::Research => TokenType::ResearchInsight,
+        }
+    }
+
+    pub fn durability_for_discipline(discipline: &Discipline) -> Option<TokenType> {
+        match discipline {
+            Discipline::Mining => Some(TokenType::MiningDurability),
+            Discipline::Herbalism => Some(TokenType::HerbalismDurability),
+            Discipline::Woodcutting => Some(TokenType::WoodcuttingDurability),
+            Discipline::Fishing => Some(TokenType::FishingDurability),
+            _ => None,
+        }
     }
 }
 

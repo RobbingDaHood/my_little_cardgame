@@ -328,7 +328,8 @@ fn apply_card_effects(
             } => (target, token_type, true),
             types::CardEffectKind::DrawCards { .. } => continue,
             types::CardEffectKind::Insight { .. } => {
-                let entry = types::token_entry_by_type(player_tokens, &types::TokenType::Insight);
+                let entry =
+                    types::token_entry_by_type(player_tokens, &types::TokenType::CombatInsight);
                 *entry += effect.rolled_value;
                 continue;
             }
