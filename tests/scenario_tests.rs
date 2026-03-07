@@ -2746,7 +2746,7 @@ fn scenario_crafting_expansion_cards_exist() {
     // Verify crafting cards are registered
     let crafting_cards = get_json(&client, "/library/cards?card_kind=Crafting");
     let arr = crafting_cards.as_array().expect("Should be array");
-    assert_eq!(arr.len(), 6, "Should have 6 crafting player cards");
+    assert_eq!(arr.len(), 8, "Should have 8 crafting player cards");
 
     // Verify crafting encounter card exists
     let enc_cards = get_json(&client, "/library/cards?card_kind=Encounter");

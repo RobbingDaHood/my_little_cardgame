@@ -302,6 +302,90 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         rng,
         vec![types::Discipline::Combat],
     );
+
+    // Stamina-cost starting attack effect (500-700 damage, 20-40% Stamina cost)
+    let stamina_start_damage_idx = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Health,
+                min: 500,
+                max: 700,
+                costs: vec![types::CardEffectCost {
+                    token_type: types::TokenType::Stamina,
+                    min_percent: 20,
+                    max_percent: 40,
+                }],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // Stamina-cost starting attack card
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![roll_concrete_effect(rng, stamina_start_damage_idx, lib)],
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // Health-cost starting attack effect (1000-1300 damage, 20-40% Health cost)
+    let health_start_damage_idx = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: types::CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Health,
+                min: 1000,
+                max: 1300,
+                costs: vec![types::CardEffectCost {
+                    token_type: types::TokenType::Health,
+                    min_percent: 20,
+                    max_percent: 40,
+                }],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
+
+    // Health-cost starting attack card
+    lib.add_card(
+        CardKind::Attack {
+            effects: vec![roll_concrete_effect(rng, health_start_damage_idx, lib)],
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Combat],
+    );
 }
 
 /// Apply card effects to combat using concrete rolled values.

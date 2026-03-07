@@ -311,6 +311,74 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         rng,
         vec![types::Discipline::Woodcutting],
     );
+
+    // Stamina-cost starting woodcutting card: 2 chop types, good values
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::PrecisionChop, types::ChopType::MediumChop],
+                chop_values: vec![8, 5],
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
+                        amount: 100,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Woodcutting],
+    );
+
+    // Health-cost starting woodcutting card: 3 chop types, best values
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    types::ChopType::HeavyChop,
+                    types::ChopType::PrecisionChop,
+                    types::ChopType::MediumChop,
+                ],
+                chop_values: vec![7, 9, 5],
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Health,
+                        amount: 150,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Woodcutting],
+    );
 }
 
 /// Evaluate played woodcutting cards and return (pattern_name, reward_multiplier).

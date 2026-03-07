@@ -271,6 +271,84 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
         vec![types::Discipline::Crafting],
     );
 
+    // Stamina-cost starting crafting card: reduces 2 materials by large amount
+    lib.add_card(
+        CardKind::Crafting {
+            crafting_effect: types::CraftingCardEffect {
+                costs: vec![TokenAmount {
+                    token_type: types::TokenType::Stamina,
+                    amount: 75,
+                    cap: None,
+                }],
+                reductions: vec![
+                    TokenAmount {
+                        token_type: types::TokenType::Ore,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Lumber,
+                        amount: 40,
+                        cap: None,
+                    },
+                ],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Health-cost starting crafting card: reduces all 4 materials by large amount
+    lib.add_card(
+        CardKind::Crafting {
+            crafting_effect: types::CraftingCardEffect {
+                costs: vec![TokenAmount {
+                    token_type: types::TokenType::Health,
+                    amount: 150,
+                    cap: None,
+                }],
+                reductions: vec![
+                    TokenAmount {
+                        token_type: types::TokenType::Ore,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Plant,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Lumber,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Fish,
+                        amount: 40,
+                        cap: None,
+                    },
+                ],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
     // Enemy crafting cards: increase material costs
     let enemy_ore = EnemyCraftingCard {
         increases: vec![TokenAmount {

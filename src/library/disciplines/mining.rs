@@ -412,6 +412,60 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         rng,
         vec![types::Discipline::Mining],
     );
+
+    // Stamina-cost starting mining card: above-average power
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Stamina,
+                    amount: 100,
+                    cap: None,
+                }],
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
+                    amount: 700,
+                    cap: None,
+                }],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Mining],
+    );
+
+    // Health-cost starting mining card: highest power
+    lib.add_card(
+        CardKind::Mining {
+            mining_effect: types::MiningCardEffect {
+                costs: vec![types::TokenAmount {
+                    token_type: types::TokenType::Health,
+                    amount: 150,
+                    cap: None,
+                }],
+                gains: vec![types::TokenAmount {
+                    token_type: types::TokenType::MiningPower,
+                    amount: 1200,
+                    cap: None,
+                }],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Mining],
+    );
 }
 
 impl GameState {

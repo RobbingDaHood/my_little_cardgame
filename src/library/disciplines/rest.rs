@@ -125,6 +125,62 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
         vec![types::Discipline::Rest],
     );
 
+    // Stamina-cost starting rest effect: good Health recovery, costs Stamina
+    let stamina_cost_health_effect_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Health,
+                cap_min: 600,
+                cap_max: 800,
+                gain_min_percent: 90,
+                gain_max_percent: 100,
+                costs: vec![CardEffectCost {
+                    token_type: types::TokenType::Stamina,
+                    min_percent: 20,
+                    max_percent: 40,
+                }],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Rest],
+    );
+
+    // Health-cost starting rest effect: massive Stamina recovery, costs Health
+    let health_cost_stamina_effect_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Stamina,
+                cap_min: 900,
+                cap_max: 1200,
+                gain_min_percent: 90,
+                gain_max_percent: 100,
+                costs: vec![CardEffectCost {
+                    token_type: types::TokenType::Health,
+                    min_percent: 15,
+                    max_percent: 30,
+                }],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Rest],
+    );
+
     // Roll concrete rest cards referencing these effect templates.
     // Distribution: 2 stamina, 2 health, 1 mixed.
     // Stamina/health cards cost 1 rest token; mixed card costs 0.
@@ -156,6 +212,46 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
             vec![types::Discipline::Rest],
         );
     }
+
+    // Stamina-cost starting rest card: good Health recovery, costs Stamina
+    lib.add_card(
+        CardKind::Rest {
+            effects: vec![crate::library::game_state::roll_concrete_effect(
+                rng,
+                stamina_cost_health_effect_id,
+                lib,
+            )],
+            rest_token_cost: 1,
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Rest],
+    );
+
+    // Health-cost starting rest card: massive Stamina recovery, costs Health
+    lib.add_card(
+        CardKind::Rest {
+            effects: vec![crate::library::game_state::roll_concrete_effect(
+                rng,
+                health_cost_stamina_effect_id,
+                lib,
+            )],
+            rest_token_cost: 1,
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Rest],
+    );
 
     // Register rest encounter card (~20% of encounter deck = hand: 4)
     lib.add_card(

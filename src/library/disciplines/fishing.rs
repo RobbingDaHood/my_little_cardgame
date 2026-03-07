@@ -465,6 +465,68 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         rng,
         vec![types::Discipline::Fishing],
     );
+
+    // Stamina-cost starting fishing card: 3 values, good spread
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![150, 450, 700],
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
+                        amount: 100,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // Health-cost starting fishing card: 5 values, excellent spread
+    lib.add_card(
+        CardKind::Fishing {
+            fishing_effect: types::FishingCardEffect {
+                values: vec![100, 250, 400, 550, 700],
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Health,
+                        amount: 150,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
 }
 
 impl GameState {
