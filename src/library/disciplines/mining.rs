@@ -61,7 +61,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 target: types::EffectTarget::OnOpponent,
-                token_type: types::TokenType::MiningDurability,
+                token_type: types::TokenType::Durability,
                 min: 80,
                 max: 120,
                 costs: vec![],
@@ -84,7 +84,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 target: types::EffectTarget::OnOpponent,
-                token_type: types::TokenType::MiningDurability,
+                token_type: types::TokenType::Durability,
                 min: 150,
                 max: 250,
                 costs: vec![],
@@ -227,7 +227,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                                     cap: None,
                                 },
                                 types::TokenAmount {
-                                    token_type: types::TokenType::MiningDurability,
+                                    token_type: types::TokenType::Durability,
                                     amount: 100,
                                     cap: None,
                                 },
@@ -244,7 +244,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
                         },
                         types::OreCard {
                             damages: vec![types::TokenAmount {
-                                token_type: types::TokenType::MiningDurability,
+                                token_type: types::TokenType::Durability,
                                 amount: 200,
                                 cap: None,
                             }],
@@ -568,7 +568,10 @@ impl GameState {
 
         // Apply damages: encounter-scoped tokens go to encounter state, others to player balances
         for damage in &damages {
-            let key = types::Token::persistent(damage.token_type.clone());
+            let resolved_type = damage
+                .token_type
+                .resolve_durability(&types::Discipline::Mining);
+            let key = types::Token::persistent(resolved_type);
             match damage.token_type {
                 types::TokenType::MiningLightLevel | types::TokenType::MiningYield => {
                     if let Some(EncounterState::Mining(m)) = &mut self.current_encounter {

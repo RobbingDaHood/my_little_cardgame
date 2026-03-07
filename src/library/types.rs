@@ -51,6 +51,7 @@ pub enum TokenType {
     HerbalismDurability,
     WoodcuttingDurability,
     FishingDurability,
+    Durability,
     // Material tokens (produced by gathering)
     Ore,
     Plant,
@@ -117,6 +118,7 @@ impl TokenType {
             TokenType::HerbalismDurability,
             TokenType::WoodcuttingDurability,
             TokenType::FishingDurability,
+            TokenType::Durability,
             TokenType::Ore,
             TokenType::Plant,
             TokenType::Lumber,
@@ -159,7 +161,17 @@ impl TokenType {
                 | TokenType::HerbalismDurability
                 | TokenType::WoodcuttingDurability
                 | TokenType::FishingDurability
+                | TokenType::Durability
         )
+    }
+
+    pub fn resolve_durability(&self, discipline: &Discipline) -> TokenType {
+        match self {
+            TokenType::Durability => {
+                TokenType::durability_for_discipline(discipline).unwrap_or(self.clone())
+            }
+            other => other.clone(),
+        }
     }
 
     pub fn insight_for_discipline(discipline: &Discipline) -> TokenType {

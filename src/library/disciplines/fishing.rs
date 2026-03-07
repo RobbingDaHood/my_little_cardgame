@@ -116,7 +116,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             fishing_effect: types::FishingCardEffect {
                 values: vec![200],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -140,7 +140,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             fishing_effect: types::FishingCardEffect {
                 values: vec![400],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -164,7 +164,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             fishing_effect: types::FishingCardEffect {
                 values: vec![700],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -252,7 +252,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -280,7 +280,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -314,7 +314,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::FishingDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
@@ -350,7 +350,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -384,7 +384,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::FishingDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
@@ -413,7 +413,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
             fishing_effect: types::FishingCardEffect {
                 values: vec![],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 50,
                     cap: None,
                 }],
@@ -447,7 +447,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::FishingDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
@@ -546,7 +546,10 @@ impl GameState {
         // Deduct durability costs (depletes encounter, doesn't reject card)
         let mut durability_depleted = false;
         for cost in &post_play_costs {
-            let key = types::Token::persistent(cost.token_type.clone());
+            let resolved_type = cost
+                .token_type
+                .resolve_durability(&types::Discipline::Fishing);
+            let key = types::Token::persistent(resolved_type);
             let durability = self.token_balances.entry(key).or_insert(0);
             *durability = (*durability - cost.amount).max(0);
             if *durability <= 0 {
