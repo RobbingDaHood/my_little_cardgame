@@ -113,3 +113,32 @@ Always commit small isolated commits, but each commit should pass the tests and 
 Always rebase on main before finishing work on a branch.
 
 Never push and never create a pull request. I will do that manually. 
+
+Worktree setup for parallel AI work
+
+This repository uses git worktrees to allow multiple AI agents to work in parallel without interfering with each other. Each worktree is an independent working directory with its own branch, sharing the same git history.
+
+Layout:
+```
+Projects/
+  my_little_cardgame/            ← main repo checkout (manual work)
+  my_little_cardgames/           ← worktree parent folder
+    wt1/                         ← worktree, branch: worktree/wt1
+    wt2/                         ← worktree, branch: worktree/wt2
+    wt3/                         ← worktree, branch: worktree/wt3
+```
+
+How AI agents should use worktrees:
+- Each AI session is assigned one worktree directory (e.g., `my_little_cardgames/wt1`).
+- Detect which worktree you are in by checking the current working directory.
+- Create feature branches from the worktree branch as usual (branch from latest `origin/main`).
+- Each worktree has its own `target/` build directory — builds are fully independent.
+- Never push or create pull requests (existing convention still applies).
+
+Managing worktrees with `scripts/worktree-manage.sh`:
+- `scripts/worktree-manage.sh list` — list all worktrees.
+- `scripts/worktree-manage.sh add <name>` — create a new worktree from latest `origin/main`.
+- `scripts/worktree-manage.sh remove <name>` — remove a worktree and its branch.
+- `scripts/worktree-manage.sh reset <name>` — hard-reset a worktree to latest `origin/main` (clean slate).
+
+Run the script from the main repo or any worktree — it resolves paths automatically.
