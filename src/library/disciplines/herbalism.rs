@@ -60,23 +60,301 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    // ---- Player herbalism cards ----
+    // ---- Herbalism PlayerCardEffect templates ----
 
-    // Narrow herbalism card: targets 1 characteristic, low durability cost
+    let durability_cost_id = lib.cards.len();
     lib.add_card(
-        CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Durability,
+                min: 50,
+                max: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let stamina_cost_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Stamina,
+                min: 100,
+                max: 150,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let health_cost_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Health,
+                min: 150,
+                max: 200,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let stamina_gain_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Stamina,
+                cap_min: 200,
+                cap_max: 200,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    // ---- HerbalismMatch templates (one per unique match_mode) ----
+
+    let match_or_fragile_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or {
                     types: vec![types::PlantCharacteristic::Fragile],
                 },
-                gains: vec![],
-                effects: vec![],
             },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_or_thorny_aromatic_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Thorny,
+                        types::PlantCharacteristic::Aromatic,
+                    ],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_or_bitter_luminous_fragile_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Bitter,
+                        types::PlantCharacteristic::Luminous,
+                        types::PlantCharacteristic::Fragile,
+                    ],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_most_common_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::MostCommon {
+                    limit: 1,
+                    types: vec![],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_least_common_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::LeastCommon {
+                    limit: 1,
+                    types: vec![],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_and_fragile_thorny_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::And {
+                    types: vec![
+                        types::PlantCharacteristic::Fragile,
+                        types::PlantCharacteristic::Thorny,
+                    ],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_or_empty_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::Or { types: vec![] },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_or_4chars_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Fragile,
+                        types::PlantCharacteristic::Thorny,
+                        types::PlantCharacteristic::Aromatic,
+                        types::PlantCharacteristic::Bitter,
+                    ],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    let match_or_all5_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::HerbalismMatch {
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Fragile,
+                        types::PlantCharacteristic::Thorny,
+                        types::PlantCharacteristic::Aromatic,
+                        types::PlantCharacteristic::Bitter,
+                        types::PlantCharacteristic::Luminous,
+                    ],
+                },
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    // ---- Player herbalism cards (rolled from templates) ----
+
+    // Narrow herbalism card: targets 1 characteristic, durability cost
+    lib.add_card(
+        CardKind::Herbalism {
+            effects: vec![
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_or_fragile_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -91,21 +369,10 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // Medium herbalism card: targets 2 characteristics
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                match_mode: types::HerbalismMatchMode::Or {
-                    types: vec![
-                        types::PlantCharacteristic::Thorny,
-                        types::PlantCharacteristic::Aromatic,
-                    ],
-                },
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_or_thorny_aromatic_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -120,22 +387,10 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // Broad herbalism card: targets 3 characteristics
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                match_mode: types::HerbalismMatchMode::Or {
-                    types: vec![
-                        types::PlantCharacteristic::Bitter,
-                        types::PlantCharacteristic::Luminous,
-                        types::PlantCharacteristic::Fragile,
-                    ],
-                },
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_or_bitter_luminous_fragile_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -228,26 +483,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // MostCommon card — removes the most common characteristic (limit 1)
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 150,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                match_mode: types::HerbalismMatchMode::MostCommon {
-                    limit: 1,
-                    types: vec![],
-                },
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, stamina_cost_id, lib),
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_most_common_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -262,26 +502,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // LeastCommon card — removes the least common characteristic (limit 1)
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 150,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                match_mode: types::HerbalismMatchMode::LeastCommon {
-                    limit: 1,
-                    types: vec![],
-                },
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, stamina_cost_id, lib),
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_least_common_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -296,28 +521,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // AND-based multi-type card — removes only plants matching ALL listed types
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 100,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                match_mode: types::HerbalismMatchMode::And {
-                    types: vec![
-                        types::PlantCharacteristic::Fragile,
-                        types::PlantCharacteristic::Thorny,
-                    ],
-                },
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, stamina_cost_id, lib),
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_and_fragile_thorny_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -332,20 +540,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // Stamina rest card for herbalism
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 50,
-                    cap: None,
-                }],
-                match_mode: types::HerbalismMatchMode::Or { types: vec![] },
-                gains: vec![types::TokenAmount {
-                    token_type: types::TokenType::Stamina,
-                    amount: 200,
-                    cap: None,
-                }],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_or_empty_id, lib),
+                roll_concrete_effect(rng, stamina_gain_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -360,30 +559,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // Stamina-cost starting herbalism card: matches 4 characteristics
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 100,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                match_mode: types::HerbalismMatchMode::Or {
-                    types: vec![
-                        types::PlantCharacteristic::Fragile,
-                        types::PlantCharacteristic::Thorny,
-                        types::PlantCharacteristic::Aromatic,
-                        types::PlantCharacteristic::Bitter,
-                    ],
-                },
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, stamina_cost_id, lib),
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_or_4chars_id, lib),
+            ],
         },
         CardCounts {
             library: 1,
@@ -398,31 +578,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // Health-cost starting herbalism card: matches ALL 5 characteristics
     lib.add_card(
         CardKind::Herbalism {
-            herbalism_effect: types::HerbalismCardEffect {
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Health,
-                        amount: 150,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                match_mode: types::HerbalismMatchMode::Or {
-                    types: vec![
-                        types::PlantCharacteristic::Fragile,
-                        types::PlantCharacteristic::Thorny,
-                        types::PlantCharacteristic::Aromatic,
-                        types::PlantCharacteristic::Bitter,
-                        types::PlantCharacteristic::Luminous,
-                    ],
-                },
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, health_cost_id, lib),
+                roll_concrete_effect(rng, durability_cost_id, lib),
+                roll_concrete_effect(rng, match_or_all5_id, lib),
+            ],
         },
         CardCounts {
             library: 1,
@@ -485,13 +645,14 @@ impl GameState {
             .get(card_id)
             .ok_or_else(|| format!("Card {} not found in Library", card_id))?
             .clone();
-        let herbalism_effect = match &lib_card.kind {
-            CardKind::Herbalism { herbalism_effect } => herbalism_effect.clone(),
+        let effects = match &lib_card.kind {
+            CardKind::Herbalism { effects } => effects.clone(),
             _ => return Err("Cannot play a non-herbalism card in herbalism encounter".to_string()),
         };
 
-        // Split costs into pre-play (reject if unaffordable) and post-play (durability)
-        let (pre_play_costs, post_play_costs) = types::split_token_amounts(&herbalism_effect.costs);
+        // Extract costs from LoseTokens/OnSelf effects and split into pre/post-play
+        let costs = Self::extract_gathering_costs_from_effects(&effects, &self.library);
+        let (pre_play_costs, post_play_costs) = types::split_token_amounts(&costs);
         if !pre_play_costs.is_empty() {
             Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
         }
@@ -515,32 +676,40 @@ impl GameState {
             return Ok(());
         }
 
-        // Apply gains
-        for gain in &herbalism_effect.gains {
-            let entry = types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
-            *entry += gain.amount;
-        }
-
-        // Process Insight effects
-        for effect in &herbalism_effect.effects {
-            if let Some(CardEffectKind::Insight { .. }) =
-                self.library.resolve_effect(effect.effect_id)
-            {
-                let insight_type =
-                    types::TokenType::insight_for_discipline(&types::Discipline::Herbalism);
-                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
-                *entry += effect.rolled_value;
+        // Process all effects via library templates
+        let mut match_mode_opt: Option<types::HerbalismMatchMode> = None;
+        for effect in &effects {
+            let kind = match self.library.resolve_effect(effect.effect_id) {
+                Some(resolved) => resolved,
+                None => continue,
+            };
+            match &kind {
+                CardEffectKind::GainTokens { token_type, .. } => {
+                    let entry = types::token_entry_by_type(&mut self.token_balances, token_type);
+                    *entry += effect.rolled_value;
+                }
+                CardEffectKind::Insight { .. } => {
+                    let insight_type =
+                        types::TokenType::insight_for_discipline(&types::Discipline::Herbalism);
+                    let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                    *entry += effect.rolled_value;
+                }
+                CardEffectKind::HerbalismMatch { match_mode } => {
+                    match_mode_opt = Some(match_mode.clone());
+                }
+                // LoseTokens/OnSelf already handled above as costs
+                _ => {}
             }
         }
 
         // Remove plant cards based on match mode
-        {
+        if let Some(match_mode) = match_mode_opt {
             let herbalism = match &mut self.current_encounter {
                 Some(EncounterState::Herbalism(h)) => h,
                 _ => return Err("No active herbalism encounter".to_string()),
             };
 
-            match &herbalism_effect.match_mode {
+            match &match_mode {
                 types::HerbalismMatchMode::Or {
                     types: target_types,
                 } => {
@@ -642,8 +811,8 @@ impl GameState {
 
     /// Check if all herbalism hand cards are unpayable (pre-play costs unaffordable).
     fn all_herbalism_hand_cards_unpayable(&self) -> bool {
-        self.all_gathering_hand_cards_unpayable(|k| match k {
-            CardKind::Herbalism { herbalism_effect } => Some(&herbalism_effect.costs),
+        self.all_effects_hand_cards_unpayable(|k| match k {
+            CardKind::Herbalism { effects } => Some(effects),
             _ => None,
         })
     }

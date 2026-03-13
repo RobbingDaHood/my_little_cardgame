@@ -390,7 +390,7 @@ pub enum CardKind {
         effects: Vec<ConcreteEffect>,
     },
     Herbalism {
-        herbalism_effect: HerbalismCardEffect,
+        effects: Vec<ConcreteEffect>,
     },
     Woodcutting {
         woodcutting_effect: WoodcuttingCardEffect,
@@ -445,20 +445,6 @@ pub enum HerbalismMatchMode {
         limit: u32,
         types: Vec<PlantCharacteristic>,
     },
-}
-
-/// Inline effect for Herbalism discipline cards.
-/// Targets characteristics to remove matching plant cards; broader cards are riskier.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct HerbalismCardEffect {
-    #[serde(default)]
-    pub costs: Vec<TokenAmount>,
-    pub match_mode: HerbalismMatchMode,
-    #[serde(default)]
-    pub gains: Vec<TokenAmount>,
-    #[serde(default)]
-    pub effects: Vec<ConcreteEffect>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.

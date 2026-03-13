@@ -40,10 +40,10 @@ fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
                 total_power += effect.rolled_value.abs();
             }
         }
-        CardKind::Herbalism { herbalism_effect } => {
-            num_effects = 1;
-            for gain in &herbalism_effect.gains {
-                total_power += gain.amount.abs();
+        CardKind::Herbalism { effects } => {
+            num_effects = effects.len() as i64;
+            for e in effects {
+                total_power += e.rolled_value.abs();
             }
         }
         CardKind::Woodcutting { woodcutting_effect } => {
