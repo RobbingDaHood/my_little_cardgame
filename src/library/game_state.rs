@@ -438,29 +438,6 @@ impl GameState {
         Ok(())
     }
 
-    pub(crate) fn all_gathering_hand_cards_unpayable(
-        &self,
-        cost_extractor: impl Fn(&super::types::CardKind) -> Option<&Vec<super::types::TokenAmount>>,
-    ) -> bool {
-        let hand_cards: Vec<_> = self
-            .library
-            .cards
-            .iter()
-            .filter(|c| c.counts.hand > 0 && cost_extractor(&c.kind).is_some())
-            .collect();
-        if hand_cards.is_empty() {
-            return false;
-        }
-        hand_cards.iter().all(|card| {
-            let costs = cost_extractor(&card.kind).unwrap();
-            let (pre_play_costs, _) = super::types::split_token_amounts(costs);
-            if pre_play_costs.is_empty() {
-                return false;
-            }
-            Self::preview_gathering_costs(&pre_play_costs, &self.token_balances).is_err()
-        })
-    }
-
     /// Extract gathering costs (LoseTokens/OnSelf effects) from ConcreteEffects using library.
     pub(crate) fn extract_gathering_costs_from_effects(
         effects: &[super::types::ConcreteEffect],

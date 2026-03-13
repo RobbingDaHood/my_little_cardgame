@@ -396,7 +396,7 @@ pub enum CardKind {
         effects: Vec<ConcreteEffect>,
     },
     Fishing {
-        fishing_effect: FishingCardEffect,
+        effects: Vec<ConcreteEffect>,
     },
     Rest {
         effects: Vec<ConcreteEffect>,
@@ -495,20 +495,6 @@ pub struct WoodcuttingDef {
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub base_rewards: HashMap<Token, i64>,
-}
-
-/// Inline effect for Fishing discipline cards.
-/// Cards can have multiple values; the best value for winning is chosen.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct FishingCardEffect {
-    pub values: Vec<i64>,
-    #[serde(default)]
-    pub costs: Vec<TokenAmount>,
-    #[serde(default)]
-    pub gains: Vec<TokenAmount>,
-    #[serde(default)]
-    pub effects: Vec<ConcreteEffect>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.

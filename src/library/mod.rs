@@ -52,10 +52,10 @@ fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
                 total_power += e.rolled_value.abs();
             }
         }
-        CardKind::Fishing { fishing_effect } => {
-            num_effects = fishing_effect.values.len() as i64;
-            for &val in &fishing_effect.values {
-                total_power += val.abs();
+        CardKind::Fishing { effects } => {
+            num_effects = effects.len() as i64;
+            for effect in effects {
+                total_power += effect.rolled_value.abs();
             }
         }
         CardKind::Crafting { effects } => {

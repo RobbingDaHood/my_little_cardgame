@@ -109,20 +109,234 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         vec![types::Discipline::Fishing],
     );
 
-    // ---- Player fishing cards ----
-    // Low value fishing card
+    // ---- Fishing PlayerCardEffect templates ----
+
+    // Cost: Durability (covers 50 and 100)
+    let fish_durability_cost_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Durability,
+                min: 50,
+                max: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // Cost: Stamina (covers 100, 150, 200)
+    let fish_stamina_cost_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Stamina,
+                min: 100,
+                max: 200,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // Cost: Health (covers 150)
+    let fish_health_cost_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::LoseTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Health,
+                min: 150,
+                max: 200,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // Gain: FishingRangeMin (covers -150, 50)
+    let fish_range_min_gain_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::FishingRangeMin,
+                cap_min: -150,
+                cap_max: 50,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // Gain: FishingRangeMax (covers -50, 150)
+    let fish_range_max_gain_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::FishingRangeMax,
+                cap_min: -50,
+                cap_max: 150,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // Gain: FishAmount (covers -1, 1)
+    let fish_amount_gain_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::FishAmount,
+                cap_min: -1,
+                cap_max: 1,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // Gain: Stamina (covers 200)
+    let fish_stamina_gain_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Stamina,
+                cap_min: 200,
+                cap_max: 200,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // FishingValue: Low (50-200)
+    let fish_value_low_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::FishingValue { min: 50, max: 200 },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // FishingValue: Medium (250-450)
+    let fish_value_medium_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::FishingValue { min: 250, max: 450 },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // FishingValue: High (500-750)
+    let fish_value_high_id = lib.cards.len();
+    lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::FishingValue { min: 500, max: 750 },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Fishing],
+    );
+
+    // ---- Player fishing cards (rolled from templates) ----
+
+    // Low value fishing card: durability cost + 1 low value
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![200],
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_value_low_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -134,19 +348,13 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         vec![types::Discipline::Fishing],
     );
 
-    // Medium value fishing card
+    // Medium value fishing card: durability cost + 1 medium value
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![400],
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_value_medium_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -158,19 +366,13 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         vec![types::Discipline::Fishing],
     );
 
-    // High value fishing card
+    // High value fishing card: durability cost + 1 high value
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![700],
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -249,20 +451,10 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // Widen range — reduces min value token
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![],
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                gains: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingRangeMin,
-                    amount: -150,
-                    cap: None,
-                }],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_range_min_gain_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -277,20 +469,10 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // Widen range — increases max value token
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![],
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                gains: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishingRangeMax,
-                    amount: 150,
-                    cap: None,
-                }],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_range_max_gain_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -302,37 +484,18 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         vec![types::Discipline::Fishing],
     );
 
-    // Cost card — narrows range but has multiple values (3 values)
+    // Multi-value + narrows range (3 values)
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![100, 350, 600],
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 150,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                gains: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::FishingRangeMin,
-                        amount: 50,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::FishingRangeMax,
-                        amount: -50,
-                        cap: None,
-                    },
-                ],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_stamina_cost_id, lib),
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_range_min_gain_id, lib),
+                roll_concrete_effect(rng, fish_range_max_gain_id, lib),
+                roll_concrete_effect(rng, fish_value_low_id, lib),
+                roll_concrete_effect(rng, fish_value_medium_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -347,20 +510,10 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // Increase fish amount
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![],
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 100,
-                    cap: None,
-                }],
-                gains: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishAmount,
-                    amount: 1,
-                    cap: None,
-                }],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_amount_gain_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -375,27 +528,14 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // Multi-value but decreases fish amount
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![150, 400, 650],
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 100,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                gains: vec![types::TokenAmount {
-                    token_type: types::TokenType::FishAmount,
-                    amount: -1,
-                    cap: None,
-                }],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_stamina_cost_id, lib),
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_amount_gain_id, lib),
+                roll_concrete_effect(rng, fish_value_low_id, lib),
+                roll_concrete_effect(rng, fish_value_medium_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -410,20 +550,10 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // Rest card — grants stamina, no values
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![],
-                costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::Durability,
-                    amount: 50,
-                    cap: None,
-                }],
-                gains: vec![types::TokenAmount {
-                    token_type: types::TokenType::Stamina,
-                    amount: 200,
-                    cap: None,
-                }],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_stamina_gain_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -435,26 +565,17 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         vec![types::Discipline::Fishing],
     );
 
-    // Stamina cost card with multiple values
+    // Stamina cost card with multiple values (4 values: low, medium, high, high)
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![50, 250, 500, 750],
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 200,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_stamina_cost_id, lib),
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_value_low_id, lib),
+                roll_concrete_effect(rng, fish_value_medium_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+            ],
         },
         CardCounts {
             library: 0,
@@ -466,26 +587,16 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         vec![types::Discipline::Fishing],
     );
 
-    // Stamina-cost starting fishing card: 3 values, good spread
+    // Stamina-cost starting fishing card: 3 values (low, medium, high)
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![150, 450, 700],
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Stamina,
-                        amount: 100,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_stamina_cost_id, lib),
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_value_low_id, lib),
+                roll_concrete_effect(rng, fish_value_medium_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+            ],
         },
         CardCounts {
             library: 1,
@@ -497,26 +608,18 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
         vec![types::Discipline::Fishing],
     );
 
-    // Health-cost starting fishing card: 5 values, excellent spread
+    // Health-cost starting fishing card: 5 values (low, medium, medium, high, high)
     lib.add_card(
         CardKind::Fishing {
-            fishing_effect: types::FishingCardEffect {
-                values: vec![100, 250, 400, 550, 700],
-                costs: vec![
-                    types::TokenAmount {
-                        token_type: types::TokenType::Health,
-                        amount: 150,
-                        cap: None,
-                    },
-                    types::TokenAmount {
-                        token_type: types::TokenType::Durability,
-                        amount: 100,
-                        cap: None,
-                    },
-                ],
-                gains: vec![],
-                effects: vec![],
-            },
+            effects: vec![
+                roll_concrete_effect(rng, fish_health_cost_id, lib),
+                roll_concrete_effect(rng, fish_durability_cost_id, lib),
+                roll_concrete_effect(rng, fish_value_low_id, lib),
+                roll_concrete_effect(rng, fish_value_medium_id, lib),
+                roll_concrete_effect(rng, fish_value_medium_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+                roll_concrete_effect(rng, fish_value_high_id, lib),
+            ],
         },
         CardCounts {
             library: 1,
@@ -594,13 +697,14 @@ impl GameState {
             .get(card_id)
             .ok_or_else(|| format!("Card {} not found in Library", card_id))?
             .clone();
-        let fishing_effect = match &lib_card.kind {
-            CardKind::Fishing { fishing_effect } => fishing_effect.clone(),
+        let effects = match &lib_card.kind {
+            CardKind::Fishing { effects } => effects.clone(),
             _ => return Err("Cannot play a non-fishing card in fishing encounter".to_string()),
         };
 
-        // Split costs into pre-play (reject if unaffordable) and post-play (durability)
-        let (pre_play_costs, post_play_costs) = types::split_token_amounts(&fishing_effect.costs);
+        // Extract costs from LoseTokens/OnSelf effects and split pre/post-play
+        let costs = Self::extract_gathering_costs_from_effects(&effects, &self.library);
+        let (pre_play_costs, post_play_costs) = types::split_token_amounts(&costs);
         if !pre_play_costs.is_empty() {
             Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
         }
@@ -624,40 +728,46 @@ impl GameState {
             return Ok(());
         }
 
-        // Apply gains: encounter-scoped tokens go to encounter state, others to player balances
-        for gain in &fishing_effect.gains {
-            match gain.token_type {
-                types::TokenType::FishingRangeMin
-                | types::TokenType::FishingRangeMax
-                | types::TokenType::FishAmount => {
-                    if let Some(EncounterState::Fishing(f)) = &mut self.current_encounter {
-                        let key = types::Token::persistent(gain.token_type.clone());
-                        let entry = f.encounter_tokens.entry(key).or_insert(0);
-                        *entry += gain.amount;
+        // Process all effects via library templates
+        let mut values: Vec<i64> = Vec::new();
+        for effect in &effects {
+            let kind = match self.library.resolve_effect(effect.effect_id) {
+                Some(resolved) => resolved,
+                None => continue,
+            };
+            match &kind {
+                CardEffectKind::GainTokens { token_type, .. } => match token_type {
+                    types::TokenType::FishingRangeMin
+                    | types::TokenType::FishingRangeMax
+                    | types::TokenType::FishAmount => {
+                        if let Some(EncounterState::Fishing(f)) = &mut self.current_encounter {
+                            let key = types::Token::persistent(token_type.clone());
+                            let entry = f.encounter_tokens.entry(key).or_insert(0);
+                            *entry += effect.rolled_value;
+                        }
                     }
+                    _ => {
+                        let entry =
+                            types::token_entry_by_type(&mut self.token_balances, token_type);
+                        *entry += effect.rolled_value;
+                    }
+                },
+                CardEffectKind::Insight { .. } => {
+                    let insight_type =
+                        types::TokenType::insight_for_discipline(&types::Discipline::Fishing);
+                    let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                    *entry += effect.rolled_value;
                 }
-                _ => {
-                    let entry =
-                        types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
-                    *entry += gain.amount;
+                CardEffectKind::FishingValue { .. } => {
+                    values.push(effect.rolled_value);
                 }
+                // LoseTokens/OnSelf already handled above as costs
+                _ => {}
             }
         }
 
-        // Process Insight effects
-        for effect in &fishing_effect.effects {
-            if let Some(CardEffectKind::Insight { .. }) =
-                self.library.resolve_effect(effect.effect_id)
-            {
-                let insight_type =
-                    types::TokenType::insight_for_discipline(&types::Discipline::Fishing);
-                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
-                *entry += effect.rolled_value;
-            }
-        }
-
-        // If card has no values, skip the fishing duel (utility-only card)
-        if fishing_effect.values.is_empty() {
+        // If card has no FishingValue effects, skip the fishing duel (utility-only card)
+        if values.is_empty() {
             // Still advance the round
             let (all_turns_used, enough_wins) = {
                 let fishing = match &mut self.current_encounter {
@@ -707,8 +817,7 @@ impl GameState {
         let fish_value = Self::fish_play_random(rng, &mut self.current_encounter);
 
         // Choose the best player value (the one that wins if possible)
-        let best_value = fishing_effect
-            .values
+        let best_value = values
             .iter()
             .filter_map(|&v| {
                 let result = (v - fish_value).max(0);
@@ -720,7 +829,7 @@ impl GameState {
             })
             .min_by_key(|&(_, result)| (result - valid_min).abs())
             .map(|(v, _)| v)
-            .unwrap_or(fishing_effect.values[0]);
+            .unwrap_or(values[0]);
 
         let result = (best_value - fish_value).max(0);
         let win_turns_needed = match &self.current_encounter {
@@ -765,8 +874,8 @@ impl GameState {
 
     /// Check if all fishing hand cards are unpayable (pre-play costs unaffordable).
     fn all_fishing_hand_cards_unpayable(&self) -> bool {
-        self.all_gathering_hand_cards_unpayable(|k| match k {
-            CardKind::Fishing { fishing_effect } => Some(&fishing_effect.costs),
+        self.all_effects_hand_cards_unpayable(|k| match k {
+            CardKind::Fishing { effects } => Some(effects),
             _ => None,
         })
     }
