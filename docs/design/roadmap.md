@@ -445,7 +445,7 @@ Roadmap steps
 
 ### Post-9.3 implementation (2026-03-02)
 - BREAKING: `ChangeTokens` CardEffectKind split into `GainTokens` and `LoseTokens`. GainTokens has required cap_min/cap_max/gain_min_percent/gain_max_percent fields; LoseTokens has positive min/max (amount to lose). GainTokens cannot have a cost_type matching the gain token_type.
-- BREAKING: `stamina_grant` field removed from all four discipline card effects (MiningCardEffect, HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect). Replaced with `gains: Vec<GatheringCost>` for granting any token type on card play.
+- BREAKING: `stamina_grant` field removed from all four discipline card effects (MiningCardEffect, HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect). Replaced with `gains: Vec<GatheringCost>` for granting any token type on card play. **Note:** These discipline-specific effect structs (MiningCardEffect, HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect, CraftingCardEffect) have since been fully removed in the post-Step-10 fixes batch — all gathering cards now use `effects: Vec<ConcreteEffect>` referencing library templates.
 - BREAKING: `modify_range_min`, `modify_range_max`, `modify_fish_amount` fields removed from FishingCardEffect. Now expressed as entries in the `gains: Vec<GatheringCost>` vector using FishingRangeMin, FishingRangeMax, FishAmount token types.
 - BREAKING: `durability_cost` removed from HerbalismCardEffect, WoodcuttingCardEffect, FishingCardEffect. `stamina_cost` removed from MiningCardEffect, WoodcuttingCardEffect. All costs now use `costs: Vec<GatheringCost>` exclusively. `merge_gathering_costs()` removed. `TokenType::is_durability_cost()` and `split_gathering_costs()` added to classify costs as pre-play (reject if unaffordable) or post-play (durability depletion).
 - BREAKING: `target_characteristics` removed from HerbalismCardEffect. Replaced with `HerbalismMatchMode` enum that wraps data: `Or { types }`, `And { types }`, `MostCommon { limit, types }`, `LeastCommon { limit, types }`.
@@ -583,7 +583,14 @@ This section summarizes changes implemented after Step 10 completion:
 - **Test consolidation:** Removed `resolve_play_tests.rs`, `flow_tests.rs`, `api_tests.rs`, `api_end_to_end.rs`, `coverage_integration.rs`, `combat_interleaved.rs`. Removed all /tests/* test-only endpoints (POST /tests/combat, POST /tests/combat/enemy_play, POST /tests/combat/advance, POST /tests/library/cards). Remaining test files: `scenario_tests.rs` (41 tests), `library_unit.rs`, `library_coverage.rs`, `actions_log_replay.rs`.
 - **CI coverage threshold:** Changed from 85% to 80%.
 
-11) Simple post-encounter scouting
+### Post-Step-10 fixes: gathering effects migration
+
+- **BREAKING: All gathering CardKind variants migrated to library-referenced effects.** Mining, Crafting, Herbalism, Woodcutting, and Fishing CardKind variants now use `effects: Vec<ConcreteEffect>` referencing PlayerCardEffect templates — the same pattern as Combat and Rest. Inline `costs: Vec<TokenAmount>` / `gains: Vec<TokenAmount>` fields removed from all gathering card kinds. Costs are now LoseTokens effects; gains are GainTokens effects.
+- **BREAKING: Discipline-specific effect structs removed.** `MiningCardEffect`, `CraftingCardEffect`, `HerbalismCardEffect`, `WoodcuttingCardEffect`, and `FishingCardEffect` structs have been fully removed. All card effect data now flows through the two-layer CardEffect architecture (PlayerCardEffect templates → ConcreteEffect rolled values).
+- **4 new CardEffectKind variants:** `WoodcuttingChop` (chop-type/value mechanics), `HerbalismMatch` (characteristic matching), `FishingValue` (numeric card values), `CraftingReduction` (crafting difficulty reduction). These carry discipline-specific mechanics that were previously embedded in the removed structs.
+- **PossibleAction refactored:** Removed `PossibleAction` struct. The `/actions/possible` endpoint now returns `Vec<PlayerActions>` directly.
+- **CI coverage enforced at 80% threshold** in `make check`.
+- **`all_gathering_hand_cards_unpayable()` removed.** Replaced by `all_effects_hand_cards_unpayable()` which works with the ConcreteEffect-based cost model across all disciplines.
    - Goal: Replace the current no-op scouting with a simple encounter-modification step that always happens after an encounter is concluded.
    - Description:
      - Always happens after an encounter is concluded. It always modifies the encounter card just concluded.
