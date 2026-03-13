@@ -130,6 +130,7 @@ Projects/
 
 How AI agents should use worktrees:
 - Each AI session is assigned one worktree directory (e.g., `my_little_cardgames/wt1`).
+- The new folder should be named something similar to the branch. 
 - Detect which worktree you are in by checking the current working directory.
 - Create feature branches from the worktree branch as usual (branch from latest `origin/main`).
 - Each worktree has its own `target/` build directory — builds are fully independent.
