@@ -58,10 +58,10 @@ fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
                 total_power += val.abs();
             }
         }
-        CardKind::Crafting { crafting_effect } => {
-            num_effects = crafting_effect.reductions.len() as i64;
-            for r in &crafting_effect.reductions {
-                total_power += r.amount.abs();
+        CardKind::Crafting { effects } => {
+            num_effects = effects.len() as i64;
+            for e in effects {
+                total_power += e.rolled_value.abs();
             }
         }
         // Non-player cards have no crafting cost

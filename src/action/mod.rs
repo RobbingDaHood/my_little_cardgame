@@ -424,11 +424,13 @@ pub async fn play(
                         )))));
                     }
                     // Pre-check costs before playing
-                    if let crate::library::types::CardKind::Crafting { crafting_effect } =
-                        &lib_card.kind
-                    {
+                    if let crate::library::types::CardKind::Crafting { effects } = &lib_card.kind {
+                        let costs = crate::library::GameState::extract_gathering_costs_from_effects(
+                            effects,
+                            &gs.library,
+                        );
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
-                            &crafting_effect.costs,
+                            &costs,
                             &gs.token_balances,
                         ) {
                             return Err(Right(BadRequest(new_status(e))));

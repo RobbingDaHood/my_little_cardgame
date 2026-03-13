@@ -403,7 +403,7 @@ pub enum CardKind {
         rest_token_cost: i64,
     },
     Crafting {
-        crafting_effect: CraftingCardEffect,
+        effects: Vec<ConcreteEffect>,
     },
     Encounter {
         encounter_kind: EncounterKind,
@@ -414,20 +414,6 @@ pub enum CardKind {
     EnemyCardEffect {
         kind: CardEffectKind,
     },
-}
-
-/// Inline effect for Crafting discipline cards.
-/// Gains reduce material costs of an active craft (gathering token types: Ore, Plant, Lumber, Fish).
-/// Costs may include Stamina or Health.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct CraftingCardEffect {
-    #[serde(default)]
-    pub costs: Vec<TokenAmount>,
-    #[serde(default)]
-    pub reductions: Vec<TokenAmount>,
-    #[serde(default)]
-    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
