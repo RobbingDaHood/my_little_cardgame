@@ -393,7 +393,7 @@ pub enum CardKind {
         effects: Vec<ConcreteEffect>,
     },
     Woodcutting {
-        woodcutting_effect: WoodcuttingCardEffect,
+        effects: Vec<ConcreteEffect>,
     },
     Fishing {
         fishing_effect: FishingCardEffect,
@@ -476,21 +476,6 @@ pub enum ChopType {
     MediumChop,
     PrecisionChop,
     SplitChop,
-}
-
-/// Inline effect for Woodcutting discipline cards.
-/// Cards have chop types, chop values (for pattern building), and a durability cost.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct WoodcuttingCardEffect {
-    pub chop_types: Vec<ChopType>,
-    pub chop_values: Vec<u32>,
-    #[serde(default)]
-    pub costs: Vec<TokenAmount>,
-    #[serde(default)]
-    pub gains: Vec<TokenAmount>,
-    #[serde(default)]
-    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.

@@ -46,10 +46,10 @@ fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
                 total_power += e.rolled_value.abs();
             }
         }
-        CardKind::Woodcutting { woodcutting_effect } => {
-            num_effects = woodcutting_effect.chop_values.len() as i64;
-            for &val in &woodcutting_effect.chop_values {
-                total_power += val as i64;
+        CardKind::Woodcutting { effects, .. } => {
+            num_effects = effects.len() as i64;
+            for e in effects {
+                total_power += e.rolled_value.abs();
             }
         }
         CardKind::Fishing { fishing_effect } => {

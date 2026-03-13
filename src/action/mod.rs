@@ -370,11 +370,15 @@ pub async fn play(
                         )))));
                     }
                     // Pre-check costs before playing
-                    if let crate::library::types::CardKind::Woodcutting { woodcutting_effect } =
+                    if let crate::library::types::CardKind::Woodcutting { effects, .. } =
                         &lib_card.kind
                     {
+                        let costs = crate::library::GameState::extract_gathering_costs_from_effects(
+                            effects,
+                            &gs.library,
+                        );
                         let (pre_play_costs, _) =
-                            crate::library::types::split_token_amounts(&woodcutting_effect.costs);
+                            crate::library::types::split_token_amounts(&costs);
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
                             &pre_play_costs,
                             &gs.token_balances,

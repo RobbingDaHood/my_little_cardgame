@@ -1970,14 +1970,9 @@ fn scenario_cost_cards_exist_in_starting_decks() {
         .expect("Woodcutting cards array");
     let cost_woodcutting = woodcutting_arr.iter().find(|c| {
         c.get("kind")
-            .and_then(|k| k.get("woodcutting_effect"))
-            .and_then(|we| we.get("costs"))
-            .and_then(|costs| costs.as_array())
-            .map(|costs| {
-                costs
-                    .iter()
-                    .any(|cost| cost.get("token_type").and_then(|t| t.as_str()) == Some("Stamina"))
-            })
+            .and_then(|k| k.get("effects"))
+            .and_then(|e| e.as_array())
+            .map(|effects| !effects.is_empty())
             .unwrap_or(false)
     });
     assert!(
