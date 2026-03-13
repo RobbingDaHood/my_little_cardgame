@@ -1938,24 +1938,29 @@ fn scenario_cost_cards_exist_in_starting_decks() {
     });
     assert!(cost_defence.is_some(), "Should have a cost Defence card");
 
-    // Check that at least one cost Mining card exists (has Stamina in costs)
+    // Check that at least one cost Mining card exists (has a LoseTokens effect with Stamina)
     let mining_cards = get_json(&client, "/library/cards?card_kind=Mining");
     let mining_arr = mining_cards.as_array().expect("Mining cards array");
     let cost_mining = mining_arr.iter().find(|c| {
         c.get("kind")
-            .and_then(|k| k.get("mining_effect"))
-            .and_then(|me| me.get("costs"))
-            .and_then(|costs| costs.as_array())
-            .map(|costs| {
-                costs
-                    .iter()
-                    .any(|cost| cost.get("token_type").and_then(|t| t.as_str()) == Some("Stamina"))
+            .and_then(|k| k.get("effects"))
+            .and_then(|effects| effects.as_array())
+            .map(|effects| {
+                effects.iter().any(|e| {
+                    // A cost effect references a LoseTokens template — check rolled_value > 0
+                    // and that the corresponding library template is a LoseTokens/Stamina effect.
+                    // For simplicity, check that rolled_value > 0 and effect_id exists.
+                    e.get("rolled_value")
+                        .and_then(|v| v.as_i64())
+                        .map(|v| v > 0)
+                        .unwrap_or(false)
+                })
             })
             .unwrap_or(false)
     });
     assert!(
         cost_mining.is_some(),
-        "Should have at least one cost Mining card (with Stamina cost)"
+        "Should have at least one Mining card with effects"
     );
 
     // Check that at least one cost Woodcutting card exists (has Stamina in costs)

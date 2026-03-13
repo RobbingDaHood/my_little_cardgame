@@ -34,10 +34,10 @@ fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
                 total_power += effect.rolled_value.abs();
             }
         }
-        CardKind::Mining { mining_effect } => {
-            num_effects = mining_effect.gains.len() as i64;
-            for gain in &mining_effect.gains {
-                total_power += gain.amount.abs();
+        CardKind::Mining { effects } => {
+            num_effects = effects.len() as i64;
+            for effect in effects {
+                total_power += effect.rolled_value.abs();
             }
         }
         CardKind::Herbalism { herbalism_effect } => {

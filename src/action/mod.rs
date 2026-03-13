@@ -319,12 +319,14 @@ pub async fn play(
                             card_id
                         )))));
                     }
-                    // Pre-check costs before playing
-                    if let crate::library::types::CardKind::Mining { mining_effect } =
-                        &lib_card.kind
-                    {
+                    // Pre-check costs from library-referenced effects
+                    if let crate::library::types::CardKind::Mining { effects } = &lib_card.kind {
+                        let costs = crate::library::GameState::extract_gathering_costs_from_effects(
+                            effects,
+                            &gs.library,
+                        );
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
-                            &mining_effect.costs,
+                            &costs,
                             &gs.token_balances,
                         ) {
                             return Err(Right(BadRequest(new_status(e))));

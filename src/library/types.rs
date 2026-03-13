@@ -274,6 +274,22 @@ pub enum CardEffectKind {
     },
     /// Grant Insight tokens: rolls a value from min..max range.
     Insight { min: i64, max: i64 },
+    /// Woodcutting chop effect: a chop type with a rolled value from min_value..max_value.
+    WoodcuttingChop {
+        chop_type: ChopType,
+        min_value: u32,
+        max_value: u32,
+    },
+    /// Herbalism match effect: defines how to match plant characteristics.
+    HerbalismMatch { match_mode: HerbalismMatchMode },
+    /// Fishing value effect: a duel value rolled from min..max.
+    FishingValue { min: i64, max: i64 },
+    /// Crafting reduction effect: reduces material cost by a rolled amount from min..max.
+    CraftingReduction {
+        token_type: TokenType,
+        min: i64,
+        max: i64,
+    },
 }
 
 /// Cost definition on a CardEffect template: a percentage range of the effect value.
@@ -371,7 +387,7 @@ pub enum CardKind {
         effects: Vec<ConcreteEffect>,
     },
     Mining {
-        mining_effect: MiningCardEffect,
+        effects: Vec<ConcreteEffect>,
     },
     Herbalism {
         herbalism_effect: HerbalismCardEffect,
@@ -398,21 +414,6 @@ pub enum CardKind {
     EnemyCardEffect {
         kind: CardEffectKind,
     },
-}
-
-/// Inline effect for Mining discipline cards.
-/// All effects expressed through token-based costs/gains vectors.
-/// Resolution logic interprets gain token types: MiningPower triggers yield formula,
-/// MiningLightLevel triggers light level gain with per-gain cap.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(crate = "rocket::serde")]
-pub struct MiningCardEffect {
-    #[serde(default)]
-    pub costs: Vec<TokenAmount>,
-    #[serde(default)]
-    pub gains: Vec<TokenAmount>,
-    #[serde(default)]
-    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Inline effect for Crafting discipline cards.

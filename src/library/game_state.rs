@@ -71,6 +71,23 @@ pub(crate) fn roll_concrete_effect(
             let value = roll_range(rng, min, max);
             (value, vec![], None, None)
         }
+        Some(super::types::CardEffectKind::WoodcuttingChop {
+            min_value,
+            max_value,
+            ..
+        }) => {
+            let value = roll_range(rng, min_value as i64, max_value as i64);
+            (value, vec![], None, None)
+        }
+        Some(super::types::CardEffectKind::HerbalismMatch { .. }) => (0, vec![], None, None),
+        Some(super::types::CardEffectKind::FishingValue { min, max }) => {
+            let value = roll_range(rng, min, max);
+            (value, vec![], None, None)
+        }
+        Some(super::types::CardEffectKind::CraftingReduction { min, max, .. }) => {
+            let value = roll_range(rng, min, max);
+            (value, vec![], None, None)
+        }
         _ => (0, vec![], None, None),
     };
     ConcreteEffect {
@@ -437,6 +454,55 @@ impl GameState {
         hand_cards.iter().all(|card| {
             let costs = cost_extractor(&card.kind).unwrap();
             let (pre_play_costs, _) = super::types::split_token_amounts(costs);
+            if pre_play_costs.is_empty() {
+                return false;
+            }
+            Self::preview_gathering_costs(&pre_play_costs, &self.token_balances).is_err()
+        })
+    }
+
+    /// Extract gathering costs (LoseTokens/OnSelf effects) from ConcreteEffects using library.
+    pub(crate) fn extract_gathering_costs_from_effects(
+        effects: &[super::types::ConcreteEffect],
+        library: &Library,
+    ) -> Vec<super::types::TokenAmount> {
+        effects
+            .iter()
+            .filter_map(|e| match library.resolve_effect(e.effect_id) {
+                Some(super::types::CardEffectKind::LoseTokens {
+                    target: super::types::EffectTarget::OnSelf,
+                    ref token_type,
+                    ..
+                }) => Some(super::types::TokenAmount {
+                    token_type: token_type.clone(),
+                    amount: e.rolled_value,
+                    cap: None,
+                }),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Check if all gathering hand cards (effects-based) are unpayable.
+    pub(crate) fn all_effects_hand_cards_unpayable(
+        &self,
+        effects_extractor: impl Fn(
+            &super::types::CardKind,
+        ) -> Option<&Vec<super::types::ConcreteEffect>>,
+    ) -> bool {
+        let hand_cards: Vec<_> = self
+            .library
+            .cards
+            .iter()
+            .filter(|c| c.counts.hand > 0 && effects_extractor(&c.kind).is_some())
+            .collect();
+        if hand_cards.is_empty() {
+            return false;
+        }
+        hand_cards.iter().all(|card| {
+            let effects = effects_extractor(&card.kind).unwrap();
+            let costs = Self::extract_gathering_costs_from_effects(effects, &self.library);
+            let (pre_play_costs, _) = super::types::split_token_amounts(&costs);
             if pre_play_costs.is_empty() {
                 return false;
             }

@@ -417,6 +417,11 @@ fn apply_card_effects(
                 *entry += effect.rolled_value;
                 continue;
             }
+            // Discipline-specific effects are not used in combat
+            types::CardEffectKind::WoodcuttingChop { .. }
+            | types::CardEffectKind::HerbalismMatch { .. }
+            | types::CardEffectKind::FishingValue { .. }
+            | types::CardEffectKind::CraftingReduction { .. } => continue,
         };
 
         let target_tokens = match (target, is_player) {
