@@ -1,6 +1,7 @@
 use my_little_cardgame::library::types::{
-    token_balance_by_type, ActionPayload, CardCounts, CardEffectKind, CardKind, ConcreteEffect,
-    EffectTarget, Token, TokenLifecycle, TokenType,
+    split_token_amounts, token_balance_by_type, ActionPayload, CardCounts, CardEffectKind,
+    CardKind, ConcreteEffect, Discipline, EffectTarget, Token, TokenAmount, TokenLifecycle,
+    TokenType,
 };
 use my_little_cardgame::library::{GameState, Library};
 use rand::SeedableRng;
@@ -300,4 +301,170 @@ fn resolve_enemy_play_with_non_encounter() {
     let mut rng = rand_pcg::Lcg64Xsh32::from_seed([0u8; 16]);
     let result = gs.resolve_enemy_play(&mut rng);
     assert!(result.is_err());
+}
+
+#[test]
+fn token_type_all_returns_all_variants() {
+    let all = TokenType::all();
+    assert!(all.len() > 10, "Should have many token types");
+    assert!(all.contains(&TokenType::Health));
+    assert!(all.contains(&TokenType::Stamina));
+}
+
+#[test]
+fn token_type_is_gathering_material() {
+    assert!(TokenType::Ore.is_gathering_material());
+    assert!(TokenType::Lumber.is_gathering_material());
+    assert!(TokenType::Plant.is_gathering_material());
+    assert!(TokenType::Fish.is_gathering_material());
+    assert!(!TokenType::Health.is_gathering_material());
+    assert!(!TokenType::Stamina.is_gathering_material());
+}
+
+#[test]
+fn token_type_insight_for_discipline() {
+    assert_eq!(
+        TokenType::insight_for_discipline(&Discipline::Combat),
+        TokenType::CombatInsight
+    );
+    assert_eq!(
+        TokenType::insight_for_discipline(&Discipline::Mining),
+        TokenType::MiningInsight
+    );
+    assert_eq!(
+        TokenType::insight_for_discipline(&Discipline::Fishing),
+        TokenType::FishingInsight
+    );
+}
+
+#[test]
+fn token_type_durability_for_discipline() {
+    assert!(TokenType::durability_for_discipline(&Discipline::Mining).is_some());
+    assert!(TokenType::durability_for_discipline(&Discipline::Woodcutting).is_some());
+    assert!(TokenType::durability_for_discipline(&Discipline::Combat).is_none());
+}
+
+#[test]
+fn token_type_is_durability_cost() {
+    assert!(TokenType::MiningDurability.is_durability_cost());
+    assert!(TokenType::WoodcuttingDurability.is_durability_cost());
+    assert!(TokenType::Durability.is_durability_cost());
+    assert!(!TokenType::Health.is_durability_cost());
+}
+
+#[test]
+fn token_type_resolve_durability() {
+    assert_eq!(
+        TokenType::Durability.resolve_durability(&Discipline::Mining),
+        TokenType::MiningDurability
+    );
+    // Non-durability types resolve to themselves
+    assert_eq!(
+        TokenType::Health.resolve_durability(&Discipline::Mining),
+        TokenType::Health
+    );
+}
+
+#[test]
+fn token_balance_by_type_returns_zero_for_missing() {
+    let map = std::collections::HashMap::new();
+    assert_eq!(token_balance_by_type(&map, &TokenType::Health), 0);
+}
+
+#[test]
+fn token_dodge_constructor() {
+    let token = Token::dodge();
+    assert_eq!(token.token_type, TokenType::Dodge);
+}
+
+#[test]
+fn action_log_write_and_load_file() {
+    use my_little_cardgame::library::action_log::ActionLog;
+
+    let log = ActionLog::new();
+    log.append("NewGame", ActionPayload::SetSeed { seed: 42 });
+    log.append(
+        "EncounterPickEncounter",
+        ActionPayload::PlayCard { card_id: 5 },
+    );
+
+    let tmp_path = "/tmp/test_action_log_roundtrip.jsonl";
+    log.write_all_to_file(tmp_path)
+        .expect("write should succeed");
+
+    let loaded = ActionLog::load_from_file(tmp_path).expect("load should succeed");
+    let entries = loaded.entries();
+    assert_eq!(entries.len(), 2, "Should load 2 entries");
+    assert_eq!(entries[0].seq, 1);
+    assert_eq!(entries[1].seq, 2);
+
+    // Cleanup
+    let _ = std::fs::remove_file(tmp_path);
+}
+
+#[test]
+fn action_log_load_from_nonexistent_file() {
+    use my_little_cardgame::library::action_log::ActionLog;
+    let result = ActionLog::load_from_file("/tmp/nonexistent_test_file_12345.jsonl");
+    assert!(result.is_err(), "Loading from nonexistent file should fail");
+}
+
+#[test]
+fn split_token_amounts_separates_durability() {
+    let costs = vec![
+        TokenAmount {
+            token_type: TokenType::Stamina,
+            amount: 100,
+            cap: None,
+        },
+        TokenAmount {
+            token_type: TokenType::MiningDurability,
+            amount: 50,
+            cap: None,
+        },
+        TokenAmount {
+            token_type: TokenType::Ore,
+            amount: 30,
+            cap: None,
+        },
+    ];
+    let (pre_play, post_play) = split_token_amounts(&costs);
+    assert_eq!(pre_play.len(), 2, "Non-durability costs");
+    assert_eq!(post_play.len(), 1, "Durability costs");
+    assert_eq!(post_play[0].token_type, TokenType::MiningDurability);
+}
+
+#[test]
+fn token_type_all_covers_many_variants() {
+    let all = TokenType::all();
+    // Exercise various token types to ensure all() includes them
+    assert!(all.contains(&TokenType::Ore));
+    assert!(all.contains(&TokenType::Lumber));
+    assert!(all.contains(&TokenType::Plant));
+    assert!(all.contains(&TokenType::Fish));
+    assert!(all.contains(&TokenType::Dodge));
+    assert!(all.contains(&TokenType::Shield));
+    assert!(all.contains(&TokenType::CombatInsight));
+    assert!(all.contains(&TokenType::MiningInsight));
+}
+
+#[test]
+fn action_log_set_writer() {
+    use my_little_cardgame::library::action_log::ActionLog;
+    let mut log = ActionLog::new();
+    log.set_writer(None); // just ensure it doesn't panic
+}
+
+#[test]
+fn action_log_clone_preserves_entries() {
+    use my_little_cardgame::library::action_log::ActionLog;
+    let log = ActionLog::new();
+    log.append("test", ActionPayload::SetSeed { seed: 1 });
+    log.append("test", ActionPayload::SetSeed { seed: 2 });
+
+    let cloned = log.clone();
+    let entries = cloned.entries();
+    assert_eq!(entries.len(), 2, "Clone should preserve entries");
+    assert_eq!(entries[0].seq, 1);
+    assert_eq!(entries[1].seq, 2);
 }

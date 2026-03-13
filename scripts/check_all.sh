@@ -65,6 +65,22 @@ if [ "$UNWRAP_COUNT" -gt 0 ]; then
   # Warning only, not a failure — existing unwraps may be justified
 fi
 
+# --- 6. Coverage (matches CI threshold) ---
+echo ""
+echo "=== coverage check (80% threshold) ==="
+if command -v cargo-llvm-cov &>/dev/null; then
+  cargo llvm-cov --workspace --fail-under-lines 80 2>&1
+  COV_EXIT=$?
+  if [ $COV_EXIT -ne 0 ]; then
+    FAILURES+=("coverage (below 80%)")
+  else
+    echo "  ✓ coverage passed"
+  fi
+else
+  echo "  ⚠ cargo-llvm-cov not installed, skipping coverage check"
+  echo "    Install: cargo install --locked cargo-llvm-cov && rustup component add llvm-tools-preview"
+fi
+
 # --- Summary ---
 echo ""
 echo "==============================="
