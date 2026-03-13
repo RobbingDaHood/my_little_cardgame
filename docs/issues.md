@@ -1,42 +1,23 @@
 When the below point states "Roadmap" it means edit the roadmap.md directly.
 
-1. The choosen "Disciplin" when choosing a ressearch project decides the type of the card that is added to the library if the ressearch is concluded. 
-    1. So the ResearchProject struct does not need to mention discipline, will be part of the chosen_card.
-        1. Does the ResearchProject need tier_count? Seems like total_cost is sufficent for all the logic.
-1. Rename the "tag" on card effects to "valid_diciplin_types". 
-    1. The field is a list of "types::Discipline"s
-1. Every diciplin should process the insight card effect. 
-1. Remove all the mentions of the ressearch scenario is not in hand from vision and roadmap.    
-    1. That is irrelevant and subject to the seed used. 
-1. Add a get endpoint that exposes a list of possible actions for the player to play currently.
-1. BTW: The enemy card effects also have tags/valid_diciplin_types, they will be used later for the scouting step. 
-    1. They should also use the diciplin enum. 
-1. Change the github action to only require 80 percent test coverage instead of 85. 
-1. There are still places where the cap is limiting the amount of tokens on the player tokens and not solely the capping the gains from a card effect. 
-    1. All caps limit the gain and never limit the total amount on the player tokens. 
-    1. Find all references to caps in roadmap and vision and make sure they state the same. 
-1. Consider the current automatic test suite and if any test overlaps with an existing scenario_test the remove that test and keep the scenario_test. 
-    1. If this means we can remove some test endpoints, then do that. 
-1. Durability card effects are generalized — the discipline context determines which durability pool is affected
-    1. Implement this. 
-1. Clarify the vision: The "per-dicipline insight tokens means": 
-    1. That there is one pool of insight tokens pr. diciplin. 
-    1. When a insight card effect is played, then consider what encounter it is played in and add that insight to the correct insight pool. 
-    1. Make a diciplin specific insight token for each diciplin: a bit similar to durabilit, but just for every dciplin. 
-1. Remove all mentions about a generalized durability token setup, there should keep being per-diciplin durability tokens. 
-    1. Do consider if some card effects could be generalized: 
-        1. So the Card effect just rewards or removes durability. 
-        1. The "valid_diciplin_types" are then every diciplin. 
-        1. When the card effect is triggered then based on the encounter it will be added to the correct diciplin pool of tokens. 
-            1. The rest encounter card effect have to mention a specific diciplin and cannot be generalized. 
-1. Add more card effects that costs stamina and health. 
-    1. The benefit of a healt cost card should be great.
-    1. The benefit of a stamina cost card should be greater than no cost cards and smaller than health cost cards. 
-    1. Every diciplin should have one starting card with such a card. 
-1. Update vision-roadmap-suggestions.md with all changes implemnted after implementing all suggestions in this document. 
-    1. Remove all parts that are not relevant anymore. 
-1. Migrate encounter resolution logic to use ConcreteEffect-based effects instead of hardcoded fields (damages, value, increases, characteristics)
-    1. Consider to remove the legacy fields (`damages`, `value`, `increases`).
+1. Why add the "(except GET /actions/possible which returns currently valid player actions with playable card IDs)" to the docs/design/roadmap.md: It is a GET endpoint too, so that is no exception. 
+1. In docs/design/roadmap.md it states "The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort.": But there are a lot of other possible actions in the game, like choosing to swap cards during a crafting encounter etc. 
+    1. If I am right then update the roadmap and check other places that should be updated too and update them. 
+1. Analyse what is run during a github action for a PR, because something there seems to fail. 
+    1. Fix what is failing. 
+    1. Add to the instruction file to run all the same checks that the github action for PR runs, before comitting. 
+1.  So every card effect on every card should refere back to a card effect in the library. 
+    1. That library card effect were used to create the card card effect: 
+        1. Meaning that the car card effect cannot have values that goes beound the library card effect. 
+    1. The Card card effect should have a refference back to what library card effect it came from. 
+    1. This means that there likely need to be created a lot more new card effects: In the initial deck. 
+        1. It als means that all the card card effects in the intial deck need a reference. 
+    1. This is the case both for enemy and player cards. 
+    1. Some diciplins do have this setup, but it does not look like all diciplins have this, right? 
+1. PossibleAction.action_type should be of the type of PlayerActions
+    1. It is fine that it exposes the fields of the enums too: Just to give examples of what can be passed to the action. 
+1. PossibleAction.playable_card_ids: Remove that field. 
+
 
 # When done with all of this then update vision and roadmap files
 
