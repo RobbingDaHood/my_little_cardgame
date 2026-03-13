@@ -1,10 +1,10 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
 };
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
-pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // LightChop card: value 2
     lib.add_card(
         CardKind::Woodcutting {
@@ -12,11 +12,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![types::ChopType::LightChop],
                 chop_values: vec![2],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::WoodcuttingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -25,6 +26,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 2,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // HeavyChop card: value 5
@@ -34,11 +37,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![types::ChopType::HeavyChop],
                 chop_values: vec![5],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::WoodcuttingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -47,6 +51,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // MediumChop card: value 3
@@ -56,11 +62,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![types::ChopType::MediumChop],
                 chop_values: vec![3],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::WoodcuttingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -69,6 +76,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // PrecisionChop card: value 7
@@ -78,11 +87,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![types::ChopType::PrecisionChop],
                 chop_values: vec![7],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::WoodcuttingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -91,6 +101,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Woodcutting encounter: Oak Tree
@@ -112,6 +124,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 3,
             discard: 0,
         },
+        rng,
+        vec![],
     );
 
     // Cost Woodcutting card: HeavyChop+LightChop combo, costs stamina
@@ -127,12 +141,13 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::WoodcuttingDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
                 ],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -141,6 +156,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // SplitChop value 4
@@ -150,11 +167,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![types::ChopType::SplitChop],
                 chop_values: vec![4],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::WoodcuttingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -163,6 +181,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 1,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // LightChop+MediumChop, values 1,6
@@ -172,11 +192,12 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![types::ChopType::LightChop, types::ChopType::MediumChop],
                 chop_values: vec![1, 6],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::WoodcuttingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -185,6 +206,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Cost card: 3 types, 3 values, moderate stamina cost
@@ -204,12 +227,13 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::WoodcuttingDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
                 ],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -218,6 +242,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Cost card: 4 types, 4 values, higher stamina cost
@@ -238,12 +264,13 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::WoodcuttingDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
                 ],
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -252,6 +279,8 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 
     // Woodcutting rest card: grants stamina, no chops
@@ -261,7 +290,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                 chop_types: vec![],
                 chop_values: vec![],
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::WoodcuttingDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 50,
                     cap: None,
                 }],
@@ -270,6 +299,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
                     amount: 200,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -278,6 +308,76 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, _rng: &mut rand_pcg:
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Woodcutting],
+    );
+
+    // Stamina-cost starting woodcutting card: 2 chop types, good values
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![types::ChopType::PrecisionChop, types::ChopType::MediumChop],
+                chop_values: vec![8, 5],
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
+                        amount: 100,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Woodcutting],
+    );
+
+    // Health-cost starting woodcutting card: 3 chop types, best values
+    lib.add_card(
+        CardKind::Woodcutting {
+            woodcutting_effect: types::WoodcuttingCardEffect {
+                chop_types: vec![
+                    types::ChopType::HeavyChop,
+                    types::ChopType::PrecisionChop,
+                    types::ChopType::MediumChop,
+                ],
+                chop_values: vec![7, 9, 5],
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Health,
+                        amount: 150,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Woodcutting],
     );
 }
 
@@ -478,10 +578,25 @@ impl GameState {
             *entry += gain.amount;
         }
 
+        // Process Insight effects
+        for effect in &woodcutting_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Woodcutting);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
+            }
+        }
+
         // Deduct durability costs (depletes encounter, doesn't reject card)
         let mut durability_depleted = false;
         for cost in &post_play_costs {
-            let key = types::Token::persistent(cost.token_type.clone());
+            let resolved_type = cost
+                .token_type
+                .resolve_durability(&types::Discipline::Woodcutting);
+            let key = types::Token::persistent(resolved_type);
             let durability = self.token_balances.entry(key).or_insert(0);
             *durability = (*durability - cost.amount).max(0);
             if *durability <= 0 {

@@ -6,6 +6,19 @@ fn default_persistent_lifecycle() -> TokenLifecycle {
     TokenLifecycle::PersistentCounter
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum Discipline {
+    Combat,
+    Mining,
+    Herbalism,
+    Woodcutting,
+    Fishing,
+    Rest,
+    Crafting,
+    Research,
+}
+
 /// Canonical token identifier enum.
 /// Each variant is a well-known token with associated lifecycle semantics.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
@@ -19,7 +32,14 @@ pub enum TokenType {
     Dodge,
     Mana,
     // Persistent/meta tokens
-    Insight,
+    CombatInsight,
+    MiningInsight,
+    HerbalismInsight,
+    WoodcuttingInsight,
+    FishingInsight,
+    RestInsight,
+    CraftingInsight,
+    ResearchInsight,
     Renown,
     Refinement,
     Stability,
@@ -31,6 +51,7 @@ pub enum TokenType {
     HerbalismDurability,
     WoodcuttingDurability,
     FishingDurability,
+    Durability,
     // Material tokens (produced by gathering)
     Ore,
     Plant,
@@ -78,7 +99,14 @@ impl TokenType {
             TokenType::Stamina,
             TokenType::Dodge,
             TokenType::Mana,
-            TokenType::Insight,
+            TokenType::CombatInsight,
+            TokenType::MiningInsight,
+            TokenType::HerbalismInsight,
+            TokenType::WoodcuttingInsight,
+            TokenType::FishingInsight,
+            TokenType::RestInsight,
+            TokenType::CraftingInsight,
+            TokenType::ResearchInsight,
             TokenType::Renown,
             TokenType::Refinement,
             TokenType::Stability,
@@ -90,6 +118,7 @@ impl TokenType {
             TokenType::HerbalismDurability,
             TokenType::WoodcuttingDurability,
             TokenType::FishingDurability,
+            TokenType::Durability,
             TokenType::Ore,
             TokenType::Plant,
             TokenType::Lumber,
@@ -132,7 +161,40 @@ impl TokenType {
                 | TokenType::HerbalismDurability
                 | TokenType::WoodcuttingDurability
                 | TokenType::FishingDurability
+                | TokenType::Durability
         )
+    }
+
+    pub fn resolve_durability(&self, discipline: &Discipline) -> TokenType {
+        match self {
+            TokenType::Durability => {
+                TokenType::durability_for_discipline(discipline).unwrap_or(self.clone())
+            }
+            other => other.clone(),
+        }
+    }
+
+    pub fn insight_for_discipline(discipline: &Discipline) -> TokenType {
+        match discipline {
+            Discipline::Combat => TokenType::CombatInsight,
+            Discipline::Mining => TokenType::MiningInsight,
+            Discipline::Herbalism => TokenType::HerbalismInsight,
+            Discipline::Woodcutting => TokenType::WoodcuttingInsight,
+            Discipline::Fishing => TokenType::FishingInsight,
+            Discipline::Rest => TokenType::RestInsight,
+            Discipline::Crafting => TokenType::CraftingInsight,
+            Discipline::Research => TokenType::ResearchInsight,
+        }
+    }
+
+    pub fn durability_for_discipline(discipline: &Discipline) -> Option<TokenType> {
+        match discipline {
+            Discipline::Mining => Some(TokenType::MiningDurability),
+            Discipline::Herbalism => Some(TokenType::HerbalismDurability),
+            Discipline::Woodcutting => Some(TokenType::WoodcuttingDurability),
+            Discipline::Fishing => Some(TokenType::FishingDurability),
+            _ => None,
+        }
     }
 }
 
@@ -210,6 +272,8 @@ pub enum CardEffectKind {
         defence: u32,
         resource: u32,
     },
+    /// Grant Insight tokens: rolls a value from min..max range.
+    Insight { min: i64, max: i64 },
 }
 
 /// Cost definition on a CardEffect template: a percentage range of the effect value.
@@ -347,6 +411,8 @@ pub struct MiningCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Inline effect for Crafting discipline cards.
@@ -359,6 +425,8 @@ pub struct CraftingCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub reductions: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Plant characteristics used by Herbalism encounters.
@@ -402,6 +470,8 @@ pub struct HerbalismCardEffect {
     pub match_mode: HerbalismMatchMode,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// A card in the plant hand. Each card has characteristics that Herbalism cards can target.
@@ -409,6 +479,8 @@ pub struct HerbalismCardEffect {
 #[serde(crate = "rocket::serde")]
 pub struct PlantCard {
     pub characteristics: Vec<PlantCharacteristic>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 
@@ -444,6 +516,8 @@ pub struct WoodcuttingCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// Snapshot of a played woodcutting card for pattern evaluation.
@@ -475,6 +549,8 @@ pub struct FishingCardEffect {
     pub costs: Vec<TokenAmount>,
     #[serde(default)]
     pub gains: Vec<TokenAmount>,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
 }
 
 /// A card in the fish (enemy) deck. Each card has a numeric value.
@@ -482,6 +558,8 @@ pub struct FishingCardEffect {
 #[serde(crate = "rocket::serde")]
 pub struct FishCard {
     pub value: i64,
+    #[serde(default)]
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 
@@ -510,6 +588,7 @@ pub enum EncounterKind {
     Fishing { fishing_def: FishingDef },
     Rest { rest_def: RestDef },
     Crafting { crafting_def: CraftingDef },
+    Research { research_def: ResearchDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -532,7 +611,7 @@ pub struct RestDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCraftingCard {
-    pub increases: Vec<TokenAmount>,
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 
@@ -565,6 +644,29 @@ pub struct CraftingDef {
     pub enemy_crafting_deck: Vec<EnemyCraftingCard>,
 }
 
+/// Definition of a research encounter (extensible).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchDef {}
+
+/// A candidate card generated during research — one of 3 options shown to the player.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchCandidate {
+    pub discipline: Discipline,
+    pub effects: Vec<ConcreteEffect>,
+    pub tier_count: u32,
+}
+
+/// Persistent research project state, stored in GameState across encounters.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchProject {
+    pub chosen_card: ResearchCandidate,
+    pub progress: i64,
+    pub total_cost: i64,
+}
+
 /// State of an active craft-a-card mini-game within a crafting encounter.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
@@ -582,7 +684,7 @@ pub struct CraftingCraftState {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct OreCard {
-    pub damages: Vec<TokenAmount>,
+    pub effects: Vec<ConcreteEffect>,
     pub counts: DeckCounts,
 }
 
@@ -786,6 +888,8 @@ pub struct LibraryCard {
     #[serde(default, with = "token_type_map_serde")]
     #[schemars(with = "token_type_map_serde::SchemaHelper")]
     pub crafting_cost: HashMap<TokenType, i64>,
+    #[serde(default)]
+    pub valid_discipline_types: Vec<Discipline>,
 }
 
 /// A token instance: token type + lifecycle. Used as key in token balance maps.
@@ -1019,15 +1123,40 @@ pub enum TokenLifecycle {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "type")]
 pub enum ActionPayload {
-    SetSeed { seed: u64 },
-    DrawEncounter { encounter_id: String },
-    PlayCard { card_id: usize },
-    ApplyScouting { card_ids: Vec<usize> },
+    SetSeed {
+        seed: u64,
+    },
+    DrawEncounter {
+        encounter_id: String,
+    },
+    PlayCard {
+        card_id: usize,
+    },
+    ApplyScouting {
+        card_ids: Vec<usize>,
+    },
     AbortEncounter,
     ConcludeEncounter,
-    CraftSwap { from_id: usize, to_id: usize },
-    CraftCard { target_card_id: usize },
-    CraftDurability { discipline: String },
+    CraftSwap {
+        from_id: usize,
+        to_id: usize,
+    },
+    CraftCard {
+        target_card_id: usize,
+    },
+    CraftDurability {
+        discipline: String,
+    },
+    ResearchChooseProject {
+        discipline: Discipline,
+        tier_count: u32,
+    },
+    ResearchSelectCandidate {
+        candidate_index: usize,
+    },
+    ResearchProgress {
+        amount: i64,
+    },
 }
 
 /// Stored action entry in the append-only action log.
@@ -1183,6 +1312,15 @@ pub struct CraftingEncounterState {
     pub active_craft: Option<CraftingCraftState>,
 }
 
+/// Runtime state for a research encounter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchEncounterState {
+    pub encounter_card_id: usize,
+    pub outcome: EncounterOutcome,
+    pub candidates: Option<Vec<ResearchCandidate>>,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
@@ -1194,6 +1332,7 @@ pub enum EncounterState {
     Fishing(FishingEncounterState),
     Rest(RestEncounterState),
     Crafting(CraftingEncounterState),
+    Research(ResearchEncounterState),
 }
 
 impl EncounterState {
@@ -1206,6 +1345,7 @@ impl EncounterState {
             EncounterState::Fishing(f) => f.encounter_card_id,
             EncounterState::Rest(r) => r.encounter_card_id,
             EncounterState::Crafting(c) => c.encounter_card_id,
+            EncounterState::Research(r) => r.encounter_card_id,
         }
     }
 
@@ -1222,6 +1362,7 @@ impl EncounterState {
             EncounterState::Fishing(f) => &f.outcome,
             EncounterState::Rest(r) => &r.outcome,
             EncounterState::Crafting(c) => &c.outcome,
+            EncounterState::Research(r) => &r.outcome,
         }
     }
 }

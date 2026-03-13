@@ -1,17 +1,73 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
     HerbalismEncounterState,
 };
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
-pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+use crate::library::game_state::roll_concrete_effect;
+
+pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // ---- Herbalism EnemyCardEffect templates ----
+
+    // Plant passive effect: small gain (single-characteristic plants)
+    let plant_small_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Plant,
+                cap_min: 50,
+                cap_max: 100,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    // Plant passive effect: medium gain (dual-characteristic plants)
+    let plant_medium_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnSelf,
+                token_type: types::TokenType::Plant,
+                cap_min: 100,
+                cap_max: 200,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    // ---- Player herbalism cards ----
+
     // Narrow herbalism card: targets 1 characteristic, low durability cost
     lib.add_card(
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::HerbalismDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -19,6 +75,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     types: vec![types::PlantCharacteristic::Fragile],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -27,6 +84,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Medium herbalism card: targets 2 characteristics
@@ -34,7 +93,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::HerbalismDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -45,6 +104,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     ],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -53,6 +113,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Broad herbalism card: targets 3 characteristics
@@ -60,7 +122,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::HerbalismDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 100,
                     cap: None,
                 }],
@@ -72,6 +134,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     ],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -80,6 +143,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Herbalism encounter: Meadow Herb
@@ -90,6 +155,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     plant_hand: vec![
                         types::PlantCard {
                             characteristics: vec![types::PlantCharacteristic::Fragile],
+                            effects: vec![roll_concrete_effect(rng, plant_small_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -101,6 +167,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                                 types::PlantCharacteristic::Thorny,
                                 types::PlantCharacteristic::Aromatic,
                             ],
+                            effects: vec![roll_concrete_effect(rng, plant_medium_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -112,6 +179,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                                 types::PlantCharacteristic::Bitter,
                                 types::PlantCharacteristic::Luminous,
                             ],
+                            effects: vec![roll_concrete_effect(rng, plant_medium_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -123,6 +191,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                                 types::PlantCharacteristic::Fragile,
                                 types::PlantCharacteristic::Thorny,
                             ],
+                            effects: vec![roll_concrete_effect(rng, plant_medium_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -131,6 +200,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                         },
                         types::PlantCard {
                             characteristics: vec![types::PlantCharacteristic::Luminous],
+                            effects: vec![roll_concrete_effect(rng, plant_small_id, lib)],
                             counts: types::DeckCounts {
                                 deck: 0,
                                 hand: 1,
@@ -151,6 +221,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 3,
             discard: 0,
         },
+        rng,
+        vec![],
     );
 
     // MostCommon card — removes the most common characteristic (limit 1)
@@ -164,7 +236,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::HerbalismDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
@@ -174,6 +246,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     types: vec![],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -182,6 +255,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // LeastCommon card — removes the least common characteristic (limit 1)
@@ -195,7 +270,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::HerbalismDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
@@ -205,6 +280,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     types: vec![],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -213,6 +289,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // AND-based multi-type card — removes only plants matching ALL listed types
@@ -226,7 +304,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                         cap: None,
                     },
                     types::TokenAmount {
-                        token_type: types::TokenType::HerbalismDurability,
+                        token_type: types::TokenType::Durability,
                         amount: 100,
                         cap: None,
                     },
@@ -238,6 +316,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     ],
                 },
                 gains: vec![],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -246,6 +325,8 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Herbalism],
     );
 
     // Stamina rest card for herbalism
@@ -253,7 +334,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
         CardKind::Herbalism {
             herbalism_effect: types::HerbalismCardEffect {
                 costs: vec![types::TokenAmount {
-                    token_type: types::TokenType::HerbalismDurability,
+                    token_type: types::TokenType::Durability,
                     amount: 50,
                     cap: None,
                 }],
@@ -263,6 +344,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
                     amount: 200,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -271,6 +353,85 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, _rng: &mut rand_pcg::L
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    // Stamina-cost starting herbalism card: matches 4 characteristics
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Stamina,
+                        amount: 100,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Fragile,
+                        types::PlantCharacteristic::Thorny,
+                        types::PlantCharacteristic::Aromatic,
+                        types::PlantCharacteristic::Bitter,
+                    ],
+                },
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
+    );
+
+    // Health-cost starting herbalism card: matches ALL 5 characteristics
+    lib.add_card(
+        CardKind::Herbalism {
+            herbalism_effect: types::HerbalismCardEffect {
+                costs: vec![
+                    types::TokenAmount {
+                        token_type: types::TokenType::Health,
+                        amount: 150,
+                        cap: None,
+                    },
+                    types::TokenAmount {
+                        token_type: types::TokenType::Durability,
+                        amount: 100,
+                        cap: None,
+                    },
+                ],
+                match_mode: types::HerbalismMatchMode::Or {
+                    types: vec![
+                        types::PlantCharacteristic::Fragile,
+                        types::PlantCharacteristic::Thorny,
+                        types::PlantCharacteristic::Aromatic,
+                        types::PlantCharacteristic::Bitter,
+                        types::PlantCharacteristic::Luminous,
+                    ],
+                },
+                gains: vec![],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Herbalism],
     );
 }
 
@@ -338,7 +499,10 @@ impl GameState {
         // Apply durability costs (depletes encounter, doesn't reject card)
         let mut durability_depleted = false;
         for cost in &post_play_costs {
-            let key = types::Token::persistent(cost.token_type.clone());
+            let resolved_type = cost
+                .token_type
+                .resolve_durability(&types::Discipline::Herbalism);
+            let key = types::Token::persistent(resolved_type);
             let durability = self.token_balances.entry(key).or_insert(0);
             *durability = (*durability - cost.amount).max(0);
             if *durability <= 0 {
@@ -355,6 +519,18 @@ impl GameState {
         for gain in &herbalism_effect.gains {
             let entry = types::token_entry_by_type(&mut self.token_balances, &gain.token_type);
             *entry += gain.amount;
+        }
+
+        // Process Insight effects
+        for effect in &herbalism_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Herbalism);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
+            }
         }
 
         // Remove plant cards based on match mode

@@ -1,11 +1,117 @@
 use crate::library::types::{
-    self, CardCounts, CardKind, CraftingCraftState, CraftingEncounterState, DeckCounts,
-    EncounterKind, EncounterOutcome, EncounterState, EnemyCraftingCard, TokenAmount,
+    self, CardCounts, CardEffectKind, CardKind, CraftingCraftState, CraftingEncounterState,
+    DeckCounts, EncounterKind, EncounterOutcome, EncounterState, EnemyCraftingCard, TokenAmount,
 };
 use crate::library::{GameState, Library};
 use rand::RngCore;
 
-pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lcg64Xsh32) {
+use crate::library::game_state::roll_concrete_effect;
+
+pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
+    // ---- Crafting EnemyCardEffect templates ----
+
+    // Enemy cost increase: Ore (10-30)
+    let enemy_ore_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Ore,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Enemy cost increase: Plant (10-30)
+    let enemy_plant_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Plant,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Enemy cost increase: Lumber (10-30)
+    let enemy_lumber_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Lumber,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Enemy cost increase: Fish (10-30)
+    let enemy_fish_effect_id = lib.cards.len();
+    lib.add_card(
+        CardKind::EnemyCardEffect {
+            kind: types::CardEffectKind::GainTokens {
+                target: types::EffectTarget::OnOpponent,
+                token_type: types::TokenType::Fish,
+                cap_min: 10,
+                cap_max: 30,
+                gain_min_percent: 100,
+                gain_max_percent: 100,
+                costs: vec![],
+                duration: types::TokenLifecycle::PersistentCounter,
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // ---- Player crafting cards ----
+
     // Crafting card: reduces Ore cost, no stamina cost
     lib.add_card(
         CardKind::Crafting {
@@ -16,6 +122,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -24,6 +131,8 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces Plant cost, no stamina cost
@@ -36,6 +145,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -44,6 +154,8 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces Lumber cost, no stamina cost
@@ -56,6 +168,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -64,6 +177,8 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces Fish cost, no stamina cost
@@ -76,6 +191,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
                     amount: 30,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -84,6 +200,8 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 5,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting card: reduces multiple costs, costs stamina
@@ -117,6 +235,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
                         cap: None,
                     },
                 ],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -125,6 +244,8 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Crafting rest card: grants stamina, reduces nothing
@@ -137,6 +258,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
                     amount: 100,
                     cap: None,
                 }],
+                effects: vec![],
             },
         },
         CardCounts {
@@ -145,15 +267,91 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 0,
             discard: 0,
         },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Stamina-cost starting crafting card: reduces 2 materials by large amount
+    lib.add_card(
+        CardKind::Crafting {
+            crafting_effect: types::CraftingCardEffect {
+                costs: vec![TokenAmount {
+                    token_type: types::TokenType::Stamina,
+                    amount: 75,
+                    cap: None,
+                }],
+                reductions: vec![
+                    TokenAmount {
+                        token_type: types::TokenType::Ore,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Lumber,
+                        amount: 40,
+                        cap: None,
+                    },
+                ],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Health-cost starting crafting card: reduces all 4 materials by large amount
+    lib.add_card(
+        CardKind::Crafting {
+            crafting_effect: types::CraftingCardEffect {
+                costs: vec![TokenAmount {
+                    token_type: types::TokenType::Health,
+                    amount: 150,
+                    cap: None,
+                }],
+                reductions: vec![
+                    TokenAmount {
+                        token_type: types::TokenType::Ore,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Plant,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Lumber,
+                        amount: 40,
+                        cap: None,
+                    },
+                    TokenAmount {
+                        token_type: types::TokenType::Fish,
+                        amount: 40,
+                        cap: None,
+                    },
+                ],
+                effects: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 1,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
     );
 
     // Enemy crafting cards: increase material costs
     let enemy_ore = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Ore,
-            amount: 20,
-            cap: None,
-        }],
+        effects: vec![roll_concrete_effect(rng, enemy_ore_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
@@ -161,11 +359,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
         },
     };
     let enemy_plant = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Plant,
-            amount: 20,
-            cap: None,
-        }],
+        effects: vec![roll_concrete_effect(rng, enemy_plant_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
@@ -173,11 +367,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
         },
     };
     let enemy_lumber = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Lumber,
-            amount: 20,
-            cap: None,
-        }],
+        effects: vec![roll_concrete_effect(rng, enemy_lumber_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
@@ -185,11 +375,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
         },
     };
     let enemy_fish = EnemyCraftingCard {
-        increases: vec![TokenAmount {
-            token_type: types::TokenType::Fish,
-            amount: 20,
-            cap: None,
-        }],
+        effects: vec![roll_concrete_effect(rng, enemy_fish_effect_id, lib)],
         counts: DeckCounts {
             deck: 5,
             hand: 0,
@@ -213,6 +399,8 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, _rng: &mut rand_pcg::Lc
             hand: 2,
             discard: 0,
         },
+        rng,
+        vec![],
     );
 }
 
@@ -509,6 +697,18 @@ impl GameState {
             c.round += 1;
         }
 
+        // Process Insight effects
+        for effect in &crafting_effect.effects {
+            if let Some(CardEffectKind::Insight { .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let insight_type =
+                    types::TokenType::insight_for_discipline(&types::Discipline::Crafting);
+                let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
+                *entry += effect.rolled_value;
+            }
+        }
+
         // Play the card (hand → discard)
         let _ = self.library.play(card_id);
 
@@ -531,19 +731,19 @@ impl GameState {
 
     /// Enemy plays a random crafting card, increasing material costs.
     fn resolve_enemy_crafting_play(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
-        if let Some(EncounterState::Crafting(c)) = &mut self.current_encounter {
-            if c.active_craft.is_none() {
-                return;
-            }
+        // Extract effects from chosen card (mutable borrow scope)
+        let effects = {
+            let c = match &mut self.current_encounter {
+                Some(EncounterState::Crafting(c)) if c.active_craft.is_some() => c,
+                _ => return,
+            };
 
-            // Pick a random enemy card from deck
             let total_in_deck: u32 = c
                 .enemy_crafting_deck
                 .iter()
                 .map(|card| card.counts.deck)
                 .sum();
             if total_in_deck == 0 {
-                // Reshuffle discard → deck
                 for card in &mut c.enemy_crafting_deck {
                     card.counts.deck += card.counts.discard;
                     card.counts.discard = 0;
@@ -562,19 +762,35 @@ impl GameState {
                 }
             }
 
-            if let Some(idx) = chosen_idx {
-                let increases = c.enemy_crafting_deck[idx].increases.clone();
-                c.enemy_crafting_deck[idx].counts.deck -= 1;
-                c.enemy_crafting_deck[idx].counts.discard += 1;
+            match chosen_idx {
+                Some(idx) => {
+                    let fx = c.enemy_crafting_deck[idx].effects.clone();
+                    c.enemy_crafting_deck[idx].counts.deck -= 1;
+                    c.enemy_crafting_deck[idx].counts.discard += 1;
+                    fx
+                }
+                None => return,
+            }
+        };
 
-                // Apply increases to craft costs (no cap on increases)
-                if let Some(ref mut craft) = c.active_craft {
-                    for increase in &increases {
-                        *craft
-                            .current_costs
-                            .entry(increase.token_type.clone())
-                            .or_insert(0) += increase.amount;
-                    }
+        // Resolve effects via library and apply increases to craft costs
+        let mut resolved: Vec<(types::TokenType, i64)> = Vec::new();
+        for effect in &effects {
+            if let Some(types::CardEffectKind::GainTokens { token_type, .. }) =
+                self.library.resolve_effect(effect.effect_id)
+            {
+                let grant_amount = match (effect.rolled_cap, effect.rolled_gain_percent) {
+                    (Some(cap), Some(pct)) => cap * pct as i64 / 100,
+                    _ => effect.rolled_value,
+                };
+                resolved.push((token_type.clone(), grant_amount));
+            }
+        }
+
+        if let Some(EncounterState::Crafting(c)) = &mut self.current_encounter {
+            if let Some(ref mut craft) = c.active_craft {
+                for (token_type, amount) in resolved {
+                    *craft.current_costs.entry(token_type).or_insert(0) += amount;
                 }
             }
         }
@@ -583,91 +799,61 @@ impl GameState {
     /// Conclude the crafting encounter. If a craft is in progress, check if the
     /// player can pay the final costs. If yes, create a copy of the card in the library.
     pub fn conclude_crafting_encounter(&mut self) -> Result<(), String> {
-        // Extract craft info before mutating
-        let craft_info = match &self.current_encounter {
-            Some(EncounterState::Crafting(c)) if c.outcome == EncounterOutcome::Undecided => {
-                c.active_craft.clone()
-            }
+        match &self.current_encounter {
+            Some(EncounterState::Crafting(c)) if c.outcome == EncounterOutcome::Undecided => {}
             _ => return Err("No active crafting encounter to conclude".to_string()),
         };
 
-        if let Some(craft) = craft_info {
-            // Check if player can pay the final material costs
-            for (token_type, &cost) in &craft.current_costs {
-                let key = types::Token::persistent(token_type.clone());
-                let balance = self.token_balances.get(&key).copied().unwrap_or(0);
-                if balance < cost {
-                    self.finish_crafting_encounter(true);
-                    return Err(format!(
-                        "Cannot pay final cost: need {} {:?}, have {}. Craft failed, encounter concluded.",
-                        cost, token_type, balance
-                    ));
-                }
-            }
-
-            // Pay costs
-            for (token_type, cost) in &craft.current_costs {
-                let key = types::Token::persistent(token_type.clone());
-                *self.token_balances.entry(key).or_insert(0) -= cost;
-            }
-
-            // Duplicate the target card in the library with 1 library copy
-            let target_card = self
-                .library
-                .get(craft.target_card_id)
-                .ok_or("Target card no longer exists")?
-                .clone();
-            self.library.add_card(
-                target_card.kind,
-                CardCounts {
-                    library: 1,
-                    deck: 0,
-                    hand: 0,
-                    discard: 0,
-                },
-            );
-        }
-
-        self.finish_crafting_encounter(true);
+        self.finish_active_craft();
         Ok(())
     }
 
     /// Auto-conclude when crafting tokens run out during a craft mini-game.
     fn auto_conclude_craft(&mut self) {
-        // Collect craft info before mutating
-        let (can_pay, craft_costs, target_id) =
-            if let Some(EncounterState::Crafting(c)) = &self.current_encounter {
-                if let Some(ref craft) = c.active_craft {
-                    let can_pay = craft.current_costs.iter().all(|(token_type, &cost)| {
-                        let key = types::Token::persistent(token_type.clone());
-                        self.token_balances.get(&key).copied().unwrap_or(0) >= cost
-                    });
-                    (can_pay, craft.current_costs.clone(), craft.target_card_id)
-                } else {
-                    self.finish_crafting_encounter(true);
-                    return;
-                }
-            } else {
+        if !matches!(&self.current_encounter, Some(EncounterState::Crafting(_))) {
+            return;
+        }
+
+        self.finish_active_craft();
+    }
+
+    /// Shared logic for finishing an active craft (used by both conclude and auto-conclude).
+    /// If there is an active craft, attempt to pay costs and add the crafted card.
+    /// If no active craft, just finish the encounter as a win.
+    fn finish_active_craft(&mut self) {
+        let craft_info = match &self.current_encounter {
+            Some(EncounterState::Crafting(c)) => c.active_craft.clone(),
+            _ => {
+                self.finish_crafting_encounter(true);
                 return;
-            };
-
-        if can_pay {
-            for (token_type, cost) in &craft_costs {
-                let key = types::Token::persistent(token_type.clone());
-                *self.token_balances.entry(key).or_insert(0) -= cost;
             }
+        };
 
-            if let Some(target_card) = self.library.get(target_id).cloned() {
-                self.library.add_card(
-                    target_card.kind,
-                    CardCounts {
-                        library: 1,
-                        deck: 0,
-                        hand: 0,
-                        discard: 0,
-                    },
-                );
-            }
+        let Some(craft) = craft_info else {
+            self.finish_crafting_encounter(true);
+            return;
+        };
+
+        let can_pay = craft.current_costs.iter().all(|(token_type, &cost)| {
+            let key = types::Token::persistent(token_type.clone());
+            self.token_balances.get(&key).copied().unwrap_or(0) >= cost
+        });
+
+        if !can_pay {
+            self.finish_crafting_encounter(false);
+            return;
+        }
+
+        for (token_type, cost) in &craft.current_costs {
+            let key = types::Token::persistent(token_type.clone());
+            *self.token_balances.entry(key).or_insert(0) -= cost;
+        }
+
+        if self
+            .library
+            .increment_library_count(craft.target_card_id, 1)
+            .is_ok()
+        {
             self.finish_crafting_encounter(true);
         } else {
             self.finish_crafting_encounter(false);
@@ -675,11 +861,22 @@ impl GameState {
     }
 
     /// Abort a crafting encounter. Always results in PlayerWon (no penalty).
-    pub fn abort_crafting_encounter(&mut self) {
+    /// Abort a crafting encounter. Blocked when a craft mini-game is active —
+    /// in that case only a successful craft can end the encounter as a win.
+    pub fn abort_crafting_encounter(&mut self) -> Result<(), String> {
+        if let Some(EncounterState::Crafting(c)) = &self.current_encounter {
+            if c.active_craft.is_some() {
+                return Err(
+                    "Cannot abort while a craft is in progress. Complete or fail the craft first."
+                        .to_string(),
+                );
+            }
+        }
         self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
         self.encounter_results.push(EncounterOutcome::PlayerWon);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
+        Ok(())
     }
 
     pub(crate) fn finish_crafting_encounter(&mut self, is_win: bool) {

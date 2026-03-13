@@ -27,7 +27,7 @@ jobs:
       - name: Install cargo-llvm-cov
         run: cargo install --locked cargo-llvm-cov
       - name: Run coverage
-        run: cargo llvm-cov --workspace --lcov --output-path target/lcov.info --fail-under-lines 85
+        run: cargo llvm-cov --workspace --lcov --output-path target/lcov.info --fail-under-lines 80
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:

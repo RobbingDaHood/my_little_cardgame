@@ -1,21 +1,23 @@
 When the below point states "Roadmap" it means edit the roadmap.md directly.
 
-1. The crafted card is not a new entry in the library: it just adds +1 to the library count for an existing entry. 
-1. conclude_crafting_encounter and auto_conclude_craft seems to overlap a lot, could they not be merged? 
-1. You cannot abort_crafting_encounter when a craft is ongoing. When ongoing then it only a successfull craft that will make it a win. 
-    1. I do not know if it is already like that, if so then do no change. 
-1. Crafting cost should be more variable: 
-    1. When it is a concrete card it should be static. 
-    1. When creting a new concrete card then the crafting cost is decided with some randomness. 
-    1. The current "base_cost" is fine, but the distribute it with some ranges on the four gathering tokens. Some can get all the way down to zero. 
-        1. At minimum it will require 2 different tokens and at max all of them. 
-        1. One token can maximum require 75% of the "base_cost" there are no minimum. 
-1. All player cards in all diciplins should have a crafting cost.
-1. All enemy deck cards should refer back to enemy card effects. 
-    1. This is a preperation for the future scouting step; where we will create new encounters based on the enemy card effects. 
-    1. Refactor all enemy cards to also have a enemy card effect. 
-    1. These enemy cards and card effects should be part of the diciplin file.
-        1. So it is easy to get an overview. 
+1. Why add the "(except GET /actions/possible which returns currently valid player actions with playable card IDs)" to the docs/design/roadmap.md: It is a GET endpoint too, so that is no exception. 
+1. In docs/design/roadmap.md it states "The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort.": But there are a lot of other possible actions in the game, like choosing to swap cards during a crafting encounter etc. 
+    1. If I am right then update the roadmap and check other places that should be updated too and update them. 
+1. Analyse what is run during a github action for a PR, because something there seems to fail. 
+    1. Fix what is failing. 
+    1. Add to the instruction file to run all the same checks that the github action for PR runs, before comitting. 
+1.  So every card effect on every card should refere back to a card effect in the library. 
+    1. That library card effect were used to create the card card effect: 
+        1. Meaning that the car card effect cannot have values that goes beound the library card effect. 
+    1. The Card card effect should have a refference back to what library card effect it came from. 
+    1. This means that there likely need to be created a lot more new card effects: In the initial deck. 
+        1. It als means that all the card card effects in the intial deck need a reference. 
+    1. This is the case both for enemy and player cards. 
+    1. Some diciplins do have this setup, but it does not look like all diciplins have this, right? 
+1. PossibleAction.action_type should be of the type of PlayerActions
+    1. It is fine that it exposes the fields of the enums too: Just to give examples of what can be passed to the action. 
+1. PossibleAction.playable_card_ids: Remove that field. 
+
 
 # When done with all of this then update vision and roadmap files
 

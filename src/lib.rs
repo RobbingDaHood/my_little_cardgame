@@ -56,11 +56,11 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::actions_log::okapi_add_operation_for_list_actions_log_;
     use crate::combat::okapi_add_operation_for_get_encounter_;
     use crate::combat::okapi_add_operation_for_get_encounter_results_;
-    use crate::combat::okapi_add_operation_for_initialize_combat_;
-    use crate::combat::{get_encounter, get_encounter_results, initialize_combat};
-    use crate::library::add_test_library_card;
+    use crate::combat::{get_encounter, get_encounter_results};
+    use crate::library::get_possible_actions;
     use crate::library::list_card_effects;
     use crate::library::list_library_cards;
+    use crate::library::okapi_add_operation_for_get_possible_actions_;
     use crate::library::okapi_add_operation_for_list_card_effects_;
     use crate::player_tokens::get_player_tokens;
     use crate::player_tokens::okapi_add_operation_for_get_player_tokens_;
@@ -77,24 +77,16 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
             "/",
             openapi_get_routes![
                 get_encounter,
-                initialize_combat,
                 play,
                 get_player_tokens,
                 get_encounter_results,
                 list_card_effects,
                 list_actions_log,
+                get_possible_actions,
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))
-        .mount(
-            "/",
-            rocket::routes![
-                list_library_cards,
-                add_test_library_card,
-                crate::combat::enemy_play,
-                crate::combat::advance_phase,
-            ],
-        )
+        .mount("/", rocket::routes![list_library_cards,])
         .manage(player_data::new())
         .manage(gs.clone())
         .attach(AdHoc::on_liftoff("actionlog-shutdown", |rocket| {
