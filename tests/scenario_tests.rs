@@ -3485,7 +3485,7 @@ fn scenario_possible_actions_endpoint() {
         action_types
     );
 
-    // Pick the first encounter card from the possible actions
+    // EncounterPickEncounter should have a card_id field (placeholder)
     let pick_action = actions
         .as_array()
         .unwrap()
@@ -3497,15 +3497,18 @@ fn scenario_possible_actions_endpoint() {
                 .unwrap_or(false)
         })
         .unwrap();
-    let card_ids = pick_action
-        .get("playable_card_ids")
-        .and_then(|v| v.as_array())
-        .unwrap();
     assert!(
-        !card_ids.is_empty(),
-        "Should have encounter cards to pick from"
+        pick_action.get("card_id").is_some(),
+        "EncounterPickEncounter should expose card_id field"
     );
-    let first_encounter_id = card_ids[0].as_u64().unwrap();
+
+    // Use library/cards to find a valid encounter card to pick
+    let cards = get_json(&client, "/library/cards?location=Hand&card_kind=Encounter");
+    let first_encounter_id = cards.as_array().unwrap()[0]
+        .get("id")
+        .unwrap()
+        .as_u64()
+        .unwrap();
 
     // Pick the encounter
     let (status, _) = post_action(
@@ -3517,7 +3520,7 @@ fn scenario_possible_actions_endpoint() {
     );
     assert_eq!(status, Status::Created);
 
-    // In encounter: should have EncounterPlayCard with playable card IDs
+    // In encounter: should have EncounterPlayCard
     let actions = get_json(&client, "/actions/possible");
     let action_types: Vec<&str> = actions
         .as_array()
@@ -3530,6 +3533,8 @@ fn scenario_possible_actions_endpoint() {
         "Should be able to play cards in encounter. Actions: {:?}",
         action_types
     );
+
+    // EncounterPlayCard should have a card_id field (placeholder)
     let play_action = actions
         .as_array()
         .unwrap()
@@ -3541,12 +3546,8 @@ fn scenario_possible_actions_endpoint() {
                 .unwrap_or(false)
         })
         .unwrap();
-    let play_card_ids = play_action
-        .get("playable_card_ids")
-        .and_then(|v| v.as_array())
-        .unwrap();
     assert!(
-        !play_card_ids.is_empty(),
-        "Should have cards to play in encounter"
+        play_action.get("card_id").is_some(),
+        "EncounterPlayCard should expose card_id field"
     );
 }

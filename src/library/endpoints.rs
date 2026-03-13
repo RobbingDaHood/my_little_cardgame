@@ -115,55 +115,35 @@ pub async fn list_card_effects(
     })
 }
 
-/// A possible player action with optional playable card IDs.
-#[derive(
-    Debug, Clone, rocket::serde::Serialize, rocket::serde::Deserialize, rocket_okapi::JsonSchema,
-)]
-#[serde(crate = "rocket::serde")]
-pub struct PossibleAction {
-    pub action_type: String,
-    pub playable_card_ids: Vec<usize>,
-}
-
 /// Returns the list of currently valid player actions based on game state.
+/// Each entry is a `PlayerActions` variant with placeholder field values
+/// to illustrate the expected payload shape.
 #[openapi]
 #[get("/actions/possible")]
 pub async fn get_possible_actions(
     game_state: &rocket::State<std::sync::Arc<rocket::futures::lock::Mutex<GameState>>>,
-) -> Json<Vec<PossibleAction>> {
+) -> Json<Vec<crate::action::PlayerActions>> {
     let gs = game_state.lock().await;
-    let mut actions = Vec::new();
+    let mut actions: Vec<crate::action::PlayerActions> = Vec::new();
 
-    actions.push(PossibleAction {
-        action_type: "NewGame".to_string(),
-        playable_card_ids: vec![],
-    });
+    actions.push(crate::action::PlayerActions::NewGame { seed: None });
 
     match gs.encounter_phase {
         EncounterPhase::NoEncounter => {
-            let encounter_ids: Vec<usize> = gs
+            let has_encounter = gs
                 .library
                 .cards
                 .iter()
-                .enumerate()
-                .filter(|(_, c)| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
-                .map(|(id, _)| id)
-                .collect();
-            if !encounter_ids.is_empty() {
-                actions.push(PossibleAction {
-                    action_type: "EncounterPickEncounter".to_string(),
-                    playable_card_ids: encounter_ids,
-                });
+                .any(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0);
+            if has_encounter {
+                actions.push(crate::action::PlayerActions::EncounterPickEncounter { card_id: 0 });
             }
         }
         EncounterPhase::InEncounter => {
             if let Some(ref enc) = gs.current_encounter {
-                let playable_ids = playable_card_ids_for_encounter(enc, &gs);
-                if !playable_ids.is_empty() {
-                    actions.push(PossibleAction {
-                        action_type: "EncounterPlayCard".to_string(),
-                        playable_card_ids: playable_ids,
-                    });
+                let has_playable = !playable_card_ids_for_encounter(enc, &gs).is_empty();
+                if has_playable {
+                    actions.push(crate::action::PlayerActions::EncounterPlayCard { card_id: 0 });
                 }
 
                 match enc {
@@ -171,75 +151,40 @@ pub async fn get_possible_actions(
                         // Combat cannot be aborted
                     }
                     EncounterState::Research(_) => {
-                        actions.push(PossibleAction {
-                            action_type: "ResearchChooseProject".to_string(),
-                            playable_card_ids: vec![],
+                        actions.push(crate::action::PlayerActions::ResearchChooseProject {
+                            discipline: super::types::Discipline::Combat,
+                            tier_count: 0,
                         });
-                        actions.push(PossibleAction {
-                            action_type: "ResearchSelectCandidate".to_string(),
-                            playable_card_ids: vec![],
+                        actions.push(crate::action::PlayerActions::ResearchSelectCandidate {
+                            candidate_index: 0,
                         });
-                        actions.push(PossibleAction {
-                            action_type: "ResearchProgress".to_string(),
-                            playable_card_ids: vec![],
-                        });
-                        actions.push(PossibleAction {
-                            action_type: "EncounterAbort".to_string(),
-                            playable_card_ids: vec![],
-                        });
-                        actions.push(PossibleAction {
-                            action_type: "EncounterConcludeEncounter".to_string(),
-                            playable_card_ids: vec![],
-                        });
+                        actions.push(crate::action::PlayerActions::ResearchProgress { amount: 0 });
+                        actions.push(crate::action::PlayerActions::EncounterAbort);
+                        actions.push(crate::action::PlayerActions::EncounterConcludeEncounter);
                     }
                     EncounterState::Crafting(_) => {
-                        actions.push(PossibleAction {
-                            action_type: "EncounterCraftSwap".to_string(),
-                            playable_card_ids: vec![],
+                        actions.push(crate::action::PlayerActions::EncounterCraftSwap {
+                            from_id: 0,
+                            to_id: 0,
                         });
-                        actions.push(PossibleAction {
-                            action_type: "EncounterCraftCard".to_string(),
-                            playable_card_ids: vec![],
+                        actions.push(crate::action::PlayerActions::EncounterCraftCard {
+                            target_card_id: 0,
                         });
-                        actions.push(PossibleAction {
-                            action_type: "EncounterCraftDurability".to_string(),
-                            playable_card_ids: vec![],
+                        actions.push(crate::action::PlayerActions::EncounterCraftDurability {
+                            discipline: String::new(),
                         });
-                        actions.push(PossibleAction {
-                            action_type: "EncounterAbort".to_string(),
-                            playable_card_ids: vec![],
-                        });
-                        actions.push(PossibleAction {
-                            action_type: "EncounterConcludeEncounter".to_string(),
-                            playable_card_ids: vec![],
-                        });
+                        actions.push(crate::action::PlayerActions::EncounterAbort);
+                        actions.push(crate::action::PlayerActions::EncounterConcludeEncounter);
                     }
                     _ => {
-                        actions.push(PossibleAction {
-                            action_type: "EncounterAbort".to_string(),
-                            playable_card_ids: vec![],
-                        });
-                        actions.push(PossibleAction {
-                            action_type: "EncounterConcludeEncounter".to_string(),
-                            playable_card_ids: vec![],
-                        });
+                        actions.push(crate::action::PlayerActions::EncounterAbort);
+                        actions.push(crate::action::PlayerActions::EncounterConcludeEncounter);
                     }
                 }
             }
         }
         EncounterPhase::Scouting => {
-            let encounter_ids: Vec<usize> = gs
-                .library
-                .cards
-                .iter()
-                .enumerate()
-                .filter(|(_, c)| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
-                .map(|(id, _)| id)
-                .collect();
-            actions.push(PossibleAction {
-                action_type: "EncounterApplyScouting".to_string(),
-                playable_card_ids: encounter_ids,
-            });
+            actions.push(crate::action::PlayerActions::EncounterApplyScouting { card_ids: vec![] });
         }
     }
 
