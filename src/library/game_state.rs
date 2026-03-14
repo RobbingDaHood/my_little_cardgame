@@ -99,6 +99,10 @@ pub(crate) fn roll_concrete_effect(
             let costs = roll_costs(rng, &costs);
             (value, costs, None, None)
         }
+        Some(super::types::CardEffectKind::ResearchProbe { costs, .. }) => {
+            let costs = roll_costs(rng, &costs);
+            (0, costs, None, None)
+        }
         _ => (0, vec![], None, None),
     };
     ConcreteEffect {
@@ -871,6 +875,12 @@ impl GameState {
                 }
                 ActionPayload::ResearchProgress { amount } => {
                     let _ = gs.research_progress(*amount, &mut rng);
+                }
+                ActionPayload::ResearchPlayHand { card_ids } => {
+                    let _ = gs.research_play_hand(card_ids.clone(), &mut rng);
+                }
+                ActionPayload::ResearchConcludeExperiment => {
+                    let _ = gs.research_conclude_experiment(&mut rng);
                 }
                 ActionPayload::MilestonePickScoutingChoice { card_id } => {
                     let _ = gs.milestone_pick_scouting_choice(*card_id, &mut rng);

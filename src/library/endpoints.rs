@@ -50,6 +50,7 @@ pub async fn list_library_cards(
             Some("PlayerCardEffect") => matches!(c.kind, CardKind::PlayerCardEffect { .. }),
             Some("EnemyCardEffect") => matches!(c.kind, CardKind::EnemyCardEffect { .. }),
             Some("Crafting") => matches!(c.kind, CardKind::Crafting { .. }),
+            Some("Research") => matches!(c.kind, CardKind::Research { .. }),
             _ => true,
         })
         .map(|(id, c)| LibraryCardWithId {
@@ -211,7 +212,9 @@ fn playable_card_ids_for_encounter(encounter: &EncounterState, gs: &GameState) -
             EncounterState::Fishing(_) => matches!(c.kind, CardKind::Fishing { .. }),
             EncounterState::Rest(_) => matches!(c.kind, CardKind::Rest { .. }),
             EncounterState::Crafting(_) => matches!(c.kind, CardKind::Crafting { .. }),
-            EncounterState::Research(_) => false,
+            EncounterState::Research(r) => {
+                r.experiment_active && matches!(c.kind, CardKind::Research { .. })
+            }
             EncounterState::Milestone(m) => match m.inner_state.as_ref() {
                 EncounterState::Combat(combat) => (combat.phase.allowed_card_kind())(&c.kind),
                 EncounterState::Mining(_) => matches!(c.kind, CardKind::Mining { .. }),

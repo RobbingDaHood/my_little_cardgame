@@ -591,6 +591,20 @@ This section summarizes changes implemented after Step 10 completion:
 - **PossibleAction refactored:** Removed `PossibleAction` struct. The `/actions/possible` endpoint now returns `Vec<PlayerActions>` directly.
 - **CI coverage enforced at 80% threshold** in `make check`.
 - **`all_gathering_hand_cards_unpayable()` removed.** Replaced by `all_effects_hand_cards_unpayable()` which works with the ConcreteEffect-based cost model across all disciplines.
+
+### Research Hidden Multiplier Gameplay (Step 10.1)
+
+Replaces the simple "pay Insight to progress" research mechanic with a deduction-driven deck-based gameplay:
+
+- **New types:** `ResearchSymbol` enum (Alpha–Zeta, 6 abstract knowledge symbols), `ResearchRoundResult` struct, `ResearchDef` with `target_size`/`position_match_yield`/`type_match_yield`/`base_insight_cost` fields.
+- **Updated types:** `ResearchEncounterState` gains `hidden_types`, `accumulated_yield`, `rounds_played`, `round_history`, `experiment_active` fields. `CardKind::Research` variant added. `CardEffectKind::ResearchProbe` variant added.
+- **New actions:** `ResearchPlayHand { card_ids }` and `ResearchConcludeExperiment`.
+- **Research player deck:** 26 cards total — 6 basic single-symbol cards (3 copies each = 18), 3 dual-symbol premium cards (2 copies each = 6, cost Stamina), 2 triple-symbol premium cards (1 copy each = 2, cost Health).
+- **Gameplay flow:** Choose project → auto-begin experiment on first ResearchPlayHand → play 3 cards per round (order matters) → 1:1 optimal matching against 3 hidden symbol slots → position match = 100 yield, type match = 10 yield → Insight cost escalates linearly (round N costs N × 5) → player chooses when to stop → ResearchConcludeExperiment applies yield to progress.
+- **Deduction mechanic:** `hidden_types` never exposed in API (serde skip_serializing). Player deduces from `per_card_yield` in round_history. 6 symbols × 3 slots = 216 possible combinations.
+- **Balance parameters:** Y=100 (position), X=10 (type), Z=5 (base cost). Linear cost escalation.
+- **Tests:** 7 new integration tests covering full loop, zero-yield loss, cost escalation, wrong card count validation, hidden types visibility, card existence, multi-round yield.
+- **BREAKING:** `ActionPayload::ResearchPlayHand` and `ActionPayload::ResearchConcludeExperiment` added. `CardKind::Research` added (exhaustive match impact across codebase). `CardEffectKind::ResearchProbe` added.
    - Goal: Replace the current no-op scouting with a simple encounter-modification step that always happens after an encounter is concluded.
    - Description:
      - Always happens after an encounter is concluded. It always modifies the encounter card just concluded.

@@ -66,6 +66,12 @@ fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
                 total_power += e.rolled_value.abs();
             }
         }
+        CardKind::Research { effects } => {
+            num_effects = effects.len() as i64;
+            for e in effects {
+                total_power += e.rolled_value.abs();
+            }
+        }
         // Non-player cards have no crafting cost
         CardKind::Encounter { .. }
         | CardKind::PlayerCardEffect { .. }
@@ -435,7 +441,8 @@ impl Library {
                 CardKind::Attack { effects }
                 | CardKind::Defence { effects }
                 | CardKind::Resource { effects }
-                | CardKind::Rest { effects, .. } => {
+                | CardKind::Rest { effects, .. }
+                | CardKind::Research { effects } => {
                     for effect in effects {
                         match self.cards.get(effect.effect_id) {
                             Some(ref_card)

@@ -426,7 +426,8 @@ fn apply_card_effects(
             types::CardEffectKind::WoodcuttingChop { .. }
             | types::CardEffectKind::HerbalismMatch { .. }
             | types::CardEffectKind::FishingValue { .. }
-            | types::CardEffectKind::CraftingReduction { .. } => continue,
+            | types::CardEffectKind::CraftingReduction { .. }
+            | types::CardEffectKind::ResearchProbe { .. } => continue,
         };
 
         if is_loss {
