@@ -11,6 +11,13 @@ pub struct ActionLogResponse {
     pub limit: usize,
 }
 
+/// Paginated action log for session replay and debugging.
+///
+/// Returns action entries in sequence order. Combined with the game seed, this
+/// enables exact replay of any session — same seed + same actions = same outcome.
+/// Use `from_seq` to paginate (start from a specific sequence number) and `limit`
+/// to control page size (default 1000). The response includes `next_seq` when more
+/// entries exist beyond the current page.
 #[openapi]
 #[get("/actions/log?<from_seq>&<limit>")]
 pub async fn list_actions_log(

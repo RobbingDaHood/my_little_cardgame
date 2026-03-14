@@ -13,49 +13,50 @@ use crate::status_messages::{new_status, Status};
 use rand::SeedableRng;
 use rand_pcg::Lcg64Xsh32;
 
-/// Player actions
+/// All possible player actions submitted via `POST /action`.
+///
+/// Each variant represents a game command. Use `GET /actions/possible` to discover
+/// which actions are currently valid. Actions are serialized with `action_type` as
+/// the discriminator tag (e.g., `{"action_type": "NewGame", "seed": 42}`).
 #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize, JsonSchema, Hash)]
 #[serde(crate = "rocket::serde", tag = "action_type")]
 pub enum PlayerActions {
-    NewGame {
-        seed: Option<u64>,
-    },
-    // Encounter actions (Step 7)
-    EncounterPickEncounter {
-        card_id: usize,
-    },
-    EncounterPlayCard {
-        card_id: u64,
-    },
-    EncounterApplyScouting {
-        card_ids: Vec<usize>,
-    },
+    /// Start a new game session. Optionally provide a seed for deterministic replay.
+    NewGame { seed: Option<u64> },
+    /// Select an encounter card from hand to begin an encounter.
+    EncounterPickEncounter { card_id: usize },
+    /// Play a discipline card during an active encounter.
+    EncounterPlayCard { card_id: u64 },
+    /// Pick encounter cards during the scouting phase to expand future options.
+    EncounterApplyScouting { card_ids: Vec<usize> },
+    /// Abort the current non-combat encounter (counts as a loss).
     EncounterAbort,
+    /// Conclude the current encounter or scouting phase.
     EncounterConcludeEncounter,
-    // Crafting-specific actions (Step 9.6)
-    EncounterCraftSwap {
-        from_id: usize,
-        to_id: usize,
-    },
-    EncounterCraftCard {
-        target_card_id: usize,
-    },
-    EncounterCraftDurability {
-        discipline: String,
-    },
-    // Research-specific actions (Step 10)
+    /// Swap the active crafting target to a different card.
+    EncounterCraftSwap { from_id: usize, to_id: usize },
+    /// Commit to crafting a specific card (spends materials).
+    EncounterCraftCard { target_card_id: usize },
+    /// Reinforce a discipline's durability during crafting.
+    EncounterCraftDurability { discipline: String },
+    /// Choose a research project (discipline + tier) to work on.
     ResearchChooseProject {
         discipline: crate::library::types::Discipline,
         tier_count: u32,
     },
-    ResearchSelectCandidate {
-        candidate_index: usize,
-    },
-    ResearchProgress {
-        amount: i64,
-    },
+    /// Select a specific research candidate from the available options.
+    ResearchSelectCandidate { candidate_index: usize },
+    /// Spend Insight tokens to advance the current research project.
+    ResearchProgress { amount: i64 },
 }
 
+/// Execute a player action to advance the game state.
+///
+/// This is the central command endpoint — all game state changes flow through here.
+/// Submit a `PlayerActions` variant as JSON to start a game, pick encounters, play
+/// cards, conclude encounters, apply scouting, abort, or perform discipline-specific
+/// actions (crafting, research). The response includes the action log entry with
+/// sequence number for replay. Check `/actions/possible` first to see valid actions.
 #[openapi]
 #[post("/action", format = "json", data = "<player_action>")]
 pub async fn play(
