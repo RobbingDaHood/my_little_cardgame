@@ -645,7 +645,7 @@ This section summarizes changes implemented after Step 10 completion:
      - Structure: `configurations/general/`, `configurations/mining/`, `configurations/herbalism/`, `configurations/woodcutting/`, `configurations/fishing/`, `configurations/combat/`, `configurations/crafting/`, etc.
      - Configuration is baked into the compiled binary — a compiled game cannot change these values, but developers can adjust them before compiling.
    - Playable acceptance: All card definitions, initial token values, and encounter parameters come from JSON config files. Changing a config file and recompiling produces a game with the updated values.
-   - Notes: This enables designers to tweak game balance without touching Rust code.
+   - Notes: This enables designers to tweak game balance without touching Rust code. Externalized JSON configs are also the primary target for automated balance adjustments (see Balancing B5) — LLM-suggested changes can be applied directly to config files, recompiled, and re-tested without modifying Rust code.
 
 15) UX polish, documentation, tools for designers, and release
    - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors. Anyone should be able to play the game solely with the exposed documentation.
@@ -657,17 +657,125 @@ This section summarizes changes implemented after Step 10 completion:
    - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
    - Notes: Tag a release and include release notes linking vision to implemented features.
 
-16) Balancing setup
-   - Goal: Establish automated tools and processes for balance testing and tuning.
+Balancing track (B1–B7)
+-----------------------
+
+The balancing track runs independently of the main roadmap. It communicates with the game solely through the REST API, making it resilient to internal code changes. Balance measurements should be re-run after any step that changes card values, encounter parameters, or token balances. The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing through headless simulation.
+
+**Balancing goals:**
+- Easy encounters (gathering: mining, herbalism, woodcutting, fishing, rest): won ~80% of the time by a competent (greedy/heuristic) strategy
+- Hard encounters (combat): won ~50% of the time by a competent strategy
+- Random strategy baseline: ~60% for easy, ~30% for hard
+- Multiple viable strategies per discipline (no single dominant strategy)
+- Player death (material reset) is an acceptable punishment — already implemented
+- Future milestones: truly hard content (~20-30% win rate) requiring good decks and luck
+
+**Approach — hybrid simulation + LLM analysis:**
+
+The primary data source is headless Monte Carlo simulation (scripted bots playing thousands of games via the REST API at CPU speed). LLMs are used for reasoning about the resulting data and suggesting parameter changes, not for generating gameplay data. LLMs play card games near-randomly (especially free/mini models), making their sessions statistically indistinguishable from random play and unsuitable as a primary balancing signal. The game's deterministic seeded RNG means scripted strategies produce identical results when re-run, enabling precise before/after comparisons.
+
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| Headless Monte Carlo | Python scripts via REST API | Run 10k+ games per config with scripted strategies (random, greedy, heuristic). Primary balancing data source. |
+| Strategy bots | Python scripts calling REST API | Hand-coded strategies per discipline (aggressive, conservative, balanced). Validate multiple viable paths. |
+| LLM analysis | GPT-4/Claude via API | Analyze Monte Carlo data, suggest parameter changes, review card effect distributions. |
+| LLM playtesting | GPT-mini/Haiku (optional) | Play a few games to validate API intuitiveness and encounter coherence. Not for statistical balancing. |
+
+B1) Multi-instance server support (port configuration)
+   - Goal: Allow running multiple game server instances on the same machine for parallel balancing runs.
    - Description:
-     - Define balancing goals for each discipline.
-     - Build a mutating runner that tries different strategies and documents whether they are all viable for reaching specific goals, ensuring multiple paths to victory.
-     - Scope initially to balancing each discipline individually: verify multiple strategies per discipline are viable and interesting.
-     - Define expected outcomes per encounter per tier and expected fail/success rates.
-     - Run the balancing tools and collect data.
-     - Analyze data and make adjustments.
-   - Playable acceptance: Automated balance runners produce data showing strategy viability across disciplines. Results inform configuration adjustments.
-   - Notes: Keep the runner deterministic (seeded) for reproducible balance analysis.
+     - Add `ROCKET_PORT` environment variable support via Rocket's figment configuration providers in `src/main.rs` / `src/lib.rs`.
+     - Default remains port 8000. Any port can be specified at launch via `ROCKET_PORT=8001 cargo run`.
+     - No new CLI argument parser needed — Rocket's built-in env var support (`ROCKET_` prefix) handles this natively.
+     - This is a prerequisite for running parallel simulation instances.
+   - Playable acceptance: `ROCKET_PORT=8001 cargo run` starts the server on port 8001. Two instances can run simultaneously on different ports.
+
+B2) Session recording and metrics endpoint
+   - Goal: Add lightweight instrumentation that captures per-encounter statistics during gameplay, queryable via a new read-only endpoint.
+   - Description:
+     - Add a `GET /metrics` endpoint returning session-level statistics:
+       - Per-encounter-type win/loss counts and rates
+       - Average turns per encounter (by type)
+       - Token balance snapshots (min/max/avg Health, Stamina at encounter start/end)
+       - Total encounters played, total deaths
+       - Resource inflow/outflow rates (materials gained vs spent)
+     - Metrics are accumulated in-memory on `GameState` (no file I/O).
+     - Metrics reset on NewGame.
+   - Playable acceptance: After playing 10+ encounters, `GET /metrics` returns structured JSON with win rates and token statistics per encounter type.
+
+B3) Headless simulation runner (Python)
+   - Goal: Build a Python script that plays the game automatically using scripted strategies, collecting metrics across many runs.
+   - Description:
+     - `tools/balance/runner.py` — main simulation runner:
+       - Starts a game server instance (subprocess on a configurable port)
+       - Plays N full game sessions (configurable, default 1000)
+       - Each session: NewGame with incrementing seeds → play encounters until death or N encounters
+       - Strategies per encounter type:
+         - **Random:** pick random valid actions (baseline)
+         - **Greedy:** always play highest-value card available
+         - **Conservative:** prefer defense/healing, avoid cost cards when possible
+       - Collects `GET /metrics` after each session
+       - Outputs aggregate CSV/JSON statistics
+     - `tools/balance/strategies.py` — strategy implementations
+     - `tools/balance/analyze.py` — reads runner output, prints summary tables and identifies outliers
+     - Uses only `requests` library (no exotic dependencies)
+     - Can run multiple instances in parallel (different ports)
+   - Playable acceptance: `python tools/balance/runner.py --runs 100 --strategy random` completes and produces a CSV with per-encounter-type win rates.
+   - Notes: The runner is deterministic — same seed produces same result for same strategy.
+
+B4) Baseline measurement and initial balance pass
+   - Goal: Run the simulation runner against the current game state, establish baseline win rates, and make the first round of balance adjustments.
+   - Description:
+     - Run 1000+ games with random strategy, 1000+ with greedy strategy
+     - Document current win rates per encounter type per strategy
+     - Identify the most egregious imbalances (encounters won 0% or 100% of the time)
+     - Make targeted adjustments to card values, token amounts, encounter parameters:
+       - Adjust Health/Stamina starting values if needed
+       - Tune card damage/defense/draw ratios in combat
+       - Adjust gathering durability costs and gains
+       - Tune encounter difficulty parameters (ore deck damage, fish valid ranges, plant card counts, etc.)
+     - Re-run simulations to verify improvements
+     - Target: easy encounters ≥60% win rate (random), hard encounters ≥30% win rate (random); ≥80% / ≥50% for greedy
+   - Playable acceptance: Before/after metrics showing measurable improvement toward target win rates. Documented parameter changes with rationale.
+   - Notes: This is the first step that actually changes game balance. Changes should be small, isolated, and re-tested.
+
+B5) LLM analysis pipeline
+   - Goal: Use LLMs to analyze simulation data and suggest balance improvements beyond simple numeric tuning.
+   - Description:
+     - `tools/balance/llm_analyze.py` — feeds Monte Carlo data to an LLM (GPT-4/Claude via API)
+     - Prompt template includes:
+       - Current card definitions (from `/library/cards` and `/library/card-effects`)
+       - Current metrics (win rates, token curves, resource flows)
+       - Balancing goals (80% easy / 50% hard)
+       - Requested output: specific parameter change suggestions with rationale
+     - LLM suggestions are written to a structured report file for human review
+     - Optional: auto-apply simple numeric changes (±10% adjustments to token amounts, card values) and re-run simulation to validate
+   - Playable acceptance: LLM produces a structured report with specific, actionable balance suggestions that reference concrete card IDs and parameter values.
+   - Notes: After Step 14 (Configuration externalization), LLM suggestions can target JSON config files directly, enabling faster iteration.
+
+B6) Strategy variety validation
+   - Goal: Ensure multiple viable strategies exist per discipline — not just one dominant strategy.
+   - Description:
+     - Define 3+ strategies per discipline:
+       - Combat: aggressive (maximize attack), defensive (shield+dodge focus), balanced (mixed)
+       - Mining: rush (conclude early for small rewards), sustained (maximize light level then mine), power focus (high-damage cards)
+       - Herbalism: narrow targeting (precise single-type removal), broad targeting (multi-type removal), characteristic-counting (use MostCommon/LeastCommon)
+       - Woodcutting: pattern-focused (play all 8 cards for rare patterns), conservative (stop at 4-5 for guaranteed moderate reward)
+       - Fishing: high-value focus (play high cards), mid-range focus (play cards matching valid range), range manipulation (modify valid range)
+     - Run each strategy across 1000+ games
+     - Verify no single strategy dominates (>90% win rate while others <30%)
+     - Verify that the "interesting" strategies (not just greedy) are viable
+   - Playable acceptance: Documentation showing 3+ viable strategies per discipline with win rates within a reasonable band (no more than 25% spread between best and worst viable strategy).
+
+B7) Continuous balance regression
+   - Goal: Integrate balance checks into the development workflow so code changes don't silently break game balance.
+   - Description:
+     - Add a `make balance-check` target that runs a quick simulation (100 games each for random + greedy strategies)
+     - Assert win rates stay within ±15% of documented targets
+     - Store balance targets in a `tools/balance/targets.json` configuration file
+     - Not part of `make check` (too slow for every commit) but recommended before merging balance-sensitive changes
+     - Can be run in CI as a separate long-running job (optional)
+   - Playable acceptance: `make balance-check` runs, compares results to targets, and passes/fails with clear output showing which encounter types are within/outside target ranges.
 
 Ideas and future possibilities
 ------------------------------

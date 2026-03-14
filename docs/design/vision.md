@@ -37,6 +37,7 @@ This document describes the high-level gameplay vision for the project, with a f
 - Everything is a deck or a token: Cards, encounters, recipes, resources, merchants, and area encounters are modelled as decks (and individual items as tokens/cards drawn from those decks).
 - Fully reproducible: The game is initialized with a single explicit random seed at new-game start; all shuffles and random choices are derived from that seed so the entire game can be reproduced or replayed exactly.
 - Intentional minimal canonical data: the authoritative game state deliberately omits titles, verbose descriptions, and flavor text; only structural names, types, tokens, and essential parameters are stored. Presentation and flavour are delegated to clients and separate design notes.
+- Continuous playability: The game should be playable and enjoyable at every stage of development. Balance is a continuous concern maintained through automated simulation and analysis, not a post-hoc polish step.
 
 ## Architecture and module layout
 
@@ -348,6 +349,13 @@ Design implications and notes
 
 ## Balancing
 
+**Target win rates (design principle):**
+- Easy encounters (gathering: mining, herbalism, woodcutting, fishing, rest): ~80% win rate for a competent (greedy/heuristic) strategy, ~60% for random play
+- Hard encounters (combat): ~50% win rate for a competent strategy, ~30% for random play
+- Milestone encounters (future): ~20-30% win rate, requiring good decks and strategic play
+- Multiple viable strategies per discipline: no single strategy should dominate (>90%) while others fail (<30%)
+- Player death (material reset) is an acceptable setback — not a full progression reset
+
 Layered balancing approach:
 
 - Resource sinks: ensure crafting new Library cards is the dominant resource sink; require scaled inputs (materials + tokens) that grow superlinearly with CardEffect count and quality.
@@ -357,9 +365,10 @@ Layered balancing approach:
 
 Tuning pipeline and instrumentation:
 
-- Instrument metrics: capture resource inflows/outflows, sink rates, median playtime-to-milestone, and token velocity.
-- Monte‑Carlo / seeded simulations: run large-scale simulations using the seeded RNG to find pathological economies, measure expected yields, and validate design invariants.
-- Regression checks and assertions: automated tests should assert invariants (e.g., average resource lifetime, expected craft throughput per N operations).
+- **Headless Monte Carlo simulation (primary):** The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing. Scripted strategy bots (random, greedy, conservative, discipline-specific) play thousands of games via the REST API at CPU speed, producing statistically significant win-rate data per encounter type. Multiple server instances can run in parallel on different ports.
+- **LLM analysis (secondary):** LLMs analyze Monte Carlo output, card definitions, and token curves to suggest specific parameter changes. LLMs are effective at reasoning about balancing data but are poor card game players — their gameplay sessions are statistically indistinguishable from random play and should not be used as a primary balancing signal.
+- Instrument metrics: capture resource inflows/outflows, sink rates, median playtime-to-milestone, and token velocity via a `GET /metrics` endpoint.
+- Regression checks and assertions: automated tests should assert invariants (e.g., average resource lifetime, expected craft throughput per N operations). A `make balance-check` target runs quick simulations and asserts win rates stay within documented target ranges.
 
 Operational controls & feedback:
 
