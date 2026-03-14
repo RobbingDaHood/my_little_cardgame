@@ -1,0 +1,306 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "stamina_recovery",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 400,
+        "cap_max": 600,
+        "gain_min_percent": 80,
+        "gain_max_percent": 100,
+        "costs": [
+          {
+            "token_type": "Fish",
+            "min_percent": 10,
+            "max_percent": 30
+          },
+          {
+            "token_type": "Plant",
+            "min_percent": 10,
+            "max_percent": 30
+          },
+          {
+            "token_type": "RestToken",
+            "min_percent": 1,
+            "max_percent": 1,
+            "is_absolute": true
+          }
+        ],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "health_recovery",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Health",
+        "cap_min": 300,
+        "cap_max": 500,
+        "gain_min_percent": 80,
+        "gain_max_percent": 100,
+        "costs": [
+          {
+            "token_type": "Fish",
+            "min_percent": 15,
+            "max_percent": 35
+          },
+          {
+            "token_type": "Plant",
+            "min_percent": 15,
+            "max_percent": 35
+          },
+          {
+            "token_type": "RestToken",
+            "min_percent": 1,
+            "max_percent": 1,
+            "is_absolute": true
+          }
+        ],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "mixed_stamina",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 200,
+        "cap_max": 350,
+        "gain_min_percent": 70,
+        "gain_max_percent": 90,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "mixed_health",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Health",
+        "cap_min": 150,
+        "cap_max": 300,
+        "gain_min_percent": 70,
+        "gain_max_percent": 90,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "stamina_cost_health",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Health",
+        "cap_min": 600,
+        "cap_max": 800,
+        "gain_min_percent": 90,
+        "gain_max_percent": 100,
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 20,
+            "max_percent": 40
+          },
+          {
+            "token_type": "RestToken",
+            "min_percent": 1,
+            "max_percent": 1,
+            "is_absolute": true
+          }
+        ],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "health_cost_stamina",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 900,
+        "cap_max": 1200,
+        "gain_min_percent": 90,
+        "gain_max_percent": 100,
+        "costs": [
+          {
+            "token_type": "Health",
+            "min_percent": 15,
+            "max_percent": 30
+          },
+          {
+            "token_type": "RestToken",
+            "min_percent": 1,
+            "max_percent": 1,
+            "is_absolute": true
+          }
+        ],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": [
+        "rest:stamina_recovery"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": [
+        "rest:stamina_recovery"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": [
+        "rest:health_recovery"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": [
+        "rest:health_recovery"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": [
+        "rest:mixed_stamina",
+        "rest:mixed_health"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": [
+        "rest:stamina_cost_health"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": [
+        "rest:health_cost_stamina"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Rest"
+      ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Rest",
+        "rest_def": {
+          "rest_token_min": 1,
+          "rest_token_max": 2
+        }
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 4,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    }
+  ]
+}

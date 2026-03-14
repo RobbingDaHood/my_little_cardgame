@@ -1,0 +1,612 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "fish_low",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Fish",
+        "cap_min": 50,
+        "cap_max": 150,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "fish_medium",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Fish",
+        "cap_min": 200,
+        "cap_max": 400,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "fish_high",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Fish",
+        "cap_min": 400,
+        "cap_max": 600,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "fish_very_high",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Fish",
+        "cap_min": 600,
+        "cap_max": 800,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "range_min_gain",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "FishingRangeMin",
+        "cap_min": -150,
+        "cap_max": 50,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "range_max_gain",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "FishingRangeMax",
+        "cap_min": -50,
+        "cap_max": 150,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "fish_amount_gain",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "FishAmount",
+        "cap_min": -1,
+        "cap_max": 1,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "stamina_gain",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 200,
+        "cap_max": 200,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_low",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 50,
+        "max": 200,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_medium",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 250,
+        "max": 450,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_high",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 500,
+        "max": 750,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_low_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 50,
+        "max": 200,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 30,
+            "max_percent": 60
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_low_dur_stam",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 50,
+        "max": 200,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 30,
+            "max_percent": 60
+          },
+          {
+            "token_type": "Stamina",
+            "min_percent": 50,
+            "max_percent": 100
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_low_dur_health",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 50,
+        "max": 200,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 30,
+            "max_percent": 60
+          },
+          {
+            "token_type": "Health",
+            "min_percent": 60,
+            "max_percent": 100
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_medium_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 250,
+        "max": 450,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 30,
+            "max_percent": 60
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "value_high_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 500,
+        "max": 750,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 30,
+            "max_percent": 60
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "stamina_gain_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 200,
+        "cap_max": 200,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 25,
+            "max_percent": 50
+          }
+        ],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 5,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_medium_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 5,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_high_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 10,
+        "hand": 5,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Fishing",
+        "fishing_def": {
+          "valid_range_min": 100,
+          "valid_range_max": 300,
+          "max_turns": 8,
+          "win_turns_needed": 4,
+          "fish_deck": [
+            {
+              "value": 100,
+              "effect_refs": [
+                "fishing:fish_low"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 6,
+                "discard": 0
+              }
+            },
+            {
+              "value": 300,
+              "effect_refs": [
+                "fishing:fish_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 6,
+                "discard": 0
+              }
+            },
+            {
+              "value": 500,
+              "effect_refs": [
+                "fishing:fish_high"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 4,
+                "discard": 0
+              }
+            },
+            {
+              "value": 700,
+              "effect_refs": [
+                "fishing:fish_very_high"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 2,
+                "discard": 0
+              }
+            }
+          ],
+          "rewards": {
+            "Fish": 1000
+          }
+        }
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 3,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur",
+        "fishing:range_min_gain"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur",
+        "fishing:range_max_gain"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur_stam",
+        "fishing:range_min_gain",
+        "fishing:range_max_gain",
+        "fishing:value_medium",
+        "fishing:value_high"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur",
+        "fishing:fish_amount_gain"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur_stam",
+        "fishing:fish_amount_gain",
+        "fishing:value_medium",
+        "fishing:value_high"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:stamina_gain_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur_stam",
+        "fishing:value_medium",
+        "fishing:value_high",
+        "fishing:value_high"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur_stam",
+        "fishing:value_medium",
+        "fishing:value_high"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur_health",
+        "fishing:value_medium",
+        "fishing:value_medium",
+        "fishing:value_high",
+        "fishing:value_high"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    }
+  ]
+}

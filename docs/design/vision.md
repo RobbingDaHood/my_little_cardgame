@@ -47,7 +47,9 @@ The codebase is organized into the following main modules:
   - `types.rs` — core data types (LibraryCard, CardKind, CardEffectKind, CombatantDef, CombatState, ActionPayload, CardLocation, etc.)
   - `action_log.rs` — append-only player action log
   - `game_state.rs` — top-level GameState managing Library, tokens, and encounter phase
-  - `disciplines/` — per-discipline encounter logic modules (`combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`), each implementing methods on `GameState`. Each discipline module is responsible for both its encounter logic AND its card registration — everything about a discipline lives in its module.
+  - `disciplines/` — per-discipline encounter logic modules (`combat.rs`, `mining.rs`, `herbalism.rs`, `woodcutting.rs`, `fishing.rs`), each implementing methods on `GameState`. Each discipline module handles encounter resolution logic, while card definitions are externalized to JSON config files under `configurations/`.
+  - `config.rs` — JSON-deserializable config types for externalized card definitions
+  - `config_loader.rs` — Loads JSON config files (embedded at compile time via `include_str!()`) and builds the Library
   - `endpoints.rs` — HTTP route handlers for gameplay and library queries
 - `src/combat/` — combat state endpoints (delegates to GameState methods)
 - `src/action/` — player action handling and POST /action request processing (PlayerActions enum manages encounter phase transitions)

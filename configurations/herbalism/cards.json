@@ -1,0 +1,565 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "plant_passive_small",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Plant",
+        "cap_min": 50,
+        "cap_max": 100,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "plant_passive_medium",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Plant",
+        "cap_min": 100,
+        "cap_max": 200,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "stamina_gain",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 200,
+        "cap_max": 200,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_or_fragile",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "Or": {
+            "types": [
+              "Fragile"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_or_thorny_aromatic",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "Or": {
+            "types": [
+              "Thorny",
+              "Aromatic"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_or_bitter_luminous_fragile",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "Or": {
+            "types": [
+              "Bitter",
+              "Luminous",
+              "Fragile"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_most_common",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "MostCommon": {
+            "limit": 1,
+            "types": []
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 100,
+            "max_percent": 150,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_least_common",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "LeastCommon": {
+            "limit": 1,
+            "types": []
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 100,
+            "max_percent": 150,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_and_fragile_thorny",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "And": {
+            "types": [
+              "Fragile",
+              "Thorny"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 100,
+            "max_percent": 150,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_or_empty",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "Or": {
+            "types": []
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_or_4chars",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "Or": {
+            "types": [
+              "Fragile",
+              "Thorny",
+              "Aromatic",
+              "Bitter"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 100,
+            "max_percent": 150,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_or_all5",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "Or": {
+            "types": [
+              "Fragile",
+              "Thorny",
+              "Aromatic",
+              "Bitter",
+              "Luminous"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Health",
+            "min_percent": 150,
+            "max_percent": 200,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_fragile"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 5,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_thorny_aromatic"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 5,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_bitter_luminous_fragile"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 5,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Herbalism",
+        "herbalism_def": {
+          "plant_hand": [
+            {
+              "characteristics": [
+                "Fragile"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_small"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Thorny",
+                "Aromatic"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Bitter",
+                "Luminous"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Fragile",
+                "Thorny"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Luminous"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_small"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            }
+          ],
+          "rewards": {
+            "Plant": 500
+          }
+        }
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 3,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_most_common"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_least_common"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_and_fragile_thorny"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_empty",
+        "herbalism:stamina_gain"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_4chars"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_all5"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    }
+  ]
+}

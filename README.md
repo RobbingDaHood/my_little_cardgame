@@ -168,6 +168,20 @@ cargo llvm-cov --workspace --fail-under-lines 80
 ### Project Structure
 
 ```
+configurations/             # JSON game content (embedded at compile time)
+├── general/
+│   ├── tokens.json         # Initial token balances
+│   └── shared_effects.json # Shared effect templates (damage, shield, etc.)
+├── combat/cards.json       # Combat cards, effects, and encounters
+├── mining/cards.json
+├── herbalism/cards.json
+├── woodcutting/cards.json
+├── fishing/cards.json
+├── rest/cards.json
+├── crafting/cards.json
+├── research/cards.json
+└── milestone/cards.json
+
 src/
 ├── lib.rs              # Library entry point, route mounting
 ├── main.rs             # Binary entry point
@@ -179,6 +193,8 @@ src/
 │   └── designer.rs     # Designer reference guide
 ├── library/            # Core domain: types, game state, disciplines
 │   ├── types.rs        # All core types (TokenType, CardKind, etc.)
+│   ├── config.rs       # JSON-deserializable config types
+│   ├── config_loader.rs # Loader that parses JSON and builds Library
 │   ├── game_state.rs   # GameState struct, encounter management
 │   ├── metrics.rs      # Session metrics computation
 │   ├── endpoints.rs    # Library card/token query endpoints
@@ -192,6 +208,18 @@ tests/
 ├── flow_tests.rs       # Combat flow integration tests
 └── docs_tests.rs       # Documentation endpoint tests
 ```
+
+## Game Configuration
+
+All card, effect, and encounter definitions are externalized as JSON files in the `configurations/` directory. Files are embedded at compile time via `include_str!()` — no runtime file I/O is needed.
+
+- **`general/tokens.json`** — Starting token balances (Health, Stamina, Durabilities, max hand sizes)
+- **`general/shared_effects.json`** — 5 shared effect templates reusable across disciplines (deal_damage, grant_shield, grant_stamina, draw_cards, insight)
+- **`<discipline>/cards.json`** — Per-discipline cards, effects, and encounters for all 9 disciplines
+
+Each JSON file contains a `"cards"` array with entries tagged by `"type"`: `"effect"` (effect templates), `"player_card"` (cards referencing effects), or `"encounter"` (encounter definitions). Cards reference effects by namespaced name — e.g., `"shared:deal_damage"` or `"combat:enemy_shield"` — where the prefix matches the discipline folder. See `GET /docs/designer` for the full authoring reference.
+
+To modify game content, edit the JSON files and recompile. The config types are defined in `src/library/config.rs` and loaded by `src/library/config_loader.rs`.
 
 ## Card States
 
