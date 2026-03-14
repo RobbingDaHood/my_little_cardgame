@@ -1314,6 +1314,32 @@ impl EncounterState {
             EncounterState::Research(r) => &r.outcome,
         }
     }
+
+    pub fn discipline(&self) -> Discipline {
+        match self {
+            EncounterState::Combat(_) => Discipline::Combat,
+            EncounterState::Mining(_) => Discipline::Mining,
+            EncounterState::Herbalism(_) => Discipline::Herbalism,
+            EncounterState::Woodcutting(_) => Discipline::Woodcutting,
+            EncounterState::Fishing(_) => Discipline::Fishing,
+            EncounterState::Rest(_) => Discipline::Rest,
+            EncounterState::Crafting(_) => Discipline::Crafting,
+            EncounterState::Research(_) => Discipline::Research,
+        }
+    }
+
+    pub fn round(&self) -> u64 {
+        match self {
+            EncounterState::Combat(c) => c.round,
+            EncounterState::Mining(m) => m.round,
+            EncounterState::Herbalism(h) => h.round,
+            EncounterState::Woodcutting(w) => w.round,
+            EncounterState::Fishing(f) => f.round,
+            EncounterState::Rest(_) => 1,
+            EncounterState::Crafting(c) => c.round,
+            EncounterState::Research(_) => 1,
+        }
+    }
 }
 
 /// Outcome of an encounter (combat, gathering, etc.).
@@ -1323,6 +1349,17 @@ pub enum EncounterOutcome {
     Undecided,
     PlayerWon,
     PlayerLost,
+}
+
+/// Record of a completed encounter for metrics tracking.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct EncounterRecord {
+    pub discipline: Discipline,
+    pub outcome: EncounterOutcome,
+    pub rounds: u64,
+    pub tokens_at_start: HashMap<TokenType, i64>,
+    pub tokens_at_end: HashMap<TokenType, i64>,
 }
 
 // ====== Encounter types for the encounter loop (Step 7) ======

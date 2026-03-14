@@ -6,6 +6,7 @@ pub mod action_log;
 pub(crate) mod disciplines;
 mod endpoints;
 pub mod game_state;
+pub mod metrics;
 pub mod types;
 
 pub use endpoints::{
@@ -14,6 +15,7 @@ pub use endpoints::{
     CardEffectEntry, CardEffectsResponse,
 };
 pub use game_state::GameState;
+pub use metrics::{get_metrics, okapi_add_operation_for_get_metrics_};
 
 use std::collections::HashMap;
 use types::{CardCounts, CardKind, EncounterKind, LibraryCard};
