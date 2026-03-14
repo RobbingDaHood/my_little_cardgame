@@ -103,17 +103,26 @@ Messages could contain phrases like "rate limit that restricts the number of Cop
 
 Do not continue retrying if that message shows up! 
 
-Branches and pull request 
+Branches and pull request
 
-Always ask if the work should be done on a new branch or the current branch. 
+Always ask if the work should be done on a new branch or the current branch.
 
 When creating a new branch, always branch from the latest main branch (fetch and checkout main first).
 
-Always commit small isolated commits, but each commit should pass the tests and other checks. 
+After creating a new local branch or worktree branch, configure the local branch to track the remote branch of the same name on `origin` — but do not push. This allows the repository owner to create the remote branch with a simple `git push` later.
+
+Example (replace <branch> with the branch name):
+
+    git config branch.<branch>.remote origin
+    git config branch.<branch>.merge refs/heads/<branch>
+
+This must be done by Copilot agents when they create branches/worktrees. Do NOT run `git push` or create the remote branch on behalf of the owner unless explicitly asked.
+
+Always commit small isolated commits, but each commit should pass the tests and other checks.
 
 Always rebase on main before finishing work on a branch.
 
-Never push and never create a pull request. I will do that manually. 
+Never push and never create a pull request. I will do that manually.
 
 Worktree setup for parallel AI work
 
