@@ -60,10 +60,11 @@ cmd_add() {
     git -C "$REPO_DIR" worktree add "$wt_path" -b "$branch" origin/main
 
     echo "Publishing branch '$branch' to origin and setting upstream..."
-    git -C "$wt_path" push -u origin "$branch"
+    echo "Run this to publish and set upstream:"
+    echo "  git -C \"$wt_path\" push -u origin \"$branch\""
 
     echo "Done. Worktree ready at: $wt_path"
-    echo "  Branch '$branch' tracks origin — 'git push' will work from the worktree."
+    echo "  Run the above command to publish the branch and set upstream."
 }
 
 cmd_remove() {
