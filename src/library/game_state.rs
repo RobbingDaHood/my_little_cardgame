@@ -111,6 +111,23 @@ pub(crate) fn roll_concrete_effect(
             let costs = roll_costs(rng, &costs, 0);
             (0, costs, None, None)
         }
+        Some(super::types::CardEffectKind::ResearchInterference {
+            kind: super::types::ResearchInterferenceKind::ReduceYield { min, max },
+        }) => {
+            let value = roll_range(rng, min, max);
+            (value, vec![], None, None)
+        }
+        Some(super::types::CardEffectKind::ResearchInterference {
+            kind:
+                super::types::ResearchInterferenceKind::InsightTax {
+                    min_percent,
+                    max_percent,
+                },
+        }) => {
+            let value = roll_range(rng, min_percent as i64, max_percent as i64);
+            (value, vec![], None, None)
+        }
+        Some(super::types::CardEffectKind::ResearchInterference { .. }) => (0, vec![], None, None),
         _ => (0, vec![], None, None),
     };
     ConcreteEffect {

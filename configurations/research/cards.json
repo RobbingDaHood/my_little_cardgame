@@ -1,6 +1,46 @@
 {
   "cards": [
     {
+      "type": "effect",
+      "name": "interference_block_best",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "ResearchInterference",
+        "kind": { "interference_type": "BlockBestMatch" }
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "interference_swap_slots",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "ResearchInterference",
+        "kind": { "interference_type": "SwapHiddenSlots" }
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "interference_reduce_yield",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "ResearchInterference",
+        "kind": { "interference_type": "ReduceYield", "min": 20, "max": 80 }
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "interference_shuffle_slots",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "ResearchInterference",
+        "kind": { "interference_type": "ShuffleHiddenSlots" }
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
       "type": "encounter",
       "encounter_def": {
         "encounter_type": "Research",
@@ -8,7 +48,25 @@
           "target_size": 3,
           "position_match_yield": 100,
           "type_match_yield": 10,
-          "base_insight_cost": 5
+          "base_insight_cost": 5,
+          "interference_deck": [
+            {
+              "effect_refs": ["research:interference_block_best"],
+              "counts": { "deck": 0, "hand": 2, "discard": 0 }
+            },
+            {
+              "effect_refs": ["research:interference_swap_slots"],
+              "counts": { "deck": 0, "hand": 1, "discard": 0 }
+            },
+            {
+              "effect_refs": ["research:interference_reduce_yield"],
+              "counts": { "deck": 0, "hand": 1, "discard": 0 }
+            },
+            {
+              "effect_refs": ["research:interference_shuffle_slots"],
+              "counts": { "deck": 0, "hand": 1, "discard": 0 }
+            }
+          ]
         }
       },
       "counts": {

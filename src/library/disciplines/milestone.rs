@@ -526,6 +526,9 @@ fn scale_card_effect_kind(kind: &CardEffectKind, factor: f64) -> CardEffectKind 
             symbols: symbols.clone(),
             costs: costs.clone(),
         },
+        CardEffectKind::ResearchInterference { kind } => {
+            CardEffectKind::ResearchInterference { kind: kind.clone() }
+        }
     }
 }
 

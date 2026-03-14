@@ -1,11 +1,14 @@
 use crate::library::types::{
     self, CardCounts, CardEffectKind, CardKind, Discipline, EncounterKind, EncounterOutcome,
-    EncounterState, ResearchCandidate, ResearchEncounterState, ResearchRoundResult, ResearchSymbol,
+    EncounterState, ResearchCandidate, ResearchEncounterState, ResearchInterferenceKind,
+    ResearchRoundResult, ResearchSymbol,
 };
 use crate::library::{GameState, Library};
 use rand::RngCore;
 
-use crate::library::game_state::roll_concrete_effect;
+use crate::library::game_state::{
+    deck_draw_random, deck_play_random, deck_shuffle_hand, roll_concrete_effect,
+};
 
 /// Extract the ResearchSymbols from a Research card's effects.
 fn card_symbols(card: &types::LibraryCard, lib: &Library) -> Vec<ResearchSymbol> {
@@ -98,12 +101,15 @@ impl GameState {
             .get(encounter_card_id)
             .ok_or("Encounter card not found")?
             .clone();
-        match &card.kind {
+        let interference_deck = match &card.kind {
             CardKind::Encounter {
-                encounter_kind: EncounterKind::Research { .. },
-            } => {}
+                encounter_kind:
+                    EncounterKind::Research {
+                        research_def: def, ..
+                    },
+            } => def.interference_deck.clone(),
             _ => return Err("Card is not a research encounter".to_string()),
-        }
+        };
 
         self.current_encounter = Some(EncounterState::Research(ResearchEncounterState {
             encounter_card_id,
@@ -114,6 +120,8 @@ impl GameState {
             rounds_played: 0,
             round_history: vec![],
             experiment_active: false,
+            interference_deck,
+            next_round_insight_multiplier: 1.0,
         }));
         self.encounter_phase = types::EncounterPhase::InEncounter;
         Ok(())
@@ -345,6 +353,8 @@ impl GameState {
             r.accumulated_yield = 0;
             r.rounds_played = 0;
             r.round_history.clear();
+            r.next_round_insight_multiplier = 1.0;
+            deck_shuffle_hand(rng, &mut r.interference_deck);
         }
 
         Ok(())
@@ -357,29 +367,35 @@ impl GameState {
         rng: &mut rand_pcg::Lcg64Xsh32,
     ) -> Result<(), String> {
         // Validate encounter state
-        let (hidden_types, research_def, rounds_played) = match &self.current_encounter {
-            Some(EncounterState::Research(r))
-                if r.outcome == EncounterOutcome::Undecided && r.experiment_active =>
-            {
-                let hidden = r
-                    .hidden_types
-                    .as_ref()
-                    .ok_or("No hidden types generated")?
-                    .clone();
-                let card = self
-                    .library
-                    .get(r.encounter_card_id)
-                    .ok_or("Encounter card not found")?;
-                let def = match &card.kind {
-                    CardKind::Encounter {
-                        encounter_kind: EncounterKind::Research { research_def, .. },
-                    } => research_def.clone(),
-                    _ => return Err("Not a research encounter card".to_string()),
-                };
-                (hidden, def, r.rounds_played)
-            }
-            _ => return Err("No active research experiment".to_string()),
-        };
+        let (hidden_types, research_def, rounds_played, insight_multiplier) =
+            match &self.current_encounter {
+                Some(EncounterState::Research(r))
+                    if r.outcome == EncounterOutcome::Undecided && r.experiment_active =>
+                {
+                    let hidden = r
+                        .hidden_types
+                        .as_ref()
+                        .ok_or("No hidden types generated")?
+                        .clone();
+                    let card = self
+                        .library
+                        .get(r.encounter_card_id)
+                        .ok_or("Encounter card not found")?;
+                    let def = match &card.kind {
+                        CardKind::Encounter {
+                            encounter_kind: EncounterKind::Research { research_def, .. },
+                        } => research_def.clone(),
+                        _ => return Err("Not a research encounter card".to_string()),
+                    };
+                    (
+                        hidden,
+                        def,
+                        r.rounds_played,
+                        r.next_round_insight_multiplier,
+                    )
+                }
+                _ => return Err("No active research experiment".to_string()),
+            };
 
         let target_size = research_def.target_size as usize;
         if card_ids.len() != target_size {
@@ -421,9 +437,10 @@ impl GameState {
             }
         }
 
-        // Calculate insight cost for this round: (rounds_played + 1) * base_cost
+        // Calculate insight cost for this round: (rounds_played + 1) * base_cost * multiplier
         let round_num = rounds_played + 1;
-        let insight_cost = (round_num as i64) * research_def.base_insight_cost;
+        let base_cost = (round_num as i64) * research_def.base_insight_cost;
+        let insight_cost = (base_cost as f64 * insight_multiplier).ceil() as i64;
 
         // Determine which discipline's insight to use
         let discipline = self
@@ -479,13 +496,17 @@ impl GameState {
             .collect();
 
         // Run optimal 1:1 matching
-        let per_card_yield = optimal_matching(
+        let mut per_card_yield = optimal_matching(
             &card_symbols_list,
             &hidden_types,
             research_def.position_match_yield,
             research_def.type_match_yield,
         );
-        let round_yield: i64 = per_card_yield.iter().sum();
+        let mut round_yield: i64 = per_card_yield.iter().sum();
+
+        // --- Interference auto-play ---
+        let interference_played =
+            self.apply_research_interference(rng, &mut per_card_yield, &mut round_yield);
 
         // Move played cards from hand to discard
         for &cid in &card_ids {
@@ -536,6 +557,7 @@ impl GameState {
             per_card_yield,
             round_yield,
             insight_cost,
+            interference_played,
         };
 
         if let Some(EncounterState::Research(r)) = &mut self.current_encounter {
@@ -544,10 +566,123 @@ impl GameState {
             r.round_history.push(round_result);
         }
 
-        // Ignore unused rng parameter — kept for API consistency
-        let _ = rng;
-
         Ok(())
+    }
+
+    /// Auto-play one interference card and apply its effect.
+    /// Returns a description of what happened, or None if no interference card was available.
+    fn apply_research_interference(
+        &mut self,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        per_card_yield: &mut [i64],
+        round_yield: &mut i64,
+    ) -> Option<String> {
+        // Step 1: Play a random interference card (borrow encounter state)
+        let (played_idx, effect_id) = {
+            let r = match &mut self.current_encounter {
+                Some(EncounterState::Research(r)) if !r.interference_deck.is_empty() => r,
+                _ => return None,
+            };
+            let idx = deck_play_random(rng, &mut r.interference_deck)?;
+            let eid = r.interference_deck[idx]
+                .effects
+                .first()
+                .map(|e| e.effect_id)?;
+            (idx, eid)
+        };
+
+        // Step 2: Resolve the effect kind (borrow library)
+        let interference_kind = match self.library.resolve_effect(effect_id) {
+            Some(CardEffectKind::ResearchInterference { kind }) => kind,
+            _ => return None,
+        };
+
+        // Step 3: Read the rolled value from the played card
+        let rolled_value = match &self.current_encounter {
+            Some(EncounterState::Research(r)) => r.interference_deck[played_idx]
+                .effects
+                .first()
+                .map(|e| e.rolled_value)
+                .unwrap_or(0),
+            _ => 0,
+        };
+
+        // Step 4: Apply the interference effect
+        let description = match &interference_kind {
+            ResearchInterferenceKind::BlockBestMatch => {
+                if let Some(max_idx) = per_card_yield
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(_, &v)| v)
+                    .filter(|(_, &v)| v > 0)
+                    .map(|(i, _)| i)
+                {
+                    *round_yield -= per_card_yield[max_idx];
+                    per_card_yield[max_idx] = 0;
+                }
+                "BlockBestMatch: your best card's yield was nullified".to_string()
+            }
+            ResearchInterferenceKind::SwapHiddenSlots => {
+                if let Some(EncounterState::Research(r)) = &mut self.current_encounter {
+                    if let Some(ref mut hidden) = r.hidden_types {
+                        if hidden.len() >= 2 {
+                            let a = (rng.next_u64() as usize) % hidden.len();
+                            let mut b = (rng.next_u64() as usize) % (hidden.len() - 1);
+                            if b >= a {
+                                b += 1;
+                            }
+                            hidden.swap(a, b);
+                        }
+                    }
+                }
+                "SwapHiddenSlots: two hidden slots have been swapped".to_string()
+            }
+            ResearchInterferenceKind::ReduceYield { .. } => {
+                let reduction = rolled_value.min(*round_yield);
+                *round_yield = (*round_yield - reduction).max(0);
+                format!("ReduceYield: {} yield was lost to interference", reduction)
+            }
+            ResearchInterferenceKind::ShuffleHiddenSlots => {
+                if let Some(EncounterState::Research(r)) = &mut self.current_encounter {
+                    if let Some(ref mut hidden) = r.hidden_types {
+                        for i in (1..hidden.len()).rev() {
+                            let j = (rng.next_u64() as usize) % (i + 1);
+                            hidden.swap(i, j);
+                        }
+                    }
+                }
+                "ShuffleHiddenSlots: all hidden slot positions have been scrambled".to_string()
+            }
+            ResearchInterferenceKind::InsightTax {
+                min_percent,
+                max_percent,
+            } => {
+                let multiplier = rolled_value
+                    .max(*min_percent as i64)
+                    .min(*max_percent as i64) as f64
+                    / 100.0;
+                if let Some(EncounterState::Research(r)) = &mut self.current_encounter {
+                    r.next_round_insight_multiplier = multiplier;
+                }
+                format!(
+                    "InsightTax: next round's Insight cost multiplied by {:.1}x",
+                    multiplier
+                )
+            }
+        };
+
+        // Step 5: Draw replacement and reset multiplier for non-InsightTax
+        if let Some(EncounterState::Research(r)) = &mut self.current_encounter {
+            deck_draw_random(rng, &mut r.interference_deck);
+            if !matches!(
+                interference_kind,
+                ResearchInterferenceKind::InsightTax { .. }
+            ) {
+                r.next_round_insight_multiplier = 1.0;
+            }
+        }
+
+        Some(description)
     }
 
     /// Conclude the research experiment: apply accumulated yield to research progress.

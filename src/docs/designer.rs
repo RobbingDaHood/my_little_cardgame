@@ -102,11 +102,15 @@ fn build_encounter_templates() -> DesignerSection {
             },
             ReferenceEntry {
                 name: "Research (ResearchDef)".to_string(),
-                description: "Hidden-multiplier deduction encounter. Fields: target_size \
-                    (hidden slots, default 3), position_match_yield (Y=100), \
-                    type_match_yield (X=10), base_insight_cost (Z=5, round N costs N×Z). \
-                    Player plays Research cards with ResearchSymbol types (Alpha-Zeta) \
-                    against hidden symbol slots. 1:1 optimal matching maximizes yield. \
+                description: "Hidden-multiplier deduction encounter with an interference deck. \
+                    Fields: target_size (hidden slots, default 3), position_match_yield (Y=100), \
+                    type_match_yield (X=10), base_insight_cost (Z=5, round N costs N×Z), \
+                    interference_deck (enemy disruptions). Player plays Research cards with \
+                    ResearchSymbol types (Alpha-Zeta) against hidden symbol slots. 1:1 optimal \
+                    matching maximizes yield. Each round, one interference card auto-plays from \
+                    a 5-card enemy hand: BlockBestMatch (nullifies top card), SwapHiddenSlots \
+                    (permanent symbol swap), ReduceYield (subtracts 20-80), ShuffleHiddenSlots \
+                    (permutes all positions), or InsightTax (multiplies next round cost). \
                     Premium cards have multiple symbols (cost Stamina/Health). \
                     Tier costs scale exponentially (10 → 20 → 40 per tier)."
                     .to_string(),
@@ -310,7 +314,8 @@ fn build_balance_levers() -> DesignerSection {
                 description: "Mining: initial light level, ore deck. Fishing: turns, win threshold. \
                     Herbalism: plant count/complexity. Woodcutting: target values. \
                     Research: target_size (hidden slots), position_match_yield (Y), \
-                    type_match_yield (X), base_insight_cost (Z)."
+                    type_match_yield (X), base_insight_cost (Z), interference_deck \
+                    (enemy disruption cards with effect_refs and counts)."
                     .to_string(),
             },
             ReferenceEntry {

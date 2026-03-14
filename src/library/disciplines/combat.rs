@@ -52,7 +52,8 @@ fn apply_card_effects(
             | types::CardEffectKind::HerbalismMatch { .. }
             | types::CardEffectKind::FishingValue { .. }
             | types::CardEffectKind::CraftingReduction { .. }
-            | types::CardEffectKind::ResearchProbe { .. } => continue,
+            | types::CardEffectKind::ResearchProbe { .. }
+            | types::CardEffectKind::ResearchInterference { .. } => continue,
         };
 
         if is_loss {

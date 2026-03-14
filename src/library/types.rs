@@ -6,6 +6,10 @@ fn default_persistent_lifecycle() -> TokenLifecycle {
     TokenLifecycle::PersistentCounter
 }
 
+fn default_insight_multiplier() -> f64 {
+    1.0
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub enum Discipline {
@@ -334,6 +338,8 @@ pub enum CardEffectKind {
         #[serde(default)]
         costs: Vec<CardEffectCost>,
     },
+    /// Research interference effect: enemy disruptions during the experiment phase.
+    ResearchInterference { kind: ResearchInterferenceKind },
 }
 
 /// Cost definition on a CardEffect template: a percentage range of the effect value,
@@ -651,6 +657,22 @@ impl ResearchSymbol {
     }
 }
 
+/// Types of interference that can disrupt a research experiment round.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde", tag = "interference_type")]
+pub enum ResearchInterferenceKind {
+    /// Nullifies the player's best-scoring card this round (yield becomes 0).
+    BlockBestMatch,
+    /// Permanently swaps two hidden slot symbols for the remainder of the experiment.
+    SwapHiddenSlots,
+    /// Subtracts a rolled amount from the round's total yield (clamped to 0).
+    ReduceYield { min: i64, max: i64 },
+    /// Randomly permutes all hidden slot positions — devastating for position-match strategies.
+    ShuffleHiddenSlots,
+    /// Increases next round's Insight cost by a rolled multiplier (150 = 1.5×, 200 = 2×).
+    InsightTax { min_percent: u32, max_percent: u32 },
+}
+
 /// Result of a single research round (3 cards played against hidden types).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
@@ -659,6 +681,8 @@ pub struct ResearchRoundResult {
     pub per_card_yield: Vec<i64>,
     pub round_yield: i64,
     pub insight_cost: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interference_played: Option<String>,
 }
 
 /// Definition of a research encounter.
@@ -669,6 +693,8 @@ pub struct ResearchDef {
     pub position_match_yield: i64,
     pub type_match_yield: i64,
     pub base_insight_cost: i64,
+    #[serde(default)]
+    pub interference_deck: Vec<InterferenceCard>,
 }
 
 /// A candidate card generated during research — one of 3 options shown to the player.
@@ -774,6 +800,35 @@ impl HasDeckCounts for CardCounts {
 }
 
 impl HasDeckCounts for OreCard {
+    fn deck_count(&self) -> u32 {
+        self.counts.deck
+    }
+    fn hand_count(&self) -> u32 {
+        self.counts.hand
+    }
+    fn discard_count(&self) -> u32 {
+        self.counts.discard
+    }
+    fn deck_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.deck
+    }
+    fn hand_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.hand
+    }
+    fn discard_count_mut(&mut self) -> &mut u32 {
+        &mut self.counts.discard
+    }
+}
+
+/// A card in the research interference deck. Each card disrupts the player's experiment.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct InterferenceCard {
+    pub effects: Vec<ConcreteEffect>,
+    pub counts: DeckCounts,
+}
+
+impl HasDeckCounts for InterferenceCard {
     fn deck_count(&self) -> u32 {
         self.counts.deck
     }
@@ -1352,6 +1407,11 @@ pub struct ResearchEncounterState {
     pub rounds_played: u32,
     pub round_history: Vec<ResearchRoundResult>,
     pub experiment_active: bool,
+    #[serde(skip_serializing)]
+    pub interference_deck: Vec<InterferenceCard>,
+    /// Multiplier for next round's Insight cost (set by InsightTax interference).
+    #[serde(default = "default_insight_multiplier")]
+    pub next_round_insight_multiplier: f64,
 }
 
 /// Runtime state for a milestone encounter: wraps an inner discipline encounter.

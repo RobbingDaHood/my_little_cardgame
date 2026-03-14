@@ -10,8 +10,8 @@ use super::config::*;
 use super::game_state::roll_concrete_effect;
 use super::types::{
     self, CardKind, CombatantDef, CraftingDef, EncounterKind, EnemyCardDef, EnemyCraftingCard,
-    FishCard, FishingDef, HerbalismDef, MilestoneDef, MiningDef, OreCard, PlantCard, Token,
-    TokenType, WoodcuttingDef,
+    FishCard, FishingDef, HerbalismDef, InterferenceCard, MilestoneDef, MiningDef, OreCard,
+    PlantCard, ResearchDef, Token, TokenType, WoodcuttingDef,
 };
 use super::Library;
 
@@ -193,7 +193,7 @@ fn build_encounter_kind(
             crafting_def: build_crafting_def(crafting_def, name_map, rng, lib),
         },
         EncounterDefConfig::Research { research_def } => EncounterKind::Research {
-            research_def: research_def.clone(),
+            research_def: build_research_def(research_def, name_map, rng, lib),
         },
         EncounterDefConfig::Milestone { milestone_def } => EncounterKind::Milestone {
             milestone_def: build_milestone_def(milestone_def, name_map, rng, lib),
@@ -333,6 +333,28 @@ fn build_crafting_def(
             .enemy_crafting_deck
             .iter()
             .map(|entry| EnemyCraftingCard {
+                effects: resolve_effect_refs(&entry.effect_refs, name_map, rng, lib),
+                counts: entry.counts.clone(),
+            })
+            .collect(),
+    }
+}
+
+fn build_research_def(
+    config: &ResearchDefConfig,
+    name_map: &EffectNameMap,
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    lib: &Library,
+) -> ResearchDef {
+    ResearchDef {
+        target_size: config.target_size,
+        position_match_yield: config.position_match_yield,
+        type_match_yield: config.type_match_yield,
+        base_insight_cost: config.base_insight_cost,
+        interference_deck: config
+            .interference_deck
+            .iter()
+            .map(|entry| InterferenceCard {
                 effects: resolve_effect_refs(&entry.effect_refs, name_map, rng, lib),
                 counts: entry.counts.clone(),
             })

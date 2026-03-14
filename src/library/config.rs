@@ -6,9 +6,7 @@
 use rocket::serde::Deserialize;
 use std::collections::HashMap;
 
-use super::types::{
-    CardCounts, CardEffectKind, DeckCounts, Discipline, ResearchDef, RestDef, TokenType,
-};
+use super::types::{CardCounts, CardEffectKind, DeckCounts, Discipline, RestDef, TokenType};
 
 /// Top-level configuration for initial token balances.
 #[derive(Debug, Clone, Deserialize)]
@@ -133,7 +131,7 @@ pub enum EncounterDefConfig {
         crafting_def: CraftingDefConfig,
     },
     Research {
-        research_def: ResearchDef,
+        research_def: ResearchDefConfig,
     },
     Milestone {
         milestone_def: MilestoneDefConfig,
@@ -234,6 +232,26 @@ pub struct CraftingDefConfig {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct EnemyCraftingEntryConfig {
+    pub effect_refs: Vec<String>,
+    pub counts: DeckCounts,
+}
+
+/// Research encounter config — extends the base research params with interference deck.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchDefConfig {
+    pub target_size: u32,
+    pub position_match_yield: i64,
+    pub type_match_yield: i64,
+    pub base_insight_cost: i64,
+    #[serde(default)]
+    pub interference_deck: Vec<InterferenceDeckEntryConfig>,
+}
+
+/// An interference card entry referencing effects by name.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct InterferenceDeckEntryConfig {
     pub effect_refs: Vec<String>,
     pub counts: DeckCounts,
 }

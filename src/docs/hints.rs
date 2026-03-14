@@ -313,12 +313,14 @@ fn build_crafting_hints() -> DisciplineHints {
 fn build_research_hints() -> DisciplineHints {
     DisciplineHints {
         discipline: "Research".to_string(),
-        overview: "Research encounters use a hidden-multiplier deduction mechanic. \
-            After choosing a project (discipline + tier), you play 3 Research cards \
-            per round against 3 hidden symbol slots. Position matches yield 100, \
-            type-only matches yield 10. Insight costs escalate linearly each round \
-            (round N costs N × 5). Deduce hidden symbols from round feedback, then \
-            optimize future rounds. Stop when costs outweigh expected yield."
+        overview: "Research encounters use a hidden-multiplier deduction mechanic with \
+            an interference deck that disrupts your experiments. After choosing a project \
+            (discipline + tier), you play 3 Research cards per round against 3 hidden \
+            symbol slots. Position matches yield 100, type-only matches yield 10. Each \
+            round, an interference card auto-plays: it may nullify your best match, swap \
+            or shuffle hidden slots, reduce yield, or tax next round's Insight cost. \
+            Insight costs escalate linearly each round (round N costs N × 5). Deduce \
+            hidden symbols from round feedback while adapting to interference disruptions."
             .to_string(),
         key_mechanics: vec![
             "Choose a discipline and tier to research (ResearchChooseProject + ResearchSelectCandidate).".to_string(),
@@ -326,6 +328,8 @@ fn build_research_hints() -> DisciplineHints {
             "Each round costs escalating Insight: round 1 = 5, round 2 = 10, round 3 = 15, etc.".to_string(),
             "Cards are scored via 1:1 optimal matching against hidden symbol slots.".to_string(),
             "Position match (right type + right slot) = 100 yield; type match (right type, wrong slot) = 10.".to_string(),
+            "After scoring, one interference card auto-plays from a 5-card enemy hand.".to_string(),
+            "Interference types: BlockBestMatch, SwapHiddenSlots, ReduceYield, ShuffleHiddenSlots, InsightTax.".to_string(),
             "Premium cards have multiple symbols (better matching) but cost Stamina or Health.".to_string(),
             "Conclude with ResearchConcludeExperiment — accumulated yield is applied to research progress.".to_string(),
         ],
@@ -334,14 +338,23 @@ fn build_research_hints() -> DisciplineHints {
                 name: "Information-first".to_string(),
                 description: "Round 1: play 3 cards with different symbols to maximize \
                     information. Use per_card_yield feedback to narrow down which symbols \
-                    match and in which positions. Then optimize subsequent rounds."
+                    match and in which positions. Factor in interference_played when \
+                    interpreting yields (BlockBestMatch zeroes one card's yield)."
                     .to_string(),
             },
             Strategy {
                 name: "Premium card burst".to_string(),
                 description: "Use multi-symbol premium cards to guarantee matches even \
                     without deduction. Costs Stamina/Health but yields more per round, \
-                    letting you profit before costs escalate too high."
+                    letting you profit before costs escalate and interference accumulates."
+                    .to_string(),
+            },
+            Strategy {
+                name: "Interference adaptation".to_string(),
+                description: "Watch interference_played each round. After SwapHiddenSlots \
+                    or ShuffleHiddenSlots, previous deductions are invalidated — switch to \
+                    information-gathering mode. After InsightTax, consider concluding early \
+                    to avoid the cost spike next round."
                     .to_string(),
             },
             Strategy {
@@ -353,13 +366,16 @@ fn build_research_hints() -> DisciplineHints {
             },
         ],
         common_pitfalls: vec![
-            "Playing too many rounds — escalating Insight costs can exceed your yield gains.".to_string(),
+            "Playing too many rounds — escalating Insight costs plus interference can exceed yield gains.".to_string(),
+            "Ignoring interference_played feedback — it tells you what disrupted your round.".to_string(),
             "Ignoring per_card_yield feedback — it tells you which cards scored (but not why).".to_string(),
+            "Not adapting after SwapHiddenSlots/ShuffleHiddenSlots — your previous deductions may be wrong.".to_string(),
             "Using only basic cards — premium multi-symbol cards are worth the Stamina/Health cost.".to_string(),
             "Neglecting to earn Insight from Combat encounters before trying to research.".to_string(),
         ],
         tips: vec![
             "hidden_types are never shown in the API — deduce them from round_history yields.".to_string(),
+            "interference_played tells you WHAT happened but not the specifics (e.g., which slots swapped).".to_string(),
             "6 possible symbols: Alpha, Beta, Gamma, Delta, Epsilon, Zeta. Hidden slots can repeat.".to_string(),
             "Research upgrades persist permanently — prioritize based on your play style.".to_string(),
             "Check discipline-specific Insight balances at /player/tokens before researching.".to_string(),
