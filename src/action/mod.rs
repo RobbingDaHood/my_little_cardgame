@@ -323,7 +323,6 @@ pub async fn play(
                     if let crate::library::types::CardKind::Mining { effects } = &lib_card.kind {
                         let costs = crate::library::GameState::extract_gathering_costs_from_effects(
                             effects,
-                            &gs.library,
                         );
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
                             &costs,
@@ -375,7 +374,6 @@ pub async fn play(
                     {
                         let costs = crate::library::GameState::extract_gathering_costs_from_effects(
                             effects,
-                            &gs.library,
                         );
                         let (pre_play_costs, _) =
                             crate::library::types::split_token_amounts(&costs);
@@ -431,7 +429,6 @@ pub async fn play(
                     if let crate::library::types::CardKind::Crafting { effects } = &lib_card.kind {
                         let costs = crate::library::GameState::extract_gathering_costs_from_effects(
                             effects,
-                            &gs.library,
                         );
                         if let Err(e) = crate::library::GameState::preview_gathering_costs(
                             &costs,

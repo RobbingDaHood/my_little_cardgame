@@ -15,7 +15,6 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnOpponent,
                 token_type: types::TokenType::Health,
                 min: 200,
                 max: 400,
@@ -207,7 +206,6 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: types::CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnOpponent,
                 token_type: types::TokenType::Health,
                 min: 700,
                 max: 900,
@@ -308,7 +306,6 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: types::CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnOpponent,
                 token_type: types::TokenType::Health,
                 min: 500,
                 max: 700,
@@ -350,7 +347,6 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: types::CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnOpponent,
                 token_type: types::TokenType::Health,
                 min: 1000,
                 max: 1300,
@@ -403,13 +399,26 @@ fn apply_card_effects(
             None => continue,
         };
 
-        let (target, token_type, is_loss) = match &kind {
+        let (target_tokens, token_type, is_loss) = match &kind {
             types::CardEffectKind::GainTokens {
                 target, token_type, ..
-            } => (target, token_type, false),
-            types::CardEffectKind::LoseTokens {
-                target, token_type, ..
-            } => (target, token_type, true),
+            } => {
+                let tokens = match (target, is_player) {
+                    (types::EffectTarget::OnSelf, true)
+                    | (types::EffectTarget::OnOpponent, false) => &mut *player_tokens,
+                    (types::EffectTarget::OnOpponent, true)
+                    | (types::EffectTarget::OnSelf, false) => &mut combat.enemy_tokens,
+                };
+                (tokens, token_type, false)
+            }
+            types::CardEffectKind::LoseTokens { token_type, .. } => {
+                let tokens = if is_player {
+                    &mut combat.enemy_tokens
+                } else {
+                    &mut *player_tokens
+                };
+                (tokens, token_type, true)
+            }
             types::CardEffectKind::DrawCards { .. } => continue,
             types::CardEffectKind::Insight { .. } => {
                 let entry =
@@ -422,15 +431,6 @@ fn apply_card_effects(
             | types::CardEffectKind::HerbalismMatch { .. }
             | types::CardEffectKind::FishingValue { .. }
             | types::CardEffectKind::CraftingReduction { .. } => continue,
-        };
-
-        let target_tokens = match (target, is_player) {
-            (types::EffectTarget::OnSelf, true) | (types::EffectTarget::OnOpponent, false) => {
-                &mut *player_tokens
-            }
-            (types::EffectTarget::OnOpponent, true) | (types::EffectTarget::OnSelf, false) => {
-                &mut combat.enemy_tokens
-            }
         };
 
         if is_loss {

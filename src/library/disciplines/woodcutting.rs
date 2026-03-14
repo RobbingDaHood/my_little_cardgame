@@ -1,19 +1,65 @@
-use crate::library::game_state::roll_concrete_effect;
+use crate::library::game_state::{roll_concrete_effect, roll_range};
 use crate::library::types::{
-    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
+    self, CardCounts, CardEffectKind, CardKind, ConcreteEffectCost, EncounterKind,
+    EncounterOutcome, EncounterState,
 };
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
+use std::collections::HashSet;
+
+/// Compute the card_value for a woodcutting card based on its chop effects.
+/// Formula: sum(chop_values) * unique_chop_types * 100
+fn compute_woodcutting_card_value(effects: &[types::ConcreteEffect], lib: &Library) -> i64 {
+    let mut sum_values = 0i64;
+    let mut unique_types = HashSet::new();
+    for e in effects {
+        if let Some(CardEffectKind::WoodcuttingChop { chop_type, .. }) =
+            lib.resolve_effect(e.effect_id)
+        {
+            sum_values += e.rolled_value;
+            unique_types.insert(chop_type.clone());
+        }
+    }
+    if unique_types.is_empty() {
+        return 200; // Default for rest cards (no chops)
+    }
+    sum_values * unique_types.len() as i64 * 100
+}
+
+/// Set card_value and costs on a woodcutting card's effects.
+/// Costs are given as pre-rolled absolute amounts, converted to percentages of card_value.
+fn apply_woodcutting_costs(
+    effects: &mut [types::ConcreteEffect],
+    lib: &Library,
+    absolute_costs: &[(types::TokenType, i64)],
+) {
+    let card_value = compute_woodcutting_card_value(effects, lib);
+    for effect in effects.iter_mut() {
+        effect.card_value = Some(card_value);
+    }
+    if !effects.is_empty() && !absolute_costs.is_empty() {
+        effects[0].rolled_costs = absolute_costs
+            .iter()
+            .map(|(token_type, absolute)| ConcreteEffectCost {
+                token_type: token_type.clone(),
+                rolled_percent: if card_value > 0 {
+                    (*absolute * 100 / card_value).max(1) as u32
+                } else {
+                    100
+                },
+            })
+            .collect();
+    }
+}
 
 pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // ---- Woodcutting PlayerCardEffect templates ----
 
-    // Cost: Durability (covers 50 and 100)
-    let wc_durability_cost_id = lib.cards.len();
+    // Dead entries: former LoseTokens/OnSelf cost templates. Kept to preserve card indices.
+    let _wc_durability_cost_id = lib.cards.len();
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Durability,
                 min: 50,
                 max: 100,
@@ -31,12 +77,10 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Cost: Stamina (covers 100, 150, 250)
-    let wc_stamina_cost_id = lib.cards.len();
+    let _wc_stamina_cost_id = lib.cards.len();
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Stamina,
                 min: 100,
                 max: 250,
@@ -54,12 +98,10 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Cost: Health (covers 150)
-    let wc_health_cost_id = lib.cards.len();
+    let _wc_health_cost_id = lib.cards.len();
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Health,
                 min: 150,
                 max: 200,
@@ -204,11 +246,14 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
 
     // ---- Woodcutting player cards ----
 
-    // Card 1: LightChop(2), cost=Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
-        roll_concrete_effect(rng, wc_light_chop_id, lib),
-    ];
+    // Card 1: LightChop, cost=Durability
+    let mut effects = vec![roll_concrete_effect(rng, wc_light_chop_id, lib)];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -221,11 +266,14 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 2: HeavyChop(5), cost=Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
-        roll_concrete_effect(rng, wc_heavy_chop_id, lib),
-    ];
+    // Card 2: HeavyChop, cost=Durability
+    let mut effects = vec![roll_concrete_effect(rng, wc_heavy_chop_id, lib)];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -238,11 +286,14 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 3: MediumChop(3), cost=Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
-        roll_concrete_effect(rng, wc_medium_chop_id, lib),
-    ];
+    // Card 3: MediumChop, cost=Durability
+    let mut effects = vec![roll_concrete_effect(rng, wc_medium_chop_id, lib)];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -255,11 +306,14 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 4: PrecisionChop(7), cost=Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
-        roll_concrete_effect(rng, wc_precision_chop_id, lib),
-    ];
+    // Card 4: PrecisionChop, cost=Durability
+    let mut effects = vec![roll_concrete_effect(rng, wc_precision_chop_id, lib)];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -295,13 +349,21 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![],
     );
 
-    // Card 5: HeavyChop+LightChop(5,3), cost=Stamina:100 + Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_stamina_cost_id, lib),
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
+    // Card 5: HeavyChop+LightChop, cost=Stamina + Durability
+    let mut effects = vec![
         roll_concrete_effect(rng, wc_heavy_chop_id, lib),
         roll_concrete_effect(rng, wc_light_chop_id, lib),
     ];
+    let stam_cost = roll_range(rng, 100, 250);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -314,11 +376,14 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 6: SplitChop(4), cost=Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
-        roll_concrete_effect(rng, wc_split_chop_id, lib),
-    ];
+    // Card 6: SplitChop, cost=Durability
+    let mut effects = vec![roll_concrete_effect(rng, wc_split_chop_id, lib)];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -331,12 +396,17 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 7: LightChop+MediumChop(1,6), cost=Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
+    // Card 7: LightChop+MediumChop, cost=Durability
+    let mut effects = vec![
         roll_concrete_effect(rng, wc_light_chop_id, lib),
         roll_concrete_effect(rng, wc_medium_chop_id, lib),
     ];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -349,14 +419,22 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 8: Heavy+Medium+Precision(3,5,7), cost=Stamina:150 + Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_stamina_cost_id, lib),
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
+    // Card 8: Heavy+Medium+Precision, cost=Stamina + Durability
+    let mut effects = vec![
         roll_concrete_effect(rng, wc_heavy_chop_id, lib),
         roll_concrete_effect(rng, wc_medium_chop_id, lib),
         roll_concrete_effect(rng, wc_precision_chop_id, lib),
     ];
+    let stam_cost = roll_range(rng, 100, 250);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -369,15 +447,23 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 9: Light+Heavy+Medium+Split(2,4,6,8), cost=Stamina:250 + Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_stamina_cost_id, lib),
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
+    // Card 9: Light+Heavy+Medium+Split, cost=Stamina + Durability
+    let mut effects = vec![
         roll_concrete_effect(rng, wc_light_chop_id, lib),
         roll_concrete_effect(rng, wc_heavy_chop_id, lib),
         roll_concrete_effect(rng, wc_medium_chop_id, lib),
         roll_concrete_effect(rng, wc_split_chop_id, lib),
     ];
+    let stam_cost = roll_range(rng, 100, 250);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -390,13 +476,28 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 10: Rest card (no chops), cost=Durability:50, gains=Stamina:200
-    let effects = vec![
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
-        roll_concrete_effect(rng, wc_stamina_gain_id, lib),
-    ];
+    // Card 10: Rest card (no chops), cost=Durability, gains=Stamina
+    let mut rest_effects = vec![roll_concrete_effect(rng, wc_stamina_gain_id, lib)];
+    {
+        let card_value = 200i64; // Fixed value for rest cards
+        for effect in &mut rest_effects {
+            effect.card_value = Some(card_value);
+        }
+        let dur_cost = roll_range(rng, 50, 100);
+        let percent = if card_value > 0 {
+            (dur_cost * 100 / card_value).max(1) as u32
+        } else {
+            100
+        };
+        rest_effects[0].rolled_costs = vec![ConcreteEffectCost {
+            token_type: types::TokenType::Durability,
+            rolled_percent: percent,
+        }];
+    }
     lib.add_card(
-        CardKind::Woodcutting { effects },
+        CardKind::Woodcutting {
+            effects: rest_effects,
+        },
         CardCounts {
             library: 0,
             deck: 3,
@@ -407,13 +508,21 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 11: Precision+Medium(8,5), cost=Stamina:100 + Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_stamina_cost_id, lib),
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
+    // Card 11: Precision+Medium, cost=Stamina + Durability
+    let mut effects = vec![
         roll_concrete_effect(rng, wc_precision_chop_id, lib),
         roll_concrete_effect(rng, wc_medium_chop_id, lib),
     ];
+    let stam_cost = roll_range(rng, 100, 250);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -426,14 +535,22 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    // Card 12: Heavy+Precision+Medium(7,9,5), cost=Health:150 + Durability:100
-    let effects = vec![
-        roll_concrete_effect(rng, wc_health_cost_id, lib),
-        roll_concrete_effect(rng, wc_durability_cost_id, lib),
+    // Card 12: Heavy+Precision+Medium, cost=Health + Durability
+    let mut effects = vec![
         roll_concrete_effect(rng, wc_heavy_chop_id, lib),
         roll_concrete_effect(rng, wc_precision_chop_id, lib),
         roll_concrete_effect(rng, wc_medium_chop_id, lib),
     ];
+    let health_cost = roll_range(rng, 150, 200);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_woodcutting_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Health, health_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
         CardKind::Woodcutting { effects },
         CardCounts {
@@ -633,8 +750,8 @@ impl GameState {
             }
         };
 
-        // Extract costs from LoseTokens/OnSelf effects and split pre/post-play
-        let costs = Self::extract_gathering_costs_from_effects(&effects, &self.library);
+        // Extract costs from rolled_costs on effects and split pre/post-play
+        let costs = Self::extract_gathering_costs_from_effects(&effects);
         let (pre_play_costs, post_play_costs) = types::split_token_amounts(&costs);
         Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
 
@@ -661,7 +778,7 @@ impl GameState {
                     chop_types.push(chop_type.clone());
                     chop_values.push(effect.rolled_value as u32);
                 }
-                // LoseTokens/OnSelf already handled above as costs
+                // Costs handled via rolled_costs above
                 _ => {}
             }
         }
