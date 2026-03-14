@@ -46,6 +46,23 @@ cargo run
 
 The server will start on `http://localhost:8000` by default.
 
+### Custom Port Configuration
+
+The server supports Rocket's built-in environment variable configuration. To run on a different port:
+
+```bash
+ROCKET_PORT=8001 cargo run
+```
+
+This enables running multiple instances simultaneously for parallel balancing runs or testing:
+
+```bash
+ROCKET_PORT=8001 cargo run &   # Instance 1
+ROCKET_PORT=8002 cargo run &   # Instance 2
+```
+
+Any `ROCKET_` prefixed environment variable is supported (e.g., `ROCKET_ADDRESS=0.0.0.0` to bind to all interfaces). See [Rocket configuration docs](https://rocket.rs/v0.5/guide/configuration/) for all options.
+
 ## API Documentation
 
 Once the server is running, access the interactive Swagger UI documentation at:

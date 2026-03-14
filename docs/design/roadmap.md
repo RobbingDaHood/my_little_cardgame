@@ -645,7 +645,7 @@ This section summarizes changes implemented after Step 10 completion:
      - Structure: `configurations/general/`, `configurations/mining/`, `configurations/herbalism/`, `configurations/woodcutting/`, `configurations/fishing/`, `configurations/combat/`, `configurations/crafting/`, etc.
      - Configuration is baked into the compiled binary — a compiled game cannot change these values, but developers can adjust them before compiling.
    - Playable acceptance: All card definitions, initial token values, and encounter parameters come from JSON config files. Changing a config file and recompiling produces a game with the updated values.
-   - Notes: This enables designers to tweak game balance without touching Rust code. Externalized JSON configs are also the primary target for automated balance adjustments (see Balancing B5) — LLM-suggested changes can be applied directly to config files, recompiled, and re-tested without modifying Rust code.
+   - Notes: This enables designers to tweak game balance without touching Rust code. Externalized JSON configs are also the primary target for automated balance adjustments (see Balancing B4) — LLM-suggested changes can be applied directly to config files, recompiled, and re-tested without modifying Rust code.
 
 15) UX polish, documentation, tools for designers, and release
    - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors. Anyone should be able to play the game solely with the exposed documentation.
@@ -657,7 +657,7 @@ This section summarizes changes implemented after Step 10 completion:
    - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
    - Notes: Tag a release and include release notes linking vision to implemented features.
 
-Balancing track (B1–B7)
+Balancing track (B1–B6)
 -----------------------
 
 The balancing track runs independently of the main roadmap. It communicates with the game solely through the REST API, making it resilient to internal code changes. Balance measurements should be re-run after any step that changes card values, encounter parameters, or token balances. The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing through headless simulation.
@@ -681,29 +681,12 @@ The primary data source is headless Monte Carlo simulation (scripted bots playin
 | LLM analysis | GPT-4/Claude via API | Analyze Monte Carlo data, suggest parameter changes, review card effect distributions. |
 | LLM playtesting | GPT-mini/Haiku (optional) | Play a few games to validate API intuitiveness and encounter coherence. Not for statistical balancing. |
 
-B1) Multi-instance server support (port configuration)
+B1) ~~Multi-instance server support (port configuration)~~ ✅ COMPLETE
    - Goal: Allow running multiple game server instances on the same machine for parallel balancing runs.
-   - Description:
-     - Add `ROCKET_PORT` environment variable support via Rocket's figment configuration providers in `src/main.rs` / `src/lib.rs`.
-     - Default remains port 8000. Any port can be specified at launch via `ROCKET_PORT=8001 cargo run`.
-     - No new CLI argument parser needed — Rocket's built-in env var support (`ROCKET_` prefix) handles this natively.
-     - This is a prerequisite for running parallel simulation instances.
-   - Playable acceptance: `ROCKET_PORT=8001 cargo run` starts the server on port 8001. Two instances can run simultaneously on different ports.
+   - Status: Implemented. Rocket 0.5.1's built-in figment configuration natively supports `ROCKET_PORT` environment variable. Default port is 8000; any port can be specified at launch via `ROCKET_PORT=8001 cargo run`. Server logs the configured address and port on startup. Integration tests verify port override works.
+   - Playable acceptance: `ROCKET_PORT=8001 cargo run` starts the server on port 8001. Two instances can run simultaneously on different ports. ✅ Verified.
 
-B2) Session recording and metrics endpoint
-   - Goal: Add lightweight instrumentation that captures per-encounter statistics during gameplay, queryable via a new read-only endpoint.
-   - Description:
-     - Add a `GET /metrics` endpoint returning session-level statistics:
-       - Per-encounter-type win/loss counts and rates
-       - Average turns per encounter (by type)
-       - Token balance snapshots (min/max/avg Health, Stamina at encounter start/end)
-       - Total encounters played, total deaths
-       - Resource inflow/outflow rates (materials gained vs spent)
-     - Metrics are accumulated in-memory on `GameState` (no file I/O).
-     - Metrics reset on NewGame.
-   - Playable acceptance: After playing 10+ encounters, `GET /metrics` returns structured JSON with win rates and token statistics per encounter type.
-
-B3) Headless simulation runner (Python)
+B2) Headless simulation runner (Python)
    - Goal: Build a Python script that plays the game automatically using scripted strategies, collecting metrics across many runs.
    - Description:
      - `tools/balance/runner.py` — main simulation runner:
@@ -723,7 +706,7 @@ B3) Headless simulation runner (Python)
    - Playable acceptance: `python tools/balance/runner.py --runs 100 --strategy random` completes and produces a CSV with per-encounter-type win rates.
    - Notes: The runner is deterministic — same seed produces same result for same strategy.
 
-B4) Baseline measurement and initial balance pass
+B3) Baseline measurement and initial balance pass
    - Goal: Run the simulation runner against the current game state, establish baseline win rates, and make the first round of balance adjustments.
    - Description:
      - Run 1000+ games with random strategy, 1000+ with greedy strategy
@@ -739,7 +722,7 @@ B4) Baseline measurement and initial balance pass
    - Playable acceptance: Before/after metrics showing measurable improvement toward target win rates. Documented parameter changes with rationale.
    - Notes: This is the first step that actually changes game balance. Changes should be small, isolated, and re-tested.
 
-B5) LLM analysis pipeline
+B4) LLM analysis pipeline
    - Goal: Use LLMs to analyze simulation data and suggest balance improvements beyond simple numeric tuning.
    - Description:
      - `tools/balance/llm_analyze.py` — feeds Monte Carlo data to an LLM (GPT-4/Claude via API)
@@ -753,7 +736,7 @@ B5) LLM analysis pipeline
    - Playable acceptance: LLM produces a structured report with specific, actionable balance suggestions that reference concrete card IDs and parameter values.
    - Notes: After Step 14 (Configuration externalization), LLM suggestions can target JSON config files directly, enabling faster iteration.
 
-B6) Strategy variety validation
+B5) Strategy variety validation
    - Goal: Ensure multiple viable strategies exist per discipline — not just one dominant strategy.
    - Description:
      - Define 3+ strategies per discipline:
@@ -767,7 +750,7 @@ B6) Strategy variety validation
      - Verify that the "interesting" strategies (not just greedy) are viable
    - Playable acceptance: Documentation showing 3+ viable strategies per discipline with win rates within a reasonable band (no more than 25% spread between best and worst viable strategy).
 
-B7) Continuous balance regression
+B6) Continuous balance regression
    - Goal: Integrate balance checks into the development workflow so code changes don't silently break game balance.
    - Description:
      - Add a `make balance-check` target that runs a quick simulation (100 games each for random + greedy strategies)

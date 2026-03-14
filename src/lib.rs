@@ -99,6 +99,21 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
         .mount("/", rocket::routes![list_library_cards,])
         .manage(player_data::new())
         .manage(gs.clone())
+        .attach(AdHoc::on_liftoff("log-server-address", |rocket| {
+            Box::pin(async move {
+                let config = rocket.config();
+                log::info!(
+                    "Server listening on http://{}:{}",
+                    config.address,
+                    config.port
+                );
+                log::info!(
+                    "Swagger UI available at http://{}:{}/swagger/",
+                    config.address,
+                    config.port
+                );
+            })
+        }))
         .attach(AdHoc::on_liftoff("actionlog-shutdown", |rocket| {
             Box::pin(async move {
                 // When the process receives SIGINT/SIGTERM (or ctrl-c), flush the action log writer
