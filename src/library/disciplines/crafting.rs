@@ -1,57 +1,10 @@
-use crate::library::game_state::{roll_concrete_effect, roll_range};
+use crate::library::game_state::roll_concrete_effect;
 use crate::library::types::{
-    self, CardCounts, CardEffectKind, CardKind, ConcreteEffectCost, CraftingCraftState,
-    CraftingEncounterState, DeckCounts, EncounterKind, EncounterOutcome, EncounterState,
-    EnemyCraftingCard,
+    self, CardCounts, CardEffectKind, CardKind, CraftingCraftState, CraftingEncounterState,
+    DeckCounts, EncounterKind, EncounterOutcome, EncounterState, EnemyCraftingCard,
 };
 use crate::library::{GameState, Library};
 use rand::RngCore;
-
-/// Compute the card_value for a crafting card based on its reduction effects.
-/// Formula: sum(reduction_values) * unique_material_count
-fn compute_crafting_card_value(effects: &[types::ConcreteEffect], lib: &Library) -> i64 {
-    let mut sum_values = 0i64;
-    let mut unique_materials = std::collections::HashSet::new();
-    for e in effects {
-        if let Some(CardEffectKind::CraftingReduction { token_type, .. }) =
-            lib.resolve_effect(e.effect_id)
-        {
-            sum_values += e.rolled_value;
-            unique_materials.insert(token_type.clone());
-        }
-    }
-    if unique_materials.is_empty() {
-        return 100; // Default for rest/grant cards
-    }
-    sum_values * unique_materials.len() as i64
-}
-
-/// Set card_value and costs on a crafting card's effects.
-/// Costs are given as pre-rolled absolute amounts, converted to percentages of card_value.
-fn apply_crafting_costs(
-    effects: &mut [types::ConcreteEffect],
-    lib: &Library,
-    absolute_costs: &[(types::TokenType, i64)],
-) {
-    let card_value = compute_crafting_card_value(effects, lib);
-    for effect in effects.iter_mut() {
-        effect.card_value = Some(card_value);
-    }
-    if !effects.is_empty() && !absolute_costs.is_empty() {
-        effects[0].rolled_costs = absolute_costs
-            .iter()
-            .map(|(token_type, absolute)| ConcreteEffectCost {
-                token_type: token_type.clone(),
-                rolled_percent: if card_value > 0 {
-                    (*absolute * 100 / card_value).max(1) as u32
-                } else {
-                    100
-                },
-                is_absolute: false,
-            })
-            .collect();
-    }
-}
 
 pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // ---- Crafting EnemyCardEffect templates ----
@@ -154,47 +107,6 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
 
     // ---- Crafting PlayerCardEffect templates ----
 
-    // Dead entries: former LoseTokens/OnSelf cost templates. Kept to preserve card indices.
-    let _crafting_stamina_cost_id = lib.add_card(
-        CardKind::PlayerCardEffect {
-            kind: CardEffectKind::LoseTokens {
-                token_type: types::TokenType::Stamina,
-                min: 50,
-                max: 75,
-                costs: vec![],
-                duration: types::TokenLifecycle::PersistentCounter,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-        rng,
-        vec![types::Discipline::Crafting],
-    );
-
-    let _crafting_health_cost_id = lib.add_card(
-        CardKind::PlayerCardEffect {
-            kind: CardEffectKind::LoseTokens {
-                token_type: types::TokenType::Health,
-                min: 100,
-                max: 200,
-                costs: vec![],
-                duration: types::TokenLifecycle::PersistentCounter,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-        rng,
-        vec![types::Discipline::Crafting],
-    );
-
     // Ore reduction template (covers 20, 30, 40)
     let crafting_ore_reduction_id = lib.add_card(
         CardKind::PlayerCardEffect {
@@ -263,6 +175,56 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                 min: 20,
                 max: 40,
                 costs: vec![],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Ore reduction with stamina cost template
+    let crafting_ore_reduction_stam_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::CraftingReduction {
+                token_type: types::TokenType::Ore,
+                min: 20,
+                max: 40,
+                costs: vec![types::CardEffectCost {
+                    token_type: types::TokenType::Stamina,
+                    min_percent: 50,
+                    max_percent: 75,
+                    is_absolute: true,
+                }],
+            },
+        },
+        CardCounts {
+            library: 1,
+            deck: 0,
+            hand: 0,
+            discard: 0,
+        },
+        rng,
+        vec![types::Discipline::Crafting],
+    );
+
+    // Ore reduction with health cost template
+    let crafting_ore_reduction_health_id = lib.add_card(
+        CardKind::PlayerCardEffect {
+            kind: CardEffectKind::CraftingReduction {
+                token_type: types::TokenType::Ore,
+                min: 20,
+                max: 40,
+                costs: vec![types::CardEffectCost {
+                    token_type: types::TokenType::Health,
+                    min_percent: 100,
+                    max_percent: 200,
+                    is_absolute: true,
+                }],
             },
         },
         CardCounts {
@@ -362,14 +324,12 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Crafting card: reduces multiple costs, costs stamina
-    let mut effects = vec![
-        roll_concrete_effect(rng, crafting_ore_reduction_id, lib),
+    let effects = vec![
+        roll_concrete_effect(rng, crafting_ore_reduction_stam_id, lib),
         roll_concrete_effect(rng, crafting_plant_reduction_id, lib),
         roll_concrete_effect(rng, crafting_lumber_reduction_id, lib),
         roll_concrete_effect(rng, crafting_fish_reduction_id, lib),
     ];
-    let stam_cost = roll_range(rng, 50, 75);
-    apply_crafting_costs(&mut effects, lib, &[(types::TokenType::Stamina, stam_cost)]);
     lib.add_card(
         CardKind::Crafting { effects },
         CardCounts {
@@ -398,12 +358,10 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Stamina-cost starting crafting card: reduces 2 materials by large amount
-    let mut effects = vec![
-        roll_concrete_effect(rng, crafting_ore_reduction_id, lib),
+    let effects = vec![
+        roll_concrete_effect(rng, crafting_ore_reduction_stam_id, lib),
         roll_concrete_effect(rng, crafting_lumber_reduction_id, lib),
     ];
-    let stam_cost = roll_range(rng, 50, 75);
-    apply_crafting_costs(&mut effects, lib, &[(types::TokenType::Stamina, stam_cost)]);
     lib.add_card(
         CardKind::Crafting { effects },
         CardCounts {
@@ -417,18 +375,12 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Health-cost starting crafting card: reduces all 4 materials by large amount
-    let mut effects = vec![
-        roll_concrete_effect(rng, crafting_ore_reduction_id, lib),
+    let effects = vec![
+        roll_concrete_effect(rng, crafting_ore_reduction_health_id, lib),
         roll_concrete_effect(rng, crafting_plant_reduction_id, lib),
         roll_concrete_effect(rng, crafting_lumber_reduction_id, lib),
         roll_concrete_effect(rng, crafting_fish_reduction_id, lib),
     ];
-    let health_cost = roll_range(rng, 100, 200);
-    apply_crafting_costs(
-        &mut effects,
-        lib,
-        &[(types::TokenType::Health, health_cost)],
-    );
     lib.add_card(
         CardKind::Crafting { effects },
         CardCounts {
