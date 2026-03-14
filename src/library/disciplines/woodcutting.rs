@@ -887,8 +887,11 @@ impl GameState {
         } else {
             EncounterOutcome::PlayerLost
         };
-        self.last_encounter_result = Some(outcome.clone());
-        self.encounter_results.push(outcome);
+        let rounds = match &self.current_encounter {
+            Some(EncounterState::Woodcutting(w)) => w.round,
+            _ => 0,
+        };
+        self.record_encounter_finish(types::Discipline::Woodcutting, outcome, rounds);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }

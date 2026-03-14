@@ -11,6 +11,14 @@ pub struct TokenBalance {
     pub value: i64,
 }
 
+/// Current token balances for the player.
+///
+/// Returns all token types and their values. Tokens include persistent resources
+/// (Health, Stamina, materials like Ore/Plant/Lumber/Fish), combat tokens (Shield,
+/// Dodge, Mana), durability tokens, Insight tokens, and hand size limits. Use this
+/// to check resource levels before choosing encounters and to monitor the impact
+/// of card plays. Token balances reset partially on death (materials lost, Health/
+/// Stamina restored) and fully on NewGame.
 #[openapi]
 #[get("/player/tokens")]
 pub async fn get_player_tokens(

@@ -785,8 +785,11 @@ impl GameState {
         } else {
             EncounterOutcome::PlayerLost
         };
-        self.last_encounter_result = Some(outcome.clone());
-        self.encounter_results.push(outcome);
+        let rounds = match &self.current_encounter {
+            Some(EncounterState::Mining(m)) => m.round,
+            _ => 0,
+        };
+        self.record_encounter_finish(types::Discipline::Mining, outcome, rounds);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
         self.check_player_death();

@@ -25,6 +25,7 @@ use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 pub mod action;
 pub mod actions_log;
 pub mod combat;
+pub mod docs;
 pub mod library;
 pub mod player_data;
 pub mod player_tokens;
@@ -57,9 +58,14 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
     use crate::combat::okapi_add_operation_for_get_encounter_;
     use crate::combat::okapi_add_operation_for_get_encounter_results_;
     use crate::combat::{get_encounter, get_encounter_results};
+    use crate::docs::designer::{get_designer_guide, okapi_add_operation_for_get_designer_guide_};
+    use crate::docs::hints::{get_hints, okapi_add_operation_for_get_hints_};
+    use crate::docs::tutorial::{get_tutorial, okapi_add_operation_for_get_tutorial_};
+    use crate::library::get_metrics;
     use crate::library::get_possible_actions;
     use crate::library::list_card_effects;
     use crate::library::list_library_cards;
+    use crate::library::okapi_add_operation_for_get_metrics_;
     use crate::library::okapi_add_operation_for_get_possible_actions_;
     use crate::library::okapi_add_operation_for_list_card_effects_;
     use crate::player_tokens::get_player_tokens;
@@ -83,6 +89,10 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
                 list_card_effects,
                 list_actions_log,
                 get_possible_actions,
+                get_metrics,
+                get_tutorial,
+                get_hints,
+                get_designer_guide,
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))

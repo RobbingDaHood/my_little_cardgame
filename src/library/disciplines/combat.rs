@@ -618,9 +618,9 @@ impl GameState {
                 combat.outcome = EncounterOutcome::PlayerLost;
             }
         }
-        let outcome = match &self.current_encounter {
-            Some(EncounterState::Combat(c)) => c.outcome.clone(),
-            _ => EncounterOutcome::Undecided,
+        let (outcome, rounds) = match &self.current_encounter {
+            Some(EncounterState::Combat(c)) => (c.outcome.clone(), c.round),
+            _ => (EncounterOutcome::Undecided, 0),
         };
         if outcome != EncounterOutcome::Undecided {
             if outcome == EncounterOutcome::PlayerWon {
@@ -630,8 +630,7 @@ impl GameState {
                 );
                 *entry += 100;
             }
-            self.last_encounter_result = Some(outcome.clone());
-            self.encounter_results.push(outcome);
+            self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
             self.current_encounter = None;
             self.encounter_phase = types::EncounterPhase::Scouting;
             self.check_player_death();
@@ -741,8 +740,9 @@ impl GameState {
                     );
                     *entry += 100;
                 }
-                self.last_encounter_result = Some(combat.outcome.clone());
-                self.encounter_results.push(combat.outcome.clone());
+                let outcome = combat.outcome.clone();
+                let rounds = combat.round;
+                self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
                 self.current_encounter = None;
                 self.encounter_phase = types::EncounterPhase::Scouting;
                 self.check_player_death();

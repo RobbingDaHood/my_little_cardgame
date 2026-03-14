@@ -428,8 +428,7 @@ impl GameState {
         if let Some(EncounterState::Rest(ref mut r)) = self.current_encounter {
             r.outcome = EncounterOutcome::PlayerWon;
         }
-        self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
-        self.encounter_results.push(EncounterOutcome::PlayerWon);
+        self.record_encounter_finish(types::Discipline::Rest, EncounterOutcome::PlayerWon, 1);
         // Return rest cards from hand to discard
         for card in self.library.cards.iter_mut() {
             if matches!(card.kind, CardKind::Rest { .. }) && card.counts.hand > 0 {
@@ -450,8 +449,7 @@ impl GameState {
                 card.counts.hand = 0;
             }
         }
-        self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
-        self.encounter_results.push(EncounterOutcome::PlayerWon);
+        self.record_encounter_finish(types::Discipline::Rest, EncounterOutcome::PlayerWon, 1);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }

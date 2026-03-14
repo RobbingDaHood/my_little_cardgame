@@ -234,8 +234,7 @@ impl GameState {
     }
 
     fn finish_research_encounter(&mut self) {
-        self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
-        self.encounter_results.push(EncounterOutcome::PlayerWon);
+        self.record_encounter_finish(types::Discipline::Research, EncounterOutcome::PlayerWon, 1);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }

@@ -244,6 +244,8 @@ pub struct GameState {
     pub last_encounter_result: Option<EncounterOutcome>,
     pub encounter_results: Vec<EncounterOutcome>,
     pub current_research: Option<super::types::ResearchProject>,
+    pub encounter_records: Vec<super::types::EncounterRecord>,
+    pub encounter_start_tokens: HashMap<super::types::TokenType, i64>,
 }
 
 impl GameState {
@@ -352,12 +354,46 @@ impl GameState {
             last_encounter_result: None,
             encounter_results: Vec::new(),
             current_research: None,
+            encounter_records: Vec::new(),
+            encounter_start_tokens: HashMap::new(),
         }
     }
 
     /// Append an action to the action log with optional metadata; returns the appended entry.
     pub fn append_action(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
         self.action_log.append(action_type, payload)
+    }
+
+    /// Snapshot current token balances for metrics tracking at encounter start.
+    pub fn snapshot_encounter_start_tokens(&mut self) {
+        self.encounter_start_tokens = self
+            .token_balances
+            .iter()
+            .map(|(token, &val)| (token.token_type.clone(), val))
+            .collect();
+    }
+
+    /// Record a completed encounter for metrics. Call this before clearing current_encounter.
+    pub(crate) fn record_encounter_finish(
+        &mut self,
+        discipline: super::types::Discipline,
+        outcome: EncounterOutcome,
+        rounds: u64,
+    ) {
+        let tokens_at_end: HashMap<super::types::TokenType, i64> = self
+            .token_balances
+            .iter()
+            .map(|(token, &val)| (token.token_type.clone(), val))
+            .collect();
+        self.encounter_records.push(super::types::EncounterRecord {
+            discipline,
+            outcome: outcome.clone(),
+            rounds,
+            tokens_at_start: self.encounter_start_tokens.clone(),
+            tokens_at_end,
+        });
+        self.last_encounter_result = Some(outcome.clone());
+        self.encounter_results.push(outcome);
     }
 
     /// Check if player can pay all costs on a card's effects. Deducts costs if affordable.
@@ -593,8 +629,11 @@ impl GameState {
 
     /// Abort a non-combat encounter: mark as lost, transition to Scouting.
     pub fn abort_encounter(&mut self) {
-        self.last_encounter_result = Some(EncounterOutcome::PlayerLost);
-        self.encounter_results.push(EncounterOutcome::PlayerLost);
+        let (discipline, rounds) = match &self.current_encounter {
+            Some(enc) => (enc.discipline(), enc.round()),
+            None => (super::types::Discipline::Combat, 0),
+        };
+        self.record_encounter_finish(discipline, EncounterOutcome::PlayerLost, rounds);
         self.current_encounter = None;
         self.encounter_phase = super::types::EncounterPhase::Scouting;
     }
@@ -650,6 +689,8 @@ impl GameState {
                     gs.encounter_phase = new_gs.encounter_phase;
                     gs.last_encounter_result = None;
                     gs.encounter_results.clear();
+                    gs.encounter_records.clear();
+                    gs.encounter_start_tokens.clear();
                 }
                 ActionPayload::DrawEncounter { encounter_id } => {
                     if let Ok(card_id) = encounter_id.parse::<usize>() {
@@ -702,6 +743,7 @@ impl GameState {
                                 }
                             }
                         }
+                        gs.snapshot_encounter_start_tokens();
                     }
                 }
                 ActionPayload::PlayCard { card_id } => {

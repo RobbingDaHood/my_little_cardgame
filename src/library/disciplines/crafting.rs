@@ -960,8 +960,15 @@ impl GameState {
                 );
             }
         }
-        self.last_encounter_result = Some(EncounterOutcome::PlayerWon);
-        self.encounter_results.push(EncounterOutcome::PlayerWon);
+        let rounds = match &self.current_encounter {
+            Some(EncounterState::Crafting(c)) => c.round,
+            _ => 0,
+        };
+        self.record_encounter_finish(
+            types::Discipline::Crafting,
+            EncounterOutcome::PlayerWon,
+            rounds,
+        );
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
         Ok(())
@@ -973,8 +980,11 @@ impl GameState {
         } else {
             EncounterOutcome::PlayerLost
         };
-        self.last_encounter_result = Some(outcome.clone());
-        self.encounter_results.push(outcome);
+        let rounds = match &self.current_encounter {
+            Some(EncounterState::Crafting(c)) => c.round,
+            _ => 0,
+        };
+        self.record_encounter_finish(types::Discipline::Crafting, outcome, rounds);
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }
