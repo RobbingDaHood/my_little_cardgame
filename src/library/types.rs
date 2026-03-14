@@ -305,13 +305,18 @@ pub enum CardEffectKind {
     },
 }
 
-/// Cost definition on a CardEffect template: a percentage range of the effect value.
+/// Cost definition on a CardEffect template: a percentage range of the effect value,
+/// or an absolute range when `is_absolute` is true.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CardEffectCost {
     pub token_type: TokenType,
     pub min_percent: u32,
     pub max_percent: u32,
+    /// When true, min_percent/max_percent are treated as absolute cost values
+    /// instead of percentages of the effect value.
+    #[serde(default)]
+    pub is_absolute: bool,
 }
 
 /// A concrete effect on a card: references a CardEffect and stores rolled values.
@@ -335,12 +340,15 @@ pub struct ConcreteEffect {
     pub card_value: Option<i64>,
 }
 
-/// A concrete rolled cost on a card: the specific percentage rolled from the cost range.
+/// A concrete rolled cost on a card: the specific percentage (or absolute value) rolled from the cost range.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct ConcreteEffectCost {
     pub token_type: TokenType,
     pub rolled_percent: u32,
+    /// When true, rolled_percent holds an absolute cost value instead of a percentage.
+    #[serde(default)]
+    pub is_absolute: bool,
 }
 
 /// A fixed amount of a token type, used in costs and gains of gathering discipline cards.

@@ -47,6 +47,7 @@ fn apply_woodcutting_costs(
                 } else {
                     100
                 },
+                is_absolute: false,
             })
             .collect();
     }
@@ -488,6 +489,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         rest_effects[0].rolled_costs = vec![ConcreteEffectCost {
             token_type: types::TokenType::Durability,
             rolled_percent: percent,
+            is_absolute: false,
         }];
     }
     lib.add_card(

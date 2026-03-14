@@ -52,6 +52,7 @@ fn apply_herbalism_costs(
                 } else {
                     100
                 },
+                is_absolute: false,
             })
             .collect();
     }

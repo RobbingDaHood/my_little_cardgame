@@ -47,6 +47,7 @@ fn apply_crafting_costs(
                 } else {
                     100
                 },
+                is_absolute: false,
             })
             .collect();
     }

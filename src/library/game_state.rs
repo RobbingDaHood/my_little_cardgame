@@ -36,6 +36,7 @@ fn roll_costs(
         .map(|c| ConcreteEffectCost {
             token_type: c.token_type.clone(),
             rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
+            is_absolute: c.is_absolute,
         })
         .collect()
 }
@@ -488,6 +489,7 @@ impl GameState {
 
     /// Extract gathering costs from ConcreteEffects' rolled_costs.
     /// Computes absolute cost amounts using card_value (or rolled_value) as cost base.
+    /// When a cost is marked `is_absolute`, the rolled value is used directly.
     pub(crate) fn extract_gathering_costs_from_effects(
         effects: &[super::types::ConcreteEffect],
     ) -> Vec<super::types::TokenAmount> {
@@ -495,7 +497,11 @@ impl GameState {
         for effect in effects {
             let cost_base = effect.card_value.unwrap_or(effect.rolled_value);
             for cost in &effect.rolled_costs {
-                let amount = (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
+                let amount = if cost.is_absolute {
+                    cost.rolled_percent as i64
+                } else {
+                    (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64
+                };
                 if amount > 0 {
                     costs.push(super::types::TokenAmount {
                         token_type: cost.token_type.clone(),
