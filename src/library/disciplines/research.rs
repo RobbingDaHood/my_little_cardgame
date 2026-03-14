@@ -646,7 +646,7 @@ impl GameState {
             if let CardKind::Research { effects } = &card.kind {
                 for effect in effects {
                     for cost in &effect.rolled_costs {
-                        let cost_val = cost.rolled_percent as i64;
+                        let cost_val = cost.amount as i64;
                         let cost_key = types::Token::persistent(cost.token_type.clone());
                         let bal = self.token_balances.get(&cost_key).copied().unwrap_or(0);
                         if bal < cost_val {

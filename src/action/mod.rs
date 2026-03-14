@@ -52,8 +52,6 @@ pub enum PlayerActions {
     ResearchPlayHand { card_ids: Vec<usize> },
     /// Conclude the research experiment: apply accumulated yield to research progress.
     ResearchConcludeExperiment,
-    /// After winning a milestone, pick one of 3 next-tier milestone encounters.
-    MilestonePickScoutingChoice { card_id: usize },
 }
 
 /// Execute a player action to advance the game state.
@@ -775,22 +773,6 @@ pub async fn play(
             }
             let payload = crate::library::types::ActionPayload::ResearchConcludeExperiment;
             let entry = gs.append_action("ResearchConcludeExperiment", payload);
-            Ok((rocket::http::Status::Created, Json(entry)))
-        }
-        PlayerActions::MilestonePickScoutingChoice { card_id } => {
-            let mut gs = game_state.lock().await;
-            if gs.encounter_phase != crate::library::types::EncounterPhase::MilestoneScouting {
-                return Err(Right(BadRequest(new_status(
-                    "Not in MilestoneScouting phase".to_string(),
-                ))));
-            }
-            let mut rng = player_data.random_generator_state.lock().await;
-            if let Err(e) = gs.milestone_pick_scouting_choice(card_id, &mut rng) {
-                return Err(Right(BadRequest(new_status(e))));
-            }
-            let payload =
-                crate::library::types::ActionPayload::MilestonePickScoutingChoice { card_id };
-            let entry = gs.append_action("MilestonePickScoutingChoice", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
     }

@@ -376,7 +376,7 @@ fn build_milestone_hints() -> DisciplineHints {
             .to_string(),
         key_mechanics: vec![
             "Cost scales exponentially: 100 * 2^(tier-1) MilestoneInsight per attempt.".to_string(),
-            "Win → 50% better CardEffects for that discipline + pick 1 of 3 next-tier milestones."
+            "Win → 50% better CardEffects for that discipline + auto-assigned next-tier milestone."
                 .to_string(),
             "Loss → reset encounter, return to NoEncounter (no forced replay).".to_string(),
             "Milestone hand is separate from regular encounters (max 5 via MilestoneMaxHand)."
@@ -407,7 +407,7 @@ fn build_milestone_hints() -> DisciplineHints {
                 .to_string(),
             "Reward effects expand the Research pool — milestone wins compound over time."
                 .to_string(),
-            "Choose scouting variations carefully — stat spreads differ between the 3 options."
+            "Milestone wins automatically grant the next-tier encounter — no scouting needed."
                 .to_string(),
         ],
     }
