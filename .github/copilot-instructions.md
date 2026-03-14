@@ -17,18 +17,22 @@ Key files and types (quick reference)
 - `src/library/types.rs` — all core types: TokenType enum, TokenAmount, CardKind, MiningCardEffect, EncounterState structs, CombatPhase, EncounterOutcome, ActionPayload
 - `src/library/game_state.rs` — GameState struct, initialization, token balances, encounter phase management, player death mechanic
 - `src/library/disciplines/` — per-discipline modules (combat.rs, mining.rs, herbalism.rs, woodcutting.rs, fishing.rs): encounter logic, card registration, conclude/finish methods
+- `src/library/metrics.rs` — session metrics computation and GET /metrics endpoint
+- `src/docs/` — self-documenting API endpoints: tutorial.rs, hints.rs, designer.rs
 - `src/action/mod.rs` — action handler dispatch (PlayerActions enum match)
-- `src/library/endpoints.rs` — HTTP route handlers
+- `src/library/endpoints.rs` — HTTP route handlers for library cards, card effects, possible actions
 - `src/lib.rs` — library entry point, route mounting
 - `src/main.rs` — binary entry, Rocket launch
 - `tests/scenario_tests.rs` — integration tests exercising full gameplay loops
 - `tests/flow_tests.rs` — combat flow integration tests
+- `tests/docs_tests.rs` — integration tests for /docs/* and /metrics endpoints
 
 High-level architecture
 
 - Project is a Rust web API built with Rocket exposing REST endpoints for cards, decks, and combat.
 - Core crates and layout:
-  - `src/library/` — core domain module: types, game state, combat resolution, encounter loop, token registry, action log, and HTTP endpoints.
+  - `src/library/` — core domain module: types, game state, combat resolution, encounter loop, token registry, action log, metrics, and HTTP endpoints.
+  - `src/docs/` — self-documenting API endpoints: tutorial walkthrough, strategy hints, designer reference.
   - `src/action/` — player action handling and request processing.
   - `src/player_data.rs` — player state and persistence logic.
   - `src/player_tokens.rs` — player token balance endpoint.
@@ -90,6 +94,21 @@ Suggest changes to vision.md and roadmap.md
 - At the end of any plan suggest improvement to both files and save that in a file. Do not place the file in docs/design.
 - The suggestions should be based on new information given or found during planning and execution of the plan. 
 - The goal is to keep vision.md and roadmap.md up to date and in high quality. 
+
+Documentation maintenance
+
+All documentation must stay in sync with the code. When making changes, follow these rules:
+
+- **OpenAPI doc comments**: When adding or changing endpoints, update the `///` doc comments on handler functions and action enum variants. Comments should explain *strategic purpose* (why a player or designer would use it), not just restate the function signature.
+- **Self-documenting endpoints**: When adding or modifying game mechanics, card effects, encounter types, or disciplines, update the relevant `/docs/*` endpoint content:
+  - `src/docs/tutorial.rs` — new-player walkthrough steps
+  - `src/docs/hints.rs` — per-discipline strategies, tips, and pitfalls
+  - `src/docs/designer.rs` — encounter/card/token/effect authoring reference
+- **README.md**: When adding new endpoints, add them to the API endpoint table and describe their purpose. Fix any outdated endpoint references.
+- **Examples**: Keep `docs/examples/api_examples.sh` working — update curl commands when endpoints or payloads change. The example should demonstrate a full gameplay loop with current endpoints.
+- **CONTRIBUTING.md**: When changing development workflows or conventions, update `docs/dev/CONTRIBUTING.md` accordingly.
+- **Metrics**: The `/metrics` endpoint content updates automatically from gameplay data; no manual documentation updates needed for it.
+- **Spot-check**: After documentation-related changes, run the server and verify `/swagger/`, `/docs/tutorial`, `/docs/hints`, and `/docs/designer` render correctly.
 
 MCP servers
 
