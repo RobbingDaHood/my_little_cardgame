@@ -6,9 +6,9 @@ set -euo pipefail
 # relative to the main repo checkout.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Resolve the main repo root via git's common dir (works from any worktree).
-GIT_COMMON_DIR="$(git -C "$SCRIPT_DIR" rev-parse --git-common-dir)"
-REPO_DIR="$(cd "$GIT_COMMON_DIR/.." && pwd)"
+# Resolve the main repo root via git's common dir (works from any worktree
+# and regardless of the caller's working directory).
+REPO_DIR="$(cd "$SCRIPT_DIR" && cd "$(git rev-parse --git-common-dir)/.." && pwd)"
 WORKTREES_DIR="$(cd "$REPO_DIR/.." && pwd)/my_little_cardgames"
 
 usage() {
@@ -58,7 +58,13 @@ cmd_add() {
     mkdir -p "$WORKTREES_DIR"
     echo "Creating worktree '$name' at $wt_path (branch: $branch) from origin/main..."
     git -C "$REPO_DIR" worktree add "$wt_path" -b "$branch" origin/main
+
+    echo "Publishing branch '$branch' to origin and setting upstream..."
+    echo "Run this to publish and set upstream:"
+    echo "  git -C \"$wt_path\" push -u origin \"$branch\""
+
     echo "Done. Worktree ready at: $wt_path"
+    echo "  Run the above command to publish the branch and set upstream."
 }
 
 cmd_remove() {
