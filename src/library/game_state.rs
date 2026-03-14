@@ -236,6 +236,7 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     super::disciplines::rest::register_rest_cards(&mut lib, rng);
     super::disciplines::crafting::register_crafting_cards(&mut lib, rng);
     super::disciplines::research::register_research_cards(&mut lib, rng);
+    super::disciplines::milestone::register_milestone_cards(&mut lib, rng);
 
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);
@@ -257,6 +258,7 @@ pub struct GameState {
     pub current_research: Option<super::types::ResearchProject>,
     pub encounter_records: Vec<super::types::EncounterRecord>,
     pub encounter_start_tokens: HashMap<super::types::TokenType, i64>,
+    pub milestone_scouting_choices: Vec<usize>,
 }
 
 impl GameState {
@@ -340,6 +342,10 @@ impl GameState {
             super::types::Token::persistent(super::types::TokenType::CraftingMaxHand),
             5,
         );
+        balances.insert(
+            super::types::Token::persistent(super::types::TokenType::MilestoneMaxHand),
+            5,
+        );
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -367,6 +373,7 @@ impl GameState {
             current_research: None,
             encounter_records: Vec::new(),
             encounter_start_tokens: HashMap::new(),
+            milestone_scouting_choices: Vec::new(),
         }
     }
 
@@ -748,6 +755,11 @@ impl GameState {
                                 } => {
                                     let _ = gs.start_research_encounter(card_id);
                                 }
+                                CardKind::Encounter {
+                                    encounter_kind: EncounterKind::Milestone { .. },
+                                } => {
+                                    let _ = gs.start_milestone_encounter(card_id, &mut rng);
+                                }
                                 _ => {
                                     let _ = gs.start_combat(card_id, &mut rng);
                                 }
@@ -793,6 +805,9 @@ impl GameState {
                         Some(EncounterState::Research(_)) => {
                             // Research encounters do not support card play
                         }
+                        Some(EncounterState::Milestone(_)) => {
+                            let _ = gs.resolve_milestone_play_card(*card_id, &mut rng);
+                        }
                         None => {}
                     }
                 }
@@ -818,6 +833,8 @@ impl GameState {
                         let _ = gs.abort_crafting_encounter();
                     } else if matches!(&gs.current_encounter, Some(EncounterState::Research(_))) {
                         gs.abort_research_encounter();
+                    } else if matches!(&gs.current_encounter, Some(EncounterState::Milestone(_))) {
+                        gs.abort_milestone_encounter();
                     } else {
                         gs.abort_encounter();
                     }
@@ -854,6 +871,9 @@ impl GameState {
                 }
                 ActionPayload::ResearchProgress { amount } => {
                     let _ = gs.research_progress(*amount, &mut rng);
+                }
+                ActionPayload::MilestonePickScoutingChoice { card_id } => {
+                    let _ = gs.milestone_pick_scouting_choice(*card_id, &mut rng);
                 }
             }
             match gs.action_log.entries.lock() {

@@ -328,29 +328,89 @@ impl Library {
         Ok(())
     }
 
-    /// Encounter cards currently in the hand (visible/pickable).
+    /// Return a card from discard to hand.
+    pub fn return_to_hand(&mut self, card_id: usize) -> Result<(), String> {
+        let card = self
+            .cards
+            .get_mut(card_id)
+            .ok_or_else(|| format!("Card {card_id} not found"))?;
+        if card.counts.discard > 0 {
+            card.counts.discard -= 1;
+            card.counts.hand += 1;
+            Ok(())
+        } else {
+            // If not in discard, just ensure it has a hand copy
+            card.counts.hand = card.counts.hand.max(1);
+            Ok(())
+        }
+    }
+
+    /// Delete all copies of a card (zero out all counts).
+    pub fn delete_card(&mut self, card_id: usize) {
+        if let Some(card) = self.cards.get_mut(card_id) {
+            card.counts.library = 0;
+            card.counts.deck = 0;
+            card.counts.hand = 0;
+            card.counts.discard = 0;
+        }
+    }
+
+    fn is_regular_encounter(card: &LibraryCard) -> bool {
+        matches!(card.kind, CardKind::Encounter { ref encounter_kind } if !matches!(encounter_kind, EncounterKind::Milestone { .. }))
+    }
+
+    /// Encounter cards currently in the hand (visible/pickable), excluding milestones.
     pub fn encounter_hand(&self) -> Vec<usize> {
         self.cards
             .iter()
             .enumerate()
-            .filter(|(_, c)| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
+            .filter(|(_, c)| Self::is_regular_encounter(c) && c.counts.hand > 0)
             .flat_map(|(id, c)| std::iter::repeat_n(id, c.counts.hand as usize))
             .collect()
     }
 
-    /// Check if an encounter card is in the hand.
+    /// Check if a regular (non-milestone) encounter card is in the hand.
     pub fn encounter_contains(&self, card_id: usize) -> bool {
         self.cards
             .get(card_id)
-            .is_some_and(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
+            .is_some_and(|c| Self::is_regular_encounter(c) && c.counts.hand > 0)
     }
 
-    /// Draw encounter cards from deck to hand until hand reaches target_count.
+    /// Milestone encounter cards currently in hand.
+    pub fn milestone_hand(&self) -> Vec<usize> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                matches!(
+                    c.kind,
+                    CardKind::Encounter {
+                        encounter_kind: EncounterKind::Milestone { .. }
+                    }
+                ) && c.counts.hand > 0
+            })
+            .flat_map(|(id, c)| std::iter::repeat_n(id, c.counts.hand as usize))
+            .collect()
+    }
+
+    /// Check if a milestone encounter card is in the hand.
+    pub fn milestone_contains(&self, card_id: usize) -> bool {
+        self.cards.get(card_id).is_some_and(|c| {
+            matches!(
+                c.kind,
+                CardKind::Encounter {
+                    encounter_kind: EncounterKind::Milestone { .. }
+                }
+            ) && c.counts.hand > 0
+        })
+    }
+
+    /// Draw encounter cards from deck to hand until hand reaches target_count (excluding milestones).
     pub fn encounter_draw_to_hand(&mut self, target_count: usize) {
         let current_hand: usize = self
             .cards
             .iter()
-            .filter(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0)
+            .filter(|c| Self::is_regular_encounter(c) && c.counts.hand > 0)
             .map(|c| c.counts.hand as usize)
             .sum();
         let mut remaining = target_count.saturating_sub(current_hand);
@@ -358,7 +418,7 @@ impl Library {
             if remaining == 0 {
                 break;
             }
-            if matches!(card.kind, CardKind::Encounter { .. }) && card.counts.deck > 0 {
+            if Self::is_regular_encounter(card) && card.counts.deck > 0 {
                 let to_move = (card.counts.deck as usize).min(remaining) as u32;
                 card.counts.deck -= to_move;
                 card.counts.hand += to_move;

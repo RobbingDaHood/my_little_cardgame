@@ -105,6 +105,14 @@ fn build_encounter_templates() -> DesignerSection {
                     Cost scales exponentially (10 → 20 → 40 per tier)."
                     .to_string(),
             },
+            ReferenceEntry {
+                name: "Milestone (MilestoneDef)".to_string(),
+                description: "Wraps an inner discipline encounter (Combat, Mining, etc.) with \
+                    escalating difficulty. Fields: inner_encounter_kind, discipline, tier, \
+                    insight_cost. Cost = 100 * 2^(tier-1). On win, generates 50%-improved \
+                    CardEffects and 3 next-tier scouting choices. Lives in dedicated milestone hand."
+                    .to_string(),
+            },
         ],
     }
 }

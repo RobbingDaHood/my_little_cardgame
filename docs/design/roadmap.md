@@ -625,16 +625,19 @@ This section summarizes changes implemented after Step 10 completion:
    - Notes: Add minimal instrumentation to spot-check correct replacement and token lifecycles.
 
 13) Milestone encounters
-   - Goal: Implement milestone encounters as the primary progression system tied to CardEffects.
-   - **Implementation note**: The `PlayerDeaths` token (incremented on each death) could factor into milestone difficulty scaling — e.g., milestones become harder after more deaths, or certain milestones unlock only after surviving a death threshold.
+   - Goal: Implement milestone encounters as the primary CardEffect progression system.
+   - **Status: Implemented.**
    - Description:
-     - Each interesting CardEffect has a corresponding milestone encounter.
-     - When a milestone is beaten, a more powerful version of the milestone is created that rewards the next tier of that CardEffect.
-     - Some milestones reward tokens like "max hand size" increases.
-     - Some milestones require beating other milestones first to obtain a "token key" prerequisite.
-     - A full list of CardEffects eligible for milestones will be compiled when this step begins.
-   - Playable acceptance: Players can play milestone encounters, earn rewards, unlock higher tiers, and prerequisite chains work correctly.
-   - Notes: Start with a small set of milestones to prove the system before expanding to all CardEffects.
+     - Each combat/gathering discipline (Combat, Mining, Herbalism, Woodcutting, Fishing) has a dedicated milestone encounter that is a tougher version of that discipline's encounters.
+     - Milestone difficulty scales solely based on tier (times beaten). Deaths do not factor into milestone difficulty.
+     - **Cost**: Starting a milestone costs MilestoneInsight tokens, scaling exponentially: `100 * 2^(tier-1)` (tier 1 = 100, tier 2 = 200, tier 3 = 400, etc.).
+     - **Win flow**: On win, the player receives 50%-improved versions of all existing PlayerCardEffects for that discipline (expanding the research pool), then enters MilestoneScouting with 3 next-tier milestone variations to choose from. The chosen encounter replaces the old milestone for that discipline.
+     - **Loss flow**: On loss, the encounter resets and the player returns to NoEncounter. The milestone card stays in hand for future attempts — no forced replay.
+     - **Dedicated milestone hand**: Milestone encounters live in a separate hand (not mixed with regular encounters), with max hand size of 5 via `MilestoneMaxHand` token.
+     - **Abort**: Aborting a milestone is treated as a loss (reset + return to NoEncounter).
+     - Utility disciplines (Rest, Crafting, Research) do NOT have milestones.
+   - Playable acceptance: Players can play milestone encounters, earn 50%-improved CardEffect rewards, pick next-tier encounters after wins, and tier escalation works correctly. 9 integration tests validate the full flow.
+   - Notes: The 50% scaling applies uniformly to all numeric ranges on CardEffectKind variants. Next-tier encounters are generated on the fly with randomized stat variations.
 
 14) Configuration externalization
    - Goal: Move all game configuration into JSON files loaded at compile time.

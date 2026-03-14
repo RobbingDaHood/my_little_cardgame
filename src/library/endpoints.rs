@@ -130,12 +130,12 @@ pub async fn get_possible_actions(
 
     match gs.encounter_phase {
         EncounterPhase::NoEncounter => {
-            let has_encounter = gs
-                .library
-                .cards
-                .iter()
-                .any(|c| matches!(c.kind, CardKind::Encounter { .. }) && c.counts.hand > 0);
+            let has_encounter = !gs.library.encounter_hand().is_empty();
             if has_encounter {
+                actions.push(crate::action::PlayerActions::EncounterPickEncounter { card_id: 0 });
+            }
+            let has_milestone = !gs.library.milestone_hand().is_empty();
+            if has_milestone {
                 actions.push(crate::action::PlayerActions::EncounterPickEncounter { card_id: 0 });
             }
         }
@@ -176,6 +176,9 @@ pub async fn get_possible_actions(
                         actions.push(crate::action::PlayerActions::EncounterAbort);
                         actions.push(crate::action::PlayerActions::EncounterConcludeEncounter);
                     }
+                    EncounterState::Milestone(_) => {
+                        actions.push(crate::action::PlayerActions::EncounterAbort);
+                    }
                     _ => {
                         actions.push(crate::action::PlayerActions::EncounterAbort);
                         actions.push(crate::action::PlayerActions::EncounterConcludeEncounter);
@@ -185,6 +188,9 @@ pub async fn get_possible_actions(
         }
         EncounterPhase::Scouting => {
             actions.push(crate::action::PlayerActions::EncounterApplyScouting { card_ids: vec![] });
+        }
+        EncounterPhase::MilestoneScouting => {
+            actions.push(crate::action::PlayerActions::MilestonePickScoutingChoice { card_id: 0 });
         }
     }
 
@@ -206,6 +212,14 @@ fn playable_card_ids_for_encounter(encounter: &EncounterState, gs: &GameState) -
             EncounterState::Rest(_) => matches!(c.kind, CardKind::Rest { .. }),
             EncounterState::Crafting(_) => matches!(c.kind, CardKind::Crafting { .. }),
             EncounterState::Research(_) => false,
+            EncounterState::Milestone(m) => match m.inner_state.as_ref() {
+                EncounterState::Combat(combat) => (combat.phase.allowed_card_kind())(&c.kind),
+                EncounterState::Mining(_) => matches!(c.kind, CardKind::Mining { .. }),
+                EncounterState::Herbalism(_) => matches!(c.kind, CardKind::Herbalism { .. }),
+                EncounterState::Woodcutting(_) => matches!(c.kind, CardKind::Woodcutting { .. }),
+                EncounterState::Fishing(_) => matches!(c.kind, CardKind::Fishing { .. }),
+                _ => false,
+            },
         })
         .map(|(id, _)| id)
         .collect()

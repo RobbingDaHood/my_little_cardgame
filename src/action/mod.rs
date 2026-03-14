@@ -48,6 +48,8 @@ pub enum PlayerActions {
     ResearchSelectCandidate { candidate_index: usize },
     /// Spend Insight tokens to advance the current research project.
     ResearchProgress { amount: i64 },
+    /// After winning a milestone, pick one of 3 next-tier milestone encounters.
+    MilestonePickScoutingChoice { card_id: usize },
 }
 
 /// Execute a player action to advance the game state.
@@ -106,7 +108,7 @@ pub async fn play(
         // Step 7: Encounter action handlers
         PlayerActions::EncounterPickEncounter { card_id } => {
             let mut gs = game_state.lock().await;
-            if !gs.library.encounter_contains(card_id) {
+            if !gs.library.encounter_contains(card_id) && !gs.library.milestone_contains(card_id) {
                 return Err(Left(NotFound(new_status(format!(
                     "Encounter card {} not found in area hand",
                     card_id
@@ -197,6 +199,12 @@ pub async fn play(
                 }
                 crate::library::types::EncounterKind::Research { .. } => {
                     match gs.start_research_encounter(card_id) {
+                        Ok(()) => {}
+                        Err(e) => return Err(Right(BadRequest(new_status(e)))),
+                    }
+                }
+                crate::library::types::EncounterKind::Milestone { .. } => {
+                    match gs.start_milestone_encounter(card_id, &mut rng) {
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
@@ -451,6 +459,12 @@ pub async fn play(
                         "Research encounters do not support playing cards".to_string(),
                     ))));
                 }
+                Some(crate::library::types::EncounterState::Milestone(_)) => {
+                    let mut rng = player_data.random_generator_state.lock().await;
+                    if let Err(e) = gs.resolve_milestone_play_card(card_id as usize, &mut rng) {
+                        return Err(Right(BadRequest(new_status(e))));
+                    }
+                }
                 None => {
                     return Err(Right(BadRequest(new_status(
                         "No active encounter".to_string(),
@@ -524,6 +538,9 @@ pub async fn play(
                 Some(crate::library::types::EncounterState::Mining(_)) => {
                     gs.finish_mining_encounter(false);
                 }
+                Some(crate::library::types::EncounterState::Milestone(_)) => {
+                    gs.abort_milestone_encounter();
+                }
                 Some(_) => {
                     // Mark non-combat encounter as lost, go to scouting
                     gs.abort_encounter();
@@ -576,6 +593,12 @@ pub async fn play(
                         Ok(()) => {}
                         Err(e) => return Err(Right(BadRequest(new_status(e)))),
                     }
+                }
+                Some(crate::library::types::EncounterState::Milestone(_)) => {
+                    // Milestone encounters use abort for loss; conclude is not supported
+                    return Err(Right(BadRequest(new_status(
+                        "Use abort to end a milestone encounter as a loss".to_string(),
+                    ))));
                 }
                 Some(_) => {
                     return Err(Right(BadRequest(new_status(
@@ -703,6 +726,22 @@ pub async fn play(
             }
             let payload = crate::library::types::ActionPayload::ResearchProgress { amount };
             let entry = gs.append_action("ResearchProgress", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::MilestonePickScoutingChoice { card_id } => {
+            let mut gs = game_state.lock().await;
+            if gs.encounter_phase != crate::library::types::EncounterPhase::MilestoneScouting {
+                return Err(Right(BadRequest(new_status(
+                    "Not in MilestoneScouting phase".to_string(),
+                ))));
+            }
+            let mut rng = player_data.random_generator_state.lock().await;
+            if let Err(e) = gs.milestone_pick_scouting_choice(card_id, &mut rng) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload =
+                crate::library::types::ActionPayload::MilestonePickScoutingChoice { card_id };
+            let entry = gs.append_action("MilestonePickScoutingChoice", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
     }

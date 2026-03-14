@@ -53,6 +53,7 @@ fn build_hints() -> HintsGuide {
             build_rest_hints(),
             build_crafting_hints(),
             build_research_hints(),
+            build_milestone_hints(),
         ],
     }
 }
@@ -341,6 +342,52 @@ fn build_research_hints() -> DisciplineHints {
             "MilestoneInsight (from Combat wins) is the primary source of Insight tokens.".to_string(),
             "Research upgrades persist permanently — prioritize based on your play style.".to_string(),
             "Check discipline-specific Insight balances at /player/tokens before researching.".to_string(),
+        ],
+    }
+}
+
+fn build_milestone_hints() -> DisciplineHints {
+    DisciplineHints {
+        discipline: "Milestone".to_string(),
+        overview: "Milestone encounters are tougher discipline-specific challenges that reward \
+            50%-improved CardEffects. Each discipline (Combat, Mining, Herbalism, Woodcutting, \
+            Fishing) has its own milestone progression track."
+            .to_string(),
+        key_mechanics: vec![
+            "Cost scales exponentially: 100 * 2^(tier-1) MilestoneInsight per attempt.".to_string(),
+            "Win → 50% better CardEffects for that discipline + pick 1 of 3 next-tier milestones."
+                .to_string(),
+            "Loss → reset encounter, return to NoEncounter (no forced replay).".to_string(),
+            "Milestone hand is separate from regular encounters (max 5 via MilestoneMaxHand)."
+                .to_string(),
+        ],
+        strategies: vec![
+            Strategy {
+                name: "Farm Combat First".to_string(),
+                description: "Win regular combats to accumulate MilestoneInsight before \
+                    attempting milestones."
+                    .to_string(),
+            },
+            Strategy {
+                name: "Diversify Milestones".to_string(),
+                description: "Spread milestone attempts across disciplines to build a wide \
+                    pool of improved CardEffects for Research."
+                    .to_string(),
+            },
+        ],
+        common_pitfalls: vec![
+            "Don't attempt milestones without enough Insight — the cost is deducted on start."
+                .to_string(),
+            "Higher tiers are exponentially harder AND more expensive — prepare thoroughly."
+                .to_string(),
+        ],
+        tips: vec![
+            "Abort is always available — treat milestones as low-risk scouting for your limits."
+                .to_string(),
+            "Reward effects expand the Research pool — milestone wins compound over time."
+                .to_string(),
+            "Choose scouting variations carefully — stat spreads differ between the 3 options."
+                .to_string(),
         ],
     }
 }
