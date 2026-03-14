@@ -49,7 +49,6 @@ fn library_draw_and_play_and_return() {
                 rolled_costs: vec![],
                 rolled_cap: None,
                 rolled_gain_percent: None,
-                card_value: None,
             }],
         },
         CardCounts {

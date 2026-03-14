@@ -158,7 +158,6 @@ fn register_mining_milestone(
                 rolled_costs: vec![],
                 rolled_cap: None,
                 rolled_gain_percent: None,
-                card_value: None,
             }],
             counts: DeckCounts {
                 deck: 0,
@@ -173,7 +172,6 @@ fn register_mining_milestone(
                 rolled_costs: vec![],
                 rolled_cap: None,
                 rolled_gain_percent: None,
-                card_value: None,
             }],
             counts: DeckCounts {
                 deck: 0,
@@ -188,7 +186,6 @@ fn register_mining_milestone(
                 rolled_costs: vec![],
                 rolled_cap: None,
                 rolled_gain_percent: None,
-                card_value: None,
             }],
             counts: DeckCounts {
                 deck: 0,
@@ -541,28 +538,24 @@ fn scale_card_effect_kind(kind: &CardEffectKind, factor: f64) -> CardEffectKind 
     }
 }
 
-/// Generate 3 variations of a next-tier milestone encounter for the given discipline.
-/// Returns the card IDs.
-pub(crate) fn generate_next_tier_milestone_encounters(
+/// Generate a single next-tier milestone encounter for the given discipline.
+/// Returns the card ID.
+pub(crate) fn generate_next_tier_milestone_encounter(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     discipline: &Discipline,
     current_tier: u32,
-) -> Vec<usize> {
+) -> Option<usize> {
     let next_tier = current_tier + 1;
-    let mut ids = Vec::with_capacity(3);
-    for _ in 0..3 {
-        let id = match discipline {
-            Discipline::Combat => register_combat_milestone(lib, rng, next_tier),
-            Discipline::Mining => register_mining_milestone(lib, rng, next_tier),
-            Discipline::Herbalism => register_herbalism_milestone(lib, rng, next_tier),
-            Discipline::Woodcutting => register_woodcutting_milestone(lib, rng, next_tier),
-            Discipline::Fishing => register_fishing_milestone(lib, rng, next_tier),
-            _ => continue,
-        };
-        ids.push(id);
-    }
-    ids
+    let id = match discipline {
+        Discipline::Combat => register_combat_milestone(lib, rng, next_tier),
+        Discipline::Mining => register_mining_milestone(lib, rng, next_tier),
+        Discipline::Herbalism => register_herbalism_milestone(lib, rng, next_tier),
+        Discipline::Woodcutting => register_woodcutting_milestone(lib, rng, next_tier),
+        Discipline::Fishing => register_fishing_milestone(lib, rng, next_tier),
+        _ => return None,
+    };
+    Some(id)
 }
 
 // ---- GameState methods for milestone encounters ----
@@ -743,15 +736,13 @@ impl GameState {
             // Generate reward effects
             generate_milestone_reward_effects(&mut self.library, rng, &discipline);
 
-            // Generate 3 next-tier scouting choices
-            let choices =
-                generate_next_tier_milestone_encounters(&mut self.library, rng, &discipline, tier);
-            self.milestone_scouting_choices = choices;
+            // Generate a single next-tier encounter and auto-assign it
+            generate_next_tier_milestone_encounter(&mut self.library, rng, &discipline, tier);
 
             // Remove the old milestone card from library (it's been beaten)
             self.library.delete_card(encounter_card_id);
 
-            self.encounter_phase = types::EncounterPhase::MilestoneScouting;
+            self.encounter_phase = types::EncounterPhase::NoEncounter;
         } else {
             // Loss: return encounter card to hand, go to NoEncounter
             let _ = self.library.return_to_hand(encounter_card_id);
@@ -759,36 +750,6 @@ impl GameState {
         }
 
         self.check_player_death();
-    }
-
-    /// After winning a milestone, player picks one of 3 next-tier encounters.
-    pub fn milestone_pick_scouting_choice(
-        &mut self,
-        card_id: usize,
-        _rng: &mut rand_pcg::Lcg64Xsh32,
-    ) -> Result<(), String> {
-        if self.encounter_phase != types::EncounterPhase::MilestoneScouting {
-            return Err("Not in MilestoneScouting phase".to_string());
-        }
-
-        if !self.milestone_scouting_choices.contains(&card_id) {
-            return Err(format!(
-                "Card {} is not one of the milestone scouting choices",
-                card_id
-            ));
-        }
-
-        // Delete the unchosen cards
-        for &cid in &self.milestone_scouting_choices {
-            if cid != card_id {
-                self.library.delete_card(cid);
-            }
-        }
-
-        // The chosen card is already in the library with hand count 1
-        self.milestone_scouting_choices.clear();
-        self.encounter_phase = types::EncounterPhase::NoEncounter;
-        Ok(())
     }
 
     /// Abort a milestone encounter (treated as loss).

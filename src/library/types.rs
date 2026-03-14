@@ -160,7 +160,23 @@ impl TokenType {
     /// Returns true if this token type is scoped to the current encounter
     /// and should NOT be deducted from persistent token_balances.
     pub fn is_encounter_scoped(&self) -> bool {
-        matches!(self, TokenType::RestToken)
+        matches!(
+            self,
+            TokenType::RestToken
+                | TokenType::RestMaxHand
+                | TokenType::EnemyAttackMaxHand
+                | TokenType::EnemyDefenceMaxHand
+                | TokenType::EnemyResourceMaxHand
+                | TokenType::FishingRangeMin
+                | TokenType::FishingRangeMax
+                | TokenType::FishAmount
+                | TokenType::MiningLightLevel
+                | TokenType::MiningYield
+                | TokenType::MiningPower
+                | TokenType::CraftingToken
+                | TokenType::CraftingMaxHand
+                | TokenType::MilestoneMaxHand
+        )
     }
 
     pub fn is_durability_cost(&self) -> bool {
@@ -348,22 +364,14 @@ pub struct ConcreteEffect {
     /// Rolled gain percentage (from gain_min_percent..gain_max_percent on the template).
     #[serde(default)]
     pub rolled_gain_percent: Option<u32>,
-    /// Card-level value used as cost base. When set, costs are computed as
-    /// `card_value * rolled_percent / 100` instead of `rolled_value * rolled_percent / 100`.
-    /// Provides transparency into how the card's total value was computed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub card_value: Option<i64>,
 }
 
-/// A concrete rolled cost on a card: the specific percentage (or absolute value) rolled from the cost range.
+/// A concrete rolled cost on a card: the absolute cost amount computed at roll time.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct ConcreteEffectCost {
     pub token_type: TokenType,
-    pub rolled_percent: u32,
-    /// When true, rolled_percent holds an absolute cost value instead of a percentage.
-    #[serde(default)]
-    pub is_absolute: bool,
+    pub amount: u32,
 }
 
 /// A fixed amount of a token type, used in costs and gains of gathering discipline cards.
@@ -1175,9 +1183,6 @@ pub enum ActionPayload {
         card_ids: Vec<usize>,
     },
     ResearchConcludeExperiment,
-    MilestonePickScoutingChoice {
-        card_id: usize,
-    },
 }
 
 /// Stored action entry in the append-only action log.
@@ -1467,8 +1472,6 @@ pub enum EncounterPhase {
     InEncounter,
     /// Encounter has finished; scouting is available
     Scouting,
-    /// Milestone encounter won; player picks one of 3 next-tier milestone encounters
-    MilestoneScouting,
     /// No active encounter
     NoEncounter,
 }

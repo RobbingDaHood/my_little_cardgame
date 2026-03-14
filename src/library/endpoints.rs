@@ -190,9 +190,6 @@ pub async fn get_possible_actions(
         EncounterPhase::Scouting => {
             actions.push(crate::action::PlayerActions::EncounterApplyScouting { card_ids: vec![] });
         }
-        EncounterPhase::MilestoneScouting => {
-            actions.push(crate::action::PlayerActions::MilestonePickScoutingChoice { card_id: 0 });
-        }
     }
 
     Json(actions)

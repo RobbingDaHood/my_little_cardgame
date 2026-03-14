@@ -115,7 +115,7 @@ fn build_encounter_templates() -> DesignerSection {
                 description: "Wraps an inner discipline encounter (Combat, Mining, etc.) with \
                     escalating difficulty. Fields: inner_encounter_kind, discipline, tier, \
                     insight_cost. Cost = 100 * 2^(tier-1). On win, generates 50%-improved \
-                    CardEffects and 3 next-tier scouting choices. Lives in dedicated milestone hand."
+                    CardEffects and auto-assigns a single next-tier encounter. Lives in dedicated milestone hand."
                     .to_string(),
             },
         ],

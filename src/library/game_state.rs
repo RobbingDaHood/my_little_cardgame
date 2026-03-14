@@ -30,13 +30,21 @@ pub(crate) fn roll_range_u32(rng: &mut rand_pcg::Lcg64Xsh32, min: u32, max: u32)
 fn roll_costs(
     rng: &mut rand_pcg::Lcg64Xsh32,
     costs: &[super::types::CardEffectCost],
+    rolled_value: i64,
 ) -> Vec<ConcreteEffectCost> {
     costs
         .iter()
-        .map(|c| ConcreteEffectCost {
-            token_type: c.token_type.clone(),
-            rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
-            is_absolute: c.is_absolute,
+        .map(|c| {
+            let rolled = roll_range_u32(rng, c.min_percent, c.max_percent);
+            let amount = if c.is_absolute {
+                rolled
+            } else {
+                (rolled_value.unsigned_abs() * rolled as u64 / 100) as u32
+            };
+            ConcreteEffectCost {
+                token_type: c.token_type.clone(),
+                amount,
+            }
         })
         .collect()
 }
@@ -59,14 +67,14 @@ pub(crate) fn roll_concrete_effect(
             let r_cap = roll_range(rng, cap_min, cap_max);
             let r_gain = roll_range_u32(rng, gain_min_percent, gain_max_percent);
             let value = r_cap * r_gain as i64 / 100;
-            let costs = roll_costs(rng, &costs);
+            let costs = roll_costs(rng, &costs, value);
             (value, costs, Some(r_cap), Some(r_gain))
         }
         Some(super::types::CardEffectKind::LoseTokens {
             min, max, costs, ..
         }) => {
             let value = roll_range(rng, min, max);
-            let costs = roll_costs(rng, &costs);
+            let costs = roll_costs(rng, &costs, value);
             (value, costs, None, None)
         }
         Some(super::types::CardEffectKind::Insight { min, max }) => {
@@ -80,27 +88,27 @@ pub(crate) fn roll_concrete_effect(
             ..
         }) => {
             let value = roll_range(rng, min_value as i64, max_value as i64);
-            let costs = roll_costs(rng, &costs);
+            let costs = roll_costs(rng, &costs, value);
             (value, costs, None, None)
         }
         Some(super::types::CardEffectKind::HerbalismMatch { costs, .. }) => {
-            let costs = roll_costs(rng, &costs);
+            let costs = roll_costs(rng, &costs, 0);
             (0, costs, None, None)
         }
         Some(super::types::CardEffectKind::FishingValue { min, max, costs }) => {
             let value = roll_range(rng, min, max);
-            let costs = roll_costs(rng, &costs);
+            let costs = roll_costs(rng, &costs, value);
             (value, costs, None, None)
         }
         Some(super::types::CardEffectKind::CraftingReduction {
             min, max, costs, ..
         }) => {
             let value = roll_range(rng, min, max);
-            let costs = roll_costs(rng, &costs);
+            let costs = roll_costs(rng, &costs, value);
             (value, costs, None, None)
         }
         Some(super::types::CardEffectKind::ResearchProbe { costs, .. }) => {
-            let costs = roll_costs(rng, &costs);
+            let costs = roll_costs(rng, &costs, 0);
             (0, costs, None, None)
         }
         _ => (0, vec![], None, None),
@@ -111,7 +119,6 @@ pub(crate) fn roll_concrete_effect(
         rolled_costs,
         rolled_cap,
         rolled_gain_percent,
-        card_value: None,
     }
 }
 
@@ -262,7 +269,6 @@ pub struct GameState {
     pub current_research: Option<super::types::ResearchProject>,
     pub encounter_records: Vec<super::types::EncounterRecord>,
     pub encounter_start_tokens: HashMap<super::types::TokenType, i64>,
-    pub milestone_scouting_choices: Vec<usize>,
 }
 
 impl GameState {
@@ -377,7 +383,6 @@ impl GameState {
             current_research: None,
             encounter_records: Vec::new(),
             encounter_start_tokens: HashMap::new(),
-            milestone_scouting_choices: Vec::new(),
         }
     }
 
@@ -483,20 +488,14 @@ impl GameState {
     }
 
     /// Extract gathering costs from ConcreteEffects' rolled_costs.
-    /// Computes absolute cost amounts using card_value (or rolled_value) as cost base.
-    /// When a cost is marked `is_absolute`, the rolled value is used directly.
+    /// Costs are pre-computed as absolute amounts at roll time.
     pub(crate) fn extract_gathering_costs_from_effects(
         effects: &[super::types::ConcreteEffect],
     ) -> Vec<super::types::TokenAmount> {
         let mut costs = Vec::new();
         for effect in effects {
-            let cost_base = effect.card_value.unwrap_or(effect.rolled_value);
             for cost in &effect.rolled_costs {
-                let amount = if cost.is_absolute {
-                    cost.rolled_percent as i64
-                } else {
-                    (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64
-                };
+                let amount = cost.amount as i64;
                 if amount > 0 {
                     costs.push(super::types::TokenAmount {
                         token_type: cost.token_type.clone(),
@@ -881,9 +880,6 @@ impl GameState {
                 }
                 ActionPayload::ResearchConcludeExperiment => {
                     let _ = gs.research_conclude_experiment(&mut rng);
-                }
-                ActionPayload::MilestonePickScoutingChoice { card_id } => {
-                    let _ = gs.milestone_pick_scouting_choice(*card_id, &mut rng);
                 }
             }
             match gs.action_log.entries.lock() {
