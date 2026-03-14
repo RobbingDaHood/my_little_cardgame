@@ -31,6 +31,12 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                         max_percent: 30,
                         is_absolute: false,
                     },
+                    CardEffectCost {
+                        token_type: types::TokenType::RestToken,
+                        min_percent: 1,
+                        max_percent: 1,
+                        is_absolute: true,
+                    },
                 ],
                 duration: types::TokenLifecycle::PersistentCounter,
             },
@@ -67,6 +73,12 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                         min_percent: 15,
                         max_percent: 35,
                         is_absolute: false,
+                    },
+                    CardEffectCost {
+                        token_type: types::TokenType::RestToken,
+                        min_percent: 1,
+                        max_percent: 1,
+                        is_absolute: true,
                     },
                 ],
                 duration: types::TokenLifecycle::PersistentCounter,
@@ -139,12 +151,20 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 cap_max: 800,
                 gain_min_percent: 90,
                 gain_max_percent: 100,
-                costs: vec![CardEffectCost {
-                    token_type: types::TokenType::Stamina,
-                    min_percent: 20,
-                    max_percent: 40,
-                    is_absolute: false,
-                }],
+                costs: vec![
+                    CardEffectCost {
+                        token_type: types::TokenType::Stamina,
+                        min_percent: 20,
+                        max_percent: 40,
+                        is_absolute: false,
+                    },
+                    CardEffectCost {
+                        token_type: types::TokenType::RestToken,
+                        min_percent: 1,
+                        max_percent: 1,
+                        is_absolute: true,
+                    },
+                ],
                 duration: types::TokenLifecycle::PersistentCounter,
             },
         },
@@ -168,12 +188,20 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 cap_max: 1200,
                 gain_min_percent: 90,
                 gain_max_percent: 100,
-                costs: vec![CardEffectCost {
-                    token_type: types::TokenType::Health,
-                    min_percent: 15,
-                    max_percent: 30,
-                    is_absolute: false,
-                }],
+                costs: vec![
+                    CardEffectCost {
+                        token_type: types::TokenType::Health,
+                        min_percent: 15,
+                        max_percent: 30,
+                        is_absolute: false,
+                    },
+                    CardEffectCost {
+                        token_type: types::TokenType::RestToken,
+                        min_percent: 1,
+                        max_percent: 1,
+                        is_absolute: true,
+                    },
+                ],
                 duration: types::TokenLifecycle::PersistentCounter,
             },
         },
@@ -190,24 +218,21 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
     // Roll concrete rest cards referencing these effect templates.
     // Distribution: 2 stamina, 2 health, 1 mixed.
     // Stamina/health cards cost 1 rest token; mixed card costs 0.
-    let effect_groups: Vec<(Vec<usize>, i64)> = vec![
-        (vec![stamina_effect_id], 1),
-        (vec![stamina_effect_id], 1),
-        (vec![health_effect_id], 1),
-        (vec![health_effect_id], 1),
-        (vec![mixed_stamina_effect_id, mixed_health_effect_id], 0),
+    let effect_groups: Vec<Vec<usize>> = vec![
+        vec![stamina_effect_id],
+        vec![stamina_effect_id],
+        vec![health_effect_id],
+        vec![health_effect_id],
+        vec![mixed_stamina_effect_id, mixed_health_effect_id],
     ];
 
-    for (effect_ids, rest_token_cost) in &effect_groups {
+    for effect_ids in &effect_groups {
         let effects: Vec<types::ConcreteEffect> = effect_ids
             .iter()
             .map(|&eid| crate::library::game_state::roll_concrete_effect(rng, eid, lib))
             .collect();
         lib.add_card(
-            CardKind::Rest {
-                effects,
-                rest_token_cost: *rest_token_cost,
-            },
+            CardKind::Rest { effects },
             CardCounts {
                 library: 0,
                 deck: 5,
@@ -227,7 +252,6 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 stamina_cost_health_effect_id,
                 lib,
             )],
-            rest_token_cost: 1,
         },
         CardCounts {
             library: 1,
@@ -247,7 +271,6 @@ pub(crate) fn register_rest_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xs
                 health_cost_stamina_effect_id,
                 lib,
             )],
-            rest_token_cost: 1,
         },
         CardCounts {
             library: 1,
@@ -345,13 +368,11 @@ impl GameState {
             .get(card_id)
             .ok_or_else(|| format!("Card {} not found in Library", card_id))?
             .clone();
-        let (effects, rest_token_cost) = match &lib_card.kind {
-            CardKind::Rest {
-                effects,
-                rest_token_cost,
-            } => (effects.clone(), *rest_token_cost),
+        let effects = match &lib_card.kind {
+            CardKind::Rest { effects } => effects.clone(),
             _ => return Err("Cannot play a non-rest card in rest encounter".to_string()),
         };
+        let rest_token_cost = GameState::extract_rest_token_cost(&effects);
 
         if lib_card.counts.hand == 0 {
             return Err(format!("Card {} is not in hand", card_id));

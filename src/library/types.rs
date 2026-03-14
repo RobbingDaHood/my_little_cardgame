@@ -154,6 +154,12 @@ impl TokenType {
         )
     }
 
+    /// Returns true if this token type is scoped to the current encounter
+    /// and should NOT be deducted from persistent token_balances.
+    pub fn is_encounter_scoped(&self) -> bool {
+        matches!(self, TokenType::RestToken)
+    }
+
     pub fn is_durability_cost(&self) -> bool {
         matches!(
             self,
@@ -403,43 +409,18 @@ impl CardCounts {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "card_kind")]
 pub enum CardKind {
-    Attack {
-        effects: Vec<ConcreteEffect>,
-    },
-    Defence {
-        effects: Vec<ConcreteEffect>,
-    },
-    Resource {
-        effects: Vec<ConcreteEffect>,
-    },
-    Mining {
-        effects: Vec<ConcreteEffect>,
-    },
-    Herbalism {
-        effects: Vec<ConcreteEffect>,
-    },
-    Woodcutting {
-        effects: Vec<ConcreteEffect>,
-    },
-    Fishing {
-        effects: Vec<ConcreteEffect>,
-    },
-    Rest {
-        effects: Vec<ConcreteEffect>,
-        rest_token_cost: i64,
-    },
-    Crafting {
-        effects: Vec<ConcreteEffect>,
-    },
-    Encounter {
-        encounter_kind: EncounterKind,
-    },
-    PlayerCardEffect {
-        kind: CardEffectKind,
-    },
-    EnemyCardEffect {
-        kind: CardEffectKind,
-    },
+    Attack { effects: Vec<ConcreteEffect> },
+    Defence { effects: Vec<ConcreteEffect> },
+    Resource { effects: Vec<ConcreteEffect> },
+    Mining { effects: Vec<ConcreteEffect> },
+    Herbalism { effects: Vec<ConcreteEffect> },
+    Woodcutting { effects: Vec<ConcreteEffect> },
+    Fishing { effects: Vec<ConcreteEffect> },
+    Rest { effects: Vec<ConcreteEffect> },
+    Crafting { effects: Vec<ConcreteEffect> },
+    Encounter { encounter_kind: EncounterKind },
+    PlayerCardEffect { kind: CardEffectKind },
+    EnemyCardEffect { kind: CardEffectKind },
 }
 
 /// Plant characteristics used by Herbalism encounters.

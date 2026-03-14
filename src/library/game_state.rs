@@ -408,48 +408,32 @@ impl GameState {
     }
 
     /// Check if player can pay all costs on a card's effects. Deducts costs if affordable.
+    /// Encounter-scoped token costs (e.g. RestToken) are filtered out — they are
+    /// handled by the encounter state, not by persistent token_balances.
     pub(crate) fn check_and_deduct_costs(
         effects: &[ConcreteEffect],
         token_balances: &mut HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
-        Self::preview_costs(effects, token_balances)?;
-        // Deduct costs (we know they're affordable from preview)
-        for effect in effects {
-            let cost_base = effect.card_value.unwrap_or(effect.rolled_value);
-            for cost in &effect.rolled_costs {
-                let cost_amount =
-                    (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
-                let entry = super::types::token_entry_by_type(token_balances, &cost.token_type);
-                *entry -= cost_amount;
-            }
-        }
-        Ok(())
+        let all_costs = Self::extract_gathering_costs_from_effects(effects);
+        let player_costs: Vec<_> = all_costs
+            .into_iter()
+            .filter(|c| !c.token_type.is_encounter_scoped())
+            .collect();
+        Self::check_and_deduct_gathering_costs(&player_costs, token_balances)
     }
 
     /// Check if player can afford all costs without deducting. Used for pre-validation.
+    /// Encounter-scoped token costs are filtered out.
     pub fn preview_costs(
         effects: &[ConcreteEffect],
         token_balances: &HashMap<super::types::Token, i64>,
     ) -> Result<(), String> {
-        let mut total_costs: HashMap<super::types::TokenType, i64> = HashMap::new();
-        for effect in effects {
-            let cost_base = effect.card_value.unwrap_or(effect.rolled_value);
-            for cost in &effect.rolled_costs {
-                let cost_amount =
-                    (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
-                *total_costs.entry(cost.token_type.clone()).or_insert(0) += cost_amount;
-            }
-        }
-        for (token_type, cost_amount) in &total_costs {
-            let balance = super::types::token_balance_by_type(token_balances, token_type);
-            if balance < *cost_amount {
-                return Err(format!(
-                    "Insufficient {:?}: need {} but have {}",
-                    token_type, cost_amount, balance
-                ));
-            }
-        }
-        Ok(())
+        let all_costs = Self::extract_gathering_costs_from_effects(effects);
+        let player_costs: Vec<_> = all_costs
+            .into_iter()
+            .filter(|c| !c.token_type.is_encounter_scoped())
+            .collect();
+        Self::preview_gathering_costs(&player_costs, token_balances)
     }
 
     /// Check and deduct a list of gathering costs. All costs must be affordable.
@@ -512,6 +496,16 @@ impl GameState {
             }
         }
         costs
+    }
+
+    /// Extract total rest token cost from effects' rolled_costs.
+    pub(crate) fn extract_rest_token_cost(effects: &[super::types::ConcreteEffect]) -> i64 {
+        let costs = Self::extract_gathering_costs_from_effects(effects);
+        costs
+            .iter()
+            .filter(|c| c.token_type == super::types::TokenType::RestToken)
+            .map(|c| c.amount)
+            .sum()
     }
 
     /// Check if all gathering hand cards (effects-based) are unpayable.
