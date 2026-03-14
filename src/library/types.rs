@@ -85,6 +85,8 @@ pub enum TokenType {
     // Crafting encounter tokens
     CraftingToken,
     CraftingMaxHand,
+    // Milestone encounter tokens
+    MilestoneMaxHand,
     // Death tracking
     PlayerDeaths,
 }
@@ -143,6 +145,7 @@ impl TokenType {
             TokenType::RestMaxHand,
             TokenType::CraftingToken,
             TokenType::CraftingMaxHand,
+            TokenType::MilestoneMaxHand,
             TokenType::PlayerDeaths,
         ]
     }
@@ -528,6 +531,17 @@ pub struct FishingDef {
     pub rewards: HashMap<Token, i64>,
 }
 
+/// Definition of a milestone encounter: wraps an inner discipline encounter
+/// with tier-based difficulty scaling and CardEffect rewards.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct MilestoneDef {
+    pub inner_encounter_kind: Box<EncounterKind>,
+    pub discipline: Discipline,
+    pub tier: u32,
+    pub insight_cost: i64,
+}
+
 /// Sub-type of encounter cards.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_type")]
@@ -540,6 +554,7 @@ pub enum EncounterKind {
     Rest { rest_def: RestDef },
     Crafting { crafting_def: CraftingDef },
     Research { research_def: ResearchDef },
+    Milestone { milestone_def: MilestoneDef },
 }
 
 /// Definition of a mining node for a gathering encounter.
@@ -1108,6 +1123,9 @@ pub enum ActionPayload {
     ResearchProgress {
         amount: i64,
     },
+    MilestonePickScoutingChoice {
+        card_id: usize,
+    },
 }
 
 /// Stored action entry in the append-only action log.
@@ -1272,6 +1290,17 @@ pub struct ResearchEncounterState {
     pub candidates: Option<Vec<ResearchCandidate>>,
 }
 
+/// Runtime state for a milestone encounter: wraps an inner discipline encounter.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct MilestoneEncounterState {
+    pub encounter_card_id: usize,
+    pub inner_state: Box<EncounterState>,
+    pub discipline: Discipline,
+    pub tier: u32,
+    pub outcome: EncounterOutcome,
+}
+
 /// Active encounter state, dispatched by encounter type.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "encounter_state_type")]
@@ -1284,6 +1313,7 @@ pub enum EncounterState {
     Rest(RestEncounterState),
     Crafting(CraftingEncounterState),
     Research(ResearchEncounterState),
+    Milestone(MilestoneEncounterState),
 }
 
 impl EncounterState {
@@ -1297,6 +1327,7 @@ impl EncounterState {
             EncounterState::Rest(r) => r.encounter_card_id,
             EncounterState::Crafting(c) => c.encounter_card_id,
             EncounterState::Research(r) => r.encounter_card_id,
+            EncounterState::Milestone(m) => m.encounter_card_id,
         }
     }
 
@@ -1314,6 +1345,7 @@ impl EncounterState {
             EncounterState::Rest(r) => &r.outcome,
             EncounterState::Crafting(c) => &c.outcome,
             EncounterState::Research(r) => &r.outcome,
+            EncounterState::Milestone(m) => &m.outcome,
         }
     }
 
@@ -1327,6 +1359,7 @@ impl EncounterState {
             EncounterState::Rest(_) => Discipline::Rest,
             EncounterState::Crafting(_) => Discipline::Crafting,
             EncounterState::Research(_) => Discipline::Research,
+            EncounterState::Milestone(m) => m.discipline.clone(),
         }
     }
 
@@ -1340,6 +1373,7 @@ impl EncounterState {
             EncounterState::Rest(_) => 1,
             EncounterState::Crafting(c) => c.round,
             EncounterState::Research(_) => 1,
+            EncounterState::Milestone(m) => m.inner_state.round(),
         }
     }
 }
@@ -1374,6 +1408,8 @@ pub enum EncounterPhase {
     InEncounter,
     /// Encounter has finished; scouting is available
     Scouting,
+    /// Milestone encounter won; player picks one of 3 next-tier milestone encounters
+    MilestoneScouting,
     /// No active encounter
     NoEncounter,
 }
