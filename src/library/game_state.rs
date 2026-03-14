@@ -96,6 +96,7 @@ pub(crate) fn roll_concrete_effect(
         rolled_costs,
         rolled_cap,
         rolled_gain_percent,
+        card_value: None,
     }
 }
 
@@ -108,7 +109,6 @@ fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: super::types::CardEffectKind::LoseTokens {
-                target: super::types::EffectTarget::OnOpponent,
                 token_type: super::types::TokenType::Health,
                 min: 400,
                 max: 600,
@@ -368,9 +368,10 @@ impl GameState {
         Self::preview_costs(effects, token_balances)?;
         // Deduct costs (we know they're affordable from preview)
         for effect in effects {
+            let cost_base = effect.card_value.unwrap_or(effect.rolled_value);
             for cost in &effect.rolled_costs {
                 let cost_amount =
-                    (effect.rolled_value.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
+                    (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
                 let entry = super::types::token_entry_by_type(token_balances, &cost.token_type);
                 *entry -= cost_amount;
             }
@@ -385,9 +386,10 @@ impl GameState {
     ) -> Result<(), String> {
         let mut total_costs: HashMap<super::types::TokenType, i64> = HashMap::new();
         for effect in effects {
+            let cost_base = effect.card_value.unwrap_or(effect.rolled_value);
             for cost in &effect.rolled_costs {
                 let cost_amount =
-                    (effect.rolled_value.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
+                    (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
                 *total_costs.entry(cost.token_type.clone()).or_insert(0) += cost_amount;
             }
         }
@@ -438,26 +440,26 @@ impl GameState {
         Ok(())
     }
 
-    /// Extract gathering costs (LoseTokens/OnSelf effects) from ConcreteEffects using library.
+    /// Extract gathering costs from ConcreteEffects' rolled_costs.
+    /// Computes absolute cost amounts using card_value (or rolled_value) as cost base.
     pub(crate) fn extract_gathering_costs_from_effects(
         effects: &[super::types::ConcreteEffect],
-        library: &Library,
     ) -> Vec<super::types::TokenAmount> {
-        effects
-            .iter()
-            .filter_map(|e| match library.resolve_effect(e.effect_id) {
-                Some(super::types::CardEffectKind::LoseTokens {
-                    target: super::types::EffectTarget::OnSelf,
-                    ref token_type,
-                    ..
-                }) => Some(super::types::TokenAmount {
-                    token_type: token_type.clone(),
-                    amount: e.rolled_value,
-                    cap: None,
-                }),
-                _ => None,
-            })
-            .collect()
+        let mut costs = Vec::new();
+        for effect in effects {
+            let cost_base = effect.card_value.unwrap_or(effect.rolled_value);
+            for cost in &effect.rolled_costs {
+                let amount = (cost_base.unsigned_abs() * cost.rolled_percent as u64 / 100) as i64;
+                if amount > 0 {
+                    costs.push(super::types::TokenAmount {
+                        token_type: cost.token_type.clone(),
+                        amount,
+                        cap: None,
+                    });
+                }
+            }
+        }
+        costs
     }
 
     /// Check if all gathering hand cards (effects-based) are unpayable.
@@ -478,7 +480,7 @@ impl GameState {
         }
         hand_cards.iter().all(|card| {
             let effects = effects_extractor(&card.kind).unwrap();
-            let costs = Self::extract_gathering_costs_from_effects(effects, &self.library);
+            let costs = Self::extract_gathering_costs_from_effects(effects);
             let (pre_play_costs, _) = super::types::split_token_amounts(&costs);
             if pre_play_costs.is_empty() {
                 return false;

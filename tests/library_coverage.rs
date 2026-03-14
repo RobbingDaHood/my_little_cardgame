@@ -1,7 +1,6 @@
 use my_little_cardgame::library::types::{
     split_token_amounts, token_balance_by_type, ActionPayload, CardCounts, CardEffectKind,
-    CardKind, ConcreteEffect, Discipline, EffectTarget, Token, TokenAmount, TokenLifecycle,
-    TokenType,
+    CardKind, ConcreteEffect, Discipline, Token, TokenAmount, TokenLifecycle, TokenType,
 };
 use my_little_cardgame::library::{GameState, Library};
 use rand::SeedableRng;
@@ -26,7 +25,6 @@ fn library_draw_and_play_and_return() {
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
-                target: EffectTarget::OnOpponent,
                 token_type: TokenType::Health,
                 min: 500,
                 max: 500,
@@ -51,6 +49,7 @@ fn library_draw_and_play_and_return() {
                 rolled_costs: vec![],
                 rolled_cap: None,
                 rolled_gain_percent: None,
+                card_value: None,
             }],
         },
         CardCounts {

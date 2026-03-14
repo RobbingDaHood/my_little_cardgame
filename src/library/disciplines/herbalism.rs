@@ -1,11 +1,61 @@
+use crate::library::game_state::{roll_concrete_effect, roll_range};
 use crate::library::types::{
-    self, CardCounts, CardEffectKind, CardKind, EncounterKind, EncounterOutcome, EncounterState,
-    HerbalismEncounterState,
+    self, CardCounts, CardEffectKind, CardKind, ConcreteEffectCost, EncounterKind,
+    EncounterOutcome, EncounterState, HerbalismEncounterState,
 };
 use crate::library::{GameState, Library};
 use std::collections::HashMap;
 
-use crate::library::game_state::roll_concrete_effect;
+/// Compute the card_value for an herbalism card based on its benefit effects.
+/// HerbalismMatch effects contribute 200 * characteristics_count.
+/// GainTokens effects contribute their rolled_value.
+fn compute_herbalism_card_value(effects: &[types::ConcreteEffect], lib: &Library) -> i64 {
+    let mut total = 0i64;
+    for e in effects {
+        if let Some(kind) = lib.resolve_effect(e.effect_id) {
+            match kind {
+                CardEffectKind::HerbalismMatch { match_mode } => {
+                    let char_count = match &match_mode {
+                        types::HerbalismMatchMode::Or { types } => types.len(),
+                        types::HerbalismMatchMode::And { types } => types.len(),
+                        types::HerbalismMatchMode::MostCommon { .. }
+                        | types::HerbalismMatchMode::LeastCommon { .. } => 3,
+                    };
+                    total += 200 * char_count as i64;
+                }
+                CardEffectKind::GainTokens { .. } => total += e.rolled_value,
+                _ => {}
+            }
+        }
+    }
+    total.max(200)
+}
+
+/// Set card_value and costs on an herbalism card's effects.
+/// Costs are given as pre-rolled absolute amounts, converted to percentages of card_value.
+fn apply_herbalism_costs(
+    effects: &mut [types::ConcreteEffect],
+    lib: &Library,
+    absolute_costs: &[(types::TokenType, i64)],
+) {
+    let card_value = compute_herbalism_card_value(effects, lib);
+    for effect in effects.iter_mut() {
+        effect.card_value = Some(card_value);
+    }
+    if !effects.is_empty() && !absolute_costs.is_empty() {
+        effects[0].rolled_costs = absolute_costs
+            .iter()
+            .map(|(token_type, absolute)| ConcreteEffectCost {
+                token_type: token_type.clone(),
+                rolled_percent: if card_value > 0 {
+                    (*absolute * 100 / card_value).max(1) as u32
+                } else {
+                    100
+                },
+            })
+            .collect();
+    }
+}
 
 pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // ---- Herbalism EnemyCardEffect templates ----
@@ -62,11 +112,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
 
     // ---- Herbalism PlayerCardEffect templates ----
 
-    let durability_cost_id = lib.cards.len();
+    // Cost: Durability (dead entry — costs now stored as rolled_costs on benefit effects)
+    let _durability_cost_id = lib.cards.len();
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Durability,
                 min: 50,
                 max: 100,
@@ -84,11 +134,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let stamina_cost_id = lib.cards.len();
+    // Cost: Stamina (dead entry — costs now stored as rolled_costs on benefit effects)
+    let _stamina_cost_id = lib.cards.len();
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Stamina,
                 min: 100,
                 max: 150,
@@ -106,11 +156,11 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let health_cost_id = lib.cards.len();
+    // Cost: Health (dead entry — costs now stored as rolled_costs on benefit effects)
+    let _health_cost_id = lib.cards.len();
     lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
-                target: types::EffectTarget::OnSelf,
                 token_type: types::TokenType::Health,
                 min: 150,
                 max: 200,
@@ -349,13 +399,15 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // ---- Player herbalism cards (rolled from templates) ----
 
     // Narrow herbalism card: targets 1 characteristic, durability cost
+    let mut effects = vec![roll_concrete_effect(rng, match_or_fragile_id, lib)];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_or_fragile_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 0,
             deck: 15,
@@ -367,13 +419,15 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Medium herbalism card: targets 2 characteristics
+    let mut effects = vec![roll_concrete_effect(rng, match_or_thorny_aromatic_id, lib)];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_or_thorny_aromatic_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 0,
             deck: 15,
@@ -385,13 +439,19 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Broad herbalism card: targets 3 characteristics
+    let mut effects = vec![roll_concrete_effect(
+        rng,
+        match_or_bitter_luminous_fragile_id,
+        lib,
+    )];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_or_bitter_luminous_fragile_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 0,
             deck: 15,
@@ -481,14 +541,19 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // MostCommon card — removes the most common characteristic (limit 1)
+    let mut effects = vec![roll_concrete_effect(rng, match_most_common_id, lib)];
+    let stam_cost = roll_range(rng, 100, 150);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, stamina_cost_id, lib),
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_most_common_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 0,
             deck: 3,
@@ -500,14 +565,19 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // LeastCommon card — removes the least common characteristic (limit 1)
+    let mut effects = vec![roll_concrete_effect(rng, match_least_common_id, lib)];
+    let stam_cost = roll_range(rng, 100, 150);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, stamina_cost_id, lib),
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_least_common_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 0,
             deck: 3,
@@ -519,14 +589,19 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // AND-based multi-type card — removes only plants matching ALL listed types
+    let mut effects = vec![roll_concrete_effect(rng, match_and_fragile_thorny_id, lib)];
+    let stam_cost = roll_range(rng, 100, 150);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, stamina_cost_id, lib),
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_and_fragile_thorny_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 0,
             deck: 3,
@@ -538,14 +613,18 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Stamina rest card for herbalism
+    let mut effects = vec![
+        roll_concrete_effect(rng, match_or_empty_id, lib),
+        roll_concrete_effect(rng, stamina_gain_id, lib),
+    ];
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[(types::TokenType::Durability, dur_cost)],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_or_empty_id, lib),
-                roll_concrete_effect(rng, stamina_gain_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 0,
             deck: 3,
@@ -557,14 +636,19 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Stamina-cost starting herbalism card: matches 4 characteristics
+    let mut effects = vec![roll_concrete_effect(rng, match_or_4chars_id, lib)];
+    let stam_cost = roll_range(rng, 100, 150);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Stamina, stam_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, stamina_cost_id, lib),
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_or_4chars_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 1,
             deck: 1,
@@ -576,14 +660,19 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Health-cost starting herbalism card: matches ALL 5 characteristics
+    let mut effects = vec![roll_concrete_effect(rng, match_or_all5_id, lib)];
+    let health_cost = roll_range(rng, 150, 200);
+    let dur_cost = roll_range(rng, 50, 100);
+    apply_herbalism_costs(
+        &mut effects,
+        lib,
+        &[
+            (types::TokenType::Health, health_cost),
+            (types::TokenType::Durability, dur_cost),
+        ],
+    );
     lib.add_card(
-        CardKind::Herbalism {
-            effects: vec![
-                roll_concrete_effect(rng, health_cost_id, lib),
-                roll_concrete_effect(rng, durability_cost_id, lib),
-                roll_concrete_effect(rng, match_or_all5_id, lib),
-            ],
-        },
+        CardKind::Herbalism { effects },
         CardCounts {
             library: 1,
             deck: 1,
@@ -650,8 +739,8 @@ impl GameState {
             _ => return Err("Cannot play a non-herbalism card in herbalism encounter".to_string()),
         };
 
-        // Extract costs from LoseTokens/OnSelf effects and split into pre/post-play
-        let costs = Self::extract_gathering_costs_from_effects(&effects, &self.library);
+        // Extract costs from rolled_costs on effects and split into pre/post-play
+        let costs = Self::extract_gathering_costs_from_effects(&effects);
         let (pre_play_costs, post_play_costs) = types::split_token_amounts(&costs);
         if !pre_play_costs.is_empty() {
             Self::check_and_deduct_gathering_costs(&pre_play_costs, &mut self.token_balances)?;
@@ -697,7 +786,7 @@ impl GameState {
                 CardEffectKind::HerbalismMatch { match_mode } => {
                     match_mode_opt = Some(match_mode.clone());
                 }
-                // LoseTokens/OnSelf already handled above as costs
+                // Costs handled via rolled_costs above
                 _ => {}
             }
         }

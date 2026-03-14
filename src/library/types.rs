@@ -255,10 +255,10 @@ pub enum CardEffectKind {
         #[serde(default = "default_persistent_lifecycle")]
         duration: TokenLifecycle,
     },
-    /// Lose tokens: min/max represent the positive amount to lose. The apply logic subtracts.
-    /// Costs are calculated after the loss value is determined.
+    /// Lose tokens on the opponent: min/max represent the positive amount to lose.
+    /// Target is always the opponent (implicit) — the card caster inflicts token loss on
+    /// the other side. Costs (if any) are paid by the caster as a percentage of the loss.
     LoseTokens {
-        target: EffectTarget,
         token_type: TokenType,
         min: i64,
         max: i64,
@@ -315,6 +315,11 @@ pub struct ConcreteEffect {
     /// Rolled gain percentage (from gain_min_percent..gain_max_percent on the template).
     #[serde(default)]
     pub rolled_gain_percent: Option<u32>,
+    /// Card-level value used as cost base. When set, costs are computed as
+    /// `card_value * rolled_percent / 100` instead of `rolled_value * rolled_percent / 100`.
+    /// Provides transparency into how the card's total value was computed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card_value: Option<i64>,
 }
 
 /// A concrete rolled cost on a card: the specific percentage rolled from the cost range.
