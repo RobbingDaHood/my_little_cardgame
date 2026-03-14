@@ -3,6 +3,8 @@
 //! This file provides small, well-scoped domain primitives used by higher-level systems.
 
 pub mod action_log;
+pub mod config;
+pub mod config_loader;
 pub(crate) mod disciplines;
 mod endpoints;
 pub mod game_state;

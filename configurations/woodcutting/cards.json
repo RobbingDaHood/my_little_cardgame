@@ -1,0 +1,567 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "stamina_gain",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 200,
+        "cap_max": 200,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "light_chop",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "LightChop",
+        "min_value": 1,
+        "max_value": 3,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "heavy_chop",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "HeavyChop",
+        "min_value": 3,
+        "max_value": 7,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "medium_chop",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "MediumChop",
+        "min_value": 3,
+        "max_value": 6,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "precision_chop",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "PrecisionChop",
+        "min_value": 7,
+        "max_value": 9,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "split_chop",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "SplitChop",
+        "min_value": 4,
+        "max_value": 8,
+        "costs": []
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "light_chop_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "LightChop",
+        "min_value": 1,
+        "max_value": 3,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "light_chop_dur_stam",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "LightChop",
+        "min_value": 1,
+        "max_value": 3,
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 100,
+            "max_percent": 250,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "heavy_chop_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "HeavyChop",
+        "min_value": 3,
+        "max_value": 7,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "heavy_chop_dur_stam",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "HeavyChop",
+        "min_value": 3,
+        "max_value": 7,
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 100,
+            "max_percent": 250,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "heavy_chop_dur_health",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "HeavyChop",
+        "min_value": 3,
+        "max_value": 7,
+        "costs": [
+          {
+            "token_type": "Health",
+            "min_percent": 150,
+            "max_percent": 200,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "medium_chop_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "MediumChop",
+        "min_value": 3,
+        "max_value": 6,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "precision_chop_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "PrecisionChop",
+        "min_value": 7,
+        "max_value": 9,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "precision_chop_dur_stam",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "PrecisionChop",
+        "min_value": 7,
+        "max_value": 9,
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 100,
+            "max_percent": 250,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "split_chop_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "SplitChop",
+        "min_value": 4,
+        "max_value": 8,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "stamina_gain_dur",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 200,
+        "cap_max": 200,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 50,
+            "max_percent": 100,
+            "is_absolute": true
+          }
+        ],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:light_chop_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 2,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:heavy_chop_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:medium_chop_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:precision_chop_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 15,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Woodcutting",
+        "woodcutting_def": {
+          "max_plays": 8,
+          "base_rewards": {
+            "Lumber": 1000
+          }
+        }
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 3,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:heavy_chop_dur_stam",
+        "woodcutting:light_chop"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:split_chop_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 10,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:light_chop_dur",
+        "woodcutting:medium_chop"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:heavy_chop_dur_stam",
+        "woodcutting:medium_chop",
+        "woodcutting:precision_chop"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:light_chop_dur_stam",
+        "woodcutting:heavy_chop",
+        "woodcutting:medium_chop",
+        "woodcutting:split_chop"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 2,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:stamina_gain_dur"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:precision_chop_dur_stam",
+        "woodcutting:medium_chop"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": [
+        "woodcutting:heavy_chop_dur_health",
+        "woodcutting:precision_chop",
+        "woodcutting:medium_chop"
+      ],
+      "counts": {
+        "library": 1,
+        "deck": 1,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Woodcutting"
+      ]
+    }
+  ]
+}

@@ -3,15 +3,6 @@ use super::super::Library;
 use crate::library::game_state::{roll_concrete_effect, GameState};
 use std::collections::HashMap;
 
-/// Register initial tier-1 milestone encounter cards for all combat/gathering disciplines.
-pub(crate) fn register_milestone_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
-    register_combat_milestone(lib, rng, 1);
-    register_mining_milestone(lib, rng, 1);
-    register_herbalism_milestone(lib, rng, 1);
-    register_woodcutting_milestone(lib, rng, 1);
-    register_fishing_milestone(lib, rng, 1);
-}
-
 fn milestone_insight_cost(tier: u32) -> i64 {
     100 * (1i64 << (tier - 1))
 }

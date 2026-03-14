@@ -1,0 +1,121 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "deal_damage",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "Health",
+        "min": 400,
+        "max": 600,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "grant_shield",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Shield",
+        "cap_min": 200,
+        "cap_max": 400,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "grant_stamina",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 150,
+        "cap_max": 250,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "draw_cards",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "DrawCards",
+        "attack": 1,
+        "defence": 1,
+        "resource": 2
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "insight",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "Insight",
+        "min": 1,
+        "max": 5
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Combat",
+        "Mining",
+        "Herbalism",
+        "Woodcutting",
+        "Fishing",
+        "Rest",
+        "Crafting"
+      ]
+    }
+  ]
+}

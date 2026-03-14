@@ -1,0 +1,379 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "enemy_damage",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "Health",
+        "min": 300,
+        "max": 500,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "enemy_shield",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Shield",
+        "cap_min": 200,
+        "cap_max": 350,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "enemy_draw",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "DrawCards",
+        "attack": 1,
+        "defence": 1,
+        "resource": 2
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Milestone",
+        "milestone_def": {
+          "inner_encounter": {
+            "encounter_type": "Combat",
+            "combatant": {
+              "initial_tokens": {
+                "Health": 3000,
+                "MaxHealth": 3000
+              },
+              "attack_deck": [
+                {
+                  "effect_refs": [
+                    "milestone:enemy_damage"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 12,
+                    "discard": 0
+                  }
+                }
+              ],
+              "defence_deck": [
+                {
+                  "effect_refs": [
+                    "milestone:enemy_shield"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 12,
+                    "discard": 0
+                  }
+                }
+              ],
+              "resource_deck": [
+                {
+                  "effect_refs": [
+                    "milestone:enemy_draw"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 12,
+                    "discard": 0
+                  }
+                }
+              ]
+            }
+          },
+          "discipline": "Combat",
+          "tier": 1,
+          "insight_cost": 100
+        }
+      },
+      "counts": {
+        "library": 0,
+        "deck": 0,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "effect",
+      "name": "ore_light_small",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "MiningLightLevel",
+        "min": 30,
+        "max": 30,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Mining"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "ore_light_medium",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "MiningLightLevel",
+        "min": 60,
+        "max": 60,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Mining"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "ore_light_large",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "MiningLightLevel",
+        "min": 100,
+        "max": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Mining"
+      ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Milestone",
+        "milestone_def": {
+          "inner_encounter": {
+            "encounter_type": "Mining",
+            "mining_def": {
+              "initial_light_level": 200,
+              "ore_deck": [
+                {
+                  "effect_refs": [
+                    "milestone:ore_light_small"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 8,
+                    "discard": 0
+                  }
+                },
+                {
+                  "effect_refs": [
+                    "milestone:ore_light_medium"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 10,
+                    "discard": 0
+                  }
+                },
+                {
+                  "effect_refs": [
+                    "milestone:ore_light_large"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 4,
+                    "discard": 0
+                  }
+                }
+              ]
+            }
+          },
+          "discipline": "Mining",
+          "tier": 1,
+          "insight_cost": 100
+        }
+      },
+      "counts": {
+        "library": 0,
+        "deck": 0,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Milestone",
+        "milestone_def": {
+          "inner_encounter": {
+            "encounter_type": "Herbalism",
+            "herbalism_def": {
+              "plant_hand": [
+                {
+                  "characteristics": [
+                    "Fragile",
+                    "Thorny"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 4,
+                    "discard": 0
+                  }
+                },
+                {
+                  "characteristics": [
+                    "Aromatic",
+                    "Bitter"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 4,
+                    "discard": 0
+                  }
+                },
+                {
+                  "characteristics": [
+                    "Luminous",
+                    "Fragile"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 3,
+                    "discard": 0
+                  }
+                },
+                {
+                  "characteristics": [
+                    "Thorny",
+                    "Aromatic",
+                    "Luminous"
+                  ],
+                  "counts": {
+                    "deck": 0,
+                    "hand": 2,
+                    "discard": 0
+                  }
+                }
+              ],
+              "rewards": {
+                "Plant": 50,
+                "HerbalismInsight": 10
+              }
+            }
+          },
+          "discipline": "Herbalism",
+          "tier": 1,
+          "insight_cost": 100
+        }
+      },
+      "counts": {
+        "library": 0,
+        "deck": 0,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Milestone",
+        "milestone_def": {
+          "inner_encounter": {
+            "encounter_type": "Woodcutting",
+            "woodcutting_def": {
+              "max_plays": 7,
+              "base_rewards": {
+                "Lumber": 50,
+                "WoodcuttingInsight": 10
+              }
+            }
+          },
+          "discipline": "Woodcutting",
+          "tier": 1,
+          "insight_cost": 100
+        }
+      },
+      "counts": {
+        "library": 0,
+        "deck": 0,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Milestone",
+        "milestone_def": {
+          "inner_encounter": {
+            "encounter_type": "Fishing",
+            "fishing_def": {
+              "valid_range_min": -50,
+              "valid_range_max": 50,
+              "max_turns": 10,
+              "win_turns_needed": 6,
+              "fish_deck": [
+                {
+                  "value": 40,
+                  "counts": {
+                    "deck": 0,
+                    "hand": 6,
+                    "discard": 0
+                  }
+                },
+                {
+                  "value": 80,
+                  "counts": {
+                    "deck": 0,
+                    "hand": 4,
+                    "discard": 0
+                  }
+                },
+                {
+                  "value": 120,
+                  "counts": {
+                    "deck": 0,
+                    "hand": 2,
+                    "discard": 0
+                  }
+                }
+              ],
+              "rewards": {
+                "Fish": 50,
+                "FishingInsight": 10
+              }
+            }
+          },
+          "discipline": "Fishing",
+          "tier": 1,
+          "insight_cost": 100
+        }
+      },
+      "counts": {
+        "library": 0,
+        "deck": 0,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    }
+  ]
+}

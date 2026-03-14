@@ -42,6 +42,7 @@ fn build_designer_guide() -> DesignerGuide {
             build_token_lifecycles(),
             build_effect_system(),
             build_balance_levers(),
+            build_json_configuration(),
             build_configuration_notes(),
         ],
     }
@@ -283,13 +284,13 @@ fn build_balance_levers() -> DesignerSection {
             ReferenceEntry {
                 name: "Starting token values".to_string(),
                 description: "Health (1000), Stamina (1000), Durabilities (10000), Foresight (3), \
-                    Max hand sizes (5 each). Defined in GameState::new_with_rng()."
+                    Max hand sizes (5 each). Defined in configurations/general/tokens.json."
                     .to_string(),
             },
             ReferenceEntry {
                 name: "Card effect values".to_string(),
                 description: "Damage, shield, healing, draw counts per card. Higher values = easier encounters. \
-                    Defined per card in the library initialization."
+                    Defined per card in the JSON configuration files under configurations/."
                     .to_string(),
             },
             ReferenceEntry {
@@ -328,20 +329,76 @@ fn build_balance_levers() -> DesignerSection {
     }
 }
 
-fn build_configuration_notes() -> DesignerSection {
+fn build_json_configuration() -> DesignerSection {
     DesignerSection {
-        title: "Configuration & Tooling".to_string(),
-        description: "Notes on how game content is authored and how to use the available \
-            tools for testing and balance analysis."
+        title: "JSON Configuration Files".to_string(),
+        description: "All card, effect, and encounter definitions live in JSON files under \
+            the configurations/ directory. Files are embedded at compile time via include_str!() \
+            so no runtime file access is needed — edit JSON, recompile, and the new definitions \
+            take effect."
             .to_string(),
         entries: vec![
             ReferenceEntry {
-                name: "Library initialization".to_string(),
-                description: "Cards and encounters are currently defined in Rust code \
-                    (src/library/game_state.rs). Future: JSON configuration files in a \
-                    configurations/ folder will allow editing without recompiling (see roadmap step 14)."
+                name: "Directory layout".to_string(),
+                description: "configurations/general/tokens.json — initial token balances \
+                    (Health, Stamina, Durabilities, max hand sizes). \
+                    configurations/general/shared_effects.json — 5 shared effect templates \
+                    reusable across disciplines (deal_damage, grant_shield, grant_stamina, \
+                    draw_cards, insight). \
+                    configurations/<discipline>/cards.json — per-discipline file for combat, \
+                    mining, herbalism, woodcutting, fishing, rest, crafting, research, milestone."
                     .to_string(),
             },
+            ReferenceEntry {
+                name: "Card entry types".to_string(),
+                description: "Each discipline JSON has a top-level \"cards\" array. Entries are \
+                    tagged with \"type\": \"effect\" (effect templates), \"player_card\" (player \
+                    cards referencing effects), or \"encounter\" (encounter definitions). Order \
+                    matters — effects must appear before cards or encounters that reference them."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Effect templates".to_string(),
+                description: "Define reusable card effects with a name, owner (Player/Enemy), \
+                    kind (LoseTokens, GainTokens, DrawCards, Insight), counts, and \
+                    valid_disciplines. Each effect gets a namespaced identifier like \
+                    \"shared:deal_damage\" or \"combat:enemy_shield\"."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Effect references (effect_refs)".to_string(),
+                description: "Player cards and encounter decks reference effects by namespaced \
+                    name using \"effect_refs\": [\"shared:deal_damage\"]. The prefix is the \
+                    discipline folder name (\"shared\" for general/shared_effects.json, \
+                    \"combat\" for combat/cards.json, etc.). Multiple refs compose effects \
+                    on a single card."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Encounter definitions".to_string(),
+                description: "Encounter entries use \"encounter_type\" to select the discipline \
+                    variant (Combat, Mining, Herbalism, etc.) and include the discipline-specific \
+                    definition inline. Combat encounters define enemy decks with effect_refs; \
+                    Mining defines ore_deck entries; Fishing defines fish_deck entries; and so on."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Card counts".to_string(),
+                description: "Every card entry has a \"counts\" object with library, deck, hand, \
+                    and discard fields controlling how many copies start in each state. Effect \
+                    templates typically use {library:1, deck:0, hand:0, discard:0}. Player cards \
+                    distribute copies across deck/hand as needed."
+                    .to_string(),
+            },
+        ],
+    }
+}
+
+fn build_configuration_notes() -> DesignerSection {
+    DesignerSection {
+        title: "Configuration & Tooling".to_string(),
+        description: "Notes on available tools for testing and balance analysis.".to_string(),
+        entries: vec![
             ReferenceEntry {
                 name: "Deterministic seeding".to_string(),
                 description: "All RNG is seeded — same seed + same actions = same outcome. \

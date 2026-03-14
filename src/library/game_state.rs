@@ -1,7 +1,7 @@
 use super::action_log::ActionLog;
 use super::types::{
-    ActionEntry, ActionPayload, CardCounts, CardKind, ConcreteEffect, ConcreteEffectCost,
-    EncounterKind, EncounterOutcome, EncounterState, HasDeckCounts,
+    ActionEntry, ActionPayload, CardKind, ConcreteEffect, ConcreteEffectCost, EncounterKind,
+    EncounterOutcome, EncounterState, HasDeckCounts,
 };
 use super::Library;
 use std::collections::HashMap;
@@ -122,140 +122,6 @@ pub(crate) fn roll_concrete_effect(
     }
 }
 
-fn initialize_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
-    let mut lib = Library::new();
-
-    // ---- Shared PlayerCardEffect deck entries (templates with ranges) ----
-
-    // Player "deal damage" effect (range: 400-600)
-    lib.add_card(
-        CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::LoseTokens {
-                token_type: super::types::TokenType::Health,
-                min: 400,
-                max: 600,
-                costs: vec![],
-                duration: super::types::TokenLifecycle::PersistentCounter,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-        rng,
-        vec![super::types::Discipline::Combat],
-    );
-
-    // Player "grant shield" effect (range: 200-400)
-    lib.add_card(
-        CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::GainTokens {
-                target: super::types::EffectTarget::OnSelf,
-                token_type: super::types::TokenType::Shield,
-                cap_min: 200,
-                cap_max: 400,
-                gain_min_percent: 100,
-                gain_max_percent: 100,
-                costs: vec![],
-                duration: super::types::TokenLifecycle::PersistentCounter,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-        rng,
-        vec![super::types::Discipline::Combat],
-    );
-
-    // Player "grant stamina" effect (range: 150-250)
-    lib.add_card(
-        CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::GainTokens {
-                target: super::types::EffectTarget::OnSelf,
-                token_type: super::types::TokenType::Stamina,
-                cap_min: 150,
-                cap_max: 250,
-                gain_min_percent: 100,
-                gain_max_percent: 100,
-                costs: vec![],
-                duration: super::types::TokenLifecycle::PersistentCounter,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-        rng,
-        vec![super::types::Discipline::Combat],
-    );
-
-    // Player "draw 1 attack, 1 defence, 2 resource" effect
-    lib.add_card(
-        CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::DrawCards {
-                attack: 1,
-                defence: 1,
-                resource: 2,
-            },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-        rng,
-        vec![super::types::Discipline::Combat],
-    );
-
-    // Insight PlayerCardEffect (range: 1-5, valid for all disciplines)
-    lib.add_card(
-        CardKind::PlayerCardEffect {
-            kind: super::types::CardEffectKind::Insight { min: 1, max: 5 },
-        },
-        CardCounts {
-            library: 1,
-            deck: 0,
-            hand: 0,
-            discard: 0,
-        },
-        rng,
-        vec![
-            super::types::Discipline::Combat,
-            super::types::Discipline::Mining,
-            super::types::Discipline::Herbalism,
-            super::types::Discipline::Woodcutting,
-            super::types::Discipline::Fishing,
-            super::types::Discipline::Rest,
-            super::types::Discipline::Crafting,
-        ],
-    );
-
-    // ---- Discipline-specific cards ----
-    super::disciplines::combat::register_combat_cards(&mut lib, rng);
-    super::disciplines::mining::register_mining_cards(&mut lib, rng);
-    super::disciplines::herbalism::register_herbalism_cards(&mut lib, rng);
-    super::disciplines::woodcutting::register_woodcutting_cards(&mut lib, rng);
-    super::disciplines::fishing::register_fishing_cards(&mut lib, rng);
-    super::disciplines::rest::register_rest_cards(&mut lib, rng);
-    super::disciplines::crafting::register_crafting_cards(&mut lib, rng);
-    super::disciplines::research::register_research_cards(&mut lib, rng);
-    super::disciplines::milestone::register_milestone_cards(&mut lib, rng);
-
-    if let Err(errors) = lib.validate_card_effects() {
-        panic!("Library card effect validation failed: {:?}", errors);
-    }
-
-    lib
-}
-
 /// Minimal in-memory game state driven by the library's mutator API.
 #[derive(Debug, Clone)]
 pub struct GameState {
@@ -279,83 +145,7 @@ impl GameState {
     }
 
     pub fn new_with_rng(rng: &mut rand_pcg::Lcg64Xsh32) -> Self {
-        let mut balances = HashMap::new();
-        for id in super::types::TokenType::all() {
-            balances.insert(super::types::Token::persistent(id), 0i64);
-        }
-        // Default Foresight controls area deck hand size
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::Foresight),
-            3,
-        );
-        // Durabilities scaled by ~100x (100→10000)
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::MiningDurability),
-            10000,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::HerbalismDurability),
-            10000,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::WoodcuttingDurability),
-            10000,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::FishingDurability),
-            10000,
-        );
-        // Starting stamina
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::Stamina),
-            1000,
-        );
-        // Starting health
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::Health),
-            1000,
-        );
-        // Max handsize tokens (player decks)
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::AttackMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::DefenceMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::ResourceMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::MiningMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::HerbalismMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::WoodcuttingMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::FishingMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::RestMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::CraftingMaxHand),
-            5,
-        );
-        balances.insert(
-            super::types::Token::persistent(super::types::TokenType::MilestoneMaxHand),
-            5,
-        );
+        let balances = super::config_loader::load_token_balances();
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -375,7 +165,7 @@ impl GameState {
         Self {
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
-            library: initialize_library(rng),
+            library: super::config_loader::load_library(rng),
             current_encounter: None,
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_encounter_result: None,

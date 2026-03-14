@@ -10,6 +10,7 @@
 mod api;
 mod combat;
 mod costs;
+mod coverage_boost;
 mod crafting;
 mod fishing;
 mod helpers;
