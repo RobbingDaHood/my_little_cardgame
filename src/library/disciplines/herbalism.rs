@@ -61,8 +61,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // ---- Herbalism EnemyCardEffect templates ----
 
     // Plant passive effect: small gain (single-characteristic plants)
-    let plant_small_id = lib.cards.len();
-    lib.add_card(
+    let plant_small_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -86,8 +85,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Plant passive effect: medium gain (dual-characteristic plants)
-    let plant_medium_id = lib.cards.len();
-    lib.add_card(
+    let plant_medium_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -113,8 +111,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     // ---- Herbalism PlayerCardEffect templates ----
 
     // Cost: Durability (dead entry — costs now stored as rolled_costs on benefit effects)
-    let _durability_cost_id = lib.cards.len();
-    lib.add_card(
+    let _durability_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Durability,
@@ -135,8 +132,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Cost: Stamina (dead entry — costs now stored as rolled_costs on benefit effects)
-    let _stamina_cost_id = lib.cards.len();
-    lib.add_card(
+    let _stamina_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Stamina,
@@ -157,8 +153,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
     );
 
     // Cost: Health (dead entry — costs now stored as rolled_costs on benefit effects)
-    let _health_cost_id = lib.cards.len();
-    lib.add_card(
+    let _health_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -178,8 +173,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let stamina_gain_id = lib.cards.len();
-    lib.add_card(
+    let stamina_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -204,8 +198,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
 
     // ---- HerbalismMatch templates (one per unique match_mode) ----
 
-    let match_or_fragile_id = lib.cards.len();
-    lib.add_card(
+    let match_or_fragile_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or {
@@ -223,8 +216,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_or_thorny_aromatic_id = lib.cards.len();
-    lib.add_card(
+    let match_or_thorny_aromatic_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or {
@@ -245,8 +237,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_or_bitter_luminous_fragile_id = lib.cards.len();
-    lib.add_card(
+    let match_or_bitter_luminous_fragile_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or {
@@ -268,8 +259,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_most_common_id = lib.cards.len();
-    lib.add_card(
+    let match_most_common_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::MostCommon {
@@ -288,8 +278,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_least_common_id = lib.cards.len();
-    lib.add_card(
+    let match_least_common_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::LeastCommon {
@@ -308,8 +297,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_and_fragile_thorny_id = lib.cards.len();
-    lib.add_card(
+    let match_and_fragile_thorny_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::And {
@@ -330,8 +318,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_or_empty_id = lib.cards.len();
-    lib.add_card(
+    let match_or_empty_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or { types: vec![] },
@@ -347,8 +334,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_or_4chars_id = lib.cards.len();
-    lib.add_card(
+    let match_or_4chars_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or {
@@ -371,8 +357,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         vec![types::Discipline::Herbalism],
     );
 
-    let match_or_all5_id = lib.cards.len();
-    lib.add_card(
+    let match_or_all5_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or {

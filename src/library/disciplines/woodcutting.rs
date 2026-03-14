@@ -56,8 +56,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
     // ---- Woodcutting PlayerCardEffect templates ----
 
     // Dead entries: former LoseTokens/OnSelf cost templates. Kept to preserve card indices.
-    let _wc_durability_cost_id = lib.cards.len();
-    lib.add_card(
+    let _wc_durability_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Durability,
@@ -77,8 +76,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    let _wc_stamina_cost_id = lib.cards.len();
-    lib.add_card(
+    let _wc_stamina_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Stamina,
@@ -98,8 +96,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
         vec![types::Discipline::Woodcutting],
     );
 
-    let _wc_health_cost_id = lib.cards.len();
-    lib.add_card(
+    let _wc_health_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -120,8 +117,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
     );
 
     // Gain: Stamina
-    let wc_stamina_gain_id = lib.cards.len();
-    lib.add_card(
+    let wc_stamina_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -145,8 +141,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
     );
 
     // Chop: LightChop (values 1-3)
-    let wc_light_chop_id = lib.cards.len();
-    lib.add_card(
+    let wc_light_chop_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::WoodcuttingChop {
                 chop_type: types::ChopType::LightChop,
@@ -165,8 +160,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
     );
 
     // Chop: HeavyChop (values 3-7)
-    let wc_heavy_chop_id = lib.cards.len();
-    lib.add_card(
+    let wc_heavy_chop_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::WoodcuttingChop {
                 chop_type: types::ChopType::HeavyChop,
@@ -185,8 +179,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
     );
 
     // Chop: MediumChop (values 3-6)
-    let wc_medium_chop_id = lib.cards.len();
-    lib.add_card(
+    let wc_medium_chop_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::WoodcuttingChop {
                 chop_type: types::ChopType::MediumChop,
@@ -205,8 +198,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
     );
 
     // Chop: PrecisionChop (values 7-9)
-    let wc_precision_chop_id = lib.cards.len();
-    lib.add_card(
+    let wc_precision_chop_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::WoodcuttingChop {
                 chop_type: types::ChopType::PrecisionChop,
@@ -225,8 +217,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
     );
 
     // Chop: SplitChop (values 4-8)
-    let wc_split_chop_id = lib.cards.len();
-    lib.add_card(
+    let wc_split_chop_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::WoodcuttingChop {
                 chop_type: types::ChopType::SplitChop,

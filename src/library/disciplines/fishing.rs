@@ -61,8 +61,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // ---- Fishing EnemyCardEffect templates ----
 
     // Fish value effect (low): 50-150
-    let fish_low_id = lib.cards.len();
-    lib.add_card(
+    let fish_low_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -86,8 +85,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Fish value effect (medium): 200-400
-    let fish_medium_id = lib.cards.len();
-    lib.add_card(
+    let fish_medium_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -111,8 +109,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Fish value effect (high): 400-600
-    let fish_high_id = lib.cards.len();
-    lib.add_card(
+    let fish_high_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -136,8 +133,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Fish value effect (very high): 600-800
-    let fish_very_high_id = lib.cards.len();
-    lib.add_card(
+    let fish_very_high_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -163,8 +159,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // ---- Fishing PlayerCardEffect templates ----
 
     // Cost: Durability (dead entry — costs now stored as rolled_costs on benefit effects)
-    let _fish_durability_cost_id = lib.cards.len();
-    lib.add_card(
+    let _fish_durability_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Durability,
@@ -185,8 +180,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Cost: Stamina (dead entry — costs now stored as rolled_costs on benefit effects)
-    let _fish_stamina_cost_id = lib.cards.len();
-    lib.add_card(
+    let _fish_stamina_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Stamina,
@@ -207,8 +201,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Cost: Health (dead entry — costs now stored as rolled_costs on benefit effects)
-    let _fish_health_cost_id = lib.cards.len();
-    lib.add_card(
+    let _fish_health_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -229,8 +222,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Gain: FishingRangeMin (covers -150, 50)
-    let fish_range_min_gain_id = lib.cards.len();
-    lib.add_card(
+    let fish_range_min_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -254,8 +246,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Gain: FishingRangeMax (covers -50, 150)
-    let fish_range_max_gain_id = lib.cards.len();
-    lib.add_card(
+    let fish_range_max_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -279,8 +270,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Gain: FishAmount (covers -1, 1)
-    let fish_amount_gain_id = lib.cards.len();
-    lib.add_card(
+    let fish_amount_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -304,8 +294,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // Gain: Stamina (covers 200)
-    let fish_stamina_gain_id = lib.cards.len();
-    lib.add_card(
+    let fish_stamina_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -329,8 +318,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // FishingValue: Low (50-200)
-    let fish_value_low_id = lib.cards.len();
-    lib.add_card(
+    let fish_value_low_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::FishingValue { min: 50, max: 200 },
         },
@@ -345,8 +333,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // FishingValue: Medium (250-450)
-    let fish_value_medium_id = lib.cards.len();
-    lib.add_card(
+    let fish_value_medium_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::FishingValue { min: 250, max: 450 },
         },
@@ -361,8 +348,7 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     );
 
     // FishingValue: High (500-750)
-    let fish_value_high_id = lib.cards.len();
-    lib.add_card(
+    let fish_value_high_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::FishingValue { min: 500, max: 750 },
         },

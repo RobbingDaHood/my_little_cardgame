@@ -56,8 +56,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     // ---- Crafting EnemyCardEffect templates ----
 
     // Enemy cost increase: Ore (10-30)
-    let enemy_ore_effect_id = lib.cards.len();
-    lib.add_card(
+    let enemy_ore_effect_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnOpponent,
@@ -81,8 +80,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Enemy cost increase: Plant (10-30)
-    let enemy_plant_effect_id = lib.cards.len();
-    lib.add_card(
+    let enemy_plant_effect_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnOpponent,
@@ -106,8 +104,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Enemy cost increase: Lumber (10-30)
-    let enemy_lumber_effect_id = lib.cards.len();
-    lib.add_card(
+    let enemy_lumber_effect_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnOpponent,
@@ -131,8 +128,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Enemy cost increase: Fish (10-30)
-    let enemy_fish_effect_id = lib.cards.len();
-    lib.add_card(
+    let enemy_fish_effect_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnOpponent,
@@ -158,8 +154,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     // ---- Crafting PlayerCardEffect templates ----
 
     // Dead entries: former LoseTokens/OnSelf cost templates. Kept to preserve card indices.
-    let _crafting_stamina_cost_id = lib.cards.len();
-    lib.add_card(
+    let _crafting_stamina_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Stamina,
@@ -179,8 +174,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
         vec![types::Discipline::Crafting],
     );
 
-    let _crafting_health_cost_id = lib.cards.len();
-    lib.add_card(
+    let _crafting_health_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -201,8 +195,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Ore reduction template (covers 20, 30, 40)
-    let crafting_ore_reduction_id = lib.cards.len();
-    lib.add_card(
+    let crafting_ore_reduction_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::CraftingReduction {
                 token_type: types::TokenType::Ore,
@@ -221,8 +214,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Plant reduction template
-    let crafting_plant_reduction_id = lib.cards.len();
-    lib.add_card(
+    let crafting_plant_reduction_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::CraftingReduction {
                 token_type: types::TokenType::Plant,
@@ -241,8 +233,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Lumber reduction template
-    let crafting_lumber_reduction_id = lib.cards.len();
-    lib.add_card(
+    let crafting_lumber_reduction_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::CraftingReduction {
                 token_type: types::TokenType::Lumber,
@@ -261,8 +252,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Fish reduction template
-    let crafting_fish_reduction_id = lib.cards.len();
-    lib.add_card(
+    let crafting_fish_reduction_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::CraftingReduction {
                 token_type: types::TokenType::Fish,
@@ -281,8 +271,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
     );
 
     // Stamina grant template (for "Stamina reduction" which actually grants stamina)
-    let crafting_stamina_grant_id = lib.cards.len();
-    lib.add_card(
+    let crafting_stamina_grant_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,

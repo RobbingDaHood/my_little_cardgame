@@ -9,8 +9,7 @@ use crate::library::game_state::roll_concrete_effect;
 pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64Xsh32) {
     // ---- Mining EnemyCardEffect templates (ore hazards) ----
 
-    let ore_light_small_id = lib.cards.len();
-    lib.add_card(
+    let ore_light_small_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::MiningLightLevel,
@@ -30,8 +29,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let ore_light_medium_id = lib.cards.len();
-    lib.add_card(
+    let ore_light_medium_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::MiningLightLevel,
@@ -51,8 +49,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let ore_durability_medium_id = lib.cards.len();
-    lib.add_card(
+    let ore_durability_medium_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Durability,
@@ -72,8 +69,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let ore_durability_heavy_id = lib.cards.len();
-    lib.add_card(
+    let ore_durability_heavy_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Durability,
@@ -93,8 +89,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let ore_health_id = lib.cards.len();
-    lib.add_card(
+    let ore_health_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -116,8 +111,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
 
     // ---- Mining PlayerCardEffect templates ----
 
-    let mining_power_gain_id = lib.cards.len();
-    lib.add_card(
+    let mining_power_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -140,8 +134,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let _mining_light_gain_id = lib.cards.len();
-    lib.add_card(
+    let _mining_light_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -164,8 +157,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let mining_stamina_gain_id = lib.cards.len();
-    lib.add_card(
+    let mining_stamina_gain_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -189,8 +181,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Dead entries: former LoseTokens/OnSelf cost templates. Kept to preserve card indices.
-    let _mining_lumber_cost_id = lib.cards.len();
-    lib.add_card(
+    let _mining_lumber_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Lumber,
@@ -210,8 +201,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let _mining_stamina_cost_id = lib.cards.len();
-    lib.add_card(
+    let _mining_stamina_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Stamina,
@@ -231,8 +221,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let _mining_health_cost_id = lib.cards.len();
-    lib.add_card(
+    let _mining_health_cost_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -254,8 +243,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
 
     // ---- New GainTokens templates with costs (replacing LoseTokens/OnSelf pairs) ----
 
-    let mining_power_with_stamina_id = lib.cards.len();
-    lib.add_card(
+    let mining_power_with_stamina_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -282,8 +270,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let mining_power_with_health_id = lib.cards.len();
-    lib.add_card(
+    let mining_power_with_health_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -310,8 +297,7 @@ pub(crate) fn register_mining_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
         vec![types::Discipline::Mining],
     );
 
-    let mining_light_with_lumber_id = lib.cards.len();
-    lib.add_card(
+    let mining_light_with_lumber_id = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,

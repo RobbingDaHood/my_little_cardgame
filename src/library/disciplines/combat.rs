@@ -11,8 +11,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     // ---- Combat EnemyCardEffect templates ----
 
     // Enemy "deal damage" effect (range: 200-400)
-    let enemy_damage_id = lib.cards.len();
-    lib.add_card(
+    let enemy_damage_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -33,8 +32,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Enemy "grant shield" effect (range: 150-250)
-    let enemy_shield_id = lib.cards.len();
-    lib.add_card(
+    let enemy_shield_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -58,8 +56,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Enemy "grant stamina" effect (range: 80-120)
-    let enemy_stamina_id = lib.cards.len();
-    lib.add_card(
+    let enemy_stamina_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -83,8 +80,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Enemy "draw 1 attack, 1 defence, 2 resource" effect
-    let enemy_draw_id = lib.cards.len();
-    lib.add_card(
+    let enemy_draw_id = lib.add_card(
         CardKind::EnemyCardEffect {
             kind: types::CardEffectKind::DrawCards {
                 attack: 1,
@@ -202,8 +198,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Cost damage PlayerCardEffect (range: 700-900, cost: 30-50% Stamina)
-    let cost_damage_idx = lib.cards.len();
-    lib.add_card(
+    let cost_damage_idx = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -228,8 +223,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Cost shield PlayerCardEffect (range: 350-550, cost: 30-50% Stamina)
-    let cost_shield_idx = lib.cards.len();
-    lib.add_card(
+    let cost_shield_idx = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: types::CardEffectKind::GainTokens {
                 target: types::EffectTarget::OnSelf,
@@ -302,8 +296,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Stamina-cost starting attack effect (500-700 damage, 20-40% Stamina cost)
-    let stamina_start_damage_idx = lib.cards.len();
-    lib.add_card(
+    let stamina_start_damage_idx = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
@@ -343,8 +336,7 @@ pub(crate) fn register_combat_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg64
     );
 
     // Health-cost starting attack effect (1000-1300 damage, 20-40% Health cost)
-    let health_start_damage_idx = lib.cards.len();
-    lib.add_card(
+    let health_start_damage_idx = lib.add_card(
         CardKind::PlayerCardEffect {
             kind: types::CardEffectKind::LoseTokens {
                 token_type: types::TokenType::Health,
