@@ -320,7 +320,11 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // FishingValue: Low (50-200)
     let fish_value_low_id = lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: CardEffectKind::FishingValue { min: 50, max: 200 },
+            kind: CardEffectKind::FishingValue {
+                min: 50,
+                max: 200,
+                costs: vec![],
+            },
         },
         CardCounts {
             library: 1,
@@ -335,7 +339,11 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // FishingValue: Medium (250-450)
     let fish_value_medium_id = lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: CardEffectKind::FishingValue { min: 250, max: 450 },
+            kind: CardEffectKind::FishingValue {
+                min: 250,
+                max: 450,
+                costs: vec![],
+            },
         },
         CardCounts {
             library: 1,
@@ -350,7 +358,11 @@ pub(crate) fn register_fishing_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg6
     // FishingValue: High (500-750)
     let fish_value_high_id = lib.add_card(
         CardKind::PlayerCardEffect {
-            kind: CardEffectKind::FishingValue { min: 500, max: 750 },
+            kind: CardEffectKind::FishingValue {
+                min: 500,
+                max: 750,
+                costs: vec![],
+            },
         },
         CardCounts {
             library: 1,

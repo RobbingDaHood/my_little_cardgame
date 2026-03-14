@@ -201,6 +201,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                 token_type: types::TokenType::Ore,
                 min: 20,
                 max: 40,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -220,6 +221,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                 token_type: types::TokenType::Plant,
                 min: 20,
                 max: 40,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -239,6 +241,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                 token_type: types::TokenType::Lumber,
                 min: 20,
                 max: 40,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -258,6 +261,7 @@ pub(crate) fn register_crafting_cards(lib: &mut Library, rng: &mut rand_pcg::Lcg
                 token_type: types::TokenType::Fish,
                 min: 20,
                 max: 40,
+                costs: vec![],
             },
         },
         CardCounts {

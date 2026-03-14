@@ -147,6 +147,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                 chop_type: types::ChopType::LightChop,
                 min_value: 1,
                 max_value: 3,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -166,6 +167,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                 chop_type: types::ChopType::HeavyChop,
                 min_value: 3,
                 max_value: 7,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -185,6 +187,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                 chop_type: types::ChopType::MediumChop,
                 min_value: 3,
                 max_value: 6,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -204,6 +207,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                 chop_type: types::ChopType::PrecisionChop,
                 min_value: 7,
                 max_value: 9,
+                costs: vec![],
             },
         },
         CardCounts {
@@ -223,6 +227,7 @@ pub(crate) fn register_woodcutting_cards(lib: &mut Library, rng: &mut rand_pcg::
                 chop_type: types::ChopType::SplitChop,
                 min_value: 4,
                 max_value: 8,
+                costs: vec![],
             },
         },
         CardCounts {

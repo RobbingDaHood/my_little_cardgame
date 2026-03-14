@@ -279,16 +279,29 @@ pub enum CardEffectKind {
         chop_type: ChopType,
         min_value: u32,
         max_value: u32,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
     },
     /// Herbalism match effect: defines how to match plant characteristics.
-    HerbalismMatch { match_mode: HerbalismMatchMode },
+    HerbalismMatch {
+        match_mode: HerbalismMatchMode,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
+    },
     /// Fishing value effect: a duel value rolled from min..max.
-    FishingValue { min: i64, max: i64 },
+    FishingValue {
+        min: i64,
+        max: i64,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
+    },
     /// Crafting reduction effect: reduces material cost by a rolled amount from min..max.
     CraftingReduction {
         token_type: TokenType,
         min: i64,
         max: i64,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
     },
 }
 

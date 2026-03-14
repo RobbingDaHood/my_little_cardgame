@@ -27,6 +27,19 @@ pub(crate) fn roll_range_u32(rng: &mut rand_pcg::Lcg64Xsh32, min: u32, max: u32)
     lo + (rng.next_u64() % range) as u32
 }
 
+fn roll_costs(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    costs: &[super::types::CardEffectCost],
+) -> Vec<ConcreteEffectCost> {
+    costs
+        .iter()
+        .map(|c| ConcreteEffectCost {
+            token_type: c.token_type.clone(),
+            rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
+        })
+        .collect()
+}
+
 pub(crate) fn roll_concrete_effect(
     rng: &mut rand_pcg::Lcg64Xsh32,
     effect_id: usize,
@@ -45,26 +58,14 @@ pub(crate) fn roll_concrete_effect(
             let r_cap = roll_range(rng, cap_min, cap_max);
             let r_gain = roll_range_u32(rng, gain_min_percent, gain_max_percent);
             let value = r_cap * r_gain as i64 / 100;
-            let costs = costs
-                .iter()
-                .map(|c| ConcreteEffectCost {
-                    token_type: c.token_type.clone(),
-                    rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
-                })
-                .collect();
+            let costs = roll_costs(rng, &costs);
             (value, costs, Some(r_cap), Some(r_gain))
         }
         Some(super::types::CardEffectKind::LoseTokens {
             min, max, costs, ..
         }) => {
             let value = roll_range(rng, min, max);
-            let costs = costs
-                .iter()
-                .map(|c| ConcreteEffectCost {
-                    token_type: c.token_type.clone(),
-                    rolled_percent: roll_range_u32(rng, c.min_percent, c.max_percent),
-                })
-                .collect();
+            let costs = roll_costs(rng, &costs);
             (value, costs, None, None)
         }
         Some(super::types::CardEffectKind::Insight { min, max }) => {
@@ -74,19 +75,28 @@ pub(crate) fn roll_concrete_effect(
         Some(super::types::CardEffectKind::WoodcuttingChop {
             min_value,
             max_value,
+            costs,
             ..
         }) => {
             let value = roll_range(rng, min_value as i64, max_value as i64);
-            (value, vec![], None, None)
+            let costs = roll_costs(rng, &costs);
+            (value, costs, None, None)
         }
-        Some(super::types::CardEffectKind::HerbalismMatch { .. }) => (0, vec![], None, None),
-        Some(super::types::CardEffectKind::FishingValue { min, max }) => {
-            let value = roll_range(rng, min, max);
-            (value, vec![], None, None)
+        Some(super::types::CardEffectKind::HerbalismMatch { costs, .. }) => {
+            let costs = roll_costs(rng, &costs);
+            (0, costs, None, None)
         }
-        Some(super::types::CardEffectKind::CraftingReduction { min, max, .. }) => {
+        Some(super::types::CardEffectKind::FishingValue { min, max, costs }) => {
             let value = roll_range(rng, min, max);
-            (value, vec![], None, None)
+            let costs = roll_costs(rng, &costs);
+            (value, costs, None, None)
+        }
+        Some(super::types::CardEffectKind::CraftingReduction {
+            min, max, costs, ..
+        }) => {
+            let value = roll_range(rng, min, max);
+            let costs = roll_costs(rng, &costs);
+            (value, costs, None, None)
         }
         _ => (0, vec![], None, None),
     };

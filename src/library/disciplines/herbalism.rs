@@ -14,7 +14,7 @@ fn compute_herbalism_card_value(effects: &[types::ConcreteEffect], lib: &Library
     for e in effects {
         if let Some(kind) = lib.resolve_effect(e.effect_id) {
             match kind {
-                CardEffectKind::HerbalismMatch { match_mode } => {
+                CardEffectKind::HerbalismMatch { match_mode, .. } => {
                     let char_count = match &match_mode {
                         types::HerbalismMatchMode::Or { types } => types.len(),
                         types::HerbalismMatchMode::And { types } => types.len(),
@@ -204,6 +204,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                 match_mode: types::HerbalismMatchMode::Or {
                     types: vec![types::PlantCharacteristic::Fragile],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -225,6 +226,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                         types::PlantCharacteristic::Aromatic,
                     ],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -247,6 +249,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                         types::PlantCharacteristic::Fragile,
                     ],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -266,6 +269,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     limit: 1,
                     types: vec![],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -285,6 +289,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                     limit: 1,
                     types: vec![],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -306,6 +311,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                         types::PlantCharacteristic::Thorny,
                     ],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -322,6 +328,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
         CardKind::PlayerCardEffect {
             kind: CardEffectKind::HerbalismMatch {
                 match_mode: types::HerbalismMatchMode::Or { types: vec![] },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -345,6 +352,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                         types::PlantCharacteristic::Bitter,
                     ],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -369,6 +377,7 @@ pub(crate) fn register_herbalism_cards(lib: &mut Library, rng: &mut rand_pcg::Lc
                         types::PlantCharacteristic::Luminous,
                     ],
                 },
+                costs: vec![],
             },
         },
         CardCounts {
@@ -768,7 +777,7 @@ impl GameState {
                     let entry = types::token_entry_by_type(&mut self.token_balances, &insight_type);
                     *entry += effect.rolled_value;
                 }
-                CardEffectKind::HerbalismMatch { match_mode } => {
+                CardEffectKind::HerbalismMatch { match_mode, .. } => {
                     match_mode_opt = Some(match_mode.clone());
                 }
                 // Costs handled via rolled_costs above
