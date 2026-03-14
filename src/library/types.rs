@@ -154,6 +154,12 @@ impl TokenType {
         )
     }
 
+    /// Returns true if this token type is scoped to the current encounter
+    /// and should NOT be deducted from persistent token_balances.
+    pub fn is_encounter_scoped(&self) -> bool {
+        matches!(self, TokenType::RestToken)
+    }
+
     pub fn is_durability_cost(&self) -> bool {
         matches!(
             self,
@@ -279,26 +285,44 @@ pub enum CardEffectKind {
         chop_type: ChopType,
         min_value: u32,
         max_value: u32,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
     },
     /// Herbalism match effect: defines how to match plant characteristics.
-    HerbalismMatch { match_mode: HerbalismMatchMode },
+    HerbalismMatch {
+        match_mode: HerbalismMatchMode,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
+    },
     /// Fishing value effect: a duel value rolled from min..max.
-    FishingValue { min: i64, max: i64 },
+    FishingValue {
+        min: i64,
+        max: i64,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
+    },
     /// Crafting reduction effect: reduces material cost by a rolled amount from min..max.
     CraftingReduction {
         token_type: TokenType,
         min: i64,
         max: i64,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
     },
 }
 
-/// Cost definition on a CardEffect template: a percentage range of the effect value.
+/// Cost definition on a CardEffect template: a percentage range of the effect value,
+/// or an absolute range when `is_absolute` is true.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct CardEffectCost {
     pub token_type: TokenType,
     pub min_percent: u32,
     pub max_percent: u32,
+    /// When true, min_percent/max_percent are treated as absolute cost values
+    /// instead of percentages of the effect value.
+    #[serde(default)]
+    pub is_absolute: bool,
 }
 
 /// A concrete effect on a card: references a CardEffect and stores rolled values.
@@ -322,12 +346,15 @@ pub struct ConcreteEffect {
     pub card_value: Option<i64>,
 }
 
-/// A concrete rolled cost on a card: the specific percentage rolled from the cost range.
+/// A concrete rolled cost on a card: the specific percentage (or absolute value) rolled from the cost range.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
 pub struct ConcreteEffectCost {
     pub token_type: TokenType,
     pub rolled_percent: u32,
+    /// When true, rolled_percent holds an absolute cost value instead of a percentage.
+    #[serde(default)]
+    pub is_absolute: bool,
 }
 
 /// A fixed amount of a token type, used in costs and gains of gathering discipline cards.
@@ -382,43 +409,18 @@ impl CardCounts {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde", tag = "card_kind")]
 pub enum CardKind {
-    Attack {
-        effects: Vec<ConcreteEffect>,
-    },
-    Defence {
-        effects: Vec<ConcreteEffect>,
-    },
-    Resource {
-        effects: Vec<ConcreteEffect>,
-    },
-    Mining {
-        effects: Vec<ConcreteEffect>,
-    },
-    Herbalism {
-        effects: Vec<ConcreteEffect>,
-    },
-    Woodcutting {
-        effects: Vec<ConcreteEffect>,
-    },
-    Fishing {
-        effects: Vec<ConcreteEffect>,
-    },
-    Rest {
-        effects: Vec<ConcreteEffect>,
-        rest_token_cost: i64,
-    },
-    Crafting {
-        effects: Vec<ConcreteEffect>,
-    },
-    Encounter {
-        encounter_kind: EncounterKind,
-    },
-    PlayerCardEffect {
-        kind: CardEffectKind,
-    },
-    EnemyCardEffect {
-        kind: CardEffectKind,
-    },
+    Attack { effects: Vec<ConcreteEffect> },
+    Defence { effects: Vec<ConcreteEffect> },
+    Resource { effects: Vec<ConcreteEffect> },
+    Mining { effects: Vec<ConcreteEffect> },
+    Herbalism { effects: Vec<ConcreteEffect> },
+    Woodcutting { effects: Vec<ConcreteEffect> },
+    Fishing { effects: Vec<ConcreteEffect> },
+    Rest { effects: Vec<ConcreteEffect> },
+    Crafting { effects: Vec<ConcreteEffect> },
+    Encounter { encounter_kind: EncounterKind },
+    PlayerCardEffect { kind: CardEffectKind },
+    EnemyCardEffect { kind: CardEffectKind },
 }
 
 /// Plant characteristics used by Herbalism encounters.
