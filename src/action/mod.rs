@@ -48,6 +48,10 @@ pub enum PlayerActions {
     ResearchSelectCandidate { candidate_index: usize },
     /// Spend Insight tokens to advance the current research project.
     ResearchProgress { amount: i64 },
+    /// Play a hand of 3 research cards against the hidden multipliers.
+    ResearchPlayHand { card_ids: Vec<usize> },
+    /// Conclude the research experiment: apply accumulated yield to research progress.
+    ResearchConcludeExperiment,
     /// After winning a milestone, pick one of 3 next-tier milestone encounters.
     MilestonePickScoutingChoice { card_id: usize },
 }
@@ -456,7 +460,7 @@ pub async fn play(
                 }
                 Some(crate::library::types::EncounterState::Research(_)) => {
                     return Err(Right(BadRequest(new_status(
-                        "Research encounters do not support playing cards".to_string(),
+                        "Research encounters use ResearchPlayHand action instead of EncounterPlayCard".to_string(),
                     ))));
                 }
                 Some(crate::library::types::EncounterState::Milestone(_)) => {
@@ -726,6 +730,51 @@ pub async fn play(
             }
             let payload = crate::library::types::ActionPayload::ResearchProgress { amount };
             let entry = gs.append_action("ResearchProgress", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::ResearchPlayHand { card_ids } => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Research(r)) if r.experiment_active => {
+                }
+                Some(crate::library::types::EncounterState::Research(_)) => {
+                    // Experiment not started — auto-begin it
+                    let mut rng = player_data.random_generator_state.lock().await;
+                    if let Err(e) = gs.research_begin_experiment(&mut rng) {
+                        return Err(Right(BadRequest(new_status(e))));
+                    }
+                }
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "Not in a research encounter".to_string(),
+                    ))));
+                }
+            }
+            let mut rng = player_data.random_generator_state.lock().await;
+            if let Err(e) = gs.research_play_hand(card_ids.clone(), &mut rng) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload = crate::library::types::ActionPayload::ResearchPlayHand { card_ids };
+            let entry = gs.append_action("ResearchPlayHand", payload);
+            Ok((rocket::http::Status::Created, Json(entry)))
+        }
+        PlayerActions::ResearchConcludeExperiment => {
+            let mut gs = game_state.lock().await;
+            match &gs.current_encounter {
+                Some(crate::library::types::EncounterState::Research(r)) if r.experiment_active => {
+                }
+                _ => {
+                    return Err(Right(BadRequest(new_status(
+                        "No active research experiment to conclude".to_string(),
+                    ))));
+                }
+            }
+            let mut rng = player_data.random_generator_state.lock().await;
+            if let Err(e) = gs.research_conclude_experiment(&mut rng) {
+                return Err(Right(BadRequest(new_status(e))));
+            }
+            let payload = crate::library::types::ActionPayload::ResearchConcludeExperiment;
+            let entry = gs.append_action("ResearchConcludeExperiment", payload);
             Ok((rocket::http::Status::Created, Json(entry)))
         }
         PlayerActions::MilestonePickScoutingChoice { card_id } => {

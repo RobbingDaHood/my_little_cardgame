@@ -166,6 +166,31 @@ fn build_tutorial() -> Tutorial {
             },
             TutorialStep {
                 step: 8,
+                title: "Research Experiments".to_string(),
+                description: "Research encounters use a hidden-multiplier deduction mechanic. \
+                    After choosing a project (ResearchChooseProject + ResearchSelectCandidate), \
+                    play 3 Research cards per round via ResearchPlayHand. Each round costs \
+                    escalating Insight (round N costs N × 5). Your cards are scored against 3 \
+                    hidden symbol slots — position matches score 100 yield, type-only matches \
+                    score 10. Use per_card_yield feedback to deduce the hidden symbols, then \
+                    optimize future rounds. Stop with ResearchConcludeExperiment when costs \
+                    outweigh expected yield."
+                    .to_string(),
+                endpoint: "/action".to_string(),
+                method: "POST".to_string(),
+                example_body: Some(
+                    r#"{"action_type": "ResearchPlayHand", "card_ids": [40, 42, 45]}"#
+                        .to_string(),
+                ),
+                tips: vec![
+                    "Round 1 is information gathering — play diverse symbol types to learn what matches.".to_string(),
+                    "Premium cards (dual/triple-symbol) cost Stamina or Health but match more hidden types.".to_string(),
+                    "hidden_types are never shown in the API — deduce them from round_history yields.".to_string(),
+                    "Accumulated yield > 0 = PlayerWon; yield == 0 = PlayerLost.".to_string(),
+                ],
+            },
+            TutorialStep {
+                step: 9,
                 title: "Continue the Loop".to_string(),
                 description: "After scouting, you're back at encounter selection. Pick another \
                     encounter and repeat! Build up materials from gathering, use them in Crafting \

@@ -312,6 +312,12 @@ pub enum CardEffectKind {
         #[serde(default)]
         costs: Vec<CardEffectCost>,
     },
+    /// Research probe effect: carries research symbols used for hidden-multiplier matching.
+    ResearchProbe {
+        symbols: Vec<ResearchSymbol>,
+        #[serde(default)]
+        costs: Vec<CardEffectCost>,
+    },
 }
 
 /// Cost definition on a CardEffect template: a percentage range of the effect value,
@@ -421,6 +427,7 @@ pub enum CardKind {
     Fishing { effects: Vec<ConcreteEffect> },
     Rest { effects: Vec<ConcreteEffect> },
     Crafting { effects: Vec<ConcreteEffect> },
+    Research { effects: Vec<ConcreteEffect> },
     Encounter { encounter_kind: EncounterKind },
     PlayerCardEffect { kind: CardEffectKind },
     EnemyCardEffect { kind: CardEffectKind },
@@ -610,10 +617,51 @@ pub struct CraftingDef {
     pub enemy_crafting_deck: Vec<EnemyCraftingCard>,
 }
 
-/// Definition of a research encounter (extensible).
+/// Symbols used for research hidden-multiplier matching.
+/// Each research card carries one or more symbols; hidden encounter slots use the same symbols.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub enum ResearchSymbol {
+    Alpha,
+    Beta,
+    Gamma,
+    Delta,
+    Epsilon,
+    Zeta,
+}
+
+impl ResearchSymbol {
+    pub fn all() -> &'static [ResearchSymbol] {
+        &[
+            ResearchSymbol::Alpha,
+            ResearchSymbol::Beta,
+            ResearchSymbol::Gamma,
+            ResearchSymbol::Delta,
+            ResearchSymbol::Epsilon,
+            ResearchSymbol::Zeta,
+        ]
+    }
+}
+
+/// Result of a single research round (3 cards played against hidden types).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchRoundResult {
+    pub cards_played: Vec<usize>,
+    pub per_card_yield: Vec<i64>,
+    pub round_yield: i64,
+    pub insight_cost: i64,
+}
+
+/// Definition of a research encounter.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(crate = "rocket::serde")]
-pub struct ResearchDef {}
+pub struct ResearchDef {
+    pub target_size: u32,
+    pub position_match_yield: i64,
+    pub type_match_yield: i64,
+    pub base_insight_cost: i64,
+}
 
 /// A candidate card generated during research — one of 3 options shown to the player.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -1123,6 +1171,10 @@ pub enum ActionPayload {
     ResearchProgress {
         amount: i64,
     },
+    ResearchPlayHand {
+        card_ids: Vec<usize>,
+    },
+    ResearchConcludeExperiment,
     MilestonePickScoutingChoice {
         card_id: usize,
     },
@@ -1288,6 +1340,13 @@ pub struct ResearchEncounterState {
     pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
     pub candidates: Option<Vec<ResearchCandidate>>,
+    /// Hidden effect-type slots — never exposed in API responses.
+    #[serde(skip_serializing)]
+    pub hidden_types: Option<Vec<ResearchSymbol>>,
+    pub accumulated_yield: i64,
+    pub rounds_played: u32,
+    pub round_history: Vec<ResearchRoundResult>,
+    pub experiment_active: bool,
 }
 
 /// Runtime state for a milestone encounter: wraps an inner discipline encounter.

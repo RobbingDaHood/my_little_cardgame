@@ -101,8 +101,13 @@ fn build_encounter_templates() -> DesignerSection {
             },
             ReferenceEntry {
                 name: "Research (ResearchDef)".to_string(),
-                description: "Defines available research candidates and tier costs. \
-                    Cost scales exponentially (10 → 20 → 40 per tier)."
+                description: "Hidden-multiplier deduction encounter. Fields: target_size \
+                    (hidden slots, default 3), position_match_yield (Y=100), \
+                    type_match_yield (X=10), base_insight_cost (Z=5, round N costs N×Z). \
+                    Player plays Research cards with ResearchSymbol types (Alpha-Zeta) \
+                    against hidden symbol slots. 1:1 optimal matching maximizes yield. \
+                    Premium cards have multiple symbols (cost Stamina/Health). \
+                    Tier costs scale exponentially (10 → 20 → 40 per tier)."
                     .to_string(),
             },
             ReferenceEntry {
@@ -210,8 +215,8 @@ fn build_token_lifecycles() -> DesignerSection {
             ReferenceEntry {
                 name: "Insight tokens".to_string(),
                 description: "Persistent meta-tokens earned from encounters, spent on Research. \
-                    Per-discipline variants: CombatInsight, MiningInsight, etc. MilestoneInsight \
-                    is awarded for Combat wins (100 per win)."
+                    Per-discipline variants: CombatInsight, MiningInsight, etc. Used as round \
+                    costs in Research experiments (round N costs N × base_insight_cost)."
                     .to_string(),
             },
             ReferenceEntry {
@@ -302,7 +307,9 @@ fn build_balance_levers() -> DesignerSection {
             ReferenceEntry {
                 name: "Encounter-specific parameters".to_string(),
                 description: "Mining: initial light level, ore deck. Fishing: turns, win threshold. \
-                    Herbalism: plant count/complexity. Woodcutting: target values. Research: tier costs."
+                    Herbalism: plant count/complexity. Woodcutting: target values. \
+                    Research: target_size (hidden slots), position_match_yield (Y), \
+                    type_match_yield (X), base_insight_cost (Z)."
                     .to_string(),
             },
             ReferenceEntry {

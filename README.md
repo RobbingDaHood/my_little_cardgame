@@ -81,7 +81,7 @@ The game also provides self-documenting endpoints that explain gameplay without 
 ### Key Endpoints
 
 #### Game Actions
-- `POST /action` — Submit a player action (NewGame, EncounterPickEncounter, EncounterPlayCard, etc.)
+- `POST /action` — Submit a player action (NewGame, EncounterPickEncounter, EncounterPlayCard, ResearchPlayHand, ResearchConcludeExperiment, etc.)
 - `GET /actions/possible` — List currently valid actions
 - `GET /actions/log` — Full action history for replay/debugging
 

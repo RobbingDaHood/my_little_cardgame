@@ -534,6 +534,10 @@ fn scale_card_effect_kind(kind: &CardEffectKind, factor: f64) -> CardEffectKind 
             max: ((*max as f64) * factor).round() as i64,
             costs: costs.clone(),
         },
+        CardEffectKind::ResearchProbe { symbols, costs } => CardEffectKind::ResearchProbe {
+            symbols: symbols.clone(),
+            costs: costs.clone(),
+        },
     }
 }
 
