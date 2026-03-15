@@ -1,0 +1,40 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "free_stamina",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Stamina",
+        "cap_min": 100,
+        "cap_max": 100,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": ["Rest"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Rest",
+      "effect_refs": ["rest:free_stamina"],
+      "counts": {"library": 0, "deck": 10, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Rest"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Rest",
+        "rest_def": {
+          "rest_token_min": 5,
+          "rest_token_max": 5
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

@@ -4,6 +4,24 @@ use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 use std::borrow::Cow;
 
+/// Create a Rocket test client with custom JSON configurations.
+///
+/// `seed` is the RNG seed for deterministic tests.
+/// `tokens_json` follows the `TokensConfig` format.
+/// `card_configs` is a slice of `(prefix, json_string)` pairs.
+pub fn create_test_client_from_json(
+    seed: u64,
+    tokens_json: &str,
+    card_configs: &[(&str, &str)],
+) -> Client {
+    use rand::SeedableRng;
+    let mut rng = rand_pcg::Lcg64Xsh32::seed_from_u64(seed);
+    let gs =
+        my_little_cardgame::library::GameState::new_from_json(&mut rng, tokens_json, card_configs);
+    Client::tracked(my_little_cardgame::rocket_initialize_with_game_state(gs))
+        .expect("valid rocket instance")
+}
+
 pub fn json_header() -> Header<'static> {
     Header {
         name: Uncased::from("Content-Type"),
@@ -143,24 +161,6 @@ pub fn play_one_round(client: &Client) -> bool {
     true
 }
 
-/// Helper: sum (deck, hand, discard) counts across ALL cards of a given kind.
-pub fn total_counts_by_kind(client: &Client, kind: &str) -> (u32, u32, u32) {
-    let cards = get_json(client, &format!("/library/cards?card_kind={}", kind));
-    let empty = vec![];
-    let arr = cards.as_array().unwrap_or(&empty);
-    let mut deck_total = 0u32;
-    let mut hand_total = 0u32;
-    let mut discard_total = 0u32;
-    for card in arr {
-        if let Some(counts) = card.get("counts") {
-            deck_total += counts["deck"].as_u64().unwrap_or(0) as u32;
-            hand_total += counts["hand"].as_u64().unwrap_or(0) as u32;
-            discard_total += counts["discard"].as_u64().unwrap_or(0) as u32;
-        }
-    }
-    (deck_total, hand_total, discard_total)
-}
-
 /// Helper: read an encounter-scoped token from `/encounter`'s `encounter_tokens` field.
 pub fn encounter_token(client: &Client, token_type_name: &str) -> i64 {
     let encounter = combat_state(client);
@@ -170,24 +170,6 @@ pub fn encounter_token(client: &Client, token_type_name: &str) -> i64 {
         .and_then(|obj| obj.get(token_type_name))
         .and_then(|v| v.as_i64())
         .unwrap_or(0)
-}
-
-/// Helper: sum (deck, hand, discard) across all entries of an enemy deck from combat state.
-pub fn enemy_deck_totals(combat: &serde_json::Value, deck_key: &str) -> (u32, u32, u32) {
-    let deck = combat
-        .get(deck_key)
-        .and_then(|v| v.as_array())
-        .expect("enemy deck array");
-    let mut total_deck = 0u32;
-    let mut total_hand = 0u32;
-    let mut total_discard = 0u32;
-    for entry in deck {
-        let c = entry.get("counts").expect("enemy card counts");
-        total_deck += c["deck"].as_u64().unwrap_or(0) as u32;
-        total_hand += c["hand"].as_u64().unwrap_or(0) as u32;
-        total_discard += c["discard"].as_u64().unwrap_or(0) as u32;
-    }
-    (total_deck, total_hand, total_discard)
 }
 
 /// Find combat encounter card IDs in the encounter hand.

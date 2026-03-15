@@ -32,46 +32,58 @@ static MILESTONE_JSON: &str = include_str!("../../configurations/milestone/cards
 /// Name→card_id mapping used for resolving effect references.
 pub type EffectNameMap = HashMap<String, usize>;
 
-/// Load initial token balances from configuration.
+/// Load initial token balances from the embedded configuration.
 pub fn load_token_balances() -> HashMap<Token, i64> {
-    let config: TokensConfig =
-        serde_json::from_str(TOKENS_JSON).expect("Failed to parse tokens.json");
+    load_token_balances_from_json(TOKENS_JSON)
+}
+
+/// Load initial token balances from a custom JSON string.
+pub fn load_token_balances_from_json(json: &str) -> HashMap<Token, i64> {
+    let config: TokensConfig = serde_json::from_str(json).expect("Failed to parse tokens JSON");
     let mut balances = HashMap::new();
-    // Initialize all token types to 0
     for id in TokenType::all() {
         balances.insert(Token::persistent(id), 0i64);
     }
-    // Override with configured values
     for (token_type, value) in config.initial_balances {
         balances.insert(Token::persistent(token_type), value);
     }
     balances
 }
 
-/// Load the full library from all JSON config files.
+/// Load the full library from all embedded JSON config files.
 pub fn load_library(rng: &mut rand_pcg::Lcg64Xsh32) -> Library {
+    load_library_from_json_configs(
+        rng,
+        &[
+            ("shared", SHARED_EFFECTS_JSON),
+            ("combat", COMBAT_JSON),
+            ("mining", MINING_JSON),
+            ("herbalism", HERBALISM_JSON),
+            ("woodcutting", WOODCUTTING_JSON),
+            ("fishing", FISHING_JSON),
+            ("rest", REST_JSON),
+            ("crafting", CRAFTING_JSON),
+            ("research", RESEARCH_JSON),
+            ("milestone", MILESTONE_JSON),
+        ],
+    )
+}
+
+/// Load a library from custom JSON config strings.
+///
+/// Each entry in `configs` is a `(prefix, json_string)` pair where `prefix` is used
+/// for effect name resolution (e.g., `"shared"`, `"combat"`).
+/// Configs are loaded in order — shared effects should come first.
+pub fn load_library_from_json_configs(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    configs: &[(&str, &str)],
+) -> Library {
     let mut lib = Library::new();
     let mut name_map = EffectNameMap::new();
 
-    // Phase 1: Shared effects
-    load_discipline_config(&mut lib, rng, SHARED_EFFECTS_JSON, "shared", &mut name_map);
-
-    // Phase 2: Discipline configs (order matters for card ID stability)
-    load_discipline_config(&mut lib, rng, COMBAT_JSON, "combat", &mut name_map);
-    load_discipline_config(&mut lib, rng, MINING_JSON, "mining", &mut name_map);
-    load_discipline_config(&mut lib, rng, HERBALISM_JSON, "herbalism", &mut name_map);
-    load_discipline_config(
-        &mut lib,
-        rng,
-        WOODCUTTING_JSON,
-        "woodcutting",
-        &mut name_map,
-    );
-    load_discipline_config(&mut lib, rng, FISHING_JSON, "fishing", &mut name_map);
-    load_discipline_config(&mut lib, rng, REST_JSON, "rest", &mut name_map);
-    load_discipline_config(&mut lib, rng, CRAFTING_JSON, "crafting", &mut name_map);
-    load_discipline_config(&mut lib, rng, RESEARCH_JSON, "research", &mut name_map);
-    load_discipline_config(&mut lib, rng, MILESTONE_JSON, "milestone", &mut name_map);
+    for &(prefix, json) in configs {
+        load_discipline_config(&mut lib, rng, json, prefix, &mut name_map);
+    }
 
     if let Err(errors) = lib.validate_card_effects() {
         panic!("Library card effect validation failed: {:?}", errors);

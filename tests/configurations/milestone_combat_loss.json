@@ -1,0 +1,73 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "enemy_damage",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "Health",
+        "min": 99999,
+        "max": 99999,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": ["Combat"]
+    },
+    {
+      "type": "effect",
+      "name": "enemy_draw",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "DrawCards",
+        "attack": 1,
+        "defence": 1,
+        "resource": 1
+      },
+      "valid_disciplines": ["Combat"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Attack",
+      "effect_refs": ["shared:deal_damage"],
+      "counts": {"library": 0, "deck": 20, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Combat"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Defence",
+      "effect_refs": ["shared:grant_shield"],
+      "counts": {"library": 0, "deck": 20, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Combat"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Resource",
+      "effect_refs": ["shared:grant_stamina", "shared:draw_cards"],
+      "counts": {"library": 0, "deck": 20, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Combat"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Milestone",
+        "milestone_def": {
+          "inner_encounter": {
+            "encounter_type": "Combat",
+            "combatant": {
+              "initial_tokens": {"Health": 999999, "MaxHealth": 999999},
+              "attack_deck": [{"effect_refs": ["milestone:enemy_damage"], "counts": {"deck": 0, "hand": 10, "discard": 0}}],
+              "defence_deck": [{"effect_refs": ["milestone:enemy_damage"], "counts": {"deck": 0, "hand": 10, "discard": 0}}],
+              "resource_deck": [{"effect_refs": ["milestone:enemy_draw"], "counts": {"deck": 0, "hand": 10, "discard": 0}}]
+            }
+          },
+          "discipline": "Combat",
+          "tier": 1,
+          "insight_cost": 0
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

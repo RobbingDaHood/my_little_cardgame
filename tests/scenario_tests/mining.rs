@@ -34,6 +34,134 @@ fn play_one_mining_card(client: &Client) -> bool {
     false
 }
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const TOKENS_LOW_DUR: &str = include_str!("../configurations/tokens_low_durability.json");
+const MINING_WIN: &str = include_str!("../configurations/mining_win.json");
+const MINING_LOSS: &str = include_str!("../configurations/mining_loss.json");
+
+#[test]
+fn scenario_mining_win_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("mining", MINING_WIN)]);
+
+    let enc_ids = mining_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have mining encounter cards");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Mining")
+    );
+
+    // Play mining cards
+    let mut cards_played = 0;
+    while play_one_mining_card(&client) {
+        cards_played += 1;
+        if cards_played >= 5 {
+            break;
+        }
+    }
+
+    // Conclude to win
+    let enc = combat_state(&client);
+    if enc.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        assert_eq!(status, Status::Created);
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Mining should be won via conclude"
+    );
+
+    // Scout and pick another encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(
+        !enc_after.is_empty(),
+        "Should have encounters after scouting"
+    );
+
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(
+        status,
+        Status::Created,
+        "Should pick another encounter after scouting"
+    );
+}
+
+#[test]
+fn scenario_mining_loss_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS_LOW_DUR, &[("mining", MINING_LOSS)]);
+
+    let enc_ids = mining_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have mining encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    // Play mining cards — ore deck should deplete durability
+    for _ in 0..50 {
+        if !play_one_mining_card(&client) {
+            break;
+        }
+    }
+
+    // If still undecided, conclude to check
+    let enc = combat_state(&client);
+    if enc.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let _ = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerLost"),
+        "Mining should lose from durability depletion"
+    );
+
+    // Scout and pick another encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(
+        !enc_after.is_empty(),
+        "Should have encounters after loss scouting"
+    );
+
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created, "Should pick encounter after loss");
+}
+
 #[test]
 fn scenario_mining_encounter_full_loop() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");

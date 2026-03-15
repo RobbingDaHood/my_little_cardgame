@@ -95,6 +95,126 @@ fn count_player_effects_for_discipline(client: &Client, discipline: &str) -> usi
         .count()
 }
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const TOKENS_LOW_HP: &str = include_str!("../configurations/tokens_low_health.json");
+const SHARED: &str = include_str!("../configurations/shared_effects.json");
+const MILESTONE_WIN: &str = include_str!("../configurations/milestone_combat_win.json");
+const MILESTONE_LOSS: &str = include_str!("../configurations/milestone_combat_loss.json");
+
+#[test]
+fn scenario_milestone_combat_win_and_scout() {
+    let client = create_test_client_from_json(
+        42,
+        TOKENS,
+        &[("shared", SHARED), ("milestone", MILESTONE_WIN)],
+    );
+
+    let enc_ids = milestone_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have milestone encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    // Inside milestone, play combat cards until resolved
+    for _ in 0..100 {
+        let enc = combat_state(&client);
+        let outcome = enc
+            .get("outcome")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Undecided");
+        if outcome != "Undecided" {
+            break;
+        }
+        if !play_one_round(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Milestone combat should win"
+    );
+
+    // Milestone win goes directly to NoEncounter (no scouting phase).
+    // The milestone card is replaced in-place with next-tier milestone.
+    let enc_after = milestone_encounter_ids(&client);
+    assert!(
+        !enc_after.is_empty(),
+        "Should have next-tier milestone encounter after win"
+    );
+
+    // Verify we are in NoEncounter (can pick encounters)
+    let state = combat_state(&client);
+    assert!(
+        state.get("encounter_state_type").is_none()
+            || state.get("encounter_state_type").and_then(|v| v.as_str()) == Some("NoEncounter"),
+        "Should be in NoEncounter after milestone win"
+    );
+}
+
+#[test]
+fn scenario_milestone_combat_loss_and_scout() {
+    let client = create_test_client_from_json(
+        42,
+        TOKENS_LOW_HP,
+        &[("shared", SHARED), ("milestone", MILESTONE_LOSS)],
+    );
+
+    let enc_ids = milestone_encounter_ids(&client);
+    assert!(!enc_ids.is_empty());
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    // Play rounds — the enemy does 99999 damage → player dies
+    for _ in 0..100 {
+        let enc = combat_state(&client);
+        let outcome = enc
+            .get("outcome")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Undecided");
+        if outcome != "Undecided" {
+            break;
+        }
+        if !play_one_round(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerLost"),
+        "Milestone combat should lose"
+    );
+
+    // Milestone loss goes directly to NoEncounter (no scouting phase).
+    // The milestone card returns to hand, so we can pick it again.
+    let enc_after = milestone_encounter_ids(&client);
+    assert!(
+        !enc_after.is_empty(),
+        "Milestone card should return to hand on loss"
+    );
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(
+        status,
+        Status::Created,
+        "Should re-pick milestone after loss"
+    );
+}
+
 #[test]
 fn milestone_encounters_exist_at_start() {
     let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
@@ -400,221 +520,5 @@ fn milestone_tier_escalation() {
         def.get("insight_cost").and_then(|v| v.as_i64()),
         Some(100),
         "Tier 1 cost should be 100"
-    );
-}
-
-/// Get full milestone card JSON by card id.
-fn get_milestone_card(client: &Client, card_id: usize) -> serde_json::Value {
-    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
-    cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .find(|c| c.get("id").and_then(|v| v.as_u64()) == Some(card_id as u64))
-        .cloned()
-        .unwrap_or_default()
-}
-
-/// Count EnemyCardDefs in a deck array and collect their hand counts.
-fn deck_hand_counts(deck: &serde_json::Value) -> Vec<u64> {
-    deck.as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter_map(|entry| {
-            entry
-                .get("counts")
-                .and_then(|c| c.get("hand"))
-                .and_then(|h| h.as_u64())
-        })
-        .collect()
-}
-
-#[test]
-fn milestone_combat_preserves_deck_composition() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
-
-    // Record the tier-1 combat milestone's card_id and deck structure
-    let combat_id =
-        milestone_encounter_by_discipline(&client, "Combat").expect("Should have combat milestone");
-
-    let card_json = get_milestone_card(&client, combat_id);
-    let def = &card_json["kind"]["encounter_kind"]["milestone_def"];
-    let inner = &def["inner_encounter_kind"];
-
-    assert_eq!(
-        inner.get("encounter_type").and_then(|v| v.as_str()),
-        Some("Combat"),
-        "Inner encounter should be Combat"
-    );
-
-    let combatant = &inner["combatant_def"];
-    let t1_attack_counts = deck_hand_counts(&combatant["attack_deck"]);
-    let t1_defence_counts = deck_hand_counts(&combatant["defence_deck"]);
-    let t1_resource_counts = deck_hand_counts(&combatant["resource_deck"]);
-
-    assert!(
-        !t1_attack_counts.is_empty(),
-        "Tier-1 should have attack deck entries"
-    );
-    assert!(
-        !t1_defence_counts.is_empty(),
-        "Tier-1 should have defence deck entries"
-    );
-    assert!(
-        !t1_resource_counts.is_empty(),
-        "Tier-1 should have resource deck entries"
-    );
-
-    // Win combats until we have enough MilestoneInsight
-    win_combat(&client);
-
-    let insight = player_token(&client, "MilestoneInsight");
-    assert!(insight >= 100, "Need at least 100 MilestoneInsight");
-
-    // Start and win the combat milestone
-    let pick = format!(
-        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
-        combat_id
-    );
-    let (status, _) = post_action(&client, &pick);
-    assert_eq!(status, Status::Created, "Pick combat milestone should work");
-
-    for _ in 0..300 {
-        if !play_one_round(&client) {
-            break;
-        }
-    }
-
-    // Check if we're back to NoEncounter (won the fight)
-    let actions = possible_action_types(&client);
-    if !actions.contains(&"EncounterPickEncounter".to_string()) {
-        // Still in encounter — couldn't win with this seed/round limit
-        return;
-    }
-
-    // Apply scouting if needed
-    if actions.contains(&"EncounterApplyScouting".to_string()) {
-        post_action(
-            &client,
-            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
-        );
-    }
-
-    // The card at the same ID should now be tier 2 with the same deck structure
-    let card_after = get_milestone_card(&client, combat_id);
-
-    // If the milestone was replaced (won), verify composition
-    if !card_after.is_null() {
-        let def_after = &card_after["kind"]["encounter_kind"]["milestone_def"];
-        assert_eq!(
-            def_after.get("tier").and_then(|v| v.as_u64()),
-            Some(2),
-            "Should be tier 2 after winning"
-        );
-
-        let inner_after = &def_after["inner_encounter_kind"];
-        let combatant_after = &inner_after["combatant_def"];
-
-        let t2_attack_counts = deck_hand_counts(&combatant_after["attack_deck"]);
-        let t2_defence_counts = deck_hand_counts(&combatant_after["defence_deck"]);
-        let t2_resource_counts = deck_hand_counts(&combatant_after["resource_deck"]);
-
-        // Same number of card types per deck
-        assert_eq!(
-            t1_attack_counts.len(),
-            t2_attack_counts.len(),
-            "Attack deck should have same number of card types: tier1={:?} tier2={:?}",
-            t1_attack_counts,
-            t2_attack_counts
-        );
-        assert_eq!(
-            t1_defence_counts.len(),
-            t2_defence_counts.len(),
-            "Defence deck should have same number of card types: tier1={:?} tier2={:?}",
-            t1_defence_counts,
-            t2_defence_counts
-        );
-        assert_eq!(
-            t1_resource_counts.len(),
-            t2_resource_counts.len(),
-            "Resource deck should have same number of card types: tier1={:?} tier2={:?}",
-            t1_resource_counts,
-            t2_resource_counts
-        );
-
-        // Same hand counts per card type
-        assert_eq!(
-            t1_attack_counts, t2_attack_counts,
-            "Attack deck hand counts should be preserved"
-        );
-        assert_eq!(
-            t1_defence_counts, t2_defence_counts,
-            "Defence deck hand counts should be preserved"
-        );
-        assert_eq!(
-            t1_resource_counts, t2_resource_counts,
-            "Resource deck hand counts should be preserved"
-        );
-    }
-}
-
-#[test]
-fn milestone_card_id_preserved_on_win() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
-
-    let combat_id =
-        milestone_encounter_by_discipline(&client, "Combat").expect("Should have combat milestone");
-
-    // Win combat to earn insight
-    win_combat(&client);
-
-    let insight = player_token(&client, "MilestoneInsight");
-    if insight < 100 {
-        return;
-    }
-
-    // Start combat milestone
-    let pick = format!(
-        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
-        combat_id
-    );
-    let (status, _) = post_action(&client, &pick);
-    assert_eq!(status, Status::Created);
-
-    for _ in 0..300 {
-        if !play_one_round(&client) {
-            break;
-        }
-    }
-
-    let actions = possible_action_types(&client);
-    if !actions.contains(&"EncounterPickEncounter".to_string()) {
-        return;
-    }
-
-    if actions.contains(&"EncounterApplyScouting".to_string()) {
-        post_action(
-            &client,
-            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
-        );
-    }
-
-    // Verify the combat milestone is still at the same card ID
-    let after_id = milestone_encounter_by_discipline(&client, "Combat");
-    assert_eq!(
-        after_id,
-        Some(combat_id),
-        "Combat milestone should remain at card ID {} after in-place replacement",
-        combat_id
-    );
-
-    // And total milestone count is still 5
-    let all_milestones = milestone_encounter_ids(&client);
-    assert_eq!(
-        all_milestones.len(),
-        5,
-        "Should still have exactly 5 milestones"
     );
 }

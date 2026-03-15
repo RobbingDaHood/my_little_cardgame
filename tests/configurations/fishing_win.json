@@ -1,0 +1,58 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "fish_reward",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Fish",
+        "cap_min": 10,
+        "cap_max": 10,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": ["Fishing"]
+    },
+    {
+      "type": "effect",
+      "name": "fishing_value",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "FishingValue",
+        "min": 100,
+        "max": 100,
+        "costs": []
+      },
+      "valid_disciplines": ["Fishing"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": ["fishing:fishing_value"],
+      "counts": {"library": 0, "deck": 20, "hand": 10, "discard": 0},
+      "valid_disciplines": ["Fishing"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Fishing",
+        "fishing_def": {
+          "valid_range_min": -99999,
+          "valid_range_max": 99999,
+          "max_turns": 20,
+          "win_turns_needed": 1,
+          "fish_deck": [
+            {"value": 100, "effect_refs": ["fishing:fish_reward"], "counts": {"deck": 0, "hand": 20, "discard": 0}}
+          ],
+          "rewards": {"Fish": 100}
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

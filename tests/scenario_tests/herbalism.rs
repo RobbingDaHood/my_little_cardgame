@@ -3,6 +3,10 @@ use my_little_cardgame::rocket_initialize;
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const HERBALISM_WIN: &str = include_str!("../configurations/herbalism_win.json");
+const HERBALISM_LOSS: &str = include_str!("../configurations/herbalism_loss.json");
+
 /// Find herbalism card IDs available in the player's hand.
 fn herbalism_hand_card_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Herbalism");
@@ -50,6 +54,103 @@ fn herbalism_encounter_ids(client: &Client) -> Vec<usize> {
             }
         })
         .collect()
+}
+
+#[test]
+fn scenario_herbalism_win_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("herbalism", HERBALISM_WIN)]);
+
+    let enc_ids = herbalism_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have herbalism encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Herbalism")
+    );
+
+    // Play herbalism cards until encounter resolves
+    for _ in 0..50 {
+        if !play_one_herbalism_card(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Herbalism should win with 1 plant remaining"
+    );
+
+    // Scout and pick another encounter
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(
+        !enc_after.is_empty(),
+        "Should have encounters after scouting"
+    );
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
+}
+
+#[test]
+fn scenario_herbalism_loss_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("herbalism", HERBALISM_LOSS)]);
+
+    let enc_ids = herbalism_encounter_ids(&client);
+    assert!(!enc_ids.is_empty());
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    for _ in 0..50 {
+        if !play_one_herbalism_card(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerLost"),
+        "Should lose with 0 plants remaining"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
 }
 
 #[test]

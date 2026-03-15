@@ -51,6 +51,14 @@ pub use crate::player_data::new as player_data_new;
 /// }
 /// ```
 pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
+    rocket_initialize_with_game_state(library::GameState::new())
+}
+
+/// Like `rocket_initialize` but accepts a pre-built `GameState`.
+/// Useful for tests that want to load custom JSON configurations.
+pub fn rocket_initialize_with_game_state(
+    game_state: library::GameState,
+) -> rocket::Rocket<rocket::Build> {
     use crate::action::okapi_add_operation_for_play_;
     use crate::action::play;
     use crate::actions_log::list_actions_log;
@@ -76,7 +84,7 @@ pub fn rocket_initialize() -> rocket::Rocket<rocket::Build> {
 
     use rocket::fairing::AdHoc;
 
-    let gs = std::sync::Arc::new(rocket::futures::lock::Mutex::new(library::GameState::new()));
+    let gs = std::sync::Arc::new(rocket::futures::lock::Mutex::new(game_state));
 
     let rocket = rocket::build()
         .mount(

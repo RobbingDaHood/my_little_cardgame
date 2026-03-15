@@ -1,0 +1,17 @@
+{
+  "initial_balances": {
+    "Foresight": 3,
+    "Health": 10000,
+    "MaxHealth": 10000,
+    "Stamina": 10000,
+    "Durability": 1,
+    "MiningDurability": 1,
+    "HerbalismDurability": 1,
+    "WoodcuttingDurability": 1,
+    "FishingDurability": 1,
+    "MiningMaxHand": 10,
+    "HerbalismMaxHand": 10,
+    "WoodcuttingMaxHand": 10,
+    "FishingMaxHand": 10
+  }
+}

@@ -3,6 +3,39 @@ use my_little_cardgame::rocket_initialize;
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const REST_WIN: &str = include_str!("../configurations/rest_win.json");
+
+/// Find rest card IDs available in the player's hand.
+fn rest_hand_card_ids(client: &Client) -> Vec<usize> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Rest");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
+/// Play one rest card. Returns true if the rest encounter is still active.
+fn play_one_rest_card(client: &Client) -> bool {
+    let rest_ids = rest_hand_card_ids(client);
+    if rest_ids.is_empty() {
+        return false;
+    }
+    let card_id = rest_ids[0];
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        card_id
+    );
+    let (status, _) = post_action(client, &json);
+    if status != Status::Created {
+        return false;
+    }
+    let encounter = combat_state(client);
+    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+}
+
 /// Find rest encounter card IDs by looking at encounter hand cards whose kind
 /// contains `encounter_type: "Rest"`.
 fn rest_encounter_ids(client: &Client) -> Vec<usize> {
@@ -25,6 +58,61 @@ fn rest_encounter_ids(client: &Client) -> Vec<usize> {
             }
         })
         .collect()
+}
+
+#[test]
+fn scenario_rest_win_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("rest", REST_WIN)]);
+
+    let enc_ids = rest_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have rest encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Rest")
+    );
+
+    for _ in 0..50 {
+        if !play_one_rest_card(&client) {
+            break;
+        }
+    }
+
+    let enc = combat_state(&client);
+    if enc.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let _ = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Rest should always win"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
 }
 
 /// Scenario: Rest encounter full loop.

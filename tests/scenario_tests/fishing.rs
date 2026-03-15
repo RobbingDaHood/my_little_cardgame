@@ -3,6 +3,10 @@ use my_little_cardgame::rocket_initialize;
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const FISHING_WIN: &str = include_str!("../configurations/fishing_win.json");
+const FISHING_LOSS: &str = include_str!("../configurations/fishing_loss.json");
+
 fn fishing_hand_card_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Fishing");
     cards
@@ -47,6 +51,99 @@ fn play_one_fishing_card(client: &Client) -> bool {
     }
     let encounter = combat_state(client);
     encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+}
+
+#[test]
+fn scenario_fishing_win_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("fishing", FISHING_WIN)]);
+
+    let enc_ids = fishing_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have fishing encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Fishing")
+    );
+
+    for _ in 0..50 {
+        if !play_one_fishing_card(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Should win with wide valid range"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
+}
+
+#[test]
+fn scenario_fishing_loss_and_scout() {
+    // fishing_loss.json: impossible valid_range (99999-99999), only 1 max_turn
+    let client = create_test_client_from_json(42, TOKENS, &[("fishing", FISHING_LOSS)]);
+
+    let enc_ids = fishing_encounter_ids(&client);
+    assert!(!enc_ids.is_empty());
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    for _ in 0..50 {
+        if !play_one_fishing_card(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerLost"),
+        "Should lose with impossible range"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
 }
 
 #[test]

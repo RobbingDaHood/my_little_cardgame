@@ -1,0 +1,85 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "reduce_yield",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "ResearchInterference",
+        "kind": {"interference_type": "ReduceYield", "min": 99999, "max": 99999}
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_alpha",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Alpha"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_beta",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Beta"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_gamma",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Gamma"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_alpha"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_beta"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_gamma"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Research",
+        "research_def": {
+          "target_size": 3,
+          "position_match_yield": 0,
+          "type_match_yield": 0,
+          "base_insight_cost": 1,
+          "interference_deck": [
+            {"effect_refs": ["research:reduce_yield"], "counts": {"deck": 0, "hand": 20, "discard": 0}}
+          ]
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

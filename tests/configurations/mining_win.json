@@ -1,0 +1,56 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "ore_light_small",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "MiningLightLevel",
+        "min": 1,
+        "max": 1,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": ["Mining"]
+    },
+    {
+      "type": "effect",
+      "name": "mining_power_gain",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "MiningPower",
+        "cap_min": 1000,
+        "cap_max": 1000,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": ["Mining"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Mining",
+      "effect_refs": ["mining:mining_power_gain"],
+      "counts": {"library": 0, "deck": 20, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Mining"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Mining",
+        "mining_def": {
+          "initial_light_level": 1000,
+          "ore_deck": [
+            {"effect_refs": ["mining:ore_light_small"], "counts": {"deck": 0, "hand": 10, "discard": 0}}
+          ]
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

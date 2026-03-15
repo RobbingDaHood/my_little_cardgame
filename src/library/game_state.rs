@@ -284,6 +284,34 @@ impl GameState {
         }
     }
 
+    /// Create a GameState from custom JSON configuration strings.
+    ///
+    /// `tokens_json` follows the `TokensConfig` format.
+    /// `card_configs` is a slice of `(prefix, json_string)` pairs following
+    /// the `DisciplineConfig` format — shared effects should come first.
+    pub fn new_from_json(
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        tokens_json: &str,
+        card_configs: &[(&str, &str)],
+    ) -> Self {
+        let balances = super::config_loader::load_token_balances_from_json(tokens_json);
+        let library = super::config_loader::load_library_from_json_configs(rng, card_configs);
+        Self {
+            action_log: std::sync::Arc::new(ActionLog::new()),
+            token_balances: balances,
+            library,
+            current_encounter: None,
+            encounter_phase: super::types::EncounterPhase::NoEncounter,
+            last_encounter_result: None,
+            encounter_results: Vec::new(),
+            current_research: None,
+            encounter_records: Vec::new(),
+            encounter_start_tokens: HashMap::new(),
+            last_encounter_kind: None,
+            pending_scouting_choice_ids: Vec::new(),
+        }
+    }
+
     /// Append an action to the action log with optional metadata; returns the appended entry.
     pub fn append_action(&self, action_type: &str, payload: ActionPayload) -> ActionEntry {
         self.action_log.append(action_type, payload)

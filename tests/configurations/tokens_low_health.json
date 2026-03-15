@@ -1,0 +1,11 @@
+{
+  "initial_balances": {
+    "Foresight": 3,
+    "Health": 1,
+    "MaxHealth": 1,
+    "Stamina": 10000,
+    "AttackMaxHand": 10,
+    "DefenceMaxHand": 10,
+    "ResourceMaxHand": 10
+  }
+}
