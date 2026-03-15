@@ -76,7 +76,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 15,
+        "deck": 31,
         "hand": 5,
         "discard": 0
       },
@@ -92,7 +92,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 15,
+        "deck": 32,
         "hand": 5,
         "discard": 0
       },
@@ -109,7 +109,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 35,
+        "deck": 43,
         "hand": 5,
         "discard": 0
       },
@@ -133,7 +133,7 @@
               ],
               "counts": {
                 "deck": 0,
-                "hand": 10,
+                "hand": 50,
                 "discard": 0
               }
             }
@@ -145,7 +145,7 @@
               ],
               "counts": {
                 "deck": 0,
-                "hand": 10,
+                "hand": 50,
                 "discard": 0
               }
             }
@@ -158,7 +158,7 @@
               ],
               "counts": {
                 "deck": 0,
-                "hand": 10,
+                "hand": 50,
                 "discard": 0
               }
             }
@@ -168,7 +168,7 @@
       "counts": {
         "library": 1,
         "deck": 0,
-        "hand": 3,
+        "hand": 50,
         "discard": 0
       },
       "valid_disciplines": []
@@ -228,7 +228,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 5,
+        "deck": 10,
         "hand": 2,
         "discard": 0
       },
@@ -244,7 +244,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 5,
+        "deck": 11,
         "hand": 2,
         "discard": 0
       },
