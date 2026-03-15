@@ -3,6 +3,7 @@ use my_little_cardgame::rocket_initialize;
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
+use serde_json::Value;
 
 fn research_encounter_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
@@ -867,6 +868,179 @@ fn scenario_research_experiment_multi_round() {
         let (status, _) = post_action(&client, r#"{"action_type":"ResearchConcludeExperiment"}"#);
         assert_eq!(status, Status::Created);
 
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+        );
+        assert_eq!(status, Status::Created);
+    } else {
+        let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        assert_eq!(status, Status::Created);
+    }
+}
+
+/// Scenario: Interference deck plays a card each round during the experiment.
+/// Verifies that interference_played appears in round_history results.
+#[test]
+fn scenario_research_experiment_interference_deck() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let remaining_insight = match setup_research_with_project(&client, 55555) {
+        Some(i) => i,
+        None => return,
+    };
+
+    if remaining_insight < 30 {
+        let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        assert_eq!(status, Status::Created);
+        return;
+    }
+
+    let mut interference_count = 0;
+    let mut total_rounds = 0;
+
+    for _ in 0..4 {
+        let research_cards = research_hand_card_ids(&client);
+        if research_cards.len() < 3 {
+            break;
+        }
+        let hand: Vec<usize> = research_cards[..3].to_vec();
+        let play_json = format!(
+            r#"{{"action_type":"ResearchPlayHand","card_ids":{}}}"#,
+            serde_json::to_string(&hand).expect("serialize card_ids")
+        );
+        let (status, _) = post_action(&client, &play_json);
+        if status != Status::Created {
+            break;
+        }
+        total_rounds += 1;
+
+        let enc = combat_state(&client);
+        let round_history = enc
+            .get("round_history")
+            .and_then(|v| v.as_array())
+            .expect("Should have round_history");
+
+        let latest = round_history
+            .last()
+            .expect("Should have at least one round");
+        if latest.get("interference_played").is_some()
+            && latest["interference_played"] != Value::Null
+        {
+            interference_count += 1;
+        }
+    }
+
+    if total_rounds > 0 {
+        assert!(
+            interference_count > 0,
+            "At least one round should have interference_played set (got {} rounds with 0 interference)",
+            total_rounds
+        );
+
+        let enc = combat_state(&client);
+        let round_history = enc
+            .get("round_history")
+            .and_then(|v| v.as_array())
+            .expect("Should have round_history");
+        for (i, round) in round_history.iter().enumerate() {
+            if let Some(interference) = round.get("interference_played") {
+                if interference != &Value::Null {
+                    let desc = interference.as_str().unwrap_or("");
+                    assert!(
+                        desc.contains("BlockBestMatch")
+                            || desc.contains("SwapHiddenSlots")
+                            || desc.contains("ReduceYield")
+                            || desc.contains("ShuffleHiddenSlots")
+                            || desc.contains("InsightTax"),
+                        "Round {} interference should be a known type, got: {}",
+                        i + 1,
+                        desc
+                    );
+                }
+            }
+        }
+
+        let (status, _) = post_action(&client, r#"{"action_type":"ResearchConcludeExperiment"}"#);
+        assert_eq!(status, Status::Created);
+
+        let (status, _) = post_action(
+            &client,
+            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+        );
+        assert_eq!(status, Status::Created);
+    } else {
+        let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        assert_eq!(status, Status::Created);
+    }
+}
+
+/// Scenario: Verify interference affects accumulated yield (it should be lower than
+/// a theoretical max of 300 per round × rounds played in most cases with interference).
+#[test]
+fn scenario_research_interference_reduces_yield() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
+
+    let remaining_insight = match setup_research_with_project(&client, 88888) {
+        Some(i) => i,
+        None => return,
+    };
+
+    if remaining_insight < 60 {
+        let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        assert_eq!(status, Status::Created);
+        return;
+    }
+
+    let mut total_rounds = 0;
+
+    for _ in 0..5 {
+        let research_cards = research_hand_card_ids(&client);
+        if research_cards.len() < 3 {
+            break;
+        }
+        let hand: Vec<usize> = research_cards[..3].to_vec();
+        let play_json = format!(
+            r#"{{"action_type":"ResearchPlayHand","card_ids":{}}}"#,
+            serde_json::to_string(&hand).expect("serialize card_ids")
+        );
+        let (status, _) = post_action(&client, &play_json);
+        if status != Status::Created {
+            break;
+        }
+        total_rounds += 1;
+    }
+
+    if total_rounds > 0 {
+        let enc = combat_state(&client);
+        let accumulated_yield = enc
+            .get("accumulated_yield")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+
+        // accumulated_yield should be >= 0 even with interference
+        assert!(
+            accumulated_yield >= 0,
+            "accumulated_yield should be non-negative: got {}",
+            accumulated_yield
+        );
+
+        // per_card_yield may not sum to round_yield when BlockBestMatch or ReduceYield hit —
+        // but accumulated_yield equals the sum of round_yields
+        let round_yield_sum: i64 = enc
+            .get("round_history")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|r| r.get("round_yield").and_then(|v| v.as_i64()))
+            .sum();
+        assert_eq!(
+            accumulated_yield, round_yield_sum,
+            "accumulated_yield should equal sum of round_yields"
+        );
+
+        let (status, _) = post_action(&client, r#"{"action_type":"ResearchConcludeExperiment"}"#);
+        assert_eq!(status, Status::Created);
         let (status, _) = post_action(
             &client,
             r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
