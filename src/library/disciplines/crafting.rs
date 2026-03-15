@@ -41,7 +41,7 @@ impl GameState {
         self.encounter_phase = types::EncounterPhase::InEncounter;
 
         // Draw crafting cards to hand
-        self.draw_player_crafting_cards(5, rng);
+        self.draw_player_crafting_cards(self.game_rules.crafting.initial_draw_count, rng);
 
         // Play the encounter card (move from hand to discard)
         let _ = self.library.play(encounter_card_id);
@@ -127,26 +127,27 @@ impl GameState {
             return Err("Not enough crafting tokens".to_string());
         }
 
+        let durability_cost = self.game_rules.crafting.durability_material_cost;
         let (durability_token, cost_token, cost_amount) = match discipline {
             "Mining" => (
                 types::TokenType::MiningDurability,
                 types::TokenType::Ore,
-                50,
+                durability_cost,
             ),
             "Herbalism" => (
                 types::TokenType::HerbalismDurability,
                 types::TokenType::Lumber,
-                50,
+                durability_cost,
             ),
             "Woodcutting" => (
                 types::TokenType::WoodcuttingDurability,
                 types::TokenType::Lumber,
-                50,
+                durability_cost,
             ),
             "Fishing" => (
                 types::TokenType::FishingDurability,
                 types::TokenType::Ore,
-                50,
+                durability_cost,
             ),
             _ => {
                 return Err(format!(
@@ -169,7 +170,8 @@ impl GameState {
 
         // Grant durability
         let dur_key = types::Token::persistent(durability_token);
-        *self.token_balances.entry(dur_key).or_insert(0) += 500;
+        *self.token_balances.entry(dur_key).or_insert(0) +=
+            self.game_rules.crafting.durability_grant;
 
         // Deduct crafting token
         if let Some(EncounterState::Crafting(c)) = &mut self.current_encounter {
@@ -204,8 +206,10 @@ impl GameState {
 
         // Crafting cost based on card quality — token cost is proportional
         let total_material_cost: i64 = target_card.crafting_cost.values().sum();
-        let token_cost = ((total_material_cost / 100) + 1).min(crafting.crafting_tokens);
-        let token_cost = token_cost.max(2); // Minimum 2 tokens to start a craft
+        let token_cost = ((total_material_cost / self.game_rules.crafting.cost_formula_divisor)
+            + 1)
+        .min(crafting.crafting_tokens);
+        let token_cost = token_cost.max(self.game_rules.crafting.min_craft_token_cost);
 
         if crafting.crafting_tokens < token_cost {
             return Err(format!(
@@ -267,13 +271,15 @@ impl GameState {
             };
             match &kind {
                 CardEffectKind::CraftingReduction { token_type, .. } => {
-                    // Apply reduction to current craft costs (floor at 50% of original)
+                    // Apply reduction to current craft costs (floor at configured % of original)
                     if let Some(EncounterState::Crafting(c)) = &mut self.current_encounter {
                         if let Some(ref mut craft) = c.active_craft {
                             if let Some(current) = craft.current_costs.get_mut(token_type) {
                                 let original =
                                     craft.original_costs.get(token_type).copied().unwrap_or(0);
-                                let floor = original / 2;
+                                let floor = original
+                                    * self.game_rules.crafting.cost_reduction_floor_percent
+                                    / 100;
                                 *current = (*current - effect.rolled_value).max(floor);
                             }
                         }

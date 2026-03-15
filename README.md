@@ -13,7 +13,9 @@ Tokens represent persistent resources (Health, Stamina, Insight, materials) that
 - RESTful API with 12+ endpoints for full gameplay
 - Eight encounter disciplines with distinct mechanics
 - Deterministic replay via seed + action log
+- Externalized game-rules configuration (`configurations/general/game_rules.json`)
 - Self-documenting API: `/docs/tutorial`, `/docs/hints`, `/docs/designer`
+- Version fingerprint via `GET /version` (game version + config hash)
 - Session metrics via `GET /metrics`
 - OpenAPI/Swagger documentation at `/swagger/`
 - Comprehensive test coverage (57+ integration tests, ≥80% line coverage)
@@ -90,6 +92,7 @@ The game also provides self-documenting endpoints that explain gameplay without 
 - `GET /encounter/results` — History of encounter outcomes
 - `GET /player/tokens` — Current token balances
 - `GET /metrics` — Session statistics (win rates, token flows, encounter counts)
+- `GET /version` — Game version and configuration fingerprint
 
 #### Library (Card Definitions)
 - `GET /library/cards` — All card definitions with effects and costs
@@ -171,6 +174,7 @@ cargo llvm-cov --workspace --fail-under-lines 80
 configurations/             # JSON game content (embedded at compile time)
 ├── general/
 │   ├── tokens.json         # Initial token balances
+│   ├── game_rules.json     # Game-wide mechanics constants
 │   └── shared_effects.json # Shared effect templates (damage, shield, etc.)
 ├── combat/cards.json       # Combat cards, effects, and encounters
 ├── mining/cards.json
@@ -201,6 +205,7 @@ src/
 │   └── disciplines/    # Per-discipline encounter logic
 ├── player_data.rs      # Player state management
 ├── player_tokens.rs    # Token balance endpoint
+├── version.rs          # Version and config hash endpoint
 └── status_messages.rs  # API response messages
 
 tests/
@@ -214,6 +219,7 @@ tests/
 All card, effect, and encounter definitions are externalized as JSON files in the `configurations/` directory. Files are embedded at compile time via `include_str!()` — no runtime file I/O is needed.
 
 - **`general/tokens.json`** — Starting token balances (Health, Stamina, Durabilities, max hand sizes)
+- **`general/game_rules.json`** — Game-wide mechanics constants (death reset values, combat rewards, crafting costs, scouting parameters, milestone scaling, woodcutting patterns)
 - **`general/shared_effects.json`** — 5 shared effect templates reusable across disciplines (deal_damage, grant_shield, grant_stamina, draw_cards, insight)
 - **`<discipline>/cards.json`** — Per-discipline cards, effects, and encounters for all 9 disciplines
 

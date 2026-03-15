@@ -24,7 +24,7 @@ use types::{CardCounts, CardKind, EncounterKind, LibraryCard};
 
 /// Calculate the base cost for a card based on its effects.
 /// Higher rolled values and more effects = higher cost.
-fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
+fn calculate_base_cost(kind: &CardKind, divisor: i64) -> Option<i64> {
     let mut total_power: i64 = 0;
     let num_effects: i64;
 
@@ -86,14 +86,17 @@ fn calculate_base_cost(kind: &CardKind) -> Option<i64> {
         return None;
     }
 
-    // Superlinear scaling: base_cost = total_power * (1 + num_effects) / 4
-    Some(total_power * (1 + num_effects) / 4)
+    // Superlinear scaling: base_cost = total_power * (1 + num_effects) / divisor
+    Some(total_power * (1 + num_effects) / divisor)
 }
 
 /// Randomly distribute base_cost across a subset of material tokens.
 fn distribute_crafting_cost(
     base_cost: i64,
     rng: &mut rand_pcg::Lcg64Xsh32,
+    max_material_percent: i64,
+    material_token_min: i64,
+    material_token_max: i64,
 ) -> HashMap<types::TokenType, i64> {
     use game_state::roll_range;
 
@@ -103,9 +106,9 @@ fn distribute_crafting_cost(
         types::TokenType::Lumber,
         types::TokenType::Fish,
     ];
-    let max_per_token = (base_cost * 75) / 100;
+    let max_per_token = (base_cost * max_material_percent) / 100;
 
-    let num_tokens = roll_range(rng, 2, 4) as usize;
+    let num_tokens = roll_range(rng, material_token_min, material_token_max) as usize;
 
     // Fisher-Yates shuffle
     let mut shuffled = materials.to_vec();
@@ -137,9 +140,16 @@ fn distribute_crafting_cost(
 fn calculate_crafting_cost(
     kind: &CardKind,
     rng: &mut rand_pcg::Lcg64Xsh32,
+    crafting_rules: &config::CraftingRules,
 ) -> HashMap<types::TokenType, i64> {
-    match calculate_base_cost(kind) {
-        Some(base_cost) => distribute_crafting_cost(base_cost, rng),
+    match calculate_base_cost(kind, crafting_rules.base_cost_divisor) {
+        Some(base_cost) => distribute_crafting_cost(
+            base_cost,
+            rng,
+            crafting_rules.max_material_percent,
+            crafting_rules.material_token_min,
+            crafting_rules.material_token_max,
+        ),
         None => HashMap::new(),
     }
 }
@@ -149,6 +159,10 @@ fn calculate_crafting_cost(
 #[derive(Debug, Clone)]
 pub struct Library {
     pub cards: Vec<LibraryCard>,
+    pub crafting_rules: config::CraftingRules,
+    pub milestone_rules: config::MilestoneRules,
+    pub scouting_rules: config::ScoutingRules,
+    pub woodcutting_patterns: Vec<config::WoodcuttingPatternRule>,
 }
 
 impl Default for Library {
@@ -159,7 +173,14 @@ impl Default for Library {
 
 impl Library {
     pub fn new() -> Self {
-        Library { cards: Vec::new() }
+        let rules = config_loader::load_game_rules();
+        Library {
+            cards: Vec::new(),
+            crafting_rules: rules.crafting,
+            milestone_rules: rules.milestone,
+            scouting_rules: rules.scouting,
+            woodcutting_patterns: rules.woodcutting_patterns,
+        }
     }
 
     /// Add a card to the library. Returns the card ID (index).
@@ -203,7 +224,7 @@ impl Library {
             }
         }
         let id = self.cards.len();
-        let crafting_cost = calculate_crafting_cost(&kind, rng);
+        let crafting_cost = calculate_crafting_cost(&kind, rng, &self.crafting_rules);
         self.cards.push(LibraryCard {
             kind,
             counts,
@@ -224,7 +245,7 @@ impl Library {
         valid_discipline_types: Vec<types::Discipline>,
         tier: u32,
     ) {
-        let crafting_cost = calculate_crafting_cost(&kind, rng);
+        let crafting_cost = calculate_crafting_cost(&kind, rng, &self.crafting_rules);
         if let Some(card) = self.cards.get_mut(card_id) {
             card.kind = kind;
             card.counts = counts;

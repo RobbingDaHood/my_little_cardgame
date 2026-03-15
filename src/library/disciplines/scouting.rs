@@ -14,11 +14,12 @@ pub(crate) fn generate_scouting_choices(
     rng: &mut rand_pcg::Lcg64Xsh32,
     source: &EncounterKind,
 ) -> Vec<usize> {
-    let deltas = sample_difficulty_deltas(rng);
+    let rules = lib.scouting_rules.clone();
+    let deltas = sample_difficulty_deltas(rng, &rules);
     deltas
         .iter()
         .map(|&delta| {
-            let mutated = mutate_encounter_kind(rng, source, delta);
+            let mutated = mutate_encounter_kind(rng, source, delta, &rules);
             let counts = CardCounts {
                 library: 0,
                 deck: 0,
@@ -37,19 +38,20 @@ pub(crate) fn generate_scouting_choices(
         .collect()
 }
 
-fn sample_difficulty_deltas(rng: &mut rand_pcg::Lcg64Xsh32) -> [f64; 3] {
-    const MIN: f64 = -0.15;
-    const MAX: f64 = 0.30;
-    const MIN_SEP: f64 = 0.10;
+fn sample_difficulty_deltas(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    rules: &crate::library::config::ScoutingRules,
+) -> Vec<f64> {
+    let min = rules.difficulty_delta_min;
+    let max = rules.difficulty_delta_max;
+    let min_sep = rules.difficulty_delta_min_separation;
+    let count = rules.choice_count;
 
     loop {
-        let mut deltas = [
-            rng.gen_range(MIN..=MAX),
-            rng.gen_range(MIN..=MAX),
-            rng.gen_range(MIN..=MAX),
-        ];
+        let mut deltas: Vec<f64> = (0..count).map(|_| rng.gen_range(min..=max)).collect();
         deltas.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        if (deltas[1] - deltas[0]) >= MIN_SEP && (deltas[2] - deltas[1]) >= MIN_SEP {
+        let separations_ok = deltas.windows(2).all(|w| (w[1] - w[0]) >= min_sep);
+        if separations_ok || count <= 1 {
             deltas.shuffle(rng);
             return deltas;
         }
@@ -60,19 +62,20 @@ fn mutate_encounter_kind(
     rng: &mut rand_pcg::Lcg64Xsh32,
     source: &EncounterKind,
     delta: f64,
+    rules: &crate::library::config::ScoutingRules,
 ) -> EncounterKind {
     let factor = 1.0 + delta;
     match source {
         EncounterKind::Combat { combatant_def } => {
             let mut def = combatant_def.clone();
             def.initial_tokens = scale_token_map_u64(&def.initial_tokens, factor);
-            mutate_combat_decks(rng, &mut def, delta);
+            mutate_combat_decks(rng, &mut def, delta, rules);
             EncounterKind::Combat { combatant_def: def }
         }
         EncounterKind::Mining { mining_def } => {
             let mut def = mining_def.clone();
             def.initial_light_level = scale_i64(def.initial_light_level, factor);
-            mutate_deck_generic(rng, &mut def.ore_deck, delta);
+            mutate_deck_generic(rng, &mut def.ore_deck, delta, rules);
             EncounterKind::Mining { mining_def: def }
         }
         EncounterKind::Fishing { fishing_def } => {
@@ -82,13 +85,13 @@ fn mutate_encounter_kind(
             def.max_turns = scale_u32(def.max_turns, factor);
             def.win_turns_needed = scale_u32(def.win_turns_needed, factor);
             def.rewards = scale_token_map_i64(&def.rewards, factor);
-            mutate_fish_deck(rng, &mut def.fish_deck, delta);
+            mutate_fish_deck(rng, &mut def.fish_deck, delta, rules);
             EncounterKind::Fishing { fishing_def: def }
         }
         EncounterKind::Herbalism { herbalism_def } => {
             let mut def = herbalism_def.clone();
             def.rewards = scale_token_map_i64(&def.rewards, factor);
-            mutate_plant_deck(rng, &mut def.plant_hand, delta);
+            mutate_plant_deck(rng, &mut def.plant_hand, delta, rules);
             EncounterKind::Herbalism { herbalism_def: def }
         }
         EncounterKind::Woodcutting { woodcutting_def } => {
@@ -102,7 +105,7 @@ fn mutate_encounter_kind(
         EncounterKind::Crafting { crafting_def } => {
             let mut def = crafting_def.clone();
             def.initial_crafting_tokens = scale_i64(def.initial_crafting_tokens, factor);
-            mutate_deck_generic(rng, &mut def.enemy_crafting_deck, delta);
+            mutate_deck_generic(rng, &mut def.enemy_crafting_deck, delta, rules);
             EncounterKind::Crafting { crafting_def: def }
         }
         EncounterKind::Research { research_def } => {
@@ -110,7 +113,7 @@ fn mutate_encounter_kind(
             def.base_insight_cost = scale_i64(def.base_insight_cost, factor);
             def.position_match_yield = scale_i64(def.position_match_yield, factor);
             def.type_match_yield = scale_i64(def.type_match_yield, factor);
-            mutate_deck_generic(rng, &mut def.interference_deck, delta);
+            mutate_deck_generic(rng, &mut def.interference_deck, delta, rules);
             EncounterKind::Research { research_def: def }
         }
         EncounterKind::Rest { rest_def } => {
@@ -121,7 +124,7 @@ fn mutate_encounter_kind(
         }
         EncounterKind::Milestone { milestone_def } => {
             let mut def = milestone_def.clone();
-            let inner = mutate_encounter_kind(rng, &def.inner_encounter_kind, delta);
+            let inner = mutate_encounter_kind(rng, &def.inner_encounter_kind, delta, rules);
             def.inner_encounter_kind = Box::new(inner);
             EncounterKind::Milestone { milestone_def: def }
         }
@@ -259,19 +262,21 @@ fn mutate_deck_generic<T: MutableDeckEntry + Clone>(
     rng: &mut rand_pcg::Lcg64Xsh32,
     deck: &mut [T],
     delta: f64,
+    rules: &crate::library::config::ScoutingRules,
 ) {
     if deck.is_empty() {
         return;
     }
     let factor = 1.0 + delta;
-    let num_to_mutate = compute_num_to_mutate(deck.len());
+    let num_to_mutate = compute_num_to_mutate(deck.len(), rules.mutation_fraction);
     let indices = pick_random_indices(rng, deck.len(), num_to_mutate);
 
     for &idx in &indices {
         let roll: f64 = rng.gen_range(0.0..1.0);
-        if roll < 0.50 {
+        if roll < rules.mutation_scale_probability {
             scale_effects(deck[idx].effects_mut(), factor);
-        } else if roll < 0.80 {
+        } else if roll < rules.mutation_scale_probability + rules.mutation_redistribute_probability
+        {
             redistribute_copies_generic(rng, deck, idx);
         } else {
             swap_tier_generic(rng, deck, idx);
@@ -313,7 +318,12 @@ fn swap_tier_generic<T: MutableDeckEntry + Clone>(
 // Combat-specific: merge all three decks, mutate, then split back
 // ---------------------------------------------------------------------------
 
-fn mutate_combat_decks(rng: &mut rand_pcg::Lcg64Xsh32, def: &mut CombatantDef, delta: f64) {
+fn mutate_combat_decks(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    def: &mut CombatantDef,
+    delta: f64,
+    rules: &crate::library::config::ScoutingRules,
+) {
     let atk_len = def.attack_deck.len();
     let def_len = def.defence_deck.len();
 
@@ -323,7 +333,7 @@ fn mutate_combat_decks(rng: &mut rand_pcg::Lcg64Xsh32, def: &mut CombatantDef, d
     combined.append(&mut def.defence_deck);
     combined.append(&mut def.resource_deck);
 
-    mutate_deck_generic(rng, &mut combined, delta);
+    mutate_deck_generic(rng, &mut combined, delta, rules);
 
     def.resource_deck = combined.split_off(atk_len + def_len);
     def.defence_deck = combined.split_off(atk_len);
@@ -334,20 +344,26 @@ fn mutate_combat_decks(rng: &mut rand_pcg::Lcg64Xsh32, def: &mut CombatantDef, d
 // Fish-deck mutation: also scales FishCard.value on ScaleValues
 // ---------------------------------------------------------------------------
 
-fn mutate_fish_deck(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [FishCard], delta: f64) {
+fn mutate_fish_deck(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    deck: &mut [FishCard],
+    delta: f64,
+    rules: &crate::library::config::ScoutingRules,
+) {
     if deck.is_empty() {
         return;
     }
     let factor = 1.0 + delta;
-    let num_to_mutate = compute_num_to_mutate(deck.len());
+    let num_to_mutate = compute_num_to_mutate(deck.len(), rules.mutation_fraction);
     let indices = pick_random_indices(rng, deck.len(), num_to_mutate);
 
     for &idx in &indices {
         let roll: f64 = rng.gen_range(0.0..1.0);
-        if roll < 0.50 {
+        if roll < rules.mutation_scale_probability {
             deck[idx].value = scale_i64(deck[idx].value, factor);
             scale_effects(&mut deck[idx].effects, factor);
-        } else if roll < 0.80 {
+        } else if roll < rules.mutation_scale_probability + rules.mutation_redistribute_probability
+        {
             redistribute_copies_fish(rng, deck, idx);
         } else {
             swap_tier_fish(rng, deck, idx);
@@ -395,11 +411,16 @@ const ALL_CHARACTERISTICS: [PlantCharacteristic; 5] = [
     PlantCharacteristic::Luminous,
 ];
 
-fn mutate_plant_deck(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [PlantCard], _delta: f64) {
+fn mutate_plant_deck(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    deck: &mut [PlantCard],
+    _delta: f64,
+    rules: &crate::library::config::ScoutingRules,
+) {
     if deck.is_empty() {
         return;
     }
-    let num_to_mutate = compute_num_to_mutate(deck.len());
+    let num_to_mutate = compute_num_to_mutate(deck.len(), rules.mutation_fraction);
     let indices = pick_random_indices(rng, deck.len(), num_to_mutate);
 
     for &idx in &indices {
@@ -458,8 +479,8 @@ fn swap_tier_plant(rng: &mut rand_pcg::Lcg64Xsh32, deck: &mut [PlantCard], targe
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-fn compute_num_to_mutate(deck_len: usize) -> usize {
-    ((deck_len as f64 * 0.20).ceil() as usize)
+fn compute_num_to_mutate(deck_len: usize, fraction: f64) -> usize {
+    ((deck_len as f64 * fraction).ceil() as usize)
         .max(1)
         .min(deck_len)
 }
@@ -488,23 +509,24 @@ mod tests {
     #[test]
     fn difficulty_deltas_have_minimum_separation() {
         let mut rng = rand_pcg::Lcg64Xsh32::seed_from_u64(42);
+        let rules = crate::library::config_loader::load_game_rules().scouting;
         for _ in 0..100 {
-            let deltas = sample_difficulty_deltas(&mut rng);
+            let deltas = sample_difficulty_deltas(&mut rng, &rules);
             for &d in &deltas {
-                assert!((-0.15..=0.30).contains(&d), "delta {d} out of range");
+                assert!(
+                    (rules.difficulty_delta_min..=rules.difficulty_delta_max).contains(&d),
+                    "delta {d} out of range"
+                );
             }
-            let mut sorted = deltas;
+            let mut sorted = deltas.clone();
             sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-            assert!(
-                (sorted[1] - sorted[0]) >= 0.10 - 1e-9,
-                "insufficient separation: {:?}",
-                deltas
-            );
-            assert!(
-                (sorted[2] - sorted[1]) >= 0.10 - 1e-9,
-                "insufficient separation: {:?}",
-                deltas
-            );
+            for w in sorted.windows(2) {
+                assert!(
+                    (w[1] - w[0]) >= rules.difficulty_delta_min_separation - 1e-9,
+                    "insufficient separation: {:?}",
+                    deltas
+                );
+            }
         }
     }
 
