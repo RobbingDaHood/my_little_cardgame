@@ -228,6 +228,7 @@ pub struct GameState {
     pub action_log: std::sync::Arc<ActionLog>,
     pub token_balances: HashMap<super::types::Token, i64>,
     pub library: Library,
+    pub game_rules: super::config::GameRulesConfig,
     pub current_encounter: Option<EncounterState>,
     pub encounter_phase: super::types::EncounterPhase,
     pub last_encounter_result: Option<EncounterOutcome>,
@@ -252,6 +253,7 @@ impl GameState {
 
     pub fn new_with_rng(rng: &mut rand_pcg::Lcg64Xsh32) -> Self {
         let balances = super::config_loader::load_token_balances();
+        let game_rules = super::config_loader::load_game_rules();
         let _action_log = match std::env::var("ACTION_LOG_FILE") {
             Ok(path) => {
                 #[allow(clippy::manual_unwrap_or_default)]
@@ -272,6 +274,7 @@ impl GameState {
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
             library: super::config_loader::load_library(rng),
+            game_rules,
             current_encounter: None,
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_encounter_result: None,
@@ -296,10 +299,12 @@ impl GameState {
     ) -> Self {
         let balances = super::config_loader::load_token_balances_from_json(tokens_json);
         let library = super::config_loader::load_library_from_json_configs(rng, card_configs);
+        let game_rules = super::config_loader::load_game_rules();
         Self {
             action_log: std::sync::Arc::new(ActionLog::new()),
             token_balances: balances,
             library,
+            game_rules,
             current_encounter: None,
             encounter_phase: super::types::EncounterPhase::NoEncounter,
             last_encounter_result: None,
@@ -615,10 +620,11 @@ impl GameState {
         }
 
         // Reset health and stamina to initial values
-        self.token_balances.insert(health_key, 1000);
+        self.token_balances
+            .insert(health_key, self.game_rules.general.death_reset_health);
         self.token_balances.insert(
             super::types::Token::persistent(super::types::TokenType::Stamina),
-            1000,
+            self.game_rules.general.death_reset_stamina,
         );
 
         // Increment player deaths counter

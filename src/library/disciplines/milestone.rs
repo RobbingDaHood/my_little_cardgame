@@ -3,12 +3,13 @@ use super::super::Library;
 use crate::library::game_state::{roll_best_concrete_effect, GameState};
 use std::collections::HashMap;
 
-fn milestone_insight_cost(tier: u32) -> i64 {
-    100 * (1i64 << (tier - 1))
+fn milestone_insight_cost(lib: &Library, tier: u32) -> i64 {
+    lib.milestone_rules.base_insight_cost
+        * lib.milestone_rules.insight_cost_multiplier.pow(tier - 1)
 }
 
-fn scale_factor(tier: u32) -> f64 {
-    1.5f64.powi(tier as i32 - 1)
+fn scale_factor(lib: &Library, tier: u32) -> f64 {
+    lib.milestone_rules.scale_factor_base.powi(tier as i32 - 1)
 }
 
 /// Find the base (non-milestone) encounter definition for a discipline.
@@ -84,7 +85,7 @@ fn register_combat_milestone(
 ) {
     let combatant_def = if let Some(prev) = previous_combatant {
         let effect_map = tier_effect_mapping(lib, &Discipline::Combat, tier - 1, tier);
-        let tier_scale = scale_factor(tier) / scale_factor(tier - 1);
+        let tier_scale = scale_factor(lib, tier) / scale_factor(lib, tier - 1);
 
         let rebuild_deck = |deck: &[EnemyCardDef]| -> Vec<EnemyCardDef> {
             deck.iter()
@@ -125,7 +126,12 @@ fn register_combat_milestone(
         let initial_tokens = base
             .initial_tokens
             .iter()
-            .map(|(k, v)| (k.clone(), (*v as f64 * scale_factor(tier)).round() as u64))
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    (*v as f64 * scale_factor(lib, tier)).round() as u64,
+                )
+            })
             .collect();
 
         CombatantDef {
@@ -135,7 +141,9 @@ fn register_combat_milestone(
             resource_deck: rebuild_deck(&base.resource_deck),
         }
     } else {
-        let enemy_hp = (3000.0 * scale_factor(tier)).round() as u64;
+        let enemy_hp = (lib.milestone_rules.default_combat_enemy_hp as f64
+            * scale_factor(lib, tier))
+        .round() as u64;
         CombatantDef {
             initial_tokens: HashMap::from([
                 (Token::persistent(TokenType::Health), enemy_hp),
@@ -151,7 +159,7 @@ fn register_combat_milestone(
         inner_encounter_kind: Box::new(EncounterKind::Combat { combatant_def }),
         discipline: Discipline::Combat,
         tier,
-        insight_cost: milestone_insight_cost(tier),
+        insight_cost: milestone_insight_cost(lib, tier),
     };
 
     lib.replace_card(
@@ -186,14 +194,14 @@ fn register_mining_milestone(
         (mining_def, 1)
     } else {
         let empty = MiningDef {
-            initial_light_level: (200.0 * scale_factor(tier)).round() as i64,
+            initial_light_level: (200.0 * scale_factor(lib, tier)).round() as i64,
             ore_deck: vec![],
         };
         let milestone_def = MilestoneDef {
             inner_encounter_kind: Box::new(EncounterKind::Mining { mining_def: empty }),
             discipline: Discipline::Mining,
             tier,
-            insight_cost: milestone_insight_cost(tier),
+            insight_cost: milestone_insight_cost(lib, tier),
         };
         lib.replace_card(
             card_id,
@@ -215,9 +223,9 @@ fn register_mining_milestone(
 
     let effect_map = tier_effect_mapping(lib, &Discipline::Mining, from_tier, tier);
     let scale = if from_tier > 0 {
-        scale_factor(tier) / scale_factor(from_tier)
+        scale_factor(lib, tier) / scale_factor(lib, from_tier)
     } else {
-        scale_factor(tier)
+        scale_factor(lib, tier)
     };
 
     let mining_def = MiningDef {
@@ -236,7 +244,7 @@ fn register_mining_milestone(
         inner_encounter_kind: Box::new(EncounterKind::Mining { mining_def }),
         discipline: Discipline::Mining,
         tier,
-        insight_cost: milestone_insight_cost(tier),
+        insight_cost: milestone_insight_cost(lib, tier),
     };
 
     lib.replace_card(
@@ -280,7 +288,7 @@ fn register_herbalism_milestone(
             }),
             discipline: Discipline::Herbalism,
             tier,
-            insight_cost: milestone_insight_cost(tier),
+            insight_cost: milestone_insight_cost(lib, tier),
         };
         lib.replace_card(
             card_id,
@@ -302,9 +310,9 @@ fn register_herbalism_milestone(
 
     let effect_map = tier_effect_mapping(lib, &Discipline::Herbalism, from_tier, tier);
     let scale = if from_tier > 0 {
-        scale_factor(tier) / scale_factor(from_tier)
+        scale_factor(lib, tier) / scale_factor(lib, from_tier)
     } else {
-        scale_factor(tier)
+        scale_factor(lib, tier)
     };
 
     let plant_hand = source
@@ -336,7 +344,7 @@ fn register_herbalism_milestone(
         inner_encounter_kind: Box::new(EncounterKind::Herbalism { herbalism_def }),
         discipline: Discipline::Herbalism,
         tier,
-        insight_cost: milestone_insight_cost(tier),
+        insight_cost: milestone_insight_cost(lib, tier),
     };
 
     lib.replace_card(
@@ -364,7 +372,7 @@ fn register_woodcutting_milestone(
     previous_woodcutting: Option<&WoodcuttingDef>,
 ) {
     let woodcutting_def = if let Some(prev) = previous_woodcutting {
-        let tier_scale = scale_factor(tier) / scale_factor(tier - 1);
+        let tier_scale = scale_factor(lib, tier) / scale_factor(lib, tier - 1);
         let max_plays = std::cmp::max(3, prev.max_plays.saturating_sub(1));
         let base_rewards = prev
             .base_rewards
@@ -387,22 +395,35 @@ fn register_woodcutting_milestone(
         let base_rewards = woodcutting_def
             .base_rewards
             .iter()
-            .map(|(k, v)| (k.clone(), (*v as f64 * scale_factor(tier)).round() as i64))
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    (*v as f64 * scale_factor(lib, tier)).round() as i64,
+                )
+            })
             .collect();
         WoodcuttingDef {
             max_plays,
             base_rewards,
         }
     } else {
-        let max_plays = std::cmp::max(3, 8u32.saturating_sub(tier));
+        let max_plays = std::cmp::max(
+            lib.milestone_rules.default_woodcutting_max_plays_min,
+            lib.milestone_rules
+                .default_woodcutting_max_plays_base
+                .saturating_sub(tier),
+        );
         let mut base_rewards = HashMap::new();
         base_rewards.insert(
             Token::persistent(TokenType::Lumber),
-            (50.0 * scale_factor(tier)).round() as i64,
+            (lib.milestone_rules.default_woodcutting_lumber_reward as f64 * scale_factor(lib, tier))
+                .round() as i64,
         );
         base_rewards.insert(
             Token::persistent(TokenType::WoodcuttingInsight),
-            (10.0 * scale_factor(tier)).round() as i64,
+            (lib.milestone_rules.default_woodcutting_insight_reward as f64
+                * scale_factor(lib, tier))
+            .round() as i64,
         );
         WoodcuttingDef {
             max_plays,
@@ -414,7 +435,7 @@ fn register_woodcutting_milestone(
         inner_encounter_kind: Box::new(EncounterKind::Woodcutting { woodcutting_def }),
         discipline: Discipline::Woodcutting,
         tier,
-        insight_cost: milestone_insight_cost(tier),
+        insight_cost: milestone_insight_cost(lib, tier),
     };
 
     lib.replace_card(
@@ -449,10 +470,10 @@ fn register_fishing_milestone(
         (fishing_def, 1)
     } else {
         let empty = FishingDef {
-            valid_range_min: -60,
-            valid_range_max: 60,
-            max_turns: 10,
-            win_turns_needed: 6,
+            valid_range_min: lib.milestone_rules.default_fishing_valid_range_min,
+            valid_range_max: lib.milestone_rules.default_fishing_valid_range_max,
+            max_turns: lib.milestone_rules.default_fishing_max_turns,
+            win_turns_needed: lib.milestone_rules.default_fishing_win_turns_needed,
             fish_deck: vec![],
             rewards: HashMap::new(),
         };
@@ -460,7 +481,7 @@ fn register_fishing_milestone(
             inner_encounter_kind: Box::new(EncounterKind::Fishing { fishing_def: empty }),
             discipline: Discipline::Fishing,
             tier,
-            insight_cost: milestone_insight_cost(tier),
+            insight_cost: milestone_insight_cost(lib, tier),
         };
         lib.replace_card(
             card_id,
@@ -482,9 +503,9 @@ fn register_fishing_milestone(
 
     let effect_map = tier_effect_mapping(lib, &Discipline::Fishing, from_tier, tier);
     let scale = if from_tier > 0 {
-        scale_factor(tier) / scale_factor(from_tier)
+        scale_factor(lib, tier) / scale_factor(lib, from_tier)
     } else {
-        scale_factor(tier)
+        scale_factor(lib, tier)
     };
 
     let source_span = (source.valid_range_max - source.valid_range_min) / 2;
@@ -519,7 +540,7 @@ fn register_fishing_milestone(
         inner_encounter_kind: Box::new(EncounterKind::Fishing { fishing_def }),
         discipline: Discipline::Fishing,
         tier,
-        insight_cost: milestone_insight_cost(tier),
+        insight_cost: milestone_insight_cost(lib, tier),
     };
 
     lib.replace_card(
@@ -560,9 +581,10 @@ pub(crate) fn generate_milestone_reward_effects(
         })
         .collect();
 
+    let effect_factor = lib.milestone_rules.effect_scaling_factor;
     let mut new_ids = Vec::new();
     for (_old_id, kind) in &player_effects {
-        let improved = scale_card_effect_kind(kind, 1.5);
+        let improved = scale_card_effect_kind(kind, effect_factor, &lib.milestone_rules);
         let new_id = lib.add_card_with_tier(
             CardKind::PlayerCardEffect { kind: improved },
             CardCounts {
@@ -589,7 +611,7 @@ pub(crate) fn generate_milestone_reward_effects(
         .collect();
 
     for (_old_id, kind) in &enemy_effects {
-        let improved = scale_card_effect_kind(kind, 1.5);
+        let improved = scale_card_effect_kind(kind, effect_factor, &lib.milestone_rules);
         let new_id = lib.add_card_with_tier(
             CardKind::EnemyCardEffect { kind: improved },
             CardCounts {
@@ -608,7 +630,11 @@ pub(crate) fn generate_milestone_reward_effects(
     new_ids
 }
 
-fn scale_card_effect_kind(kind: &CardEffectKind, factor: f64) -> CardEffectKind {
+fn scale_card_effect_kind(
+    kind: &CardEffectKind,
+    factor: f64,
+    rules: &crate::library::config::MilestoneRules,
+) -> CardEffectKind {
     match kind {
         CardEffectKind::GainTokens {
             target,
@@ -647,7 +673,7 @@ fn scale_card_effect_kind(kind: &CardEffectKind, factor: f64) -> CardEffectKind 
             defence,
             resource,
         } => CardEffectKind::DrawCards {
-            attack: attack + 1,
+            attack: attack + rules.draw_cards_attack_increment,
             defence: *defence,
             resource: *resource,
         },

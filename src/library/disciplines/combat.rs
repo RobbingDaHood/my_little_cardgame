@@ -251,7 +251,7 @@ impl GameState {
                     &mut self.token_balances,
                     &types::TokenType::MilestoneInsight,
                 );
-                *entry += 100;
+                *entry += self.game_rules.combat.milestone_insight_on_win;
             }
             self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
             self.capture_last_encounter_kind();
@@ -362,7 +362,7 @@ impl GameState {
                         &mut self.token_balances,
                         &types::TokenType::MilestoneInsight,
                     );
-                    *entry += 100;
+                    *entry += self.game_rules.combat.milestone_insight_on_win;
                 }
                 let outcome = combat.outcome.clone();
                 let rounds = combat.round;

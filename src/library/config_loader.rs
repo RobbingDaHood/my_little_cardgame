@@ -18,6 +18,7 @@ use super::Library;
 // ---- Compile-time JSON embedding ----
 
 static TOKENS_JSON: &str = include_str!("../../configurations/general/tokens.json");
+static GAME_RULES_JSON: &str = include_str!("../../configurations/general/game_rules.json");
 static SHARED_EFFECTS_JSON: &str = include_str!("../../configurations/general/shared_effects.json");
 static COMBAT_JSON: &str = include_str!("../../configurations/combat/cards.json");
 static MINING_JSON: &str = include_str!("../../configurations/mining/cards.json");
@@ -35,6 +36,39 @@ pub type EffectNameMap = HashMap<String, usize>;
 /// Load initial token balances from the embedded configuration.
 pub fn load_token_balances() -> HashMap<Token, i64> {
     load_token_balances_from_json(TOKENS_JSON)
+}
+
+/// Load game rules from the embedded configuration.
+pub fn load_game_rules() -> super::config::GameRulesConfig {
+    load_game_rules_from_json(GAME_RULES_JSON)
+}
+
+/// Load game rules from a custom JSON string.
+pub fn load_game_rules_from_json(json: &str) -> super::config::GameRulesConfig {
+    serde_json::from_str(json).expect("Failed to parse game_rules JSON")
+}
+
+/// Return the embedded game rules JSON string (for hashing in /version).
+pub fn game_rules_json() -> &'static str {
+    GAME_RULES_JSON
+}
+
+/// Return all embedded config JSON strings in deterministic order (for /version hashing).
+pub fn all_config_json_strings() -> Vec<&'static str> {
+    vec![
+        TOKENS_JSON,
+        GAME_RULES_JSON,
+        SHARED_EFFECTS_JSON,
+        COMBAT_JSON,
+        MINING_JSON,
+        HERBALISM_JSON,
+        WOODCUTTING_JSON,
+        FISHING_JSON,
+        REST_JSON,
+        CRAFTING_JSON,
+        RESEARCH_JSON,
+        MILESTONE_JSON,
+    ]
 }
 
 /// Load initial token balances from a custom JSON string.

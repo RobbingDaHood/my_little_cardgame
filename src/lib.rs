@@ -30,6 +30,7 @@ pub mod library;
 pub mod player_data;
 pub mod player_tokens;
 pub mod status_messages;
+pub mod version;
 
 // Re-export for tests
 pub use crate::player_data::new as player_data_new;
@@ -78,6 +79,8 @@ pub fn rocket_initialize_with_game_state(
     use crate::library::okapi_add_operation_for_list_card_effects_;
     use crate::player_tokens::get_player_tokens;
     use crate::player_tokens::okapi_add_operation_for_get_player_tokens_;
+    use crate::version::get_version;
+    use crate::version::okapi_add_operation_for_get_version_;
 
     #[allow(clippy::no_effect_underscore_binding)]
     let _ = env_logger::try_init();
@@ -101,6 +104,7 @@ pub fn rocket_initialize_with_game_state(
                 get_tutorial,
                 get_hints,
                 get_designer_guide,
+                get_version,
             ],
         )
         .mount("/swagger", make_swagger_ui(&get_docs()))

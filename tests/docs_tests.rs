@@ -472,3 +472,51 @@ fn metrics_reset_on_new_game() {
         "metrics should reset after NewGame"
     );
 }
+
+// ── /version endpoint tests ──
+
+#[test]
+fn version_returns_ok_with_expected_fields() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket");
+    let version = get_json(&client, "/version");
+
+    assert!(
+        version["version"].is_string(),
+        "version field should be a string"
+    );
+    assert!(
+        version["game_version"].is_string(),
+        "game_version field should be a string"
+    );
+    assert!(
+        version["config_hash"].is_string(),
+        "config_hash field should be a string"
+    );
+
+    let full = version["version"].as_str().unwrap();
+    let game_ver = version["game_version"].as_str().unwrap();
+    let hash = version["config_hash"].as_str().unwrap();
+
+    assert_eq!(game_ver, "0.0.1", "game version should be 0.0.1");
+    assert_eq!(hash.len(), 8, "config hash should be 8 hex chars");
+    assert!(
+        hash.chars().all(|c| c.is_ascii_hexdigit()),
+        "config hash should be hex"
+    );
+    assert_eq!(
+        full,
+        format!("{game_ver}-{hash}"),
+        "version should be game_version-config_hash"
+    );
+}
+
+#[test]
+fn version_is_deterministic() {
+    let client = Client::tracked(rocket_initialize()).expect("valid rocket");
+    let v1 = get_json(&client, "/version");
+    let v2 = get_json(&client, "/version");
+    assert_eq!(
+        v1["version"], v2["version"],
+        "version should be deterministic across calls"
+    );
+}

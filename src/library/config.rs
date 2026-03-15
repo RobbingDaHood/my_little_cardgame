@@ -265,3 +265,99 @@ pub struct MilestoneDefConfig {
     pub tier: u32,
     pub insight_cost: i64,
 }
+
+// ---------------------------------------------------------------------------
+// Game rules configuration (externalized constants)
+// ---------------------------------------------------------------------------
+
+/// Top-level game rules loaded from `configurations/general/game_rules.json`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct GameRulesConfig {
+    pub general: GeneralRules,
+    pub combat: CombatRules,
+    pub research: ResearchRules,
+    pub crafting: CraftingRules,
+    pub milestone: MilestoneRules,
+    pub scouting: ScoutingRules,
+    pub woodcutting_patterns: Vec<WoodcuttingPatternRule>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct GeneralRules {
+    pub death_reset_health: i64,
+    pub death_reset_stamina: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct CombatRules {
+    pub milestone_insight_on_win: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct ResearchRules {
+    pub max_hand_size: usize,
+    pub base_insight_cost: i64,
+    pub insight_cost_multiplier: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct CraftingRules {
+    pub initial_draw_count: u32,
+    pub durability_material_cost: i64,
+    pub durability_grant: i64,
+    pub min_craft_token_cost: i64,
+    pub base_cost_divisor: i64,
+    pub max_material_percent: i64,
+    pub material_token_min: i64,
+    pub material_token_max: i64,
+    pub cost_reduction_floor_percent: i64,
+    pub cost_formula_divisor: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct MilestoneRules {
+    pub base_insight_cost: i64,
+    pub insight_cost_multiplier: i64,
+    pub scale_factor_base: f64,
+    pub default_combat_enemy_hp: i64,
+    pub default_woodcutting_max_plays_base: u32,
+    pub default_woodcutting_max_plays_min: u32,
+    pub default_woodcutting_lumber_reward: i64,
+    pub default_woodcutting_insight_reward: i64,
+    pub default_fishing_valid_range_min: i64,
+    pub default_fishing_valid_range_max: i64,
+    pub default_fishing_max_turns: u32,
+    pub default_fishing_win_turns_needed: u32,
+    pub effect_scaling_factor: f64,
+    pub draw_cards_attack_increment: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct ScoutingRules {
+    pub choice_count: usize,
+    pub difficulty_delta_min: f64,
+    pub difficulty_delta_max: f64,
+    pub difficulty_delta_min_separation: f64,
+    pub mutation_fraction: f64,
+    pub mutation_scale_probability: f64,
+    pub mutation_redistribute_probability: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct WoodcuttingPatternRule {
+    pub name: String,
+    pub min_type_count: usize,
+    pub min_straight: usize,
+    pub min_distinct_types: usize,
+    pub second_type_min: usize,
+    pub value_freq_min: usize,
+    pub multiplier: f64,
+}

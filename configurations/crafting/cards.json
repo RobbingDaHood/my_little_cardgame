@@ -207,8 +207,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 4,
-        "hand": 5,
+        "deck": 7,
+        "hand": 2,
         "discard": 0
       },
       "valid_disciplines": [
@@ -223,8 +223,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 6,
-        "hand": 5,
+        "deck": 10,
+        "hand": 1,
         "discard": 0
       },
       "valid_disciplines": [
@@ -239,8 +239,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 6,
-        "hand": 5,
+        "deck": 10,
+        "hand": 1,
         "discard": 0
       },
       "valid_disciplines": [
@@ -255,8 +255,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 6,
-        "hand": 5,
+        "deck": 10,
+        "hand": 1,
         "discard": 0
       },
       "valid_disciplines": [

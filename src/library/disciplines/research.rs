@@ -142,8 +142,10 @@ impl GameState {
             return Err("Tier count must be at least 1".to_string());
         }
 
-        // Cost: 10 * 2^(tier_count - 1)
-        let insight_cost = 10_i64 * (1i64 << (tier_count - 1));
+        // Cost: base_insight_cost * insight_cost_multiplier^(tier_count - 1)
+        let base = self.game_rules.research.base_insight_cost;
+        let mult = self.game_rules.research.insight_cost_multiplier;
+        let insight_cost = base * mult.pow(tier_count - 1);
 
         let insight_token = types::TokenType::insight_for_discipline(&discipline);
         let insight_key = types::Token::persistent(insight_token);
@@ -331,8 +333,8 @@ impl GameState {
             hidden.push(all_symbols[idx].clone());
         }
 
-        // Draw research cards from deck to hand (up to 7)
-        let max_hand = 7usize;
+        // Draw research cards from deck to hand (up to max_hand_size from config)
+        let max_hand = self.game_rules.research.max_hand_size;
         let mut drawn = 0;
         for i in 0..self.library.cards.len() {
             if drawn >= max_hand {

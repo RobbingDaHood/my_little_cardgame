@@ -390,6 +390,9 @@ fn build_json_configuration() -> DesignerSection {
                 name: "Directory layout".to_string(),
                 description: "configurations/general/tokens.json — initial token balances \
                     (Health, Stamina, Durabilities, max hand sizes). \
+                    configurations/general/game_rules.json — game-wide mechanics constants \
+                    (death reset values, combat rewards, crafting costs, scouting parameters, \
+                    milestone scaling, woodcutting patterns). \
                     configurations/general/shared_effects.json — 5 shared effect templates \
                     reusable across disciplines (deal_damage, grant_shield, grant_stamina, \
                     draw_cards, insight). \
@@ -471,6 +474,13 @@ fn build_configuration_notes() -> DesignerSection {
                 name: "OpenAPI / Swagger".to_string(),
                 description: "Interactive API documentation at /swagger/. All endpoints are \
                     documented with JSON schemas for request/response types."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Version endpoint".to_string(),
+                description: "GET /version returns the game version (e.g. 0.0.1) combined \
+                    with a SHA-256 hash of all configuration files. Use it to verify config \
+                    parity across environments or detect when configs have changed."
                     .to_string(),
             },
         ],

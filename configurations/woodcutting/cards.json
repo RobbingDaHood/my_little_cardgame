@@ -350,8 +350,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 8,
-        "hand": 2,
+        "deck": 10,
+        "hand": 0,
         "discard": 0
       },
       "valid_disciplines": [
