@@ -747,6 +747,7 @@ impl GameState {
         }
 
         self.record_encounter_finish(types::Discipline::Research, outcome, 1);
+        self.capture_last_encounter_kind();
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
         Ok(())
@@ -775,6 +776,7 @@ impl GameState {
 
     fn finish_research_encounter(&mut self) {
         self.record_encounter_finish(types::Discipline::Research, EncounterOutcome::PlayerWon, 1);
+        self.capture_last_encounter_kind();
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }

@@ -6,4 +6,5 @@ pub(crate) mod milestone;
 pub(crate) mod mining;
 pub(crate) mod research;
 pub(crate) mod rest;
+pub(crate) mod scouting;
 pub(crate) mod woodcutting;

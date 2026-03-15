@@ -42,6 +42,7 @@ fn build_designer_guide() -> DesignerGuide {
             build_token_lifecycles(),
             build_effect_system(),
             build_balance_levers(),
+            build_scouting_mutation(),
             build_json_configuration(),
             build_configuration_notes(),
         ],
@@ -328,6 +329,48 @@ fn build_balance_levers() -> DesignerSection {
                 name: "Death penalty".to_string(),
                 description: "Currently resets all gathering materials (Ore, Plant, Lumber, Fish) \
                     and restores Health/Stamina to 1000. Adjusting severity changes risk tolerance."
+                    .to_string(),
+            },
+        ],
+    }
+}
+
+fn build_scouting_mutation() -> DesignerSection {
+    DesignerSection {
+        title: "Scouting Mutation System".to_string(),
+        description: "After completing an encounter, the scouting phase generates 3 mutated \
+            variations of the just-completed encounter. Each variation applies a random \
+            difficulty delta to encounter parameters and mutates ~20% of the enemy deck."
+            .to_string(),
+        entries: vec![
+            ReferenceEntry {
+                name: "Difficulty deltas".to_string(),
+                description: "3 deltas sampled from [-0.15, +0.30] with ≥0.10 separation. \
+                    Applied as factor = 1.0 + delta to numeric parameters (HP, light, rewards, etc.)."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Parameter mutations".to_string(),
+                description: "Per-discipline scaling: Combat scales initial_tokens, Mining scales \
+                    light_level, Fishing scales range/turns/rewards, Herbalism scales rewards, \
+                    Woodcutting scales max_plays/rewards, Crafting scales crafting_tokens, \
+                    Research scales insight_cost/yields, Rest scales token_min/max."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Enemy deck mutations".to_string(),
+                description: "~20% of enemy deck entries are mutated. Three operations: \
+                    ScaleValues (50%): multiply rolled_value/rolled_cap by factor. \
+                    RedistributeCopies (30%): move 1 copy between entries (total count constant). \
+                    SwapTier (20%): copy effects from another entry (counts unchanged). \
+                    Herbalism uses characteristic mutation instead of value scaling."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Constant count invariant".to_string(),
+                description: "Total card count across all entries in an enemy deck is preserved \
+                    after mutation. RedistributeCopies moves copies between entries; ScaleValues \
+                    and SwapTier only change effect values, not counts."
                     .to_string(),
             },
         ],

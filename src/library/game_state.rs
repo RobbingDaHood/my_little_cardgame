@@ -152,6 +152,12 @@ pub struct GameState {
     pub current_research: Option<super::types::ResearchProject>,
     pub encounter_records: Vec<super::types::EncounterRecord>,
     pub encounter_start_tokens: HashMap<super::types::TokenType, i64>,
+    /// EncounterKind of the most recently finished encounter, used to generate
+    /// scouting choices. Set when an encounter finishes, cleared after scouting.
+    pub last_encounter_kind: Option<super::types::EncounterKind>,
+    /// Card IDs of scouting-generated encounter choices. Cleared when the player
+    /// picks their next encounter so un-selected choices can be removed.
+    pub pending_scouting_choice_ids: Vec<usize>,
 }
 
 impl GameState {
@@ -190,6 +196,8 @@ impl GameState {
             current_research: None,
             encounter_records: Vec::new(),
             encounter_start_tokens: HashMap::new(),
+            last_encounter_kind: None,
+            pending_scouting_choice_ids: Vec::new(),
         }
     }
 
@@ -228,6 +236,20 @@ impl GameState {
         });
         self.last_encounter_result = Some(outcome.clone());
         self.encounter_results.push(outcome);
+    }
+
+    /// Capture the EncounterKind from the current encounter's library card
+    /// before the encounter is cleared. Called by discipline finish functions.
+    pub(crate) fn capture_last_encounter_kind(&mut self) {
+        let enc_card_id = match &self.current_encounter {
+            Some(enc) => enc.encounter_card_id(),
+            None => return,
+        };
+        if let Some(card) = self.library.get(enc_card_id) {
+            if let super::types::CardKind::Encounter { encounter_kind } = &card.kind {
+                self.last_encounter_kind = Some(encounter_kind.clone());
+            }
+        }
     }
 
     /// Check if player can pay all costs on a card's effects. Deducts costs if affordable.

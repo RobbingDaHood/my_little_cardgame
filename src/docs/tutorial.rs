@@ -147,21 +147,24 @@ fn build_tutorial() -> Tutorial {
             },
             TutorialStep {
                 step: 7,
-                title: "Apply Scouting Bonuses".to_string(),
+                title: "Apply Scouting — Mutated Encounters".to_string(),
                 description: "After an encounter concludes, you enter the Scouting phase. \
-                    You can pick encounter cards to add to your hand, expanding your options \
-                    for future encounters. Then conclude scouting to return to encounter selection."
+                    Scouting refills your encounter hand from the deck AND generates 3 mutated \
+                    variations of the encounter you just completed. These mutations adjust \
+                    difficulty parameters and shuffle the enemy deck composition. Pick any \
+                    encounter from your hand (original or mutated) to continue."
                     .to_string(),
                 endpoint: "/action".to_string(),
                 method: "POST".to_string(),
                 example_body: Some(
-                    r#"{"action_type": "EncounterApplyScouting", "card_ids": [62, 63]}"#
+                    r#"{"action_type": "EncounterApplyScouting", "card_ids": []}"#
                         .to_string(),
                 ),
                 tips: vec![
-                    "Scouting card IDs come from /actions/possible during Scouting phase.".to_string(),
-                    "Picking diverse encounter types gives you more strategic options.".to_string(),
-                    "Your Foresight token controls how many encounter cards are in your hand.".to_string(),
+                    "Scouting generates 3 mutated copies of your last encounter with varied difficulty.".to_string(),
+                    "Un-selected mutations are automatically cleaned up when you pick your next encounter.".to_string(),
+                    "The encounter hand also refills from the deck, so new encounter types can appear.".to_string(),
+                    "Your Foresight token controls how many encounter cards are drawn from the deck.".to_string(),
                 ],
             },
             TutorialStep {

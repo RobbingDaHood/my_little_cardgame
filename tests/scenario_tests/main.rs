@@ -19,4 +19,5 @@ mod milestone;
 mod mining;
 mod research;
 mod rest;
+mod scouting;
 mod woodcutting;
