@@ -254,6 +254,7 @@ impl GameState {
                 *entry += 100;
             }
             self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
+            self.capture_last_encounter_kind();
             self.current_encounter = None;
             self.encounter_phase = types::EncounterPhase::Scouting;
             self.check_player_death();
@@ -366,6 +367,7 @@ impl GameState {
                 let outcome = combat.outcome.clone();
                 let rounds = combat.round;
                 self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
+                self.capture_last_encounter_kind();
                 self.current_encounter = None;
                 self.encounter_phase = types::EncounterPhase::Scouting;
                 self.check_player_death();

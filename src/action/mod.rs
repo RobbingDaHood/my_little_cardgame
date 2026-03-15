@@ -27,7 +27,10 @@ pub enum PlayerActions {
     EncounterPickEncounter { card_id: usize },
     /// Play a discipline card during an active encounter.
     EncounterPlayCard { card_id: u64 },
-    /// Pick encounter cards during the scouting phase to expand future options.
+    /// Apply scouting after an encounter. Refills the encounter hand from deck
+    /// and generates 3 mutated variations of the just-completed encounter as
+    /// temporary scouting choices. Un-selected mutations are cleaned up when
+    /// the player picks their next encounter.
     EncounterApplyScouting { card_ids: Vec<usize> },
     /// Abort the current non-combat encounter (counts as a loss).
     EncounterAbort,
@@ -120,6 +123,13 @@ pub async fn play(
             if let Err(e) = gs.library.play(card_id) {
                 return Err(Right(BadRequest(new_status(e))));
             }
+            // Clean up un-selected scouting mutation choices
+            for &cid in &gs.pending_scouting_choice_ids.clone() {
+                if cid != card_id {
+                    gs.library.delete_card(cid);
+                }
+            }
+            gs.pending_scouting_choice_ids.clear();
             // Get the encounter kind to dispatch
             let lib_card = gs.library.get(card_id).ok_or_else(|| {
                 Left(NotFound(new_status(format!(
@@ -496,7 +506,7 @@ pub async fn play(
                 }
             }
 
-            // Recycle encounter back to deck and refill hand
+            // Normal scouting: recycle encounter back to deck and refill hand
             if let Some(ref enc) = gs.current_encounter {
                 let enc_id = enc.encounter_card_id();
                 let _ = gs.library.return_to_deck(enc_id);
@@ -509,6 +519,17 @@ pub async fn play(
                 .copied()
                 .unwrap_or(3) as usize;
             gs.library.encounter_draw_to_hand(foresight);
+
+            // Generate 3 mutated scouting choices from the just-completed encounter
+            if let Some(source_kind) = gs.last_encounter_kind.take() {
+                let mut rng = player_data.random_generator_state.lock().await;
+                let choice_ids = crate::library::disciplines::scouting::generate_scouting_choices(
+                    &mut gs.library,
+                    &mut rng,
+                    &source_kind,
+                );
+                gs.pending_scouting_choice_ids = choice_ids;
+            }
 
             gs.encounter_phase = crate::library::types::EncounterPhase::NoEncounter;
             let payload = crate::library::types::ActionPayload::ApplyScouting {

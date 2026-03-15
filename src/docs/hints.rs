@@ -36,7 +36,8 @@ fn build_hints() -> HintsGuide {
         title: "My Little Card Game — Hints & Strategies".to_string(),
         general_tips: vec![
             "Always check /actions/possible before acting — it shows exactly what's valid.".to_string(),
-            "Scouting is crucial: pick diverse encounter types to build flexibility.".to_string(),
+            "Scouting generates 3 mutated variations of your last encounter plus deck draws — compare them carefully.".to_string(),
+            "Mutated encounters scale difficulty (HP, light, rewards) and shuffle ~20% of the enemy deck.".to_string(),
             "Death resets materials (Ore, Plant, Lumber, Fish) but preserves Insight, crafted cards, and Renown.".to_string(),
             "Stamina is your universal resource for gathering — manage it carefully.".to_string(),
             "Durability limits how many gathering encounters you can do per type before they degrade.".to_string(),

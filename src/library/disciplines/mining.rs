@@ -247,6 +247,7 @@ impl GameState {
             _ => 0,
         };
         self.record_encounter_finish(types::Discipline::Mining, outcome, rounds);
+        self.capture_last_encounter_kind();
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
         self.check_player_death();

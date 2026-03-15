@@ -311,6 +311,7 @@ impl GameState {
             _ => 0,
         };
         self.record_encounter_finish(types::Discipline::Herbalism, outcome, rounds);
+        self.capture_last_encounter_kind();
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }

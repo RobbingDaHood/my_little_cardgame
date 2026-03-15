@@ -164,6 +164,7 @@ impl GameState {
                 card.counts.hand = 0;
             }
         }
+        self.capture_last_encounter_kind();
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }
@@ -178,6 +179,7 @@ impl GameState {
             }
         }
         self.record_encounter_finish(types::Discipline::Rest, EncounterOutcome::PlayerWon, 1);
+        self.capture_last_encounter_kind();
         self.current_encounter = None;
         self.encounter_phase = types::EncounterPhase::Scouting;
     }
