@@ -139,6 +139,89 @@ pub(crate) fn roll_concrete_effect(
     }
 }
 
+fn best_costs(
+    costs: &[super::types::CardEffectCost],
+    rolled_value: i64,
+) -> Vec<ConcreteEffectCost> {
+    costs
+        .iter()
+        .map(|c| {
+            let amount = if c.is_absolute {
+                c.max_percent
+            } else {
+                (rolled_value.unsigned_abs() * c.max_percent as u64 / 100) as u32
+            };
+            ConcreteEffectCost {
+                token_type: c.token_type.clone(),
+                amount,
+            }
+        })
+        .collect()
+}
+
+/// Like `roll_concrete_effect` but always picks the maximum values for all ranges.
+/// Used by milestones to create the "best version" of a card effect.
+pub(crate) fn roll_best_concrete_effect(effect_id: usize, library: &Library) -> ConcreteEffect {
+    let kind = library.resolve_effect(effect_id);
+    let (rolled_value, rolled_costs, rolled_cap, rolled_gain_percent) = match kind {
+        Some(super::types::CardEffectKind::GainTokens {
+            cap_max,
+            gain_max_percent,
+            costs,
+            ..
+        }) => {
+            let r_cap = cap_max;
+            let r_gain = gain_max_percent;
+            let value = r_cap * r_gain as i64 / 100;
+            let costs = best_costs(&costs, value);
+            (value, costs, Some(r_cap), Some(r_gain))
+        }
+        Some(super::types::CardEffectKind::LoseTokens { max, costs, .. }) => {
+            let costs = best_costs(&costs, max);
+            (max, costs, None, None)
+        }
+        Some(super::types::CardEffectKind::Insight { max, .. }) => (max, vec![], None, None),
+        Some(super::types::CardEffectKind::WoodcuttingChop {
+            max_value, costs, ..
+        }) => {
+            let value = max_value as i64;
+            let costs = best_costs(&costs, value);
+            (value, costs, None, None)
+        }
+        Some(super::types::CardEffectKind::HerbalismMatch { costs, .. }) => {
+            let costs = best_costs(&costs, 0);
+            (0, costs, None, None)
+        }
+        Some(super::types::CardEffectKind::FishingValue { max, costs, .. }) => {
+            let costs = best_costs(&costs, max);
+            (max, costs, None, None)
+        }
+        Some(super::types::CardEffectKind::CraftingReduction { max, costs, .. }) => {
+            let costs = best_costs(&costs, max);
+            (max, costs, None, None)
+        }
+        Some(super::types::CardEffectKind::ResearchProbe { costs, .. }) => {
+            let costs = best_costs(&costs, 0);
+            (0, costs, None, None)
+        }
+        Some(super::types::CardEffectKind::ResearchInterference {
+            kind: super::types::ResearchInterferenceKind::ReduceYield { max, .. },
+        }) => (max, vec![], None, None),
+        Some(super::types::CardEffectKind::ResearchInterference {
+            kind: super::types::ResearchInterferenceKind::InsightTax { max_percent, .. },
+        }) => (max_percent as i64, vec![], None, None),
+        Some(super::types::CardEffectKind::ResearchInterference { .. }) => (0, vec![], None, None),
+        _ => (0, vec![], None, None),
+    };
+    ConcreteEffect {
+        effect_id,
+        rolled_value,
+        rolled_costs,
+        rolled_cap,
+        rolled_gain_percent,
+    }
+}
+
 /// Minimal in-memory game state driven by the library's mutator API.
 #[derive(Debug, Clone)]
 pub struct GameState {
