@@ -3,6 +3,11 @@ use my_little_cardgame::rocket_initialize;
 use rocket::http::Status;
 use rocket::local::blocking::Client;
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const TOKENS_LOW_DUR: &str = include_str!("../configurations/tokens_low_durability.json");
+const WOODCUTTING_WIN: &str = include_str!("../configurations/woodcutting_win.json");
+const WOODCUTTING_LOSS: &str = include_str!("../configurations/woodcutting_loss.json");
+
 fn woodcutting_hand_card_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Woodcutting");
     cards
@@ -48,6 +53,101 @@ fn woodcutting_encounter_ids(client: &Client) -> Vec<usize> {
             }
         })
         .collect()
+}
+
+#[test]
+fn scenario_woodcutting_win_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("woodcutting", WOODCUTTING_WIN)]);
+
+    let enc_ids = woodcutting_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have woodcutting encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Woodcutting")
+    );
+
+    // Play woodcutting cards until encounter ends
+    for _ in 0..50 {
+        if !play_one_woodcutting_card(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Should win with 8 plays"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
+}
+
+#[test]
+fn scenario_woodcutting_loss_and_scout() {
+    // woodcutting_loss.json has cards costing 99999 Durability each — unpayable
+    let client =
+        create_test_client_from_json(42, TOKENS_LOW_DUR, &[("woodcutting", WOODCUTTING_LOSS)]);
+
+    let enc_ids = woodcutting_encounter_ids(&client);
+    assert!(!enc_ids.is_empty());
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    for _ in 0..50 {
+        if !play_one_woodcutting_card(&client) {
+            break;
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerLost"),
+        "Should lose with unpayable cards"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
 }
 
 #[test]

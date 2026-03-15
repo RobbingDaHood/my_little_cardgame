@@ -1,0 +1,101 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "ore_increase",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnOpponent",
+        "token_type": "Ore",
+        "cap_min": 1,
+        "cap_max": 1,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": ["Crafting"]
+    },
+    {
+      "type": "effect",
+      "name": "ore_reduction",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "CraftingReduction",
+        "token_type": "Ore",
+        "min": 9999,
+        "max": 9999,
+        "costs": []
+      },
+      "valid_disciplines": ["Crafting"]
+    },
+    {
+      "type": "effect",
+      "name": "plant_reduction",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "CraftingReduction",
+        "token_type": "Plant",
+        "min": 9999,
+        "max": 9999,
+        "costs": []
+      },
+      "valid_disciplines": ["Crafting"]
+    },
+    {
+      "type": "effect",
+      "name": "lumber_reduction",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "CraftingReduction",
+        "token_type": "Lumber",
+        "min": 9999,
+        "max": 9999,
+        "costs": []
+      },
+      "valid_disciplines": ["Crafting"]
+    },
+    {
+      "type": "effect",
+      "name": "fish_reduction",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "CraftingReduction",
+        "token_type": "Fish",
+        "min": 9999,
+        "max": 9999,
+        "costs": []
+      },
+      "valid_disciplines": ["Crafting"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Crafting",
+      "effect_refs": ["crafting:ore_reduction", "crafting:plant_reduction", "crafting:lumber_reduction", "crafting:fish_reduction"],
+      "counts": {"library": 0, "deck": 20, "hand": 10, "discard": 0},
+      "valid_disciplines": ["Crafting"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Attack",
+      "effect_refs": [],
+      "counts": {"library": 1, "deck": 0, "hand": 0, "discard": 0},
+      "valid_disciplines": ["Combat"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Crafting",
+        "crafting_def": {
+          "initial_crafting_tokens": 100,
+          "enemy_crafting_deck": [
+            {"effect_refs": ["crafting:ore_increase"], "counts": {"deck": 10, "hand": 0, "discard": 0}}
+          ]
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

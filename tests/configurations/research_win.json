@@ -1,0 +1,127 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "probe_alpha",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Alpha"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_beta",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Beta"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_gamma",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Gamma"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_delta",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Delta"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_epsilon",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Epsilon"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "effect",
+      "name": "probe_zeta",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "ResearchProbe",
+        "symbols": ["Zeta"],
+        "costs": []
+      },
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_alpha"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_beta"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_gamma"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_delta"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_epsilon"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Research",
+      "effect_refs": ["research:probe_zeta"],
+      "counts": {"library": 0, "deck": 5, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Research"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Research",
+        "research_def": {
+          "target_size": 3,
+          "position_match_yield": 10000,
+          "type_match_yield": 10000,
+          "base_insight_cost": 1,
+          "interference_deck": []
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

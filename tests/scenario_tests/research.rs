@@ -5,6 +5,10 @@ use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 use serde_json::Value;
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const RESEARCH_WIN: &str = include_str!("../configurations/research_win.json");
+const RESEARCH_LOSS: &str = include_str!("../configurations/research_loss.json");
+
 fn research_encounter_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
     cards
@@ -67,6 +71,155 @@ fn research_hand_card_ids(client: &Client) -> Vec<usize> {
         .iter()
         .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
         .collect()
+}
+
+/// Play one round of research cards via ResearchPlayHand.
+/// Returns true if the research encounter is still active.
+fn play_one_research_card(client: &Client) -> bool {
+    let research_ids = research_hand_card_ids(client);
+    if research_ids.is_empty() {
+        return false;
+    }
+    // Build a hand of 3 cards, reusing IDs when a card has multiple copies
+    let hand: Vec<usize> = research_ids.iter().cycle().take(3).copied().collect();
+    let card_ids_json = serde_json::to_string(&hand).unwrap_or_else(|_| "[]".to_string());
+    let play_json = format!(
+        r#"{{"action_type":"ResearchPlayHand","card_ids":{}}}"#,
+        card_ids_json
+    );
+    let (status, _) = post_action(client, &play_json);
+    if status != Status::Created {
+        return false;
+    }
+    let encounter = combat_state(client);
+    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+}
+
+#[test]
+fn scenario_research_win_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("research", RESEARCH_WIN)]);
+
+    let enc_ids = research_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have research encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Research")
+    );
+
+    // Play multiple rounds cycling through different card sets to cover all 6 symbols
+    let all_ids = research_hand_card_ids(&client);
+    assert!(
+        all_ids.len() >= 3,
+        "Need at least 3 research card IDs, got {}",
+        all_ids.len()
+    );
+    for chunk in all_ids.chunks(3) {
+        if chunk.len() < 3 {
+            break;
+        }
+        let card_ids_json =
+            serde_json::to_string(&chunk.to_vec()).unwrap_or_else(|_| "[]".to_string());
+        let play_json = format!(
+            r#"{{"action_type":"ResearchPlayHand","card_ids":{}}}"#,
+            card_ids_json
+        );
+        let (status, _) = post_action(&client, &play_json);
+        if status != Status::Created {
+            break;
+        }
+    }
+
+    // Conclude experiment if still undecided
+    let enc = combat_state(&client);
+    if enc.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let (status, _) = post_action(&client, r#"{"action_type":"ResearchConcludeExperiment"}"#);
+        if status != Status::Created {
+            let _ = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Research should win with high yield"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
+}
+
+#[test]
+fn scenario_research_loss_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("research", RESEARCH_LOSS)]);
+
+    let enc_ids = research_encounter_ids(&client);
+    assert!(!enc_ids.is_empty());
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    for _ in 0..50 {
+        if !play_one_research_card(&client) {
+            break;
+        }
+    }
+
+    // Conclude experiment if still undecided
+    let enc = combat_state(&client);
+    if enc.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let (status, _) = post_action(&client, r#"{"action_type":"ResearchConcludeExperiment"}"#);
+        if status != Status::Created {
+            let _ = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+        }
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerLost"),
+        "Research should lose from interference"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
 }
 
 /// Start a new game, accumulate Insight via combat wins, then deplete the

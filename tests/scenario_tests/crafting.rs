@@ -4,6 +4,11 @@ use rocket::http::Status;
 use rocket::local::blocking::Client;
 use rocket::serde::json::serde_json;
 
+const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const TOKENS_LOW_DUR: &str = include_str!("../configurations/tokens_low_durability.json");
+const CRAFTING_WIN: &str = include_str!("../configurations/crafting_win.json");
+const CRAFTING_LOSS: &str = include_str!("../configurations/crafting_loss.json");
+
 fn crafting_encounter_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
     cards
@@ -46,6 +51,169 @@ fn start_game_and_pick_crafting(client: &Client) {
     );
     let (status, _) = post_action(client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
+}
+
+/// Find crafting card IDs available in the player's hand.
+fn crafting_hand_card_ids(client: &Client) -> Vec<usize> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Crafting");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()).map(|v| v as usize))
+        .collect()
+}
+
+/// Play one crafting card. Starts a craft if none is active.
+/// Returns true if the crafting encounter is still active.
+fn play_one_crafting_card(client: &Client) -> bool {
+    let enc = combat_state(client);
+    let has_active_craft = enc
+        .get("active_craft")
+        .map(|v| !v.is_null())
+        .unwrap_or(false);
+
+    if !has_active_craft {
+        let cards = get_json(client, "/library/cards?card_kind=Attack");
+        let target_id = cards
+            .as_array()
+            .and_then(|arr| arr.first())
+            .and_then(|c| c.get("id"))
+            .and_then(|v| v.as_u64());
+        if let Some(id) = target_id {
+            let craft_json = format!(
+                r#"{{"action_type":"EncounterCraftCard","target_card_id":{}}}"#,
+                id
+            );
+            let (status, _) = post_action(client, &craft_json);
+            if status != Status::Created {
+                return false;
+            }
+        } else {
+            return false;
+        }
+        let enc = combat_state(client);
+        if enc.get("outcome").and_then(|v| v.as_str()) != Some("Undecided") {
+            return false;
+        }
+    }
+
+    let crafting_ids = crafting_hand_card_ids(client);
+    if crafting_ids.is_empty() {
+        return false;
+    }
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        crafting_ids[0]
+    );
+    let (status, _) = post_action(client, &json);
+    if status != Status::Created {
+        return false;
+    }
+    let encounter = combat_state(client);
+    encounter.get("outcome").and_then(|v| v.as_str()) == Some("Undecided")
+}
+
+#[test]
+fn scenario_crafting_win_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS, &[("crafting", CRAFTING_WIN)]);
+
+    let enc_ids = crafting_encounter_ids(&client);
+    assert!(!enc_ids.is_empty(), "Should have crafting encounters");
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    let encounter = combat_state(&client);
+    assert_eq!(
+        encounter
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str()),
+        Some("Crafting")
+    );
+
+    for _ in 0..50 {
+        if !play_one_crafting_card(&client) {
+            break;
+        }
+    }
+
+    let enc = combat_state(&client);
+    if enc.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let _ = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerWon"),
+        "Crafting should win with enough tokens"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
+}
+
+#[test]
+fn scenario_crafting_loss_and_scout() {
+    let client = create_test_client_from_json(42, TOKENS_LOW_DUR, &[("crafting", CRAFTING_LOSS)]);
+
+    let enc_ids = crafting_encounter_ids(&client);
+    assert!(!enc_ids.is_empty());
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created);
+
+    for _ in 0..50 {
+        if !play_one_crafting_card(&client) {
+            break;
+        }
+    }
+
+    let enc = combat_state(&client);
+    if enc.get("outcome").and_then(|v| v.as_str()) == Some("Undecided") {
+        let _ = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
+    }
+
+    let result = combat_result(&client);
+    assert_eq!(
+        result.as_deref(),
+        Some("PlayerLost"),
+        "Crafting should lose when tokens exhausted"
+    );
+
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
+    );
+    assert_eq!(status, Status::Created);
+
+    let enc_after = encounter_hand_ids(&client);
+    assert!(!enc_after.is_empty());
+    let pick2 = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_after[0]
+    );
+    let (status, _) = post_action(&client, &pick2);
+    assert_eq!(status, Status::Created);
 }
 
 /// Scenario: Start a crafting encounter and verify initial state.

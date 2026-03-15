@@ -1,0 +1,54 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "plant_passive",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Plant",
+        "cap_min": 10,
+        "cap_max": 10,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": ["Herbalism"]
+    },
+    {
+      "type": "effect",
+      "name": "match_fragile",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {"Or": {"types": ["Fragile"]}},
+        "costs": []
+      },
+      "valid_disciplines": ["Herbalism"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": ["herbalism:match_fragile"],
+      "counts": {"library": 0, "deck": 20, "hand": 5, "discard": 0},
+      "valid_disciplines": ["Herbalism"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Herbalism",
+        "herbalism_def": {
+          "plant_hand": [
+            {"characteristics": ["Fragile"], "effect_refs": ["herbalism:plant_passive"], "counts": {"deck": 0, "hand": 1, "discard": 0}},
+            {"characteristics": ["Thorny"], "effect_refs": ["herbalism:plant_passive"], "counts": {"deck": 0, "hand": 1, "discard": 0}}
+          ],
+          "rewards": {"Plant": 100}
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}

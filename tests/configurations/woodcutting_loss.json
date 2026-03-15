@@ -1,0 +1,38 @@
+{
+  "cards": [
+    {
+      "type": "effect",
+      "name": "expensive_chop",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "WoodcuttingChop",
+        "chop_type": "LightChop",
+        "min_value": 1,
+        "max_value": 1,
+        "costs": [
+          {"token_type": "Durability", "min_percent": 99999, "max_percent": 99999, "is_absolute": true}
+        ]
+      },
+      "valid_disciplines": ["Woodcutting"]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Woodcutting",
+      "effect_refs": ["woodcutting:expensive_chop"],
+      "counts": {"library": 0, "deck": 20, "hand": 10, "discard": 0},
+      "valid_disciplines": ["Woodcutting"]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Woodcutting",
+        "woodcutting_def": {
+          "max_plays": 8,
+          "base_rewards": {"Lumber": 100}
+        }
+      },
+      "counts": {"library": 0, "deck": 0, "hand": 2, "discard": 0},
+      "valid_disciplines": []
+    }
+  ]
+}
