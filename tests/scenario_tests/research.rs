@@ -6,6 +6,9 @@ use rocket::serde::json::serde_json;
 use serde_json::Value;
 
 const TOKENS: &str = include_str!("../configurations/tokens_default.json");
+const TOKENS_WITH_INSIGHT: &str = include_str!("../configurations/tokens_with_combat_insight.json");
+const SHARED: &str = include_str!("../configurations/shared_effects.json");
+const COMBAT_WIN: &str = include_str!("../configurations/combat_win.json");
 const RESEARCH_WIN: &str = include_str!("../configurations/research_win.json");
 const RESEARCH_LOSS: &str = include_str!("../configurations/research_loss.json");
 
@@ -29,37 +32,6 @@ fn research_encounter_ids(client: &Client) -> Vec<usize> {
             }
         })
         .collect()
-}
-
-/// Helper to get the research encounter card into hand by depleting the
-/// encounter hand through aborting/concluding non-combat encounters.
-/// Does NOT accumulate Insight. Returns true if research encounter is in hand.
-fn deplete_encounters_until_research(client: &Client) -> bool {
-    for _ in 0..25 {
-        if !research_encounter_ids(client).is_empty() {
-            return true;
-        }
-        let enc_hand = encounter_hand_ids(client);
-        if enc_hand.is_empty() {
-            return false;
-        }
-        let pick_json = format!(
-            r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
-            enc_hand[0]
-        );
-        if post_action(client, &pick_json).0 != Status::Created {
-            break;
-        }
-        let (status, _) = post_action(client, r#"{"action_type":"EncounterAbort"}"#);
-        if status != Status::Created {
-            let _ = post_action(client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
-        }
-        let _ = post_action(
-            client,
-            r#"{"action_type":"EncounterApplyScouting","card_ids":[]}"#,
-        );
-    }
-    !research_encounter_ids(client).is_empty()
 }
 
 /// Helper: get Research (player) card IDs currently in hand.
@@ -222,78 +194,103 @@ fn scenario_research_loss_and_scout() {
     assert_eq!(status, Status::Created);
 }
 
-/// Start a new game, accumulate Insight via combat wins, then deplete the
-/// encounter hand until the Research encounter card is drawn to hand.
-/// Returns the Insight balance right before picking the research encounter.
-fn start_game_accumulate_insight_and_pick_research(client: &Client, seed: u64) -> i64 {
-    let seed_json = format!(r#"{{"action_type":"NewGame","seed":{}}}"#, seed);
-    let (status, _) = post_action(client, &seed_json);
-    assert_eq!(status, Status::Created, "NewGame should succeed");
-
-    // Phase 1: Win combats to accumulate Insight (also depletes encounter hand).
-    for _ in 0..3 {
-        if combat_encounter_ids(client).is_empty() {
-            break;
-        }
-        win_combat_and_scout(client);
-    }
-
-    // Phase 2: Abort remaining encounters to deplete the hand until Research
-    // card is drawn from deck (encounter_draw_to_hand fills to Foresight=3).
+/// Create a client with a research encounter already in hand and a known CombatInsight
+/// balance. The seed is used for RNG within the research experiment itself.
+/// Returns (client, insight_balance_before_encounter_start).
+fn create_research_client_with_insight(seed: u64) -> (Client, i64) {
+    let client = create_test_client_from_json(
+        seed,
+        TOKENS_WITH_INSIGHT,
+        &[
+            ("shared", SHARED),
+            ("combat", COMBAT_WIN),
+            ("research", RESEARCH_WIN),
+        ],
+    );
+    let insight = player_token(&client, "CombatInsight");
+    let enc_ids = research_encounter_ids(&client);
     assert!(
-        deplete_encounters_until_research(client),
-        "Should have research encounter cards in hand after depleting encounter hand"
+        !enc_ids.is_empty(),
+        "Research encounter should be in hand with RESEARCH_WIN config"
     );
-
-    let insight = player_token(client, "CombatInsight");
-    let research_enc = research_encounter_ids(client);
-
-    let pick_json = format!(
+    let pick = format!(
         r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
-        research_enc[0]
+        enc_ids[0]
     );
-    let (status, _) = post_action(client, &pick_json);
-    assert_eq!(
-        status,
-        Status::Created,
-        "PickEncounter for research should succeed"
-    );
-
-    insight
+    let (status, _) = post_action(&client, &pick);
+    assert_eq!(status, Status::Created, "PickEncounter should succeed");
+    (client, insight)
 }
 
-/// Helper: set up a game and enter a research encounter with a project selected.
-/// Returns the CombatInsight balance after project selection.
-fn setup_research_with_project(client: &Client, seed: u64) -> Option<i64> {
-    let insight = start_game_accumulate_insight_and_pick_research(client, seed);
+/// Create a client with a research encounter active, project chosen, and candidate selected.
+/// Returns Some((client, remaining_insight)) or None if preconditions fail.
+fn setup_research_client_with_project(seed: u64) -> Option<(Client, i64)> {
+    let (client, insight) = create_research_client_with_insight(seed);
     if insight < 10 {
         return None;
     }
-
-    // Choose project: Combat, tier 1 (costs 10)
     let (status, _) = post_action(
-        client,
+        &client,
         r#"{"action_type":"ResearchChooseProject","discipline":"Combat","tier_count":1}"#,
     );
     if status != Status::Created {
         return None;
     }
-
-    // Select candidate 0
     let (status, _) = post_action(
-        client,
+        &client,
         r#"{"action_type":"ResearchSelectCandidate","candidate_index":0}"#,
     );
     assert_eq!(status, Status::Created);
+    Some((client, insight - 10))
+}
 
-    Some(insight - 10)
+/// Like setup_research_client_with_project, but loads the RESEARCH_LOSS config so an
+/// interference deck is present. Used for interference-specific scenario tests.
+fn setup_research_client_with_interference_project(seed: u64) -> Option<(Client, i64)> {
+    let client = create_test_client_from_json(
+        seed,
+        TOKENS_WITH_INSIGHT,
+        &[
+            ("shared", SHARED),
+            ("combat", COMBAT_WIN),
+            ("research", RESEARCH_LOSS),
+        ],
+    );
+    let insight = player_token(&client, "CombatInsight");
+    if insight < 10 {
+        return None;
+    }
+    let enc_ids = research_encounter_ids(&client);
+    if enc_ids.is_empty() {
+        return None;
+    }
+    let pick = format!(
+        r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
+        enc_ids[0]
+    );
+    let (status, _) = post_action(&client, &pick);
+    if status != Status::Created {
+        return None;
+    }
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"ResearchChooseProject","discipline":"Combat","tier_count":1}"#,
+    );
+    if status != Status::Created {
+        return None;
+    }
+    let (status, _) = post_action(
+        &client,
+        r#"{"action_type":"ResearchSelectCandidate","candidate_index":0}"#,
+    );
+    assert_eq!(status, Status::Created);
+    Some((client, insight - 10))
 }
 
 /// Scenario: Research encounter flow: choose project, select candidate, conclude.
 #[test]
 fn scenario_research_encounter_full_loop() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    let insight_before = start_game_accumulate_insight_and_pick_research(&client, 7777);
+    let (client, insight_before) = create_research_client_with_insight(7777);
 
     // Verify encounter is Research type
     let encounter = combat_state(&client);
@@ -421,8 +418,7 @@ fn scenario_research_encounter_full_loop() {
 
 #[test]
 fn scenario_research_choose_and_swap_project() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-    let insight_before = start_game_accumulate_insight_and_pick_research(&client, 7777);
+    let (client, insight_before) = create_research_client_with_insight(7777);
 
     if insight_before < 10 {
         let _ = post_action(&client, r#"{"action_type":"EncounterAbort"}"#);
@@ -477,7 +473,7 @@ fn scenario_research_choose_and_swap_project() {
     if insight_now >= 10 {
         let (status, _) = post_action(
             &client,
-            r#"{"action_type":"ResearchChooseProject","discipline":"Mining","tier_count":1}"#,
+            r#"{"action_type":"ResearchChooseProject","discipline":"Research","tier_count":1}"#,
         );
         assert_eq!(
             status,
@@ -504,19 +500,16 @@ fn scenario_research_choose_and_swap_project() {
 /// Scenario: Attempt to choose a research project with insufficient Insight.
 #[test]
 fn scenario_research_insufficient_insight() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
-    assert_eq!(status, Status::Created);
+    let client = create_test_client_from_json(42, TOKENS, &[("research", RESEARCH_WIN)]);
 
     let insight = player_token(&client, "CombatInsight");
     assert_eq!(insight, 0, "Should start with 0 Insight");
 
-    if !deplete_encounters_until_research(&client) {
-        return;
-    }
-
     let research_enc = research_encounter_ids(&client);
+    assert!(
+        !research_enc.is_empty(),
+        "Should have research encounters in hand"
+    );
     let pick_json = format!(
         r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
         research_enc[0]
@@ -544,16 +537,13 @@ fn scenario_research_insufficient_insight() {
 /// Scenario: Abort a research encounter.
 #[test]
 fn scenario_research_abort() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
-    assert_eq!(status, Status::Created);
-
-    if !deplete_encounters_until_research(&client) {
-        return;
-    }
+    let client = create_test_client_from_json(42, TOKENS, &[("research", RESEARCH_WIN)]);
 
     let research_enc = research_encounter_ids(&client);
+    assert!(
+        !research_enc.is_empty(),
+        "Should have research encounters in hand"
+    );
     let pick_json = format!(
         r#"{{"action_type":"EncounterPickEncounter","card_id":{}}}"#,
         research_enc[0]
@@ -593,10 +583,8 @@ fn scenario_research_abort() {
 /// Scenario: Full research experiment loop.
 #[test]
 fn scenario_research_experiment_full_loop() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let _remaining_insight = match setup_research_with_project(&client, 7777) {
-        Some(i) => i,
+    let (client, _remaining_insight) = match setup_research_client_with_project(7777) {
+        Some(pair) => pair,
         None => return,
     };
 
@@ -681,8 +669,8 @@ fn scenario_research_experiment_full_loop() {
     );
     assert_eq!(
         first_round.get("insight_cost").and_then(|v| v.as_i64()),
-        Some(5),
-        "Round 1 should cost 5 Insight"
+        Some(1),
+        "Round 1 should cost 1 Insight (base_insight_cost=1 in test config)"
     );
 
     let (status, _) = post_action(&client, r#"{"action_type":"ResearchConcludeExperiment"}"#);
@@ -712,10 +700,8 @@ fn scenario_research_experiment_full_loop() {
 /// Scenario: Conclude experiment with 0 yield.
 #[test]
 fn scenario_research_experiment_zero_yield_loss() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let remaining_insight = match setup_research_with_project(&client, 9999) {
-        Some(i) => i,
+    let (client, remaining_insight) = match setup_research_client_with_project(9999) {
+        Some(pair) => pair,
         None => return,
     };
 
@@ -761,14 +747,12 @@ fn scenario_research_experiment_zero_yield_loss() {
 /// Scenario: Research experiment cost escalation.
 #[test]
 fn scenario_research_experiment_cost_escalation() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let remaining_insight = match setup_research_with_project(&client, 12345) {
-        Some(i) => i,
+    let (client, remaining_insight) = match setup_research_client_with_project(12345) {
+        Some(pair) => pair,
         None => return,
     };
 
-    if remaining_insight < 15 {
+    if remaining_insight < 3 {
         let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
         assert_eq!(status, Status::Created);
         return;
@@ -796,8 +780,8 @@ fn scenario_research_experiment_cost_escalation() {
         round_history[0]
             .get("insight_cost")
             .and_then(|v| v.as_i64()),
-        Some(5),
-        "Round 1 cost should be 5"
+        Some(1),
+        "Round 1 cost should be 1 (base_insight_cost=1 in test config)"
     );
 
     // Play round 2
@@ -827,8 +811,8 @@ fn scenario_research_experiment_cost_escalation() {
         round_history[1]
             .get("insight_cost")
             .and_then(|v| v.as_i64()),
-        Some(10),
-        "Round 2 cost should be 10"
+        Some(2),
+        "Round 2 cost should be 2 (base_insight_cost=1 × round_num=2)"
     );
 
     let (status, _) = post_action(&client, r#"{"action_type":"ResearchConcludeExperiment"}"#);
@@ -844,10 +828,8 @@ fn scenario_research_experiment_cost_escalation() {
 /// Scenario: Verify wrong number of cards returns error.
 #[test]
 fn scenario_research_experiment_wrong_card_count() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let remaining_insight = match setup_research_with_project(&client, 5555) {
-        Some(i) => i,
+    let (client, remaining_insight) = match setup_research_client_with_project(5555) {
+        Some(pair) => pair,
         None => return,
     };
 
@@ -881,10 +863,8 @@ fn scenario_research_experiment_wrong_card_count() {
 /// Scenario: Verify hidden_types is NOT visible in encounter state API response.
 #[test]
 fn scenario_research_experiment_hidden_types_not_visible() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let remaining_insight = match setup_research_with_project(&client, 4444) {
-        Some(i) => i,
+    let (client, remaining_insight) = match setup_research_client_with_project(4444) {
+        Some(pair) => pair,
         None => return,
     };
 
@@ -966,14 +946,12 @@ fn scenario_research_experiment_cards_exist() {
 /// Scenario: Multiple rounds of research experiment, verifying accumulated_yield grows.
 #[test]
 fn scenario_research_experiment_multi_round() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let remaining_insight = match setup_research_with_project(&client, 33333) {
-        Some(i) => i,
+    let (client, remaining_insight) = match setup_research_client_with_project(33333) {
+        Some(pair) => pair,
         None => return,
     };
 
-    if remaining_insight < 30 {
+    if remaining_insight < 6 {
         let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
         assert_eq!(status, Status::Created);
         return;
@@ -1036,14 +1014,12 @@ fn scenario_research_experiment_multi_round() {
 /// Verifies that interference_played appears in round_history results.
 #[test]
 fn scenario_research_experiment_interference_deck() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let remaining_insight = match setup_research_with_project(&client, 55555) {
-        Some(i) => i,
+    let (client, remaining_insight) = match setup_research_client_with_interference_project(55555) {
+        Some(pair) => pair,
         None => return,
     };
 
-    if remaining_insight < 30 {
+    if remaining_insight < 3 {
         let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
         assert_eq!(status, Status::Created);
         return;
@@ -1132,14 +1108,12 @@ fn scenario_research_experiment_interference_deck() {
 /// a theoretical max of 300 per round × rounds played in most cases with interference).
 #[test]
 fn scenario_research_interference_reduces_yield() {
-    let client = Client::tracked(rocket_initialize()).expect("valid rocket instance");
-
-    let remaining_insight = match setup_research_with_project(&client, 88888) {
-        Some(i) => i,
+    let (client, remaining_insight) = match setup_research_client_with_interference_project(88888) {
+        Some(pair) => pair,
         None => return,
     };
 
-    if remaining_insight < 60 {
+    if remaining_insight < 5 {
         let (status, _) = post_action(&client, r#"{"action_type":"EncounterConcludeEncounter"}"#);
         assert_eq!(status, Status::Created);
         return;

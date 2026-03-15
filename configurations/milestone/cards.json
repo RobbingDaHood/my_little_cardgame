@@ -68,7 +68,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 12,
+                    "hand": 50,
                     "discard": 0
                   }
                 }
@@ -80,7 +80,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 12,
+                    "hand": 50,
                     "discard": 0
                   }
                 }
@@ -92,7 +92,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 12,
+                    "hand": 50,
                     "discard": 0
                   }
                 }
@@ -107,7 +107,7 @@
       "counts": {
         "library": 0,
         "deck": 0,
-        "hand": 1,
+        "hand": 10,
         "discard": 0
       },
       "valid_disciplines": []
@@ -176,7 +176,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 8,
+                    "hand": 18,
                     "discard": 0
                   }
                 },
@@ -186,7 +186,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 10,
+                    "hand": 23,
                     "discard": 0
                   }
                 },
@@ -196,7 +196,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 4,
+                    "hand": 9,
                     "discard": 0
                   }
                 }
@@ -211,7 +211,7 @@
       "counts": {
         "library": 0,
         "deck": 0,
-        "hand": 1,
+        "hand": 10,
         "discard": 0
       },
       "valid_disciplines": []
@@ -232,7 +232,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 4,
+                    "hand": 15,
                     "discard": 0
                   }
                 },
@@ -243,7 +243,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 4,
+                    "hand": 15,
                     "discard": 0
                   }
                 },
@@ -254,7 +254,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 3,
+                    "hand": 12,
                     "discard": 0
                   }
                 },
@@ -266,7 +266,7 @@
                   ],
                   "counts": {
                     "deck": 0,
-                    "hand": 2,
+                    "hand": 8,
                     "discard": 0
                   }
                 }
@@ -285,7 +285,7 @@
       "counts": {
         "library": 0,
         "deck": 0,
-        "hand": 1,
+        "hand": 10,
         "discard": 0
       },
       "valid_disciplines": []
@@ -313,7 +313,7 @@
       "counts": {
         "library": 0,
         "deck": 0,
-        "hand": 1,
+        "hand": 10,
         "discard": 0
       },
       "valid_disciplines": []
@@ -335,7 +335,7 @@
                   "value": 40,
                   "counts": {
                     "deck": 0,
-                    "hand": 6,
+                    "hand": 25,
                     "discard": 0
                   }
                 },
@@ -343,7 +343,7 @@
                   "value": 80,
                   "counts": {
                     "deck": 0,
-                    "hand": 4,
+                    "hand": 17,
                     "discard": 0
                   }
                 },
@@ -351,7 +351,7 @@
                   "value": 120,
                   "counts": {
                     "deck": 0,
-                    "hand": 2,
+                    "hand": 8,
                     "discard": 0
                   }
                 }
@@ -370,7 +370,7 @@
       "counts": {
         "library": 0,
         "deck": 0,
-        "hand": 1,
+        "hand": 10,
         "discard": 0
       },
       "valid_disciplines": []

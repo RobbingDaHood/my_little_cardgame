@@ -1,0 +1,30 @@
+{
+  "initial_balances": {
+    "Foresight": 3,
+    "Health": 10000,
+    "MaxHealth": 10000,
+    "Stamina": 10000,
+    "MiningDurability": 10000,
+    "HerbalismDurability": 10000,
+    "WoodcuttingDurability": 10000,
+    "FishingDurability": 10000,
+    "Durability": 10000,
+    "AttackMaxHand": 10,
+    "DefenceMaxHand": 10,
+    "ResourceMaxHand": 10,
+    "MiningMaxHand": 10,
+    "HerbalismMaxHand": 10,
+    "WoodcuttingMaxHand": 10,
+    "FishingMaxHand": 10,
+    "RestMaxHand": 10,
+    "CraftingMaxHand": 10,
+    "MilestoneMaxHand": 10,
+    "RestToken": 100,
+    "Fish": 1000,
+    "Plant": 1000,
+    "Lumber": 1000,
+    "Ore": 1000,
+    "ResearchInsight": 10000,
+    "CombatInsight": 100
+  }
+}
