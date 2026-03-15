@@ -33,30 +33,31 @@ fn find_base_encounter(lib: &Library, discipline: &Discipline) -> Option<Encount
     })
 }
 
-/// Build mapping from tier-1 enemy effect IDs to tier-N effect IDs.
-/// Effects are matched positionally: the Nth tier-1 effect maps to the Nth tier-N effect.
-fn tier_effect_mapping(lib: &Library, discipline: &Discipline, tier: u32) -> HashMap<usize, usize> {
-    let tier1: Vec<usize> = lib
-        .enemy_effects_for_discipline_and_tier(discipline, 1)
+/// Build mapping from source-tier enemy effect IDs to target-tier effect IDs.
+/// Effects are matched positionally: the Nth source-tier effect maps to the Nth target-tier effect.
+fn tier_effect_mapping(
+    lib: &Library,
+    discipline: &Discipline,
+    from_tier: u32,
+    to_tier: u32,
+) -> HashMap<usize, usize> {
+    let from: Vec<usize> = lib
+        .enemy_effects_for_discipline_and_tier(discipline, from_tier)
         .iter()
         .map(|(id, _)| *id)
         .collect();
 
-    if tier == 1 {
-        return tier1.iter().map(|id| (*id, *id)).collect();
+    if from_tier == to_tier {
+        return from.iter().map(|id| (*id, *id)).collect();
     }
 
-    let tier_n: Vec<usize> = lib
-        .enemy_effects_for_discipline_and_tier(discipline, tier)
+    let to: Vec<usize> = lib
+        .enemy_effects_for_discipline_and_tier(discipline, to_tier)
         .iter()
         .map(|(id, _)| *id)
         .collect();
 
-    tier1
-        .iter()
-        .zip(tier_n.iter())
-        .map(|(t1, tn)| (*t1, *tn))
-        .collect()
+    from.iter().zip(to.iter()).map(|(f, t)| (*f, *t)).collect()
 }
 
 /// Rebuild concrete effects using roll_best on mapped (tier-appropriate) effect IDs.
@@ -78,65 +79,72 @@ fn register_combat_milestone(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     tier: u32,
-) -> usize {
-    let enemy_hp = (3000.0 * scale_factor(tier)).round() as u64;
+    card_id: usize,
+    previous_combatant: Option<&CombatantDef>,
+) {
+    let combatant_def = if let Some(prev) = previous_combatant {
+        let effect_map = tier_effect_mapping(lib, &Discipline::Combat, tier - 1, tier);
+        let tier_scale = scale_factor(tier) / scale_factor(tier - 1);
 
-    // Collect enemy effect info (owned data, no borrow on lib)
-    let enemy_effects: Vec<(usize, CardEffectKind)> = lib
-        .enemy_effects_for_discipline_and_tier(&Discipline::Combat, tier)
-        .iter()
-        .filter_map(|(id, card)| {
-            if let CardKind::EnemyCardEffect { kind } = &card.kind {
-                Some((*id, kind.clone()))
-            } else {
-                None
-            }
-        })
-        .collect();
+        let rebuild_deck = |deck: &[EnemyCardDef]| -> Vec<EnemyCardDef> {
+            deck.iter()
+                .map(|card_def| EnemyCardDef {
+                    effects: rebuild_effects_best(&card_def.effects, &effect_map, lib),
+                    counts: card_def.counts.clone(),
+                })
+                .collect()
+        };
 
-    // Classify effects into deck categories and use roll_best
-    let mut attack_effects = vec![];
-    let mut defence_effects = vec![];
-    let mut resource_effects = vec![];
+        let initial_tokens = prev
+            .initial_tokens
+            .iter()
+            .map(|(k, v)| (k.clone(), (*v as f64 * tier_scale).round() as u64))
+            .collect();
 
-    for (id, kind) in &enemy_effects {
-        let concrete = roll_best_concrete_effect(*id, lib);
-        match kind {
-            CardEffectKind::LoseTokens { .. } => attack_effects.push(concrete),
-            CardEffectKind::GainTokens {
-                token_type: TokenType::Shield | TokenType::Dodge,
-                ..
-            } => {
-                defence_effects.push(concrete);
-            }
-            _ => resource_effects.push(concrete),
+        CombatantDef {
+            initial_tokens,
+            attack_deck: rebuild_deck(&prev.attack_deck),
+            defence_deck: rebuild_deck(&prev.defence_deck),
+            resource_deck: rebuild_deck(&prev.resource_deck),
         }
-    }
+    } else if let Some(EncounterKind::Combat {
+        combatant_def: base,
+    }) = find_base_encounter(lib, &Discipline::Combat)
+    {
+        let effect_map = tier_effect_mapping(lib, &Discipline::Combat, 1, tier);
 
-    let hand_size = 12u32;
-    let mk_deck = |effects: Vec<ConcreteEffect>| -> Vec<EnemyCardDef> {
-        if effects.is_empty() {
-            vec![]
-        } else {
-            vec![EnemyCardDef {
-                effects,
-                counts: DeckCounts {
-                    deck: 0,
-                    hand: hand_size,
-                    discard: 0,
-                },
-            }]
+        let rebuild_deck = |deck: &[EnemyCardDef]| -> Vec<EnemyCardDef> {
+            deck.iter()
+                .map(|card_def| EnemyCardDef {
+                    effects: rebuild_effects_best(&card_def.effects, &effect_map, lib),
+                    counts: card_def.counts.clone(),
+                })
+                .collect()
+        };
+
+        let initial_tokens = base
+            .initial_tokens
+            .iter()
+            .map(|(k, v)| (k.clone(), (*v as f64 * scale_factor(tier)).round() as u64))
+            .collect();
+
+        CombatantDef {
+            initial_tokens,
+            attack_deck: rebuild_deck(&base.attack_deck),
+            defence_deck: rebuild_deck(&base.defence_deck),
+            resource_deck: rebuild_deck(&base.resource_deck),
         }
-    };
-
-    let combatant_def = CombatantDef {
-        initial_tokens: HashMap::from([
-            (Token::persistent(TokenType::Health), enemy_hp),
-            (Token::persistent(TokenType::MaxHealth), enemy_hp),
-        ]),
-        attack_deck: mk_deck(attack_effects),
-        defence_deck: mk_deck(defence_effects),
-        resource_deck: mk_deck(resource_effects),
+    } else {
+        let enemy_hp = (3000.0 * scale_factor(tier)).round() as u64;
+        CombatantDef {
+            initial_tokens: HashMap::from([
+                (Token::persistent(TokenType::Health), enemy_hp),
+                (Token::persistent(TokenType::MaxHealth), enemy_hp),
+            ]),
+            attack_deck: vec![],
+            defence_deck: vec![],
+            resource_deck: vec![],
+        }
     };
 
     let milestone_def = MilestoneDef {
@@ -146,7 +154,8 @@ fn register_combat_milestone(
         insight_cost: milestone_insight_cost(tier),
     };
 
-    lib.add_card(
+    lib.replace_card(
+        card_id,
         CardKind::Encounter {
             encounter_kind: EncounterKind::Milestone { milestone_def },
         },
@@ -158,37 +167,69 @@ fn register_combat_milestone(
         },
         rng,
         vec![Discipline::Combat],
-    )
+        tier,
+    );
 }
 
 fn register_mining_milestone(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     tier: u32,
-) -> usize {
-    let base = find_base_encounter(lib, &Discipline::Mining);
-    let effect_map = tier_effect_mapping(lib, &Discipline::Mining, tier);
+    card_id: usize,
+    previous_mining: Option<&MiningDef>,
+) {
+    let (source, from_tier) = if let Some(prev) = previous_mining {
+        (prev.clone(), tier - 1)
+    } else if let Some(EncounterKind::Mining { mining_def }) =
+        find_base_encounter(lib, &Discipline::Mining)
+    {
+        (mining_def, 1)
+    } else {
+        let empty = MiningDef {
+            initial_light_level: (200.0 * scale_factor(tier)).round() as i64,
+            ore_deck: vec![],
+        };
+        let milestone_def = MilestoneDef {
+            inner_encounter_kind: Box::new(EncounterKind::Mining { mining_def: empty }),
+            discipline: Discipline::Mining,
+            tier,
+            insight_cost: milestone_insight_cost(tier),
+        };
+        lib.replace_card(
+            card_id,
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Milestone { milestone_def },
+            },
+            CardCounts {
+                library: 0,
+                deck: 0,
+                hand: 1,
+                discard: 0,
+            },
+            rng,
+            vec![Discipline::Mining],
+            tier,
+        );
+        return;
+    };
 
-    let mining_def = if let Some(EncounterKind::Mining { mining_def }) = base {
-        let initial_light =
-            (mining_def.initial_light_level as f64 * scale_factor(tier)).round() as i64;
-        let ore_deck = mining_def
+    let effect_map = tier_effect_mapping(lib, &Discipline::Mining, from_tier, tier);
+    let scale = if from_tier > 0 {
+        scale_factor(tier) / scale_factor(from_tier)
+    } else {
+        scale_factor(tier)
+    };
+
+    let mining_def = MiningDef {
+        initial_light_level: (source.initial_light_level as f64 * scale).round() as i64,
+        ore_deck: source
             .ore_deck
             .iter()
             .map(|ore| OreCard {
                 effects: rebuild_effects_best(&ore.effects, &effect_map, lib),
                 counts: ore.counts.clone(),
             })
-            .collect();
-        MiningDef {
-            initial_light_level: initial_light,
-            ore_deck,
-        }
-    } else {
-        MiningDef {
-            initial_light_level: (200.0 * scale_factor(tier)).round() as i64,
-            ore_deck: vec![],
-        }
+            .collect(),
     };
 
     let milestone_def = MilestoneDef {
@@ -198,7 +239,8 @@ fn register_mining_milestone(
         insight_cost: milestone_insight_cost(tier),
     };
 
-    lib.add_card(
+    lib.replace_card(
+        card_id,
         CardKind::Encounter {
             encounter_kind: EncounterKind::Milestone { milestone_def },
         },
@@ -210,47 +252,84 @@ fn register_mining_milestone(
         },
         rng,
         vec![Discipline::Mining],
-    )
+        tier,
+    );
 }
 
 fn register_herbalism_milestone(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     tier: u32,
-) -> usize {
-    let base = find_base_encounter(lib, &Discipline::Herbalism);
-    let effect_map = tier_effect_mapping(lib, &Discipline::Herbalism, tier);
-
-    let herbalism_def = if let Some(EncounterKind::Herbalism { herbalism_def }) = base {
-        let plant_hand = herbalism_def
-            .plant_hand
-            .iter()
-            .map(|plant| PlantCard {
-                characteristics: plant.characteristics.clone(),
-                effects: rebuild_effects_best(&plant.effects, &effect_map, lib),
-                counts: DeckCounts {
-                    deck: plant.counts.deck,
-                    hand: (plant.counts.hand as f64 * scale_factor(tier))
-                        .round()
-                        .max(1.0) as u32,
-                    discard: plant.counts.discard,
-                },
-            })
-            .collect();
-        let rewards = herbalism_def
-            .rewards
-            .iter()
-            .map(|(k, v)| (k.clone(), (*v as f64 * scale_factor(tier)).round() as i64))
-            .collect();
-        HerbalismDef {
-            plant_hand,
-            rewards,
-        }
+    card_id: usize,
+    previous_herbalism: Option<&HerbalismDef>,
+) {
+    let (source, from_tier) = if let Some(prev) = previous_herbalism {
+        (prev.clone(), tier - 1)
+    } else if let Some(EncounterKind::Herbalism { herbalism_def }) =
+        find_base_encounter(lib, &Discipline::Herbalism)
+    {
+        (herbalism_def, 1)
     } else {
-        HerbalismDef {
+        let empty = HerbalismDef {
             plant_hand: vec![],
             rewards: HashMap::new(),
-        }
+        };
+        let milestone_def = MilestoneDef {
+            inner_encounter_kind: Box::new(EncounterKind::Herbalism {
+                herbalism_def: empty,
+            }),
+            discipline: Discipline::Herbalism,
+            tier,
+            insight_cost: milestone_insight_cost(tier),
+        };
+        lib.replace_card(
+            card_id,
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Milestone { milestone_def },
+            },
+            CardCounts {
+                library: 0,
+                deck: 0,
+                hand: 1,
+                discard: 0,
+            },
+            rng,
+            vec![Discipline::Herbalism],
+            tier,
+        );
+        return;
+    };
+
+    let effect_map = tier_effect_mapping(lib, &Discipline::Herbalism, from_tier, tier);
+    let scale = if from_tier > 0 {
+        scale_factor(tier) / scale_factor(from_tier)
+    } else {
+        scale_factor(tier)
+    };
+
+    let plant_hand = source
+        .plant_hand
+        .iter()
+        .map(|plant| PlantCard {
+            characteristics: plant.characteristics.clone(),
+            effects: rebuild_effects_best(&plant.effects, &effect_map, lib),
+            counts: DeckCounts {
+                deck: plant.counts.deck,
+                hand: (plant.counts.hand as f64 * scale).round().max(1.0) as u32,
+                discard: plant.counts.discard,
+            },
+        })
+        .collect();
+
+    let rewards = source
+        .rewards
+        .iter()
+        .map(|(k, v)| (k.clone(), (*v as f64 * scale).round() as i64))
+        .collect();
+
+    let herbalism_def = HerbalismDef {
+        plant_hand,
+        rewards,
     };
 
     let milestone_def = MilestoneDef {
@@ -260,7 +339,8 @@ fn register_herbalism_milestone(
         insight_cost: milestone_insight_cost(tier),
     };
 
-    lib.add_card(
+    lib.replace_card(
+        card_id,
         CardKind::Encounter {
             encounter_kind: EncounterKind::Milestone { milestone_def },
         },
@@ -272,17 +352,32 @@ fn register_herbalism_milestone(
         },
         rng,
         vec![Discipline::Herbalism],
-    )
+        tier,
+    );
 }
 
 fn register_woodcutting_milestone(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     tier: u32,
-) -> usize {
-    let base = find_base_encounter(lib, &Discipline::Woodcutting);
-
-    let woodcutting_def = if let Some(EncounterKind::Woodcutting { woodcutting_def }) = base {
+    card_id: usize,
+    previous_woodcutting: Option<&WoodcuttingDef>,
+) {
+    let woodcutting_def = if let Some(prev) = previous_woodcutting {
+        let tier_scale = scale_factor(tier) / scale_factor(tier - 1);
+        let max_plays = std::cmp::max(3, prev.max_plays.saturating_sub(1));
+        let base_rewards = prev
+            .base_rewards
+            .iter()
+            .map(|(k, v)| (k.clone(), (*v as f64 * tier_scale).round() as i64))
+            .collect();
+        WoodcuttingDef {
+            max_plays,
+            base_rewards,
+        }
+    } else if let Some(EncounterKind::Woodcutting { woodcutting_def }) =
+        find_base_encounter(lib, &Discipline::Woodcutting)
+    {
         let max_plays = std::cmp::max(
             3,
             woodcutting_def
@@ -322,7 +417,8 @@ fn register_woodcutting_milestone(
         insight_cost: milestone_insight_cost(tier),
     };
 
-    lib.add_card(
+    lib.replace_card(
+        card_id,
         CardKind::Encounter {
             encounter_kind: EncounterKind::Milestone { milestone_def },
         },
@@ -334,52 +430,89 @@ fn register_woodcutting_milestone(
         },
         rng,
         vec![Discipline::Woodcutting],
-    )
+        tier,
+    );
 }
 
 fn register_fishing_milestone(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     tier: u32,
-) -> usize {
-    let base = find_base_encounter(lib, &Discipline::Fishing);
-    let effect_map = tier_effect_mapping(lib, &Discipline::Fishing, tier);
-
-    let fishing_def = if let Some(EncounterKind::Fishing { fishing_def }) = base {
-        let base_span = (fishing_def.valid_range_max - fishing_def.valid_range_min) / 2;
-        let range_span = std::cmp::max(20, base_span - tier as i64 * 10);
-        let fish_deck = fishing_def
-            .fish_deck
-            .iter()
-            .map(|fish| FishCard {
-                value: (fish.value as f64 * scale_factor(tier)).round() as i64,
-                effects: rebuild_effects_best(&fish.effects, &effect_map, lib),
-                counts: fish.counts.clone(),
-            })
-            .collect();
-        let rewards = fishing_def
-            .rewards
-            .iter()
-            .map(|(k, v)| (k.clone(), (*v as f64 * scale_factor(tier)).round() as i64))
-            .collect();
-        FishingDef {
-            valid_range_min: -range_span,
-            valid_range_max: range_span,
-            max_turns: (fishing_def.max_turns as f64 * scale_factor(tier)).round() as u32,
-            win_turns_needed: (fishing_def.win_turns_needed as f64 * scale_factor(tier)).round()
-                as u32,
-            fish_deck,
-            rewards,
-        }
+    card_id: usize,
+    previous_fishing: Option<&FishingDef>,
+) {
+    let (source, from_tier) = if let Some(prev) = previous_fishing {
+        (prev.clone(), tier - 1)
+    } else if let Some(EncounterKind::Fishing { fishing_def }) =
+        find_base_encounter(lib, &Discipline::Fishing)
+    {
+        (fishing_def, 1)
     } else {
-        FishingDef {
+        let empty = FishingDef {
             valid_range_min: -60,
             valid_range_max: 60,
             max_turns: 10,
             win_turns_needed: 6,
             fish_deck: vec![],
             rewards: HashMap::new(),
-        }
+        };
+        let milestone_def = MilestoneDef {
+            inner_encounter_kind: Box::new(EncounterKind::Fishing { fishing_def: empty }),
+            discipline: Discipline::Fishing,
+            tier,
+            insight_cost: milestone_insight_cost(tier),
+        };
+        lib.replace_card(
+            card_id,
+            CardKind::Encounter {
+                encounter_kind: EncounterKind::Milestone { milestone_def },
+            },
+            CardCounts {
+                library: 0,
+                deck: 0,
+                hand: 1,
+                discard: 0,
+            },
+            rng,
+            vec![Discipline::Fishing],
+            tier,
+        );
+        return;
+    };
+
+    let effect_map = tier_effect_mapping(lib, &Discipline::Fishing, from_tier, tier);
+    let scale = if from_tier > 0 {
+        scale_factor(tier) / scale_factor(from_tier)
+    } else {
+        scale_factor(tier)
+    };
+
+    let source_span = (source.valid_range_max - source.valid_range_min) / 2;
+    let range_span = std::cmp::max(20, source_span - 10);
+
+    let fish_deck = source
+        .fish_deck
+        .iter()
+        .map(|fish| FishCard {
+            value: (fish.value as f64 * scale).round() as i64,
+            effects: rebuild_effects_best(&fish.effects, &effect_map, lib),
+            counts: fish.counts.clone(),
+        })
+        .collect();
+
+    let rewards = source
+        .rewards
+        .iter()
+        .map(|(k, v)| (k.clone(), (*v as f64 * scale).round() as i64))
+        .collect();
+
+    let fishing_def = FishingDef {
+        valid_range_min: -range_span,
+        valid_range_max: range_span,
+        max_turns: (source.max_turns as f64 * scale).round() as u32,
+        win_turns_needed: (source.win_turns_needed as f64 * scale).round() as u32,
+        fish_deck,
+        rewards,
     };
 
     let milestone_def = MilestoneDef {
@@ -389,7 +522,8 @@ fn register_fishing_milestone(
         insight_cost: milestone_insight_cost(tier),
     };
 
-    lib.add_card(
+    lib.replace_card(
+        card_id,
         CardKind::Encounter {
             encounter_kind: EncounterKind::Milestone { milestone_def },
         },
@@ -401,7 +535,8 @@ fn register_fishing_milestone(
         },
         rng,
         vec![Discipline::Fishing],
-    )
+        tier,
+    );
 }
 
 /// Generate 50%-improved versions of every existing PlayerCardEffect and EnemyCardEffect
@@ -561,24 +696,49 @@ fn scale_card_effect_kind(kind: &CardEffectKind, factor: f64) -> CardEffectKind 
     }
 }
 
-/// Generate a single next-tier milestone encounter for the given discipline.
-/// Returns the card ID.
+/// Replace the defeated milestone card in-place with a next-tier milestone encounter.
 pub(crate) fn generate_next_tier_milestone_encounter(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     discipline: &Discipline,
     current_tier: u32,
-) -> Option<usize> {
+    defeated_encounter: Option<&EncounterKind>,
+    card_id: usize,
+) {
     let next_tier = current_tier + 1;
-    let id = match discipline {
-        Discipline::Combat => register_combat_milestone(lib, rng, next_tier),
-        Discipline::Mining => register_mining_milestone(lib, rng, next_tier),
-        Discipline::Herbalism => register_herbalism_milestone(lib, rng, next_tier),
-        Discipline::Woodcutting => register_woodcutting_milestone(lib, rng, next_tier),
-        Discipline::Fishing => register_fishing_milestone(lib, rng, next_tier),
-        _ => return None,
-    };
-    Some(id)
+    match (discipline, defeated_encounter) {
+        (Discipline::Combat, Some(EncounterKind::Combat { combatant_def })) => {
+            register_combat_milestone(lib, rng, next_tier, card_id, Some(combatant_def));
+        }
+        (Discipline::Combat, _) => {
+            register_combat_milestone(lib, rng, next_tier, card_id, None);
+        }
+        (Discipline::Mining, Some(EncounterKind::Mining { mining_def })) => {
+            register_mining_milestone(lib, rng, next_tier, card_id, Some(mining_def));
+        }
+        (Discipline::Mining, _) => {
+            register_mining_milestone(lib, rng, next_tier, card_id, None);
+        }
+        (Discipline::Herbalism, Some(EncounterKind::Herbalism { herbalism_def })) => {
+            register_herbalism_milestone(lib, rng, next_tier, card_id, Some(herbalism_def));
+        }
+        (Discipline::Herbalism, _) => {
+            register_herbalism_milestone(lib, rng, next_tier, card_id, None);
+        }
+        (Discipline::Woodcutting, Some(EncounterKind::Woodcutting { woodcutting_def })) => {
+            register_woodcutting_milestone(lib, rng, next_tier, card_id, Some(woodcutting_def));
+        }
+        (Discipline::Woodcutting, _) => {
+            register_woodcutting_milestone(lib, rng, next_tier, card_id, None);
+        }
+        (Discipline::Fishing, Some(EncounterKind::Fishing { fishing_def })) => {
+            register_fishing_milestone(lib, rng, next_tier, card_id, Some(fishing_def));
+        }
+        (Discipline::Fishing, _) => {
+            register_fishing_milestone(lib, rng, next_tier, card_id, None);
+        }
+        _ => {}
+    }
 }
 
 // ---- GameState methods for milestone encounters ----
@@ -756,14 +916,29 @@ impl GameState {
         self.current_encounter = None;
 
         if outcome == EncounterOutcome::PlayerWon {
+            // Extract the defeated milestone's inner encounter before any mutation
+            let defeated_inner =
+                self.library
+                    .get(encounter_card_id)
+                    .and_then(|card| match &card.kind {
+                        CardKind::Encounter {
+                            encounter_kind: EncounterKind::Milestone { milestone_def },
+                        } => Some(milestone_def.inner_encounter_kind.as_ref().clone()),
+                        _ => None,
+                    });
+
             // Generate reward effects (scaled to next tier)
             generate_milestone_reward_effects(&mut self.library, rng, &discipline, tier);
 
-            // Generate a single next-tier encounter and auto-assign it
-            generate_next_tier_milestone_encounter(&mut self.library, rng, &discipline, tier);
-
-            // Remove the old milestone card from library (it's been beaten)
-            self.library.delete_card(encounter_card_id);
+            // Replace the card in-place with the next-tier milestone
+            generate_next_tier_milestone_encounter(
+                &mut self.library,
+                rng,
+                &discipline,
+                tier,
+                defeated_inner.as_ref(),
+                encounter_card_id,
+            );
 
             self.encounter_phase = types::EncounterPhase::NoEncounter;
         } else {

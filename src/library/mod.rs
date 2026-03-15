@@ -214,6 +214,26 @@ impl Library {
         id
     }
 
+    /// Replace a card's kind, counts, disciplines, and tier in-place at the given ID.
+    pub fn replace_card(
+        &mut self,
+        card_id: usize,
+        kind: CardKind,
+        counts: CardCounts,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        valid_discipline_types: Vec<types::Discipline>,
+        tier: u32,
+    ) {
+        let crafting_cost = calculate_crafting_cost(&kind, rng);
+        if let Some(card) = self.cards.get_mut(card_id) {
+            card.kind = kind;
+            card.counts = counts;
+            card.crafting_cost = crafting_cost;
+            card.valid_discipline_types = valid_discipline_types;
+            card.tier = tier;
+        }
+    }
+
     /// Get a card by ID (index).
     pub fn get(&self, card_id: usize) -> Option<&LibraryCard> {
         self.cards.get(card_id)
