@@ -662,7 +662,7 @@ Replaces the simple "pay Insight to progress" research mechanic with a deduction
      - Structure: `configurations/general/`, `configurations/mining/`, `configurations/herbalism/`, `configurations/woodcutting/`, `configurations/fishing/`, `configurations/combat/`, `configurations/crafting/`, etc.
      - Configuration is baked into the compiled binary — a compiled game cannot change these values, but developers can adjust them before compiling.
    - Playable acceptance: All card definitions, initial token values, and encounter parameters come from JSON config files. Changing a config file and recompiling produces a game with the updated values.
-   - Notes: This enables designers to tweak game balance without touching Rust code. Externalized JSON configs are also the primary target for automated balance adjustments (see Balancing B4) — LLM-suggested changes can be applied directly to config files, recompiled, and re-tested without modifying Rust code.
+   - Notes: This enables designers to tweak game balance without touching Rust code. Externalized JSON configs are also the primary target for automated balance adjustments (see Balancing B3–B6) — config changes can be applied in isolated worktrees, recompiled, and re-tested without modifying Rust code.
 
 15) UX polish, documentation, tools for designers, and release
    - Goal: Finalize API docs (OpenAPI/Swagger), provide a sample client that drives the full loop, and ship a release with clear design docs for authors. Anyone should be able to play the game solely with the exposed documentation.
@@ -674,7 +674,7 @@ Replaces the simple "pay Insight to progress" research mechanic with a deduction
    - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
    - Notes: Tag a release and include release notes linking vision to implemented features.
 
-Balancing track (B1–B6)
+Balancing track (B1–B8)
 -----------------------
 
 The balancing track runs independently of the main roadmap. It communicates with the game solely through the REST API, making it resilient to internal code changes. Balance measurements should be re-run after any step that changes card values, encounter parameters, or token balances. The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing through headless simulation.
@@ -687,95 +687,140 @@ The balancing track runs independently of the main roadmap. It communicates with
 - Player death (material reset) is an acceptable punishment — already implemented
 - Future milestones: truly hard content (~20-30% win rate) requiring good decks and luck
 
-**Approach — hybrid simulation + LLM analysis:**
+**Approach — worktree-isolated iterative simulation:**
 
-The primary data source is headless Monte Carlo simulation (scripted bots playing thousands of games via the REST API at CPU speed). LLMs are used for reasoning about the resulting data and suggesting parameter changes, not for generating gameplay data. LLMs play card games near-randomly (especially free/mini models), making their sessions statistically indistinguishable from random play and unsuitable as a primary balancing signal. The game's deterministic seeded RNG means scripted strategies produce identical results when re-run, enabling precise before/after comparisons.
+The primary data source is headless Monte Carlo simulation (scripted bots playing thousands of games via the REST API at CPU speed). Each discipline is optimized independently in its own git worktree on a dedicated branch, allowing parallel execution and safe config modification. Results (metrics + configs) are committed to the worktree branch for full audit trail. After per-discipline optimization converges, the game is optimized as a whole. LLMs are used for reasoning about the resulting data and suggesting parameter changes, not for generating gameplay data. The game's deterministic seeded RNG means scripted strategies produce identical results when re-run, enabling precise before/after comparisons.
 
 | Layer | Tool | Purpose |
 |-------|------|---------|
-| Headless Monte Carlo | Python scripts via REST API | Run 10k+ games per config with scripted strategies (random, greedy, heuristic). Primary balancing data source. |
-| Strategy bots | Python scripts calling REST API | Hand-coded strategies per discipline (aggressive, conservative, balanced). Validate multiple viable paths. |
-| LLM analysis | GPT-4/Claude via API | Analyze Monte Carlo data, suggest parameter changes, review card effect distributions. |
-| LLM playtesting | GPT-mini/Haiku (optional) | Play a few games to validate API intuitiveness and encounter coherence. Not for statistical balancing. |
+| Per-discipline runners | Python scripts via REST API in worktrees | Run 1k+ games per config per discipline with scripted strategies. Primary balancing data source. |
+| Mutation validation | Python scripts in separate worktrees | Test proposed config changes against baseline, compare before/after metrics. |
+| Analysis + proposals | Python scripts + optional LLM | Analyze runner output, identify imbalances, generate ranked mutation proposals as JSON config diffs. |
+| LLM analysis | GPT-4/Claude via API (optional) | Deeper analysis of Monte Carlo data, suggest non-obvious parameter interactions. |
 
 B1) ~~Multi-instance server support (port configuration)~~ ✅ COMPLETE
    - Goal: Allow running multiple game server instances on the same machine for parallel balancing runs.
    - Status: Implemented. Rocket 0.5.1's built-in figment configuration natively supports `ROCKET_PORT` environment variable. Default port is 8000; any port can be specified at launch via `ROCKET_PORT=8001 cargo run`. Server logs the configured address and port on startup. Integration tests verify port override works.
    - Playable acceptance: `ROCKET_PORT=8001 cargo run` starts the server on port 8001. Two instances can run simultaneously on different ports. ✅ Verified.
 
-B2) Headless simulation runner (Python)
-   - Goal: Build a Python script that plays the game automatically using scripted strategies, collecting metrics across many runs.
+B2) General config bypass — quick-win optimizations
+   - Goal: Make a first manual pass over all externalized JSON configs to apply simple, obvious balance fixes before building automated tooling.
    - Description:
-     - `tools/balance/runner.py` — main simulation runner:
-       - Starts a game server instance (subprocess on a configurable port)
-       - Plays N full game sessions (configurable, default 1000)
-       - Each session: NewGame with incrementing seeds → play encounters until death or N encounters
-       - Strategies per encounter type:
-         - **Random:** pick random valid actions (baseline)
-         - **Greedy:** always play highest-value card available
-         - **Conservative:** prefer defense/healing, avoid cost cards when possible
-       - Collects `GET /metrics` after each session
-       - Outputs aggregate CSV/JSON statistics
-     - `tools/balance/strategies.py` — strategy implementations
-     - `tools/balance/analyze.py` — reads runner output, prints summary tables and identifies outliers
-     - Uses only `requests` library (no exotic dependencies)
-     - Can run multiple instances in parallel (different ports)
-   - Playable acceptance: `python tools/balance/runner.py --runs 100 --strategy random` completes and produces a CSV with per-encounter-type win rates.
-   - Notes: The runner is deterministic — same seed produces same result for same strategy.
+     - Review every JSON config file under `configurations/` (general/tokens.json, general/shared_effects.json, combat/cards.json, mining/cards.json, herbalism/cards.json, woodcutting/cards.json, fishing/cards.json, rest/cards.json, crafting/cards.json, research/cards.json, milestone/cards.json).
+     - For each config, identify clearly over- or undertuned values: token starting amounts, card effect min/max ranges, durability costs, encounter parameters.
+     - Apply targeted fixes — small, isolated changes (e.g., adjust Health/Stamina starting values, tune card damage/defense/draw ratios, adjust durability cost ranges).
+     - Recompile and run `make check` after each change to validate nothing breaks.
+     - Document each change with rationale (what was wrong, what was changed, expected impact).
+   - Playable acceptance: A documented list of config changes with before/after values and rationale. `make check` passes after all changes.
+   - Notes: This step validates that the config change → recompile → test cycle works smoothly as a foundation for later automated steps. Changes should be conservative — the goal is fixing obvious outliers, not fine-tuning.
 
-B3) Baseline measurement and initial balance pass
-   - Goal: Run the simulation runner against the current game state, establish baseline win rates, and make the first round of balance adjustments.
+B3) Per-discipline simulation runners (worktree-isolated)
+   - Goal: Build a runner for each discipline that focuses on running many instances of that discipline's encounter in a row, collecting metrics for analysis. Each runner operates in its own git worktree on a dedicated branch to allow safe config changes and parallel execution.
    - Description:
-     - Run 1000+ games with random strategy, 1000+ with greedy strategy
-     - Document current win rates per encounter type per strategy
-     - Identify the most egregious imbalances (encounters won 0% or 100% of the time)
-     - Make targeted adjustments to card values, token amounts, encounter parameters:
-       - Adjust Health/Stamina starting values if needed
-       - Tune card damage/defense/draw ratios in combat
-       - Adjust gathering durability costs and gains
-       - Tune encounter difficulty parameters (ore deck damage, fish valid ranges, plant card counts, etc.)
-     - Re-run simulations to verify improvements
-     - Target: easy encounters ≥60% win rate (random), hard encounters ≥30% win rate (random); ≥80% / ≥50% for greedy
-   - Playable acceptance: Before/after metrics showing measurable improvement toward target win rates. Documented parameter changes with rationale.
-   - Notes: This is the first step that actually changes game balance. Changes should be small, isolated, and re-tested.
+     - **Runner setup (per discipline):**
+       - Create a git worktree on a dedicated branch (e.g., `balance/mining-runner`, `balance/combat-runner`, etc.).
+       - Configure the game in the worktree so that encounters for the target discipline are easy to trigger repeatedly (e.g., set up scouting/encounter hand to always present the target discipline encounter).
+       - Modify `configurations/` in the worktree as needed to isolate the discipline for focused testing.
+     - **Runner execution:**
+       - Start a game server instance from the worktree (using `ROCKET_PORT` for parallel execution).
+       - Play N sessions (e.g., 1000+) via the REST API using scripted strategies (random, greedy, conservative).
+       - Each session: NewGame with incrementing seeds → play encounters of the target discipline until outcome → collect `GET /metrics`.
+       - Output aggregate statistics: win/loss rates, average turns per encounter, token balance curves, resource inflow/outflow.
+     - **Result persistence:**
+       - Commit run results (metrics CSVs/JSON, configs used, runner parameters) to the worktree branch.
+       - This preserves a full audit trail: config state + results for every run.
+     - **Parallelism:**
+       - Different discipline runners use different worktrees and different ports, so they can run simultaneously.
+     - **Tooling:**
+       - `tools/balance/runner.py` — main simulation runner (strategy implementations, server lifecycle, metrics collection).
+       - `tools/balance/strategies.py` — strategy implementations per discipline.
+       - Uses only `requests` library (no exotic dependencies).
+     - **Primary disciplines:** Combat, Mining, Herbalism, Woodcutting, Fishing.
+     - **Secondary disciplines:** Rest, Crafting, Research (simpler encounter mechanics, lower priority for initial balancing).
+   - Playable acceptance: For each primary discipline, the runner completes 100+ sessions and produces a CSV/JSON with win rates and token statistics. Results and configs are committed to the discipline's worktree branch.
+   - Notes: The runner is deterministic — same seed produces same result for same strategy. Worktree isolation is critical because each discipline runner may need different config tweaks to focus encounters. The `feature/worktree-parallel-ai-setup` branch may have relevant worktree management patterns.
 
-B4) LLM analysis pipeline
-   - Goal: Use LLMs to analyze simulation data and suggest balance improvements beyond simple numeric tuning.
+B4) Per-discipline analysis and mutation proposals
+   - Goal: After collecting baseline data from B3 runs, analyze the results for each discipline and produce concrete mutation proposals — specific config changes expected to improve balance.
    - Description:
-     - `tools/balance/llm_analyze.py` — feeds Monte Carlo data to an LLM (GPT-4/Claude via API)
-     - Prompt template includes:
-       - Current card definitions (from `/library/cards` and `/library/card-effects`)
-       - Current metrics (win rates, token curves, resource flows)
-       - Balancing goals (80% easy / 50% hard)
-       - Requested output: specific parameter change suggestions with rationale
-     - LLM suggestions are written to a structured report file for human review
-     - Optional: auto-apply simple numeric changes (±10% adjustments to token amounts, card values) and re-run simulation to validate
-   - Playable acceptance: LLM produces a structured report with specific, actionable balance suggestions that reference concrete card IDs and parameter values.
-   - Notes: After Step 14 (Configuration externalization), LLM suggestions can target JSON config files directly, enabling faster iteration.
+     - **Analysis inputs:** Metrics from B3 runs (win rates, token curves, encounter durations per strategy), current config files, balancing goals from the goals section above.
+     - **Analysis identifies:**
+       - Outlier win rates (encounters won 0% or 100% of the time by any strategy).
+       - Dominant strategies (one strategy winning >90% while others <30%).
+       - Underused card effects (cards that are never played or never contribute to wins).
+       - Token flow imbalances (resources gained too fast/slow, durability burning too quickly, etc.).
+     - **Mutation proposals:**
+       - Each proposal is a concrete JSON config diff (e.g., "increase Mining card X damage min from 200 to 300", "reduce Herbalism durability cost from 500 to 350").
+       - Proposals are ranked by expected impact and confidence.
+       - Proposals may be generated manually, by LLM analysis, or by systematic parameter sweeps.
+     - **Tooling:**
+       - `tools/balance/analyze.py` — reads runner output, prints summary tables, identifies outliers, generates mutation proposals.
+       - Optional: `tools/balance/llm_analyze.py` — feeds data to an LLM (GPT-4/Claude) for deeper analysis and suggestion generation.
+   - Playable acceptance: For each discipline with baseline data, the analysis produces at least 3 ranked mutation proposals with rationale and expected impact direction.
+   - Notes: LLM analysis is optional but valuable for identifying non-obvious interactions. Human review of proposals is expected at this stage.
 
-B5) Strategy variety validation
-   - Goal: Ensure multiple viable strategies exist per discipline — not just one dominant strategy.
+B5) Mutation validation runners (worktree-isolated)
+   - Goal: For each proposed mutation from B4, validate whether it actually improves balance by running the discipline runner with the mutated config in a fresh worktree.
    - Description:
-     - Define 3+ strategies per discipline:
-       - Combat: aggressive (maximize attack), defensive (shield+dodge focus), balanced (mixed)
-       - Mining: rush (conclude early for small rewards), sustained (maximize light level then mine), power focus (high-damage cards)
-       - Herbalism: narrow targeting (precise single-type removal), broad targeting (multi-type removal), characteristic-counting (use MostCommon/LeastCommon)
-       - Woodcutting: pattern-focused (play all 8 cards for rare patterns), conservative (stop at 4-5 for guaranteed moderate reward)
-       - Fishing: high-value focus (play high cards), mid-range focus (play cards matching valid range), range manipulation (modify valid range)
-     - Run each strategy across 1000+ games
-     - Verify no single strategy dominates (>90% win rate while others <30%)
-     - Verify that the "interesting" strategies (not just greedy) are viable
-   - Playable acceptance: Documentation showing 3+ viable strategies per discipline with win rates within a reasonable band (no more than 25% spread between best and worst viable strategy).
+     - **Per-mutation workflow:**
+       - Create a new worktree on a dedicated branch (e.g., `balance/mining-mutation-1`, `balance/combat-mutation-2`).
+       - Apply the mutated config from the B4 proposal.
+       - Run the discipline runner (same strategies and session counts as B3 baseline).
+       - Collect before/after metrics.
+       - Commit the mutation config + results to the branch.
+     - **Comparison and decision:**
+       - Compare mutation results against baseline (B3 data).
+       - Accept mutations that move metrics toward target win rates.
+       - Reject mutations that make things worse or have negligible effect.
+       - Document the decision with data.
+     - **Multiple mutations:**
+       - Each mutation gets its own worktree/branch, so multiple mutations can be tested in parallel.
+       - Mutations can be combined (apply mutation A + B together) for interaction testing.
+   - Playable acceptance: For each tested mutation, a before/after comparison report is committed to the mutation branch showing whether metrics improved toward target win rates.
+   - Notes: Keep mutation branches even for rejected proposals — they serve as documentation of what was tried. The worktree-per-mutation pattern ensures no interference between parallel experiments.
 
-B6) Continuous balance regression
-   - Goal: Integrate balance checks into the development workflow so code changes don't silently break game balance.
+B6) Iteration loop (manual)
+   - Goal: Alternate between analysis (B4) and mutation validation (B5) until per-discipline metrics are within target win-rate ranges.
    - Description:
-     - Add a `make balance-check` target that runs a quick simulation (100 games each for random + greedy strategies)
-     - Assert win rates stay within ±15% of documented targets
-     - Store balance targets in a `tools/balance/targets.json` configuration file
-     - Not part of `make check` (too slow for every commit) but recommended before merging balance-sensitive changes
-     - Can be run in CI as a separate long-running job (optional)
-   - Playable acceptance: `make balance-check` runs, compares results to targets, and passes/fails with clear output showing which encounter types are within/outside target ranges.
+     - After B5 completes a round:
+       - Accepted mutations become the new baseline config for the discipline.
+       - Update the main discipline runner worktree (B3) with accepted mutations.
+       - Re-run B3 to establish the new baseline.
+       - Re-run B4 analysis on the new baseline to identify remaining issues.
+       - Generate new mutation proposals and validate with B5.
+     - Repeat until metrics are within target ranges:
+       - Easy encounters (gathering): ≥60% win rate (random), ≥80% (greedy/heuristic).
+       - Hard encounters (combat): ≥30% win rate (random), ≥50% (greedy/heuristic).
+       - No single dominant strategy (>90% while others <30%).
+     - Track iteration history via git commits — each iteration is a commit on the discipline runner branch with updated configs and metrics.
+   - Playable acceptance: Per-discipline metrics are documented and trending toward target ranges after each iteration. Iteration history is visible in git log.
+   - Notes: The number of iterations needed is unknown — some disciplines may converge quickly, others may require many rounds. Stop when diminishing returns are reached even if not perfectly at target.
+
+B7) (Future) Whole-game optimization
+   - Goal: After per-discipline balance is satisfactory, optimize the game as a whole — accounting for cross-discipline interactions, resource flow between encounters, and progression pacing.
+   - Description:
+     - Run full game sessions (all disciplines, encounter progression, scouting, crafting, research) using the per-discipline-optimized configs.
+     - Analyze cross-discipline metrics:
+       - Resource flow: are materials (Ore, Plant, Lumber, Fish) accumulating or depleting at expected rates across a full session?
+       - Progression pacing: is the player advancing through encounter tiers at a satisfying pace?
+       - Death frequency: is player death occurring at the right frequency (punishing but not frustrating)?
+       - Stamina economy: is Stamina serving as an effective cross-discipline cost currency?
+     - Apply the same worktree-based mutation/validation pattern (B4/B5/B6) but at the whole-game level.
+   - Playable acceptance: Full-game session metrics are documented with cross-discipline balance analysis.
+   - Notes: This step may reveal that per-discipline optimizations conflict when combined. Be prepared to revisit individual discipline configs.
+
+B8) (Future) Automated iteration loop
+   - Goal: Automate the B4→B5→B6 cycle so that analysis proposes mutations, the runner validates them, and accepted mutations are auto-applied — reducing the manual effort per iteration.
+   - Description:
+     - `tools/balance/auto_balance.py` — orchestration script:
+       - Runs B3 (discipline runner) → B4 (analysis + proposals) → B5 (mutation validation) → decision (accept/reject) in a loop.
+       - Auto-applies accepted mutations and commits to the discipline branch.
+       - Stops when metrics are within target ranges or after N iterations.
+       - Produces a summary report of all iterations, accepted/rejected mutations, and final metrics.
+     - Human review checkpoints: configurable (every iteration, every N iterations, or only at the end).
+     - Could integrate LLM analysis for mutation proposal generation (feeding metrics + config to GPT-4/Claude and parsing structured suggestions).
+   - Playable acceptance: `python tools/balance/auto_balance.py --discipline mining --max-iterations 10` completes and produces a final config with documented metrics improvement.
+   - Notes: This is a significant automation investment. Only pursue after the manual loop (B6) has been validated and the iteration pattern is well-understood.
 
 Ideas and future possibilities
 ------------------------------
