@@ -171,6 +171,18 @@ impl Library {
         rng: &mut rand_pcg::Lcg64Xsh32,
         valid_discipline_types: Vec<types::Discipline>,
     ) -> usize {
+        self.add_card_with_tier(kind, counts, rng, valid_discipline_types, 1)
+    }
+
+    /// Add a card with an explicit tier. Tier 1 is the base; milestone rewards create higher tiers.
+    pub fn add_card_with_tier(
+        &mut self,
+        kind: CardKind,
+        counts: CardCounts,
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        valid_discipline_types: Vec<types::Discipline>,
+        tier: u32,
+    ) -> usize {
         // Validate GainTokens: gain token_type must not match any cost token_type
         let effect_kind = match &kind {
             CardKind::PlayerCardEffect { kind: k, .. }
@@ -197,6 +209,7 @@ impl Library {
             counts,
             crafting_cost,
             valid_discipline_types,
+            tier,
         });
         id
     }
@@ -297,6 +310,40 @@ impl Library {
             .filter(|(_, c)| {
                 matches!(c.kind, CardKind::PlayerCardEffect { .. })
                     && c.valid_discipline_types.contains(discipline)
+            })
+            .collect()
+    }
+
+    /// All PlayerCardEffects for a given discipline and tier.
+    pub fn card_effects_for_discipline_and_tier(
+        &self,
+        discipline: &types::Discipline,
+        tier: u32,
+    ) -> Vec<(usize, &LibraryCard)> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                matches!(c.kind, CardKind::PlayerCardEffect { .. })
+                    && c.valid_discipline_types.contains(discipline)
+                    && c.tier == tier
+            })
+            .collect()
+    }
+
+    /// All EnemyCardEffects for a given discipline and tier.
+    pub fn enemy_effects_for_discipline_and_tier(
+        &self,
+        discipline: &types::Discipline,
+        tier: u32,
+    ) -> Vec<(usize, &LibraryCard)> {
+        self.cards
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| {
+                matches!(c.kind, CardKind::EnemyCardEffect { .. })
+                    && c.valid_discipline_types.contains(discipline)
+                    && c.tier == tier
             })
             .collect()
     }

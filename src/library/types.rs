@@ -967,6 +967,13 @@ pub struct LibraryCard {
     pub crafting_cost: HashMap<TokenType, i64>,
     #[serde(default)]
     pub valid_discipline_types: Vec<Discipline>,
+    /// Tier of this card effect. Tier 1 is the base; milestone rewards create higher tiers.
+    #[serde(default = "default_tier")]
+    pub tier: u32,
+}
+
+fn default_tier() -> u32 {
+    1
 }
 
 /// A token instance: token type + lifecycle. Used as key in token balance maps.
