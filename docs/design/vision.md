@@ -6,29 +6,43 @@ This document describes the high-level gameplay vision for the project, with a f
 
 - [High-level principles](#high-level-principles)
 - [Architecture and module layout](#architecture-and-module-layout)
+  - [Configuration architecture](#configuration-architecture)
 - [Core gameplay elements](#core-gameplay-elements)
-- [Current combat setup](#current-combat-setup)
+- [Card System](#card-system)
+  - [CardKind taxonomy](#cardkind-taxonomy)
+  - [CardEffectKind reference](#cardeffectkind-reference)
   - [Card Effect Architecture (Two-Layer Model)](#card-effect-architecture-two-layer-model)
   - [Cost System](#cost-system)
+  - [Gathering Card Effect Model (Library-Referenced)](#gathering-card-effect-model-library-referenced)
+  - [Card location model and counts](#card-location-model-and-counts)
+- [Current encounter and combat setup](#current-encounter-and-combat-setup)
+  - [Combat flow](#combat-flow)
+  - [Implementation details](#implementation-details)
+  - [Player death and recovery](#player-death-and-recovery)
+- [Token System](#token-system)
+  - [Token categories](#token-categories)
+  - [Token lifecycles](#token-lifecycles)
+  - [Special tokens and cross-discipline currencies](#special-tokens-and-cross-discipline-currencies)
 - [Areas as decks (future vision)](#areas-as-decks-future-vision)
 - [Crafting](#crafting)
-- [Token lifecycles](#token-lifecycles)
 - [Balancing](#balancing)
+  - [Deck sizing principles](#deck-sizing-principles)
 - [Distinct encounter playstyles](#distinct-encounter-playstyles)
   - [Stamina as cross-discipline cost currency](#stamina-as-cross-discipline-cost-currency)
-- [Special tokens and cross-discipline currencies](#special-tokens-and-cross-discipline-currencies)
+- [Scouting and encounter mutation](#scouting-and-encounter-mutation)
+- [Milestone progression](#milestone-progression)
 - [Trading and merchants](#trading-and-merchants)
 - [Example turn flow (compact)](#example-turn-flow-compact)
 - [Reproducibility and single-game seed](#reproducibility-and-single-game-seed)
 - [Early game and progression](#early-game-and-progression)
 - [Interface and API](#interface-and-api)
-- [Card location model and counts](#card-location-model-and-counts)
 - [Goals and milestones](#goals-and-milestones)
 - [Encounter templates by discipline](#encounter-templates-by-discipline)
 - [Open-ended sandbox](#open-ended-sandbox)
 - [Endpoint organization](#endpoint-organization)
 - [Automatic test setup](#automatic-test-setup)
 - [Entity ids](#entity-ids)
+- [Quick Reference](#quick-reference)
 - [Closing](#closing)
 
 ## High-level principles
@@ -60,9 +74,25 @@ Architectural patterns:
 
 - **Shared vs discipline-specific effects:** Shared CardEffect templates (PlayerCardEffect IDs 0-3 and EnemyCardEffect IDs 4-7) remain in `game_state.rs` because they are referenced across disciplines. Discipline-specific effects are registered within their discipline module. **Implementation note (Step 10):** All enemy card types (`OreCard`, `PlantCard`, `FishCard`, `EnemyCraftingCard`) now carry `effects: Vec<ConcreteEffect>` referencing EnemyCardEffect entries — not just combat enemy cards. `OreCard.damages` and `EnemyCraftingCard.increases` fields have been removed; both now use `effects` resolved via `library.resolve_effect()`. Combat EnemyCardEffects moved to `combat.rs`; discipline-specific EnemyCardEffects registered in each discipline module (Mining 5, Herbalism 2, Fishing 4, Crafting 4). `validate_card_effects()` validates enemy effects across all encounter types.
 - **Trait-based deck abstraction:** The `HasDeckCounts` trait provides a shared abstraction for card types with deck/hand/discard tracking (`OreCard`, `FishCard`, `PlantCard`, `EnemyCardDef`, `LibraryCard`). The trait uses individual accessor methods (`deck_count()`, `hand_count()`, `discard_count()` and `_mut()` variants) instead of returning `&DeckCounts`, allowing both `DeckCounts` and `CardCounts` (which adds a `library` field) to implement it with flat field access. Generic free functions `deck_draw_random`, `deck_shuffle_hand`, and `deck_play_random` in `game_state.rs` operate on any `T: HasDeckCounts`, eliminating per-discipline duplication. Shared deck mechanics are expressed as traits with generic free functions, not duplicated per-discipline methods.
-- **Shared gathering helper:** `GameState::all_gathering_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. Shared logic lives on `GameState` with discipline-specific behavior injected via closures. Combat uses a separate implementation due to its different cost system (`ConcreteEffect` costs vs `TokenAmount`).
+- **Shared gathering helper:** `GameState::all_effects_hand_cards_unpayable()` is a generic method accepting a `cost_extractor` closure, used by all four gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) to check autoloss conditions. Shared logic lives on `GameState` with discipline-specific behavior injected via closures. Combat uses a separate implementation due to its different cost system (`ConcreteEffect` costs vs `TokenAmount`).
 - **Encounter generation at game start:** All encounters (Combat, Mining, Herbalism, Woodcutting, Fishing, Rest) are generated at library initialization using the seeded RNG. Enemy decks contain cards with `ConcreteEffect` entries rolled from `CardEffect` templates, just like player cards. Encounter parameters (HP, durability thresholds, deck compositions) are set at init time — there is no per-encounter randomness beyond shuffling.
 - **Multi-effect evaluation order:** When a card has multiple `ConcreteEffect` entries, they are evaluated sequentially (first to last). Each effect's costs are checked and deducted independently. If a later effect cannot pay its cost, the card play fails for that effect, but effects that already applied are not reverted.
+
+### Configuration architecture
+
+All game configuration is externalized to JSON files loaded at compile time:
+
+- **Configuration directory**: `configurations/` at the repository root, organized by discipline: `configurations/general/`, `configurations/mining/`, `configurations/herbalism/`, `configurations/woodcutting/`, `configurations/fishing/`, `configurations/combat/`, `configurations/crafting/`, `configurations/rest/`, `configurations/research/`, `configurations/milestone/`.
+- **Loading pipeline**: JSON files are embedded at compile time via `include_str!()` in `config_loader.rs`, deserialized into config structs defined in `config.rs`, and used to build the Library at initialization.
+- **`game_rules.json`**: Centralizes ~50 game-mechanics constants covering: death recovery values, combat rewards, research cost scaling, crafting cost formulas, scouting mutation probabilities, milestone insight costs, and woodcutting pattern evaluations.
+- **Card ID stability caveat**: Card IDs are positional (index in the Library's cards Vec). Reordering cards in JSON config files changes IDs, which breaks saved action logs. New cards must always be appended.
+- **`/version` endpoint**: Returns `{"version": "<semver>-<hash>", "game_version": "<semver>", "config_hash": "<8-char-sha256>"}` where the config hash covers all embedded config JSONs in deterministic order. This enables save-game verification — a saved action log can be replayed only against the same config hash.
+
+**Configuration Transparency** is a core design principle: all game-mechanics constants are externalized so designers can inspect and modify game behavior without reading Rust code.
+
+**Designer workflow**: Modify JSON config → recompile (`cargo build`) → run tests (`make check`) → verify changes via API.
+
+**Config-driven testing**: Every game mechanic is testable with a minimal JSON config that exercises just that mechanic in isolation. `create_test_client_from_json(seed, tokens_json, card_configs)` creates test clients with custom configs. With fixed seeds + custom configs, any game scenario can be reproduced exactly (deterministic replay guarantee).
 
 ## Core gameplay elements
 
@@ -74,7 +104,7 @@ Deck types (examples):
 - Area deck: Represents the player's current location. Encounter cards live in the Library and use the same CardCounts (library/deck/hand/discard) and CardLocation tracking as all other card types. There is no separate AreaDeck struct; encounter card management uses Library helper methods (encounter_hand, encounter_contains, encounter_draw_to_hand). The hand represents visible/pickable encounters and its size is controlled by the Foresight token (default 3). Encounter cards are accessed via `/library/cards?location=Hand&card_kind=Encounter`.
 - Library: a canonical collection of all cards accessible via the library endpoint; any card present in the library can be added to a deck provided the deck is of the appropriate type (deck-type constraints apply)
 
-  - Library implementation notes: Card definitions use `effects: Vec<ConcreteEffect>` where each ConcreteEffect stores an `effect_id` (reference to a CardEffect entry in the Library by index), a `rolled_value` (fixed value rolled from the CardEffect's min-max range at creation time), and optional `rolled_costs: Vec<ConcreteEffectCost>` with rolled percentage values. Effect data lives on `PlayerCardEffect` and `EnemyCardEffect` library entries which hold `kind: CardEffectKind` directly. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; new cards must always be appended to the end to preserve stable IDs. CardKind (enum, serde tag `"card_kind"`) replaces ad-hoc string-based card types (Attack{effects}, Defence{effects}, Resource{effects}, Encounter{kind: EncounterKind}, PlayerCardEffect{kind: CardEffectKind}, EnemyCardEffect{kind: CardEffectKind}). EncounterKind is an enum starting with Combat { combatant_def }; enemy card definitions are embedded inline within Encounter definitions rather than as separate Library references.
+  - Library implementation notes: Card definitions use `effects: Vec<ConcreteEffect>` where each ConcreteEffect stores an `effect_id` (reference to a CardEffect entry in the Library by index), a `rolled_value` (fixed value rolled from the CardEffect's min-max range at creation time), and optional `rolled_costs: Vec<ConcreteEffectCost>` with rolled percentage values. Effect data lives on `PlayerCardEffect` and `EnemyCardEffect` library entries which hold `kind: CardEffectKind` directly. The Library is implemented as Library { cards: Vec<LibraryCard> } where each LibraryCard index serves as the canonical card id; new cards must always be appended to the end to preserve stable IDs. CardKind (enum, serde tag `"card_kind"`) has 13 variants (Attack, Defence, Resource, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research, Encounter, PlayerCardEffect, EnemyCardEffect) — see [CardKind taxonomy](#cardkind-taxonomy) for the complete reference. EncounterKind is an enum starting with Combat { combatant_def }; enemy card definitions are embedded inline within Encounter definitions rather than as separate Library references.
   - The Library contains two CardEffect "decks": PlayerCardEffect cards (used during research to generate new player cards) and EnemyCardEffect cards (used during the post-encounter scouting phase to generate new encounters). Every card effect on action/enemy cards references a CardEffect deck entry via `effects: Vec<ConcreteEffect>`, where each ConcreteEffect contains the effect_id reference, rolled_value, and optional rolled_costs. API responses show full effect values, not references. All card effects on player cards must reference a valid PlayerCardEffect entry; all effects on enemy cards must reference a valid EnemyCardEffect entry (validated at Library initialization). **Implementation note (Step 10):** CardEffect entries now carry `valid_discipline_types: Vec<Discipline>` enabling filtering by discipline. `Library::card_effects_for_discipline()` returns effects matching a given discipline. The `Discipline` enum covers: Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research.
 
 
@@ -87,6 +117,120 @@ Tokens and state:
 ### Canonical Data Omits Flavor
 
 The canonical Library stores only structural identifiers (card IDs, types, tokens, numeric parameters). All user-facing names, descriptions, and flavor text are delegated to client presentation layers. The API responses use only ID-based references; naming/presentation is the client's responsibility based on a separate design specification. This ensures the game state remains minimal, reproducible, and suitable for replay and analysis. It also leaves a lot to the imagination of the player. 
+
+## Card System
+
+### CardKind taxonomy
+
+CardKind (enum, serde tag `"card_kind"`) defines the type of each Library card:
+
+| Variant | Fields | Purpose |
+|---------|--------|---------|
+| Attack | `effects: Vec<ConcreteEffect>` | Combat attack cards |
+| Defence | `effects: Vec<ConcreteEffect>` | Combat defence cards |
+| Resource | `effects: Vec<ConcreteEffect>` | Combat resource/draw cards |
+| Mining | `effects: Vec<ConcreteEffect>` | Mining discipline cards |
+| Herbalism | `effects: Vec<ConcreteEffect>` | Herbalism discipline cards |
+| Woodcutting | `effects: Vec<ConcreteEffect>` | Woodcutting discipline cards |
+| Fishing | `effects: Vec<ConcreteEffect>` | Fishing discipline cards |
+| Rest | `effects: Vec<ConcreteEffect>` | Rest/recovery cards |
+| Crafting | `effects: Vec<ConcreteEffect>` | Crafting discipline cards |
+| Research | `effects: Vec<ConcreteEffect>` | Research experiment cards |
+| Encounter | `encounter_kind: EncounterKind` | Encounter trigger cards |
+| PlayerCardEffect | `kind: CardEffectKind` | Player card effect templates |
+| EnemyCardEffect | `kind: CardEffectKind` | Enemy card effect templates |
+
+All action card variants (Attack through Research) share the same `effects: Vec<ConcreteEffect>` pattern, referencing PlayerCardEffect templates in the Library.
+
+### CardEffectKind reference
+
+CardEffectKind has **10 variants**. New effect types should be added as new variants (not by overloading existing ones).
+
+| Variant | Purpose | Used by disciplines | Key fields |
+|---------|---------|-------------------|------------|
+| GainTokens | Capped token grants | All | token_type, cap_min/cap_max, gain_min_percent/gain_max_percent |
+| LoseTokens | Token loss (costs) | All | token_type, min/max |
+| DrawCards | Per-deck-type card draw | Combat | attack, defence, resource |
+| Insight | Per-discipline insight generation | All 7 gathering | min/max grant range |
+| WoodcuttingChop | Chop-type/value mechanics | Woodcutting | chop_type, chop_value |
+| HerbalismMatch | Characteristic matching | Herbalism | match_mode (Or/And/MostCommon/LeastCommon) |
+| FishingValue | Numeric card values | Fishing | fishing_value |
+| CraftingReduction | Crafting difficulty reduction | Crafting | reduction amounts |
+| ResearchProbe | Research symbol probing | Research | symbol targeting |
+| ResearchInterference | Research interference effects | Research | interference mechanics |
+
+### Card Effect Architecture (Two-Layer Model)
+
+Card effects use a two-layer architecture:
+
+- **Template layer (CardEffect entries):** PlayerCardEffect and EnemyCardEffect entries in the Library define min-max ranges for effect values and optional cost percentage ranges. These are the "blueprints" for concrete cards.
+- **Concrete layer (cards with rolled values):** Attack, Defence, Resource, and enemy cards store ConcreteEffect entries with fixed rolled values determined at library initialization. When a card is played, its concrete rolled value is used directly — no per-play randomness.
+
+ConcreteEffect structure:
+- effect_id: usize — references the CardEffect template
+- rolled_value: i64 — specific value rolled from min-max range at creation time
+- rolled_costs: Vec<ConcreteEffectCost> — pre-computed absolute cost amounts
+- rolled_cap: i64 — maximum gain from this effect
+- rolled_gain_percent: i64 — gain percentage used during rolling
+
+All values are scaled by ~100x (e.g., damage 500, health 2000, durabilities 10000) to enable meaningful ranges and percentage-based costs.
+
+### Cost System
+
+Card effects use a rolling pipeline to determine values and costs at creation time:
+
+1. **Roll cap:** From the CardEffect template's `cap_min..cap_max` range, producing `rolled_cap`.
+2. **Roll value:** `rolled_value = rolled_cap * rolled_gain_percent / 100`.
+3. **Roll costs:** For each `CardEffectCost { token_type, min_percent, max_percent, is_absolute }`, roll to produce `ConcreteEffectCost { token_type, amount }`.
+
+Cost resolution depends on the `is_absolute` flag on the **template** (CardEffectCost):
+- **Percentage costs** (`is_absolute: false`): `amount = rolled_value × rolled_percent / 100` — computed at roll time. Used for effects with meaningful numeric values (GainTokens, FishingValue).
+- **Absolute costs** (`is_absolute: true`): `amount = rolled_value` from the min/max range — the rolled value IS the cost. Used for effects without meaningful numeric values (HerbalismMatch, WoodcuttingChop, CraftingReduction) and encounter-scoped costs (RestToken).
+
+**Important:** `ConcreteEffectCost` stores only `token_type` and `amount: u32` — all costs are pre-computed as absolute values at roll time. The `is_absolute` distinction exists only at the template layer.
+
+Encounter-scoped costs (e.g., `TokenType::RestToken`) are deducted from encounter state, not player `token_balances`. `TokenType::is_encounter_scoped()` identifies these tokens.
+
+**Future refactoring note:** The `CardEffectCost` template will be split into an enum with two variants — `Percentage { token_type, min_percent, max_percent }` and `Absolute { token_type, min, max }` — eliminating the `is_absolute` boolean flag and making cost semantics explicit in the type system.
+
+Token cap mechanic: GainTokens effects have a `rolled_cap` that limits the gain from a single card effect. The gain = `rolled_cap * rolled_gain_percent / 100`. The total token balance may exceed the cap — caps prevent excessive single-effect grants, not total accumulation.
+
+Additional rules:
+- If the player can't pay the full cost of any effect on a card, the card cannot be played.
+- Cost cards are more powerful but require resource management.
+- Starting decks are weighted toward non-cost cards.
+- Cost system extends to gathering encounters (Mining, Woodcutting stamina costs) via LoseTokens effects in the ConcreteEffect model.
+- Rest card material costs (Fish/Plant) use the same percentage-of-gain pipeline.
+
+### Gathering Card Effect Model (Library-Referenced)
+
+All gathering disciplines now use `effects: Vec<ConcreteEffect>` referencing PlayerCardEffect library templates — the same two-layer architecture as Combat and Rest. Costs are expressed as `LoseTokens` effects and gains as `GainTokens` effects. The former `costs: Vec<TokenAmount>` / `gains: Vec<TokenAmount>` fields and discipline-specific effect structs (`MiningCardEffect`, `CraftingCardEffect`, `HerbalismCardEffect`, `WoodcuttingCardEffect`, `FishingCardEffect`) have been removed.
+
+Gathering card costs are classified into two categories at resolution time:
+- **Pre-play costs** (e.g., Stamina): checked before the card is played; if the player cannot afford them, the card play is rejected. `TokenType::is_durability_cost()` returns `false` for these.
+- **Post-play costs** (e.g., MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability): deducted after the card's effects are applied; if the resource reaches zero, the encounter ends as a loss. `TokenType::is_durability_cost()` returns `true` for these.
+
+The `all_effects_hand_cards_unpayable()` method checks whether all hand cards have unpayable pre-play costs (replacing the former `all_gathering_hand_cards_unpayable()`).
+
+### Card location model and counts
+
+- Canonical Library entry: each Library entry is a single authoritative object combining the immutable card definition (id, type, base properties, CardEffect definitions, and metadata) with the player's exclusive copy counts. The Library entry therefore represents both the card's definition and how many copies the player currently owns in each location.
+
+  - definition: immutable card identity and properties (card_id, type, base stats, list of CardEffect descriptors, rarity, tags).
+  - counts: an exclusive counts tuple describing where player copies reside.
+
+- Single deck per type: each card type maps to exactly one deck-type (Attack cards belong to the Attack deck, Defence cards to the Defence deck, etc.). For each deck type there is only one player-owned deck instance. Deck-type constraints determine which Library cards may be added to which deck.
+
+- Exclusive counts and compact representation: the Library entry's counts tuple is ordered as [library_count, deck_count, hand_count, discard_count] (this list may be expanded later to include deleted, equipped, or other locations). Counts are exclusive — a single physical card instance is represented in exactly one location and contributes to exactly one count.
+
+- New-definition uniqueness: when a crafted or researched outcome changes the card definition (for example different CardEffect numeric values produce a distinct card definition), a new Library entry must be created for that distinct definition with its own counts. Library entry identity is therefore based on the card definition rather than a human-visible name.
+
+- Research cards in the Library: ✅ Implemented in Step 10. Completed research adds a new card definition to the Library with 0 copies in any zone. The card's CardEffects are drawn from the Library's CardEffect pool (filtered by discipline tags) with values rolled from each CardEffect's min-max range. The new Library entry is available for future deck composition, crafting, or further research cycles. **Current limitation:** all researched cards are `CardKind::Attack` regardless of discipline.
+
+- Example: a count vector of [4,2,1,1] on the Library entry for "Basic Axe (v2)" means the player has 8 copies total: 4 are stored in the Library inventory, 2 are currently in the Attack deck, 1 is in the player's hand, and 1 is in the discard pile.
+
+- Lifecycle movements: common operations move a card between these locations (Library → Deck when added to a deck; Deck → Hand when drawn; Hand → Discard or Deleted when played or consumed). All such movements are deterministic and recorded in the actions log so state can be reconstructed given the game's initial seed and the action list.
+
 
 ## Current encounter and combat setup
 
@@ -118,6 +262,9 @@ Combat is fully reproducible by recording the game's single initial seed and the
         Woodcutting(WoodcuttingEncounterState),
         Fishing(FishingEncounterState),
         Rest(RestEncounterState),
+        Crafting(CraftingEncounterState),
+        Research(ResearchEncounterState),
+        Milestone(MilestoneEncounterState),
     }
     ```
     Each encounter type has its own state struct because mechanics differ fundamentally. Combat uses 3 decks + phases (Defending/Attacking/Resourcing); mining uses a single deck with no phases; herbalism uses card-characteristic matching with no enemy draws; woodcutting has no enemy deck and uses pattern evaluation; fishing uses card-subtraction with valid-range targeting; rest is a single-choice encounter (pick 1 of 5 drawn cards for recovery). The `EncounterState` enum provides helpers like `is_finished()` (checks `outcome != Undecided`) and `encounter_card_id()`.
@@ -136,12 +283,12 @@ Combat is fully reproducible by recording the game's single initial seed and the
 
 ### Implementation details
 
-- Token identifiers are a closed `TokenType` enum: Health, MaxHealth, Shield, Stamina, Dodge, Mana, CombatInsight, MiningInsight, HerbalismInsight, WoodcuttingInsight, FishingInsight, RestInsight, CraftingInsight, ResearchInsight, Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability, MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability, Ore, Plant, Lumber, Fish, AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, MilestoneMaxHand, EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand, FishingRangeMin, FishingRangeMax, FishAmount, MiningLightLevel, MiningYield, MiningPower, RestToken, PlayerDeaths. Per-discipline insight tokens replaced the former standalone `Insight` and `MilestoneInsight` tokens. `TokenType::insight_for_discipline(&Discipline) -> TokenType` resolves the correct insight pool for the current encounter discipline. `TokenType::Durability` is a generic durability token type used in card effects that resolves to the per-discipline pool at encounter time via `TokenType::resolve_durability(&Discipline) -> TokenType`. A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. Token maps use `Token` as the key and `i64` as the value. PersistentCounter is the default lifecycle for all token types, but any token type can use any lifecycle — for example Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`); the old array-of-entries format is still accepted for backward-compatible deserialization.
+- Token identifiers are a closed `TokenType` enum — see [Token System](#token-system) for the complete categorized reference. Key helper methods: `TokenType::insight_for_discipline(&Discipline)` resolves the correct insight pool; `TokenType::resolve_durability(&Discipline)` resolves the generic Durability token to the per-discipline pool; `TokenType::is_encounter_scoped()` identifies encounter-scoped tokens.
 - **Encounter-scoped token storage (design principle):** Encounter state owns encounter-scoped data; global `GameState.token_balances` only holds persistent player tokens. Encounter-scoped tokens (e.g., MiningLightLevel, MiningYield, FishingRangeMin, FishingRangeMax, FishAmount, RestToken, enemy tokens) live on the encounter state struct's `encounter_tokens` field, not in the global token_balances. This ensures encounter-scoped data is automatically cleaned up when the encounter ends and prevents cross-encounter token leakage.
 - Encounter state lives in GameState (`current_encounter: Option<EncounterState>`, `encounter_phase: EncounterPhase`) and src/combat/ endpoints delegate to GameState methods. EncounterState is an enum with variants Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research, and Milestone, each containing encounter-type-specific state. Milestone wraps an inner discipline encounter with tier-based progression.
 - Encounter outcome is tracked via an `EncounterOutcome` enum with variants: Undecided, PlayerWon, PlayerLost. GameState maintains `encounter_results: Vec<EncounterOutcome>`. Encounter completion is determined solely by `outcome != EncounterOutcome::Undecided`.
 - Dodge and Shield absorption: damage consumes Dodge tokens first, then Shield tokens, before Health is reduced. Dodge expires after the Defending phase (FixedTypeDuration). Shield persists for the encounter (PersistentCounter) but has smaller CardEffect ranges.
-- `CardEffectKind` has eight variants: `GainTokens` for capped token grants, `LoseTokens` for token loss, `DrawCards { attack, defence, resource }` for per-deck-type card draw, `Insight` for per-discipline insight token generation, `WoodcuttingChop` for woodcutting chop-type/value mechanics, `HerbalismMatch` for herbalism characteristic matching, `FishingValue` for fishing numeric card values, and `CraftingReduction` for crafting difficulty reduction. New effect types should be added as new variants (not by overloading existing ones).
+- `CardEffectKind` has ten variants: `GainTokens` for capped token grants, `LoseTokens` for token loss, `DrawCards { attack, defence, resource }` for per-deck-type card draw, `Insight` for per-discipline insight token generation, `WoodcuttingChop` for woodcutting chop-type/value mechanics, `HerbalismMatch` for herbalism characteristic matching, `FishingValue` for fishing numeric card values, `CraftingReduction` for crafting difficulty reduction, `ResearchProbe` for research symbol probing, and `ResearchInterference` for research interference effects. New effect types should be added as new variants (not by overloading existing ones).
 - Enemy decks use `DeckCounts { deck, hand, discard }`. At combat start, enemy hands are shuffled via seeded RNG. Enemies play from hand; played cards go to discard with recycling when deck is empty.
 - Auto-advance after EncounterPlayCard: resolve player effects → resolve enemy play → advance combat phase → check end conditions.
 - CardKind taxonomy:
@@ -149,13 +296,13 @@ Combat is fully reproducible by recording the game's single initial seed and the
   - **Rest action cards:** Rest — with ConcreteEffect/GainTokens pattern; material costs via CardEffectCost.
   - **Gathering action cards:** Mining, Crafting, Woodcutting, Herbalism, Fishing — with `effects: Vec<ConcreteEffect>` referencing PlayerCardEffect templates (same library-referenced pattern as combat/rest cards).
   - **Encounter trigger cards:** Encounter { kind: EncounterKind } — each EncounterKind variant carries encounter-type-specific definition data.
-- Unpayable card rejection: if all hand cards are unpayable, the encounter ends as PlayerLost. Gathering costs split into pre-play (reject if unaffordable) and post-play (durability) via `split_gathering_costs()`.
+- Unpayable card rejection: if all hand cards are unpayable, the encounter ends as PlayerLost. Gathering costs are classified into pre-play (reject if unaffordable, checked via `TokenType::is_durability_cost() == false`) and post-play (durability depletion, checked via `TokenType::is_durability_cost() == true`).
 - **Voluntary encounter conclusion (standard pattern):** All non-combat gathering disciplines (Mining, Herbalism, Woodcutting, Fishing) support voluntary conclusion via `EncounterConcludeEncounter`, which grants accumulated rewards if any exist. If no rewards have been accumulated, the player must abort instead. This is a standard encounter flow pattern: play cards → accumulate rewards → conclude (win) or abort (loss). Combat encounters do not support voluntary conclusion — they continue until one side is defeated.
 - Scouting after loss: after any encounter ends (win or loss), the game transitions to Scouting phase. Scouting is a post-encounter lifecycle step, not a victory reward.
 - Health initialization: 1000 at game start, persists across encounters.
 - Stamina initialization: 1000 at game start. Primary cost currency for cost cards across all disciplines.
 - All amounts are positive: attacks have a positive number even though they remove health points.
-- Six player actions: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort, EncounterConcludeEncounter.
+- Player actions: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort, EncounterConcludeEncounter, EncounterCraftSwap, EncounterCraftCard, EncounterCraftDurability, ResearchChooseProject, ResearchSelectCandidate, ResearchProgress, ResearchPlayHand, ResearchConcludeExperiment.
 - Action log records only player actions. Internal operations are deterministic from seed + actions.
 - CardLocation enum: Library, Deck, Hand, Discard. Used as filter on `/library/cards`.
 - Card draws are random (seeded). CombatPhase::allowed_card_kind() returns a type-safe predicate.
@@ -176,49 +323,73 @@ Death is designed as a meaningful setback (loss of gathered materials) without b
 
 `TokenAmount { token_type: TokenType, amount: i64, cap: Option<i64> }` is a utility struct used internally for token quantity operations. It formerly appeared as `costs`/`gains` vectors on gathering cards, but all gathering disciplines now use `effects: Vec<ConcreteEffect>` referencing PlayerCardEffect templates — the same library-referenced pattern as Combat and Rest cards. TokenAmount is still used in encounter-scoped token operations (e.g., encounter token initialization) but is no longer the primary API surface for card effects.
 
-The unifying pattern for all card effects across all disciplines is now `ConcreteEffect` + library templates (PlayerCardEffect/EnemyCardEffect), with costs expressed as LoseTokens effects and gains as GainTokens effects.
+The unifying pattern for all card effects across all disciplines is now `ConcreteEffect` + library templates (PlayerCardEffect/EnemyCardEffect), with costs expressed as `CardEffectCost` entries on the CardEffectKind template, rolled into `ConcreteEffectCost` at creation time, and gains as GainTokens effects.
 
-### Card Effect Architecture (Two-Layer Model)
+See [Card System](#card-system) for the Card Effect Architecture, Cost System, and Gathering Card Effect Model — these sections have been consolidated under the Card System heading.
 
-Card effects use a two-layer architecture:
 
-- **Template layer (CardEffect entries):** PlayerCardEffect and EnemyCardEffect entries in the Library define min-max ranges for effect values and optional cost percentage ranges. These are the "blueprints" for concrete cards.
-- **Concrete layer (cards with rolled values):** Attack, Defence, Resource, and enemy cards store ConcreteEffect entries with fixed rolled values determined at library initialization. When a card is played, its concrete rolled value is used directly — no per-play randomness.
+## Token System
 
-ConcreteEffect structure:
-- effect_id: usize — references the CardEffect template
-- rolled_value: i64 — specific value rolled from min-max range at creation time
-- rolled_costs: Vec<ConcreteEffectCost> — rolled cost percentages
+### Token categories
 
-All values are scaled by ~100x (e.g., damage 500, health 2000, durabilities 10000) to enable meaningful ranges and percentage-based costs.
+Token identifiers are a closed `TokenType` enum. Tokens are organized into the following categories:
 
-### Cost System
+**Persistent resource tokens:**
 
-Card effects use a three-step rolling pipeline to determine values and costs at creation time:
+| Token | Purpose | Initial value |
+|-------|---------|---------------|
+| Health | Player hit points | 1000 |
+| MaxHealth | Maximum health cap | — |
+| Stamina | Cross-discipline cost currency | 1000 |
+| Shield | Damage absorption (encounter-scoped) | 0 |
+| Dodge | Phase-limited damage avoidance | 0 |
+| Mana | Reserved for future use | — |
+| PlayerDeaths | Lifetime death counter | 0 |
 
-1. **Roll cap:** From the CardEffect template's `cap_min..cap_max` range, producing `rolled_cap` (maximum gain from the effect).
-2. **Roll gain percent:** From `gain_min_percent..gain_max_percent`, producing `rolled_gain_percent`. The concrete gain = `rolled_cap * rolled_gain_percent / 100`, stored as `rolled_value`.
-3. **Roll cost percent:** For each `CardEffectCost { cost_type, min_percent, max_percent }`, roll to produce `ConcreteEffectCost { cost_type, rolled_percent }`. At play time, actual cost = `rolled_value * rolled_percent / 100`.
+**Per-discipline Insight tokens:**
 
-Token cap mechanic: GainTokens effects have a `rolled_cap` that limits the gain from a single card effect. The gain = `rolled_cap * rolled_gain_percent / 100`. The total token balance may exceed the cap — caps prevent excessive single-effect grants, not total accumulation.
+| Token | Discipline |
+|-------|-----------|
+| CombatInsight | Combat |
+| MiningInsight | Mining |
+| HerbalismInsight | Herbalism |
+| WoodcuttingInsight | Woodcutting |
+| FishingInsight | Fishing |
+| RestInsight | Rest |
+| CraftingInsight | Crafting |
+| ResearchInsight | Research |
 
-Additional rules:
-- If the player can't pay the full cost of any effect on a card, the card cannot be played.
-- Cost cards are more powerful but require resource management.
-- Starting decks are weighted toward non-cost cards.
-- Cost system extends to gathering encounters (Mining, Woodcutting stamina costs) via LoseTokens effects in the ConcreteEffect model.
-- Rest card material costs (Fish/Plant) use the same percentage-of-gain pipeline.
+`TokenType::insight_for_discipline(&Discipline)` resolves the correct insight pool.
 
-### Gathering Card Effect Model (Library-Referenced)
+**Material tokens:** Ore, Plant, Lumber, Fish
 
-All gathering disciplines now use `effects: Vec<ConcreteEffect>` referencing PlayerCardEffect library templates — the same two-layer architecture as Combat and Rest. Costs are expressed as `LoseTokens` effects and gains as `GainTokens` effects. The former `costs: Vec<TokenAmount>` / `gains: Vec<TokenAmount>` fields and discipline-specific effect structs (`MiningCardEffect`, `CraftingCardEffect`, `HerbalismCardEffect`, `WoodcuttingCardEffect`, `FishingCardEffect`) have been removed.
+**Durability tokens (persistent, per-discipline HP pools):**
+MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability — initialized at 10000, persist across encounters, decrease over time.
 
-Gathering card costs are classified into two categories at resolution time:
-- **Pre-play costs** (e.g., Stamina): checked before the card is played; if the player cannot afford them, the card play is rejected. `TokenType::is_durability_cost()` returns `false` for these.
-- **Post-play costs** (e.g., MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability): deducted after the card's effects are applied; if the resource reaches zero, the encounter ends as a loss. `TokenType::is_durability_cost()` returns `true` for these.
+`TokenType::Durability` is a generic durability token used in card effects that resolves to the per-discipline pool at encounter time via `TokenType::resolve_durability(&Discipline)`.
 
-The `all_effects_hand_cards_unpayable()` method checks whether all hand cards have unpayable pre-play costs (replacing the former `all_gathering_hand_cards_unpayable()`).
+**MaxHand tokens (initialized to 5):**
+- Player: AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, RestMaxHand, MilestoneMaxHand
+- Enemy: EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand
 
+MaxHand = 5 is the universal invariant for all card types. Each card kind starts with at most 5 cards in the player's hand; excess cards begin in the deck.
+
+**Encounter-scoped tokens (live on encounter state, not global token_balances):**
+
+| Token | Encounter type | Purpose |
+|-------|---------------|---------|
+| RestToken, RestMaxHand | Rest | Rest action budget |
+| MiningLightLevel, MiningYield, MiningPower | Mining | Light/yield/power tracking |
+| FishingRangeMin, FishingRangeMax, FishAmount | Fishing | Range and catch tracking |
+| CraftingToken, CraftingMaxHand | Crafting | Crafting action budget |
+| MilestoneMaxHand | Milestone | Milestone hand limit |
+| EnemyAttack/Defence/ResourceMaxHand | Combat | Enemy hand limits |
+
+`TokenType::is_encounter_scoped()` identifies encounter-scoped tokens and is used consistently in cost-checking logic.
+
+**Progression tokens:** Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability
+
+A `Token` is a struct containing `token_type: TokenType` and `lifecycle: TokenLifecycle`. PersistentCounter is the default lifecycle. Token maps serialize as compact JSON objects (e.g., `{"Health": 20}`).
 
 ## Areas as decks (future vision)
 
@@ -307,7 +478,7 @@ Canonical token list, generators, and uses
 
 Notes: the token list above is canonical for the project; prefer this section as the authoritative reference and avoid duplicating token definitions elsewhere.
 
-## Token lifecycles
+### Token lifecycles
 
 Tokens explicitly declare their lifecycle semantics so designers, clients, and the actions log can treat them consistently. Lifecycle classes include:
 
@@ -379,6 +550,18 @@ Operational controls & feedback:
 - Targeted sinks and throttles: introduce repair/maintenance costs, upkeep, or one-time unlock expenses when telemetry shows runaway accumulation.
 
 (End of balancing section.)
+
+### Deck sizing principles
+
+Every deck (player, enemy, encounter pool) is sized to a target of **50 cards** (deck + hand combined):
+- Player decks are proportionally scaled to preserve the relative frequency of each card archetype.
+- Enemy sub-decks (ore_deck, fish_deck, interference_deck, etc.) are sized to match the player's pool.
+- Encounter selection pools are uniformly sized (currently 50 per discipline) so scouting produces a representative cross-section of available encounters — no single discipline dominates.
+- All unique card entries are preserved regardless of target size — depth of the card library is never sacrificed for balance.
+
+### Worktree-based experimentation
+
+Each discipline is optimized independently in its own git worktree on a dedicated branch, allowing parallel execution and safe config modification. Results (metrics + configs) are committed to the worktree branch for full audit trail. The worktree-per-mutation pattern is effectively A/B testing — each mutation is an isolated experiment with committed results. See `scripts/worktree-manage.sh` for worktree automation.
 
 Reward scaling and token economy:
 - Degree of success matters: crafting and gathering are not binary win/lose outcomes. The better the player performs in the crafting/gathering encounter (measured by success margin, combo chains, resource efficiency, or other metrics), the greater the rewards — higher-quality loot cards, larger resource yields, or improved token multipliers.
@@ -481,7 +664,7 @@ Stamina is intended as the shared cost currency across all disciplines. It is ea
 
 Every discipline now has three tiers of starting cards: no-cost cards (basic benefit), stamina-cost cards (medium benefit), and health-cost cards (great benefit). This creates a risk/reward spectrum where players choose between safe low-output plays, moderate-cost moderate-output plays, and high-risk high-output plays that sacrifice Health.
 
-## Special tokens and cross-discipline currencies
+### Special tokens and cross-discipline currencies
 
 This subsection is the authoritative token reference. Each token type below lists how it is typically earned, where it may be spent, and whether it can carry structured payload data.
 
@@ -528,6 +711,60 @@ General rules
 - Each token type must have clear earn rules, caps/decay/refresh semantics, and a single authoritative set of usages; all state mutations go through the POST /action endpoint to preserve reproducibility.
 - Tokens are primarily single-player save-scoped; they are not account-shared or multiplayer objects.
 
+## Scouting and encounter mutation
+
+Scouting is the post-resolution step of every encounter lifecycle. After any encounter resolves (win or loss), the game generates **mutated encounter variations** based on the just-completed encounter.
+
+### Current implementation (mutation-based)
+
+After an encounter resolves, 3 mutated variations of the just-completed encounter are generated as additional choices alongside the normal encounter hand:
+
+- **Parameter scaling**: Numerical encounter parameters (initial tokens, HP, light levels, fish ranges, etc.) are randomly adjusted in the range of -5% to +10%, so encounters tend to get slightly tougher over time. Min values are clamped to stay ≤ max values.
+- **Enemy deck mutation**: ~20% of enemy deck entries may be mutated via three operations:
+  - **ScaleValues**: Scales effect values on an enemy card
+  - **RedistributeCopies**: Moves copies between deck entries while keeping total card count constant
+  - **SwapTier**: Copies effects from adjacent entries
+- **Invariants preserved**: Total card count is maintained. Card types are not changed.
+
+The player must choose one of the presented encounters (mutations + encounter hand cards) to replace the just-played encounter. The player cannot keep the just-played encounter.
+
+### Scouting tokens
+
+- **Foresight**: Controls the encounter hand size (default 3). After an encounter resolves, encounter cards are drawn until Foresight cards are visible.
+- **Scouting candidate pool** and **Scouting pick count**: Originally designed for a CardEffect-pool-based generation model. The current implementation uses clone-and-mutate instead, but these tokens may be revisited as the scouting system evolves.
+
+### Future vision (CardEffect-pool model)
+
+The vision also describes a CardEffect-pool-based generation model where replacement encounters are built by drawing X CardEffects from the Library's CardEffect pool and choosing up to Y to attach. This model may be implemented as a complementary or alternative system to the mutation approach.
+
+## Milestone progression
+
+Milestone encounters are the primary CardEffect progression system. Each combat/gathering discipline (Combat, Mining, Herbalism, Woodcutting, Fishing) has a dedicated milestone track with escalating tiers.
+
+- **Entry cost**: Per-discipline Insight tokens, scaling exponentially: `100 × 2^(tier-1)` (tier 1 = 100, tier 2 = 200, tier 3 = 400).
+- **Dedicated hand**: Milestone encounters live in a separate hand (not mixed with regular encounters), capped at 5 via `MilestoneMaxHand` token.
+- **Utility disciplines** (Rest, Crafting, Research) do NOT have milestones.
+
+### Win flow
+
+On win, the player receives 50%-improved versions of all existing **PlayerCardEffects and EnemyCardEffects** for that discipline. The scaled effects are tagged at tier N+1. A single next-tier milestone encounter is then auto-assigned for that discipline.
+
+### Loss flow
+
+On loss, the encounter resets and the player returns to NoEncounter. The milestone card stays in hand for future attempts. Aborting is treated as a loss.
+
+### Effect reuse
+
+Milestone encounters do not define their own card effects. They use the discipline's existing `EnemyCardEffect` templates at the target tier via `roll_best_concrete_effect` (always selecting maximum values). This ensures milestones are calibrated to the discipline's current tier and that config changes to discipline effects automatically flow into milestone encounters.
+
+### Tier tracking
+
+`LibraryCard` carries a `tier: u32` field (default 1). When milestone rewards are generated (50% scaled copies), new effects are tagged at `tier + 1`. Tier-aware lookups (`card_effects_for_discipline_and_tier`, `enemy_effects_for_discipline_and_tier`) enable each tier's milestone to find the correct effect templates.
+
+### Tier progression concept
+
+Each discipline's card effects exist at numbered tiers. Tier 1 effects are the base set loaded from configuration. Beating a tier-N milestone produces tier N+1 effects (50% scaled). Milestone encounters at tier N+1 use the **best possible roll** (maximum values) of tier N+1 effects as enemy cards. This creates a clear power curve: each milestone is calibrated to be exactly as strong as the best version of what the player just unlocked.
+
 ## Trading and merchants
 
 - Merchants are modelled as a MerchantOffers deck which yields shop offers. Every merchant interaction deterministically draws `MerchantOfferPool` offers from the MerchantOffers deck and presents them to the player; the player selects one offer to pursue. Next the system draws `MerchantBargainDraw` cards from the Barter deck and presents them as potential modifiers; the player may choose up to `MerchantLeverage` of those Barter cards to modify the selected offer. Each Barter card can change `offered_token`, `requested_token`, `rate`, `fee`, or attach conditions (for example time-limited availability or additional item requirements). Barter cards may also modify `MerchantOfferPool`, `MerchantBargainDraw`, or `MerchantLeverage` either for the current interaction or persistently; all draws, token changes, player choices, and RNG seeds are recorded in the actions log so encounters remain reproducible.
@@ -558,24 +795,7 @@ This design lets the game grow from simple beginnings to rich systems while pres
 - Other endpoints (for example /library/cards, /encounter, /encounter/results, /player/tokens, /actions/log, /actions/possible) provide read-only JSON access to game data; the actions endpoint is the only endpoint that performs state changes. GET /actions/possible returns currently valid player actions based on the game state, including playable card IDs where applicable. The /library/cards endpoint supports `?location=` and `?card_kind=` query filters and returns cards with their IDs.
 - The project's OpenAPI specification will include thorough tutorials, documentation, and guided examples (end-to-end flows, example requests/responses, recipe/crafting walkthroughs) so integrators, designers, and QA can learn and exercise the API directly from the spec.
 
-## Card location model and counts
-
-- Canonical Library entry: each Library entry is a single authoritative object combining the immutable card definition (id, type, base properties, CardEffect definitions, and metadata) with the player's exclusive copy counts. The Library entry therefore represents both the card's definition and how many copies the player currently owns in each location.
-
-  - definition: immutable card identity and properties (card_id, type, base stats, list of CardEffect descriptors, rarity, tags).
-  - counts: an exclusive counts tuple describing where player copies reside.
-
-- Single deck per type: each card type maps to exactly one deck-type (Attack cards belong to the Attack deck, Defence cards to the Defence deck, etc.). For each deck type there is only one player-owned deck instance. Deck-type constraints determine which Library cards may be added to which deck.
-
-- Exclusive counts and compact representation: the Library entry's counts tuple is ordered as [library_count, deck_count, hand_count, discard_count] (this list may be expanded later to include deleted, equipped, or other locations). Counts are exclusive — a single physical card instance is represented in exactly one location and contributes to exactly one count.
-
-- New-definition uniqueness: when a crafted or researched outcome changes the card definition (for example different CardEffect numeric values produce a distinct card definition), a new Library entry must be created for that distinct definition with its own counts. Library entry identity is therefore based on the card definition rather than a human-visible name.
-
-- Research cards in the Library: ✅ Implemented in Step 10. Completed research adds a new card definition to the Library with 0 copies in any zone. The card's CardEffects are drawn from the Library's CardEffect pool (filtered by discipline tags) with values rolled from each CardEffect's min-max range. The new Library entry is available for future deck composition, crafting, or further research cycles. **Current limitation:** all researched cards are `CardKind::Attack` regardless of discipline.
-
-- Example: a count vector of [4,2,1,1] on the Library entry for "Basic Axe (v2)" means the player has 8 copies total: 4 are stored in the Library inventory, 2 are currently in the Attack deck, 1 is in the player's hand, and 1 is in the discard pile.
-
-- Lifecycle movements: common operations move a card between these locations (Library → Deck when added to a deck; Deck → Hand when drawn; Hand → Discard or Deleted when played or consumed). All such movements are deterministic and recorded in the actions log so state can be reconstructed given the game's initial seed and the action list.
+See [Card location model and counts](#card-location-model-and-counts) in the [Card System](#card-system) section for the canonical card location model.
 
 ## Goals and milestones
 
@@ -795,9 +1015,9 @@ Concrete examples
 
 11) Scouting / Recon (system)
 
+- See [Scouting and encounter mutation](#scouting-and-encounter-mutation) for the full scouting reference.
 - Lifecycle placement: scouting is applied as the post-resolution area-update step of the encounter lifecycle (Setup → Player Phase(s) → Encounter Phase(s) → Resolution → Post-resolution scouting/update).
-- Decks involved: Area deck and Library CardEffect pool (scouting draws from the Library's CardEffects; there is no separate persistent 'Scouting' deck).
-- Tokens: Foresight, Scouting candidate pool size, Scouting canditate pick size, Rations, Stealth-like tokens.
+- Tokens: Foresight (encounter hand size), plus mutation parameters.
 
 12) Merchant / Trading interactions
 
@@ -827,7 +1047,7 @@ Cross-discipline notes
 
 All public endpoints represent the stable gameplay API. Test-only endpoints under /tests/* have been removed; all tests now use production endpoints exclusively.
 
-The only public endpoint that can mutate any data is the /action endpoint, every other public endpoint is a GET endpoint. GET /actions/possible returns currently valid player actions based on the game state, including playable card IDs where applicable (OpenAPI documented).
+The only public endpoint that can mutate any data is the /action endpoint, every other public endpoint is a GET endpoint. GET /actions/possible returns currently valid player actions based on the game state, including playable card IDs where applicable (OpenAPI documented). GET /version returns the game version and config hash (SHA-256 of all embedded configuration JSONs) for save-game compatibility verification.
 
 ## Automatic test setup 
 
@@ -836,6 +1056,42 @@ Favor tests that spin up the server and verifies a test case by calling the publ
 ## Entity ids 
 
 If an id is a string then it has to be a UUID else favour using unsigned integers. 
+
+## Quick Reference
+
+### Current CardKind variants (13)
+Attack, Defence, Resource, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research, Encounter, PlayerCardEffect, EnemyCardEffect
+
+### Current CardEffectKind variants (10)
+GainTokens, LoseTokens, DrawCards, Insight, WoodcuttingChop, HerbalismMatch, FishingValue, CraftingReduction, ResearchProbe, ResearchInterference
+
+### TokenType categories
+- **Resources**: Health, MaxHealth, Stamina, Shield, Dodge, Mana, PlayerDeaths
+- **Materials**: Ore, Plant, Lumber, Fish
+- **Insight** (per-discipline): CombatInsight, MiningInsight, HerbalismInsight, WoodcuttingInsight, FishingInsight, RestInsight, CraftingInsight, ResearchInsight
+- **Durability** (per-discipline): MiningDurability, HerbalismDurability, WoodcuttingDurability, FishingDurability
+- **MaxHand** (all = 5): AttackMaxHand, DefenceMaxHand, ResourceMaxHand, MiningMaxHand, HerbalismMaxHand, WoodcuttingMaxHand, FishingMaxHand, RestMaxHand, MilestoneMaxHand
+- **Enemy MaxHand**: EnemyAttackMaxHand, EnemyDefenceMaxHand, EnemyResourceMaxHand
+- **Encounter-scoped**: FishingRangeMin, FishingRangeMax, FishAmount, MiningLightLevel, MiningYield, MiningPower, RestToken, CraftingToken, CraftingMaxHand
+- **Progression**: Renown, Refinement, Stability, Foresight, Momentum, Corruption, Exhaustion, Durability
+
+### Key endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /action | POST | Single mutator endpoint for all player actions |
+| /library/cards | GET | Card definitions with optional filters (?location=, ?card_kind=) |
+| /library/card-effects | GET | CardEffect templates |
+| /encounter | GET | Current encounter state |
+| /encounter/results | GET | Encounter outcome history |
+| /player/tokens | GET | Player token balances |
+| /actions/possible | GET | Currently valid player actions with playable card IDs |
+| /actions/log | GET | Full action log (save game format) |
+| /version | GET | Game version + config hash (SHA-256) |
+| /metrics | GET | Session metrics |
+| /docs/tutorial | GET | New-player walkthrough |
+| /docs/hints | GET | Strategy hints per discipline |
+| /docs/designer | GET | Designer reference |
+| /swagger/ | GET | OpenAPI/Swagger UI |
 
 ## Closing
 
