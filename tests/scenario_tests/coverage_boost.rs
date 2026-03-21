@@ -545,8 +545,8 @@ fn crafting_add_durability_mining() {
         let mining_dur_after = player_token(&client, "MiningDurability");
         assert_eq!(
             mining_dur_after,
-            mining_dur_before + 500,
-            "Should add 500 mining durability"
+            mining_dur_before + 300,
+            "Should add 300 mining durability"
         );
     }
 
@@ -562,7 +562,7 @@ fn crafting_add_durability_mining() {
             );
             if status == Status::Created {
                 let herb_dur_after = player_token(&client, "HerbalismDurability");
-                assert_eq!(herb_dur_after, herb_dur_before + 500);
+                assert_eq!(herb_dur_after, herb_dur_before + 300);
             }
         }
     }
@@ -579,7 +579,7 @@ fn crafting_add_durability_mining() {
             );
             if status == Status::Created {
                 let wc_dur_after = player_token(&client, "WoodcuttingDurability");
-                assert_eq!(wc_dur_after, wc_dur_before + 500);
+                assert_eq!(wc_dur_after, wc_dur_before + 300);
             }
         }
     }
@@ -596,7 +596,7 @@ fn crafting_add_durability_mining() {
             );
             if status == Status::Created {
                 let fish_dur_after = player_token(&client, "FishingDurability");
-                assert_eq!(fish_dur_after, fish_dur_before + 500);
+                assert_eq!(fish_dur_after, fish_dur_before + 300);
             }
         }
     }

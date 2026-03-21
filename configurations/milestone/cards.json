@@ -326,8 +326,8 @@
           "inner_encounter": {
             "encounter_type": "Fishing",
             "fishing_def": {
-              "valid_range_min": -50,
-              "valid_range_max": 50,
+              "valid_range_min": -80,
+              "valid_range_max": 100,
               "max_turns": 10,
               "win_turns_needed": 6,
               "fish_deck": [

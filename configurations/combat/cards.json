@@ -313,8 +313,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Health",
-        "min": 1000,
-        "max": 1300,
+        "min": 700,
+        "max": 950,
         "costs": [
           {
             "token_type": "Health",

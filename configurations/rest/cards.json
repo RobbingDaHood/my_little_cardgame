@@ -118,8 +118,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Health",
-        "cap_min": 600,
-        "cap_max": 800,
+        "cap_min": 400,
+        "cap_max": 550,
         "gain_min_percent": 90,
         "gain_max_percent": 100,
         "costs": [
@@ -149,8 +149,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Stamina",
-        "cap_min": 900,
-        "cap_max": 1200,
+        "cap_min": 500,
+        "cap_max": 700,
         "gain_min_percent": 90,
         "gain_max_percent": 100,
         "costs": [
