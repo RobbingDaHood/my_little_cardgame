@@ -30,8 +30,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Shield",
-        "cap_min": 200,
-        "cap_max": 400,
+        "cap_min": 350,
+        "cap_max": 450,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [],
@@ -78,8 +78,8 @@
       "owner": "Player",
       "kind": {
         "effect_type": "DrawCards",
-        "attack": 1,
-        "defence": 1,
+        "attack": 2,
+        "defence": 2,
         "resource": 2
       },
       "counts": {

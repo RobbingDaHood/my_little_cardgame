@@ -3,7 +3,7 @@ use rand::SeedableRng;
 use serde_json::Value;
 use std::sync::Mutex;
 
-use super::{GameSnapshot, Strategy};
+use crate::strategies::{GameSnapshot, Strategy};
 
 /// Random strategy: picks a uniformly random action from the available options.
 /// This is the simplest possible strategy and serves as the baseline.

@@ -7,8 +7,24 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Health",
-        "min": 200,
-        "max": 400,
+        "min": 550,
+        "max": 650,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "enemy_damage_strong",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "LoseTokens",
+        "token_type": "Health",
+        "min": 1000,
+        "max": 1200,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -24,8 +40,27 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Shield",
-        "cap_min": 150,
-        "cap_max": 250,
+        "cap_min": 0,
+        "cap_max": 20,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Combat"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "enemy_shield_strong",
+      "owner": "Enemy",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "Shield",
+        "cap_min": 0,
+        "cap_max": 20,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [],
@@ -62,7 +97,7 @@
         "effect_type": "DrawCards",
         "attack": 1,
         "defence": 1,
-        "resource": 2
+        "resource": 0
       },
       "valid_disciplines": [
         "Combat"
@@ -76,8 +111,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 33,
-        "hand": 3,
+        "deck": 2000,
+        "hand": 200,
         "discard": 0
       },
       "valid_disciplines": [
@@ -92,8 +127,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 34,
-        "hand": 3,
+        "deck": 2000,
+        "hand": 200,
         "discard": 0
       },
       "valid_disciplines": [
@@ -109,8 +144,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 43,
-        "hand": 5,
+        "deck": 2000,
+        "hand": 200,
         "discard": 0
       },
       "valid_disciplines": [
@@ -123,8 +158,8 @@
         "encounter_type": "Combat",
         "combatant": {
           "initial_tokens": {
-            "Health": 2000,
-            "MaxHealth": 2000
+            "Health": 3000,
+            "MaxHealth": 3000
           },
           "attack_deck": [
             {
@@ -132,8 +167,8 @@
                 "combat:enemy_damage"
               ],
               "counts": {
-                "deck": 0,
-                "hand": 50,
+                "deck": 15,
+                "hand": 6,
                 "discard": 0
               }
             }
@@ -144,8 +179,8 @@
                 "combat:enemy_shield"
               ],
               "counts": {
-                "deck": 0,
-                "hand": 50,
+                "deck": 15,
+                "hand": 6,
                 "discard": 0
               }
             }
@@ -158,7 +193,7 @@
               ],
               "counts": {
                 "deck": 0,
-                "hand": 50,
+                "hand": 8,
                 "discard": 0
               }
             }
@@ -180,13 +215,13 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Health",
-        "min": 700,
-        "max": 900,
+        "min": 2000,
+        "max": 2500,
         "costs": [
           {
-            "token_type": "Stamina",
-            "min_percent": 30,
-            "max_percent": 50
+            "token_type": "Health",
+            "min_percent": 0,
+            "max_percent": 1
           }
         ],
         "duration": "PersistentCounter"
@@ -203,15 +238,15 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Shield",
-        "cap_min": 350,
-        "cap_max": 550,
+        "cap_min": 1200,
+        "cap_max": 1400,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [
           {
-            "token_type": "Stamina",
-            "min_percent": 30,
-            "max_percent": 50
+            "token_type": "Health",
+            "min_percent": 55,
+            "max_percent": 65
           }
         ],
         "duration": "PersistentCounter"
@@ -228,8 +263,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 10,
-        "hand": 2,
+        "deck": 0,
+        "hand": 50,
         "discard": 0
       },
       "valid_disciplines": [
@@ -244,8 +279,8 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 11,
-        "hand": 2,
+        "deck": 0,
+        "hand": 50,
         "discard": 0
       },
       "valid_disciplines": [

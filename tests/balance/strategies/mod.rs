@@ -1,7 +1,3 @@
-pub mod conservative;
-pub mod greedy;
-pub mod random;
-
 use serde_json::Value;
 
 /// Snapshot of public game state gathered from API endpoints.

@@ -224,10 +224,18 @@ fn library_draw_nonexistent_card_returns_error() {
 #[test]
 fn game_state_draw_random_cards() {
     let mut gs = GameState::new();
-    // Library starts with Attack having deck:15 hand:5 (now at index 9)
-    let initial_hand = gs.library.cards[9].counts.hand;
-    let initial_deck = gs.library.cards[9].counts.deck;
-    assert!(initial_deck > 0);
+    // Find any card with deck > 0 to verify draw mechanics work
+    let card_with_deck = gs
+        .library
+        .cards
+        .iter()
+        .enumerate()
+        .find(|(_, c)| c.counts.deck > 0);
+    assert!(
+        card_with_deck.is_some(),
+        "Expected at least one card with deck > 0"
+    );
+    let initial_hand: u32 = gs.library.cards.iter().map(|c| c.counts.hand).sum();
     // draw_random_cards is private, but we can test it via resolve_player_card
     // playing a resource card (id 11) triggers draw_count=1
     gs.token_balances

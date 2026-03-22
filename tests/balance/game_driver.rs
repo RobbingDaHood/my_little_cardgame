@@ -2,6 +2,7 @@ use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
 use serde_json::Value;
 
+use crate::combat::driver::{find_combat_encounter, play_combat_encounter};
 use crate::strategies::{GameSnapshot, Strategy};
 
 /// Results from a single game session.
@@ -15,6 +16,11 @@ pub struct GameResult {
     pub final_health: i64,
     pub ended_by_death: bool,
     pub rounds_per_encounter: Vec<u32>,
+    /// Consecutive win streaks per "life" (reset on death).
+    /// Each entry is the streak length before the next death or game end.
+    pub win_streaks: Vec<u32>,
+    /// Maximum consecutive wins achieved in this game.
+    pub max_win_streak: u32,
 }
 
 /// Drives one full game session through repeated combat encounters.
@@ -47,22 +53,31 @@ impl GameDriver {
             final_health: 0,
             ended_by_death: false,
             rounds_per_encounter: Vec::new(),
+            win_streaks: Vec::new(),
+            max_win_streak: 0,
         };
 
-        let initial_deaths = get_snapshot(&client).player_deaths();
+        let mut initial_deaths = get_snapshot(&client).player_deaths();
+        let mut current_streak: u32 = 0;
 
-        for _ in 0..self.max_encounters {
-            // Drive the game to the next encounter pick by handling conclude/scout first
+        for encounter_num in 0..self.max_encounters {
             if !self.advance_to_encounter_pick(&client, strategy) {
-                break;
+                // Game is stuck — restart to continue simulation (counts as death/streak break).
+                let new_game = serde_json::json!({"action_type": "NewGame", "seed": seed.wrapping_add(encounter_num as u64 * 1000)});
+                post_action(&client, &new_game);
+                initial_deaths = get_snapshot(&client).player_deaths();
+                result.deaths += 1;
+                if current_streak > 0 {
+                    result.win_streaks.push(current_streak);
+                }
+                current_streak = 0;
+                continue;
             }
 
-            // Pick a combat encounter
             let combat_enc_id = find_combat_encounter(&client);
             let combat_enc_id = match combat_enc_id {
                 Some(id) => id,
                 None => {
-                    // No combat encounters — pick any encounter and skip
                     let enc_ids = get_encounter_hand_ids(&client);
                     if enc_ids.is_empty() {
                         break;
@@ -84,26 +99,46 @@ impl GameDriver {
             post_action(&client, &pick);
             result.total_encounters += 1;
 
-            // Play combat cards until resolved
             let results_before = get_encounter_results_count(&client);
-            let rounds = self.play_combat_encounter(&client, strategy);
+            let rounds = play_combat_encounter(&client, strategy, self.max_actions_per_encounter);
             result.rounds_per_encounter.push(rounds);
 
-            // Read outcome from /encounter/results (combat auto-concludes)
             let outcome = get_last_encounter_outcome(&client, results_before);
             match outcome.as_deref() {
-                Some("PlayerWon") => result.combat_wins += 1,
-                Some("PlayerLost") => result.combat_losses += 1,
+                Some("PlayerWon") => {
+                    result.combat_wins += 1;
+                    current_streak += 1;
+                    if current_streak > result.max_win_streak {
+                        result.max_win_streak = current_streak;
+                    }
+                }
+                Some("PlayerLost") => {
+                    result.combat_losses += 1;
+                    if current_streak > 0 {
+                        result.win_streaks.push(current_streak);
+                    }
+                    current_streak = 0;
+                }
                 _ => {}
             }
 
-            // Check for death
             let snapshot = get_snapshot(&client);
             let current_deaths = snapshot.player_deaths();
-            if current_deaths > initial_deaths + result.deaths {
-                result.deaths = current_deaths - initial_deaths;
+            let new_deaths = current_deaths - initial_deaths;
+            if new_deaths > 0 {
+                result.deaths += new_deaths;
+                initial_deaths = current_deaths;
                 result.ended_by_death = true;
+                if current_streak > 0 {
+                    result.win_streaks.push(current_streak);
+                }
+                current_streak = 0;
             }
+        }
+
+        // Push final streak if game ended without death/loss
+        if current_streak > 0 {
+            result.win_streaks.push(current_streak);
         }
 
         result.final_health = get_snapshot(&client).player_health();
@@ -144,55 +179,19 @@ impl GameDriver {
                 continue;
             }
 
-            // No recognized transition action — game over or stuck
+            // Stuck (e.g., in combat with no playable cards).
+            if action_types.contains(&"NewGame".to_string()) {
+                return false;
+            }
+
             return false;
         }
         false
     }
 
-    fn play_combat_encounter(&self, client: &Client, strategy: &dyn Strategy) -> u32 {
-        let mut rounds = 0;
-
-        for _ in 0..self.max_actions_per_encounter {
-            let snapshot = get_snapshot(client);
-
-            // Check if encounter is over
-            if let Some(outcome) = snapshot.combat_outcome() {
-                if outcome != "Undecided" {
-                    return rounds;
-                }
-            }
-
-            let possible = get_possible_actions(client);
-            let action_types: Vec<String> = possible
-                .iter()
-                .filter_map(|a| {
-                    a.get("action_type")
-                        .and_then(|v| v.as_str())
-                        .map(String::from)
-                })
-                .collect();
-
-            if !action_types.contains(&"EncounterPlayCard".to_string()) {
-                return rounds;
-            }
-
-            // Get playable cards for current phase
-            let playable = get_playable_combat_cards(client, &snapshot);
-            if playable.is_empty() {
-                return rounds;
-            }
-
-            // Let strategy choose
-            let action = strategy.choose_action(&playable, &snapshot);
-            post_action(client, &action);
-            rounds += 1;
-        }
-
-        rounds
-    }
-
     fn play_non_combat_encounter(&self, client: &Client, _strategy: &dyn Strategy) {
+        // Abort non-combat encounters immediately — simulation only tracks combat.
+        // Then handle scouting to return to NoEncounter phase.
         for _ in 0..self.max_actions_per_encounter {
             let possible = get_possible_actions(client);
             let action_types: Vec<String> = possible
@@ -211,17 +210,20 @@ impl GameDriver {
                 );
                 return;
             }
-            if action_types.contains(&"EncounterConcludeEncounter".to_string()) {
-                post_action(
-                    client,
-                    &serde_json::json!({"action_type": "EncounterConcludeEncounter"}),
-                );
-                continue;
+            if action_types.contains(&"EncounterPickEncounter".to_string()) {
+                return;
             }
             if action_types.contains(&"EncounterAbort".to_string()) {
                 post_action(
                     client,
                     &serde_json::json!({"action_type": "EncounterAbort"}),
+                );
+                continue;
+            }
+            if action_types.contains(&"EncounterConcludeEncounter".to_string()) {
+                post_action(
+                    client,
+                    &serde_json::json!({"action_type": "EncounterConcludeEncounter"}),
                 );
                 continue;
             }
@@ -242,7 +244,7 @@ impl GameDriver {
 
 // --- HTTP helper functions (public API only) ---
 
-fn post_action(client: &Client, action: &Value) -> (Status, Value) {
+pub(crate) fn post_action(client: &Client, action: &Value) -> (Status, Value) {
     let response = client
         .post("/action")
         .header(ContentType::JSON)
@@ -256,7 +258,7 @@ fn post_action(client: &Client, action: &Value) -> (Status, Value) {
     (status, body)
 }
 
-fn get_json(client: &Client, path: &str) -> Value {
+pub(crate) fn get_json(client: &Client, path: &str) -> Value {
     let response = client.get(path).dispatch();
     response
         .into_string()
@@ -264,12 +266,12 @@ fn get_json(client: &Client, path: &str) -> Value {
         .unwrap_or(Value::Null)
 }
 
-fn get_possible_actions(client: &Client) -> Vec<Value> {
+pub(crate) fn get_possible_actions(client: &Client) -> Vec<Value> {
     let val = get_json(client, "/actions/possible");
     val.as_array().cloned().unwrap_or_default()
 }
 
-fn get_snapshot(client: &Client) -> GameSnapshot {
+pub(crate) fn get_snapshot(client: &Client) -> GameSnapshot {
     let encounter = {
         let resp = client.get("/encounter").dispatch();
         if resp.status() == Status::Ok {
@@ -283,23 +285,6 @@ fn get_snapshot(client: &Client) -> GameSnapshot {
     GameSnapshot { encounter, tokens }
 }
 
-fn find_combat_encounter(client: &Client) -> Option<usize> {
-    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
-    cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .find(|c| {
-            c.get("kind")
-                .and_then(|k| k.get("encounter_kind"))
-                .and_then(|ek| ek.get("encounter_type"))
-                .and_then(|et| et.as_str())
-                == Some("Combat")
-        })
-        .and_then(|c| c.get("id").and_then(|v| v.as_u64()))
-        .map(|v| v as usize)
-}
-
 fn get_encounter_hand_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
     cards
@@ -311,7 +296,6 @@ fn get_encounter_hand_ids(client: &Client) -> Vec<usize> {
 }
 
 fn get_hand_cards(client: &Client) -> Vec<u64> {
-    // Get all hand cards (any kind except Encounter and effect types)
     let cards = get_json(client, "/library/cards?location=Hand");
     cards
         .as_array()
@@ -319,7 +303,6 @@ fn get_hand_cards(client: &Client) -> Vec<u64> {
         .iter()
         .filter(|c| {
             let kind = c.get("kind");
-            // Exclude encounter and effect cards
             !matches!(
                 kind.and_then(|k| k.as_object())
                     .and_then(|obj| obj.keys().next())
@@ -328,52 +311,6 @@ fn get_hand_cards(client: &Client) -> Vec<u64> {
             )
         })
         .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
-        .collect()
-}
-
-/// Get playable combat cards enriched with details for strategy decision-making.
-/// Returns action-ready JSON values with card_id and card metadata.
-fn get_playable_combat_cards(client: &Client, snapshot: &GameSnapshot) -> Vec<Value> {
-    let phase = snapshot.combat_phase().unwrap_or_default();
-    let card_kind = match phase.as_str() {
-        "Defending" => "Defence",
-        "Attacking" => "Attack",
-        "Resourcing" => "Resource",
-        _ => return vec![],
-    };
-
-    let url = format!("/library/cards?location=Hand&card_kind={}", card_kind);
-    let cards = get_json(client, &url);
-
-    cards
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter(|c| {
-            c.get("counts")
-                .and_then(|co| co.get("hand"))
-                .and_then(|h| h.as_u64())
-                .unwrap_or(0)
-                > 0
-        })
-        .map(|c| {
-            let card_id = c.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
-            let effects = c
-                .get("kind")
-                .and_then(|k| k.as_object())
-                .and_then(|obj| obj.values().next())
-                .and_then(|v| v.get("effects"))
-                .cloned()
-                .unwrap_or(Value::Null);
-            serde_json::json!({
-                "action_type": "EncounterPlayCard",
-                "card_id": card_id,
-                "card_kind": card_kind,
-                "card_details": {
-                    "effects": effects
-                }
-            })
-        })
         .collect()
 }
 

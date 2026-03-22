@@ -33,6 +33,10 @@ pub struct StrategyResults {
     pub avg_rounds_per_encounter: f64,
     pub health_sum_final: i64,
     pub games_results: Vec<GameResult>,
+    /// Average of per-game max win streaks.
+    pub avg_max_win_streak: f64,
+    /// Mean of all individual win streaks across all games.
+    pub overall_avg_streak: f64,
 }
 
 impl StrategyResults {
@@ -67,10 +71,14 @@ impl SimulationRunner {
             avg_rounds_per_encounter: 0.0,
             health_sum_final: 0,
             games_results: Vec::new(),
+            avg_max_win_streak: 0.0,
+            overall_avg_streak: 0.0,
         };
 
         let mut total_rounds: u64 = 0;
         let mut total_encounter_count: u64 = 0;
+        let mut sum_max_streaks: u64 = 0;
+        let mut all_streaks: Vec<u32> = Vec::new();
 
         for i in 0..self.config.games_per_strategy {
             let seed = self.config.base_seed + i as u64;
@@ -87,6 +95,9 @@ impl SimulationRunner {
                 total_encounter_count += 1;
             }
 
+            sum_max_streaks += game_result.max_win_streak as u64;
+            all_streaks.extend_from_slice(&game_result.win_streaks);
+
             results.games_results.push(game_result);
         }
 
@@ -96,6 +107,13 @@ impl SimulationRunner {
         if results.total_deaths > 0 {
             results.avg_encounters_before_death =
                 results.total_combat_encounters as f64 / results.total_deaths as f64;
+        }
+        if results.total_games > 0 {
+            results.avg_max_win_streak = sum_max_streaks as f64 / results.total_games as f64;
+        }
+        if !all_streaks.is_empty() {
+            let streak_sum: u64 = all_streaks.iter().map(|&s| s as u64).sum();
+            results.overall_avg_streak = streak_sum as f64 / all_streaks.len() as f64;
         }
 
         results
@@ -111,10 +129,12 @@ impl SimulationRunner {
             );
             let result = self.run_strategy(*strategy);
             eprintln!(
-                "  Combat win rate: {:.1}% ({}/{})",
+                "  Combat win rate: {:.1}% ({}/{}), avg max streak: {:.1}, overall avg streak: {:.1}",
                 result.combat_win_rate() * 100.0,
                 result.combat_wins,
-                result.total_combat_encounters
+                result.total_combat_encounters,
+                result.avg_max_win_streak,
+                result.overall_avg_streak
             );
             strategy_results.push(result);
         }

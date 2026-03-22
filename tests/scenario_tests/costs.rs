@@ -20,14 +20,11 @@ fn scenario_cost_card_rejected_without_stamina() {
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
-    // Verify player starts with 1000 stamina
-    let stamina_before = player_token(&client, "Stamina");
-    assert_eq!(
-        stamina_before, 1000,
-        "Player should start with 1000 Stamina"
-    );
+    // Record health before playing cost card
+    let health_before = player_token(&client, "Health");
+    assert!(health_before > 0, "Player should have Health");
 
-    // Play cost Defence card — it has a stamina cost effect.
+    // Play cost Defence card — it has a health cost effect.
     let cost_def_id = cost_card_id(&client, "Defence");
     let json = format!(
         r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
@@ -40,13 +37,13 @@ fn scenario_cost_card_rejected_without_stamina() {
         "Cost card should succeed (multi-effect evaluation)"
     );
 
-    // Stamina should have decreased (cost was paid since we had enough)
-    let stamina_after = player_token(&client, "Stamina");
+    // Health should have decreased (cost was paid since we had enough)
+    let health_after = player_token(&client, "Health");
     assert!(
-        stamina_after < stamina_before,
-        "Stamina should decrease when cost is affordable: before={}, after={}",
-        stamina_before,
-        stamina_after
+        health_after < health_before,
+        "Health should decrease when cost is affordable: before={}, after={}",
+        health_before,
+        health_after
     );
 }
 
@@ -66,7 +63,7 @@ fn scenario_cost_card_deducts_stamina() {
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
-    // Play a full round to get stamina: Defence -> Attack -> Resource
+    // Play a full round to advance: Defence -> Attack -> Resource
     let def_ids = hand_card_ids_by_kind(&client, "Defence");
     let json = format!(
         r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
@@ -91,34 +88,26 @@ fn scenario_cost_card_deducts_stamina() {
     let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created, "Resource card should succeed");
 
-    // Verify player now has stamina
-    let stamina_after_resource = player_token(&client, "Stamina");
-    assert!(
-        stamina_after_resource > 0,
-        "Player should have Stamina after playing Resource card (got {})",
-        stamina_after_resource
-    );
+    // Record health before playing cost card
+    let health_before = player_token(&client, "Health");
+    assert!(health_before > 0, "Player should have Health");
 
-    // Defending phase again: play cost Defence card — should succeed now
+    // Defending phase again: play cost Defence card — should succeed
     let cost_def_id = cost_card_id(&client, "Defence");
     let json = format!(
         r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
         cost_def_id
     );
     let (status, _) = post_action(&client, &json);
-    assert_eq!(
-        status,
-        Status::Created,
-        "Cost Defence card should succeed with stamina"
-    );
+    assert_eq!(status, Status::Created, "Cost Defence card should succeed");
 
-    // Verify stamina was consumed
-    let stamina_after_cost = player_token(&client, "Stamina");
+    // Verify health was consumed by the cost
+    let health_after = player_token(&client, "Health");
     assert!(
-        stamina_after_cost < stamina_after_resource,
-        "Stamina should decrease after playing cost card (before={}, after={})",
-        stamina_after_resource,
-        stamina_after_cost
+        health_after < health_before,
+        "Health should decrease after playing cost card (before={}, after={})",
+        health_before,
+        health_after
     );
 }
 

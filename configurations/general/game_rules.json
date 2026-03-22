@@ -1,6 +1,6 @@
 {
   "general": {
-    "death_reset_health": 1000,
+    "death_reset_health": 3000,
     "death_reset_stamina": 1000
   },
   "combat": {

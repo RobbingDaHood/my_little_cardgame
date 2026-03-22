@@ -1,23 +1,23 @@
 use serde_json::Value;
 
-use super::{GameSnapshot, Strategy};
+use crate::strategies::{GameSnapshot, Strategy};
 
-/// Greedy strategy: maximizes immediate combat value.
-/// - Attack phase: plays the card with highest rolled_value
-/// - Defence phase: plays the card with highest rolled_value
-/// - Resource phase: plays any available resource card (draws more cards)
-/// - Scouting: accepts all mutations
-pub struct GreedyStrategy;
+/// Conservative strategy: minimizes risk in combat.
+/// - Prioritizes Defence cards over Attack
+/// - Plays Resource cards to maintain card flow
+/// - Only plays Attack cards when player has high HP
+/// - Scouting: accepts no mutations (keeps familiar encounters)
+pub struct ConservativeStrategy;
 
-impl GreedyStrategy {
+impl ConservativeStrategy {
     pub fn new() -> Self {
         Self
     }
 }
 
-impl Strategy for GreedyStrategy {
+impl Strategy for ConservativeStrategy {
     fn name(&self) -> &str {
-        "greedy"
+        "conservative"
     }
 
     fn choose_action(&self, possible_actions: &[Value], game_state: &GameSnapshot) -> Value {
@@ -34,7 +34,7 @@ impl Strategy for GreedyStrategy {
             return pick_any_encounter(possible_actions);
         }
 
-        best_card_by_value(&play_cards, game_state)
+        pick_conservative_card(&play_cards, game_state)
     }
 }
 
@@ -43,7 +43,7 @@ fn find_scouting_action(actions: &[Value]) -> Option<Value> {
         .iter()
         .find(|a| a.get("action_type").and_then(|v| v.as_str()) == Some("EncounterApplyScouting"))
         .map(|_| {
-            // Greedy accepts all scouting mutations — pass empty to accept defaults
+            // Conservative: no mutations
             serde_json::json!({"action_type": "EncounterApplyScouting", "card_ids": []})
         })
 }
@@ -73,20 +73,41 @@ fn pick_any_encounter(actions: &[Value]) -> Value {
         .unwrap_or_else(|| serde_json::json!({"action_type": "NewGame"}))
 }
 
-fn best_card_by_value(play_cards: &[Value], _game_state: &GameSnapshot) -> Value {
-    // Pick the card with the highest first effect rolled_value
-    // This applies regardless of phase — greedy always picks highest value
+fn pick_conservative_card(play_cards: &[Value], _game_state: &GameSnapshot) -> Value {
+    // Conservative: always picks cards with no cost (basic cards).
+    // Falls back to lowest-cost card if all have costs.
+    let no_cost: Vec<&Value> = play_cards.iter().filter(|c| !has_cost(c)).collect();
+
+    if !no_cost.is_empty() {
+        // Pick the no-cost card with the lowest rolled_value (most conservative)
+        return no_cost
+            .iter()
+            .min_by_key(|c| first_effect_value(c))
+            .map(|c| (*c).clone())
+            .unwrap_or_else(|| no_cost[0].clone());
+    }
+
+    // All cards have costs — pick the one with lowest rolled_value
     play_cards
         .iter()
-        .max_by_key(|c| {
-            c.get("card_details")
-                .and_then(|d| d.get("effects"))
-                .and_then(|e| e.as_array())
-                .and_then(|arr| arr.first())
-                .and_then(|eff| eff.get("rolled_value"))
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0)
-        })
+        .min_by_key(|c| first_effect_value(c))
         .cloned()
         .unwrap_or_else(|| play_cards[0].clone())
+}
+
+fn has_cost(card: &Value) -> bool {
+    card.get("card_details")
+        .and_then(|d| d.get("has_cost"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+fn first_effect_value(card: &Value) -> i64 {
+    card.get("card_details")
+        .and_then(|d| d.get("effects"))
+        .and_then(|e| e.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|eff| eff.get("rolled_value"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
 }

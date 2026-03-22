@@ -522,12 +522,16 @@ Design implications and notes
 
 ## Balancing
 
-**Target win rates (design principle):**
+**Target balance metrics (design principle):**
+- Combat balance is measured by **consecutive win streaks** (how many combats a player wins before dying), not per-combat win rate. Streak length reflects sustained resource management across encounters.
+  - Simple strategies (random, greedy, conservative): ~3-6 average consecutive wins before death
+  - Enemy-aware strategies (tactician): ~8-18 average consecutive wins before death — rewarding players who read enemy state and make informed card choices
+  - The gap between simple and enemy-aware strategies should be ≥2× in average streak length
 - Easy encounters (gathering: mining, herbalism, woodcutting, fishing, rest): ~80% win rate for a competent (greedy/heuristic) strategy, ~60% for random play
-- Hard encounters (combat): ~50% win rate for a competent strategy, ~30% for random play
 - Milestone encounters (future): ~20-30% win rate, requiring good decks and strategic play
 - Multiple viable strategies per discipline: no single strategy should dominate (>90%) while others fail (<30%)
 - Player death (material reset) is an acceptable setback — not a full progression reset
+- Resource preservation across encounters (shield carryover, card persistence) is the primary differentiator between strategy tiers
 
 Layered balancing approach:
 
@@ -538,10 +542,10 @@ Layered balancing approach:
 
 Tuning pipeline and instrumentation:
 
-- **Headless Monte Carlo simulation (primary):** The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing. Scripted strategy bots (random, greedy, conservative, discipline-specific) play thousands of games via the REST API at CPU speed, producing statistically significant win-rate data per encounter type. Multiple server instances can run in parallel on different ports.
+- **Headless Monte Carlo simulation (primary):** The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing. Scripted strategy bots (random, greedy, conservative, tactician/enemy-aware) play hundreds of games as Rust integration tests using `rocket::local::blocking::Client` (in-process, no HTTP overhead), producing statistically significant streak and win-rate data per encounter type.
 - **LLM analysis (secondary):** LLMs analyze Monte Carlo output, card definitions, and token curves to suggest specific parameter changes. LLMs are effective at reasoning about balancing data but are poor card game players — their gameplay sessions are statistically indistinguishable from random play and should not be used as a primary balancing signal.
 - Instrument metrics: capture resource inflows/outflows, sink rates, median playtime-to-milestone, and token velocity via a `GET /metrics` endpoint.
-- Regression checks and assertions: automated tests should assert invariants (e.g., average resource lifetime, expected craft throughput per N operations). A `make balance-check` target runs quick simulations and asserts win rates stay within documented target ranges.
+- Regression checks and assertions: automated tests should assert invariants (e.g., average win streak length, resource lifetime, expected craft throughput per N operations). A `make balance-check` target runs quick simulations and asserts consecutive win streaks stay within documented target ranges per strategy tier.
 
 Operational controls & feedback:
 

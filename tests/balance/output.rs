@@ -1,35 +1,9 @@
 use serde::Serialize;
 
+use crate::combat::output::{
+    combat_streak_targets, combat_targets, CombatReport, WinRateTarget, WinStreakTarget,
+};
 use crate::runner::{SimulationConfig, StrategyResults};
-
-/// Win-rate target for a strategy.
-#[derive(Debug, Clone, Serialize)]
-pub struct WinRateTarget {
-    pub strategy: String,
-    pub target_min: f64,
-    pub target_max: f64,
-}
-
-/// Combat balance assertions from vision.md (±10%).
-pub fn combat_targets() -> Vec<WinRateTarget> {
-    vec![
-        WinRateTarget {
-            strategy: "random".to_string(),
-            target_min: 0.20,
-            target_max: 0.40,
-        },
-        WinRateTarget {
-            strategy: "greedy".to_string(),
-            target_min: 0.40,
-            target_max: 0.60,
-        },
-        WinRateTarget {
-            strategy: "conservative".to_string(),
-            target_min: 0.30,
-            target_max: 0.50,
-        },
-    ]
-}
 
 /// Full simulation report — serializes to JSON for stdout.
 #[derive(Debug, Serialize)]
@@ -56,21 +30,10 @@ pub struct StrategyReport {
     pub avg_health_final: f64,
 }
 
-#[derive(Debug, Serialize)]
-pub struct CombatReport {
-    pub total_encounters: u32,
-    pub wins: u32,
-    pub losses: u32,
-    pub win_rate: f64,
-    pub target_min: f64,
-    pub target_max: f64,
-    pub pass: bool,
-    pub avg_rounds_per_encounter: f64,
-}
-
 impl SimulationReport {
     pub fn from_results(config: &SimulationConfig, results: Vec<StrategyResults>) -> Self {
         let targets = combat_targets();
+        let streak_targets = combat_streak_targets();
         let mut all_pass = true;
 
         let strategies: Vec<StrategyReport> = results
@@ -86,9 +49,23 @@ impl SimulationReport {
                         target_max: 1.0,
                     });
 
+                let streak_target = streak_targets
+                    .iter()
+                    .find(|t| t.strategy == r.name)
+                    .cloned()
+                    .unwrap_or(WinStreakTarget {
+                        strategy: r.name.clone(),
+                        target_min_streak: 0.0,
+                        target_max_streak: f64::MAX,
+                    });
+
                 let win_rate = r.combat_win_rate();
                 let pass = win_rate >= target.target_min && win_rate <= target.target_max;
-                if !pass {
+                let streak_pass = r.overall_avg_streak >= streak_target.target_min_streak
+                    && r.overall_avg_streak <= streak_target.target_max_streak;
+                let rounds_pass = r.avg_rounds_per_encounter >= 3.0;
+
+                if !streak_pass || !rounds_pass {
                     all_pass = false;
                 }
 
@@ -110,6 +87,12 @@ impl SimulationReport {
                         target_max: target.target_max,
                         pass,
                         avg_rounds_per_encounter: r.avg_rounds_per_encounter,
+                        avg_max_win_streak: r.avg_max_win_streak,
+                        overall_avg_streak: r.overall_avg_streak,
+                        streak_target_min: streak_target.target_min_streak,
+                        streak_target_max: streak_target.target_max_streak,
+                        streak_pass,
+                        rounds_pass,
                     },
                     total_deaths: r.total_deaths,
                     avg_encounters_before_death: r.avg_encounters_before_death,
