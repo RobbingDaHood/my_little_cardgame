@@ -1,7 +1,10 @@
-.PHONY: coverage check
+.PHONY: coverage check balance-check
 
 check:
 	bash scripts/check_all.sh
+
+balance-check:
+	cargo test --features simulation --test balance -- --nocapture
 
 coverage:
 	rustup component add llvm-tools-preview
