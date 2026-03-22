@@ -160,8 +160,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Stamina",
-        "min": 50,
-        "max": 350,
+        "min": 80,
+        "max": 200,
         "costs": [],
         "duration": "PersistentCounter"
       },
