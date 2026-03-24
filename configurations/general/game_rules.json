@@ -46,7 +46,9 @@
         "difficulty_delta_min_separation": 0.1,
         "mutation_fraction": 0.2,
         "mutation_scale_probability": 0.5,
-        "mutation_redistribute_probability": 0.3
+        "mutation_redistribute_probability": 0.3,
+        "death_difficulty_reduction_min": -0.25,
+        "death_difficulty_reduction_max": -0.05
     },
     "woodcutting_patterns": [
         {

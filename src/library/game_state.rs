@@ -242,6 +242,9 @@ pub struct GameState {
     /// Card IDs of scouting-generated encounter choices. Cleared when the player
     /// picks their next encounter so un-selected choices can be removed.
     pub pending_scouting_choice_ids: Vec<usize>,
+    /// Set to `true` when a player death occurs, cleared after the next scouting
+    /// generation uses it to produce easier encounters.
+    pub last_death_occurred: bool,
 }
 
 impl GameState {
@@ -284,6 +287,7 @@ impl GameState {
             encounter_start_tokens: HashMap::new(),
             last_encounter_kind: None,
             pending_scouting_choice_ids: Vec::new(),
+            last_death_occurred: false,
         }
     }
 
@@ -314,6 +318,7 @@ impl GameState {
             encounter_start_tokens: HashMap::new(),
             last_encounter_kind: None,
             pending_scouting_choice_ids: Vec::new(),
+            last_death_occurred: false,
         }
     }
 
@@ -631,6 +636,9 @@ impl GameState {
         let deaths_key = super::types::Token::persistent(super::types::TokenType::PlayerDeaths);
         let deaths = self.token_balances.entry(deaths_key).or_insert(0);
         *deaths += 1;
+
+        // Signal scouting to generate easier encounters next time
+        self.last_death_occurred = true;
     }
 
     /// Reconstruct state from an existing action log.

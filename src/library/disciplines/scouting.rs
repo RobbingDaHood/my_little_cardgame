@@ -13,9 +13,14 @@ pub(crate) fn generate_scouting_choices(
     lib: &mut Library,
     rng: &mut rand_pcg::Lcg64Xsh32,
     source: &EncounterKind,
+    death_occurred: bool,
 ) -> Vec<usize> {
     let rules = lib.scouting_rules.clone();
-    let deltas = sample_difficulty_deltas(rng, &rules);
+    let deltas = if death_occurred {
+        sample_death_reduction_deltas(rng, &rules)
+    } else {
+        sample_difficulty_deltas(rng, &rules)
+    };
     deltas
         .iter()
         .map(|&delta| {
@@ -46,6 +51,36 @@ fn sample_difficulty_deltas(
     let max = rules.difficulty_delta_max;
     let min_sep = rules.difficulty_delta_min_separation;
     let count = rules.choice_count;
+
+    loop {
+        let mut deltas: Vec<f64> = (0..count).map(|_| rng.gen_range(min..=max)).collect();
+        deltas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let separations_ok = deltas.windows(2).all(|w| (w[1] - w[0]) >= min_sep);
+        if separations_ok || count <= 1 {
+            deltas.shuffle(rng);
+            return deltas;
+        }
+    }
+}
+
+/// After player death, generate deltas in the reduction range so the next
+/// encounters are easier than the killing encounter.
+fn sample_death_reduction_deltas(
+    rng: &mut rand_pcg::Lcg64Xsh32,
+    rules: &crate::library::config::ScoutingRules,
+) -> Vec<f64> {
+    let min = rules.death_difficulty_reduction_min;
+    let max = rules.death_difficulty_reduction_max;
+    let count = rules.choice_count;
+    let range = max - min;
+    // Use at most 30% of the available per-slot range as separation,
+    // capped by the configured global min_separation. This avoids
+    // rejection-sampling stalls when the death range is narrow.
+    let min_sep = if count > 1 {
+        (range / (count as f64 - 1.0) * 0.3).min(rules.difficulty_delta_min_separation)
+    } else {
+        0.0
+    };
 
     loop {
         let mut deltas: Vec<f64> = (0..count).map(|_| rng.gen_range(min..=max)).collect();
