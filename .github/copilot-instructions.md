@@ -87,6 +87,7 @@ Notes for Copilot sessions
 - When adding or changing endpoints, update both `src/lib.rs` and `src/main.rs` and add an integration test under `tests/`.
 - Keep changes minimal. 
 - Before every commit, run `make check` to validate all checks pass. Pre-commit hooks provide a fast safety net (fmt + clippy) on commit.
+- When printing a URL to the console, never wrap it in parentheses or brackets — bare URLs are clickable in the terminal, wrapped ones are not.
 
 Suggest changes to vision.md and roadmap.md
 
@@ -122,26 +123,33 @@ Messages could contain phrases like "rate limit that restricts the number of Cop
 
 Do not continue retrying if that message shows up! 
 
-Branches and pull request
+Branches and pull requests
 
-Always ask if the work should be done on a new branch or the current branch.
+At the start of every plan, ask the user:
+1. Should this work be done on a new branch or the current branch?
+2. Should a pull request be created at the end?
 
 When creating a new branch, always branch from the latest main branch (fetch and checkout main first).
 
-After creating a new local branch or worktree branch, configure the local branch to track the remote branch of the same name on `origin` — but do not push. This allows the repository owner to create the remote branch with a simple `git push` later.
-
-Example (replace <branch> with the branch name):
-
-    git config branch.<branch>.remote origin
-    git config branch.<branch>.merge refs/heads/<branch>
-
-This must be done by Copilot agents when they create branches/worktrees. Do NOT run `git push` or create the remote branch on behalf of the owner unless explicitly asked.
-
 Always commit small isolated commits, but each commit should pass the tests and other checks.
 
-Always rebase on main before finishing work on a branch.
+Always rebase on main before pushing.
 
-Never push and never create a pull request. I will do that manually.
+When creating a pull request, always write a clear, descriptive PR body that summarizes what changed, why, and any important context for reviewers.
+
+GitHub CLI and git operations
+
+Use `gh` (GitHub CLI) and `git` for **all** repository and GitHub operations:
+
+- **git**: commit, push, pull, rebase, branch, merge, diff, log, status.
+- **gh**: create/view PRs (`gh pr create`, `gh pr view`), manage issues (`gh issue`), browse repo (`gh browse`), check CI status (`gh run list`), and any other GitHub interaction.
+
+Authentication:
+- `gh` authenticates via the `GH_TOKEN` environment variable (stored in `.env` at the repo root).
+- `.env` is in `.gitignore` and must **never** be committed.
+- If `GH_TOKEN` is not set in the environment, source it: `export $(cat .env | xargs)` (or instruct the user to set it).
+
+Agents are free to push branches and create pull requests using `gh` and `git`.
 
 Worktree setup for parallel AI work
 
@@ -163,7 +171,7 @@ How AI agents should use worktrees:
 - Detect which worktree you are in by checking the current working directory.
 - Create feature branches from the worktree branch as usual (branch from latest `origin/main`).
 - Each worktree has its own `target/` build directory — builds are fully independent.
-- Never push or create pull requests (existing convention still applies).
+- Use `git push` and `gh pr create` from worktrees just like from the main checkout.
 
 Managing worktrees with `scripts/worktree-manage.sh`:
 - `scripts/worktree-manage.sh list` — list all worktrees.
