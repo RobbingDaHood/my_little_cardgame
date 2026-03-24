@@ -426,3 +426,59 @@ fn build_milestone_def(
         insight_cost: config.insight_cost,
     }
 }
+
+// ---- Runtime config loading (simulation feature only) ----
+
+/// Config file paths in the deterministic load order expected by `load_library`.
+#[cfg(feature = "simulation")]
+const CONFIG_PATHS: &[(&str, &str)] = &[
+    ("shared", "general/shared_effects.json"),
+    ("combat", "combat/cards.json"),
+    ("mining", "mining/cards.json"),
+    ("herbalism", "herbalism/cards.json"),
+    ("woodcutting", "woodcutting/cards.json"),
+    ("fishing", "fishing/cards.json"),
+    ("rest", "rest/cards.json"),
+    ("crafting", "crafting/cards.json"),
+    ("research", "research/cards.json"),
+    ("milestone", "milestone/cards.json"),
+];
+
+/// Load the full library from JSON config files on disk (runtime, no recompile needed).
+///
+/// `config_dir` is the path to the `configurations/` directory.
+#[cfg(feature = "simulation")]
+pub fn load_library_from_disk(rng: &mut rand_pcg::Lcg64Xsh32, config_dir: &str) -> Library {
+    let configs: Vec<(String, String)> = CONFIG_PATHS
+        .iter()
+        .map(|(prefix, rel_path)| {
+            let full_path = format!("{}/{}", config_dir, rel_path);
+            let json = std::fs::read_to_string(&full_path)
+                .unwrap_or_else(|e| panic!("Failed to read {}: {}", full_path, e));
+            (prefix.to_string(), json)
+        })
+        .collect();
+    let config_refs: Vec<(&str, &str)> = configs
+        .iter()
+        .map(|(prefix, json)| (prefix.as_str(), json.as_str()))
+        .collect();
+    load_library_from_json_configs(rng, &config_refs)
+}
+
+/// Load initial token balances from disk.
+#[cfg(feature = "simulation")]
+pub fn load_token_balances_from_disk(config_dir: &str) -> HashMap<Token, i64> {
+    let full_path = format!("{}/general/tokens.json", config_dir);
+    let json = std::fs::read_to_string(&full_path)
+        .unwrap_or_else(|e| panic!("Failed to read {}: {}", full_path, e));
+    load_token_balances_from_json(&json)
+}
+
+/// Load game rules from disk.
+#[cfg(feature = "simulation")]
+pub fn load_game_rules_from_disk(config_dir: &str) -> super::config::GameRulesConfig {
+    let full_path = format!("{}/general/game_rules.json", config_dir);
+    let json = std::fs::read_to_string(&full_path)
+        .unwrap_or_else(|e| panic!("Failed to read {}: {}", full_path, e));
+    load_game_rules_from_json(&json)
+}

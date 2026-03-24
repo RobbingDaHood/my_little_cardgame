@@ -262,6 +262,14 @@ impl Token {
             },
         }
     }
+
+    /// Create a shield token with persistent lifecycle (accumulates across rounds).
+    pub fn shield() -> Self {
+        Token {
+            token_type: TokenType::Shield,
+            lifecycle: TokenLifecycle::PersistentCounter,
+        }
+    }
 }
 
 /// Describes what kind of effect a card applies.

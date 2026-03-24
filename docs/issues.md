@@ -1,23 +1,30 @@
 When the below point states "Roadmap" it means edit the roadmap.md directly.
 
-1. Why add the "(except GET /actions/possible which returns currently valid player actions with playable card IDs)" to the docs/design/roadmap.md: It is a GET endpoint too, so that is no exception. 
-1. In docs/design/roadmap.md it states "The current player actions are: NewGame, EncounterPickEncounter, EncounterPlayCard, EncounterApplyScouting, EncounterAbort.": But there are a lot of other possible actions in the game, like choosing to swap cards during a crafting encounter etc. 
-    1. If I am right then update the roadmap and check other places that should be updated too and update them. 
-1. Analyse what is run during a github action for a PR, because something there seems to fail. 
-    1. Fix what is failing. 
-    1. Add to the instruction file to run all the same checks that the github action for PR runs, before comitting. 
-1.  So every card effect on every card should refere back to a card effect in the library. 
-    1. That library card effect were used to create the card card effect: 
-        1. Meaning that the car card effect cannot have values that goes beound the library card effect. 
-    1. The Card card effect should have a refference back to what library card effect it came from. 
-    1. This means that there likely need to be created a lot more new card effects: In the initial deck. 
-        1. It als means that all the card card effects in the intial deck need a reference. 
-    1. This is the case both for enemy and player cards. 
-    1. Some diciplins do have this setup, but it does not look like all diciplins have this, right? 
-1. PossibleAction.action_type should be of the type of PlayerActions
-    1. It is fine that it exposes the fields of the enums too: Just to give examples of what can be passed to the action. 
-1. PossibleAction.playable_card_ids: Remove that field. 
-
+1. Continue the work on the current branch, do not start a new branch. 
+1. Implement the suggestions from: docs/suggestions-vision-roadmap.md
+    1. About: "Clarify cost system semantics"-section: 
+        1. Be sure that all "concrete cards" never have a percentage cost of anything. 
+        1. That it is solely "card effects" that have percentage costs, but that when they are "rolled" to "concrete" cards, then the number is also concrete. 
+        1. If this is not the case, then you are allowed to change the rust code for this sole purpose. 
+            1. Do this before redooing the balance work.
+    1. When all points are implemented then delete the file docs/suggestions-vision-roadmap.md
+1. Implement most of the suggestions from /home/robbingdahood/.copilot/session-state/743a0019-5baf-46a7-ad54-bf7cf513ca90/research/the-current-session-for-optimizations-how-could-th.md 
+    1. The "include_str!() config embedding"-idea should be clearly marked for runtime tests. It should not be usable on a normal build of the project. 
+        1. Add test to ensure you cannot do anything with this new setup that you cannot do with a normal server. 
+    1. Make sure to describe the "Parallel agents in worktrees — 3 background agents explore config variants simultaneously"-idea as a copilot skill in this repo, that can be used for the future. 
+        1. Also use this new skill later in this plan when you start rebalancing again. 
+        1. Add anything else from the ressearch to skills that can be used for that. 
+        1. It is important that I have a powerfull setup that can give results faster through paralellism. 
+1. The initial hand should not have been increased. 
+    1. Instead increase the gain from the ressource card that draws cards. 
+1. Shield should not be such a dominant mechanic.
+    1. Reduce the number of shield cards. 
+    1. Increase the benefit of the dodge. 
+    1. I like the idea timely use of good dodges are more efficient than the "guranteed" use of a shield. 
+1. I like that health and stamina starts at a 1000 
+    1. So reset both back to 1000. 
+    1. Then adjust the cards and card effects to balance the game. 
+1. Redo the balancing checks again and keep adjusting the config files to achieve the balance as previous defined. 
 
 # When done with all of this then update vision and roadmap files
 

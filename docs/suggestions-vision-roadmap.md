@@ -1,48 +1,34 @@
 # Suggestions for vision.md and roadmap.md
 
-Based on discoveries during the B2.1 combat simulation runner implementation.
+Based on discoveries during the B2.1 combat rebalance (35 iterations, shield lifecycle fix, dodge mechanic, target adjustment).
 
 ## vision.md suggestions
 
-### 1. Add shield carryover as an explicit design principle
-Shield (PersistentCounter) carries across encounters and is the **dominant mechanic** determining long-term combat survival. Strategies that efficiently build shield between combats gain compounding advantages. This should be called out explicitly in the balancing section as a first-class design lever — it's more impactful than per-combat damage/defense tuning.
+### 1. Document the death spiral mechanic as a design decision
+After player death, scouting generates from the KILLING encounter's difficulty level (not base). This creates a compounding death spiral where each subsequent encounter is harder. This is the primary factor driving win streaks down and is currently undocumented. Vision should state whether this is intentional (punishment for death) or a bug to fix (reset difficulty on death).
 
-### 2. Document card persistence across encounters
-Cards are never reset between encounters. This means card depletion over a full game session is a critical balancing dimension. If basic cards run out, ALL strategies converge regardless of intelligence. Vision should acknowledge card persistence as a design choice and describe its balancing implications (e.g., deck sizes must be generous enough that strategy differentiation is maintained across a full session).
+### 2. Add scouting mutation asymmetry as a known design constraint
+Enemy HP scales 100% with difficulty factor, but enemy card effects only scale probabilistically (~10% per step with current config: mutation_fraction × scale_probability = 0.20 × 0.50). This creates "HP sponge" encounters at high difficulty — long fights with moderate danger. Vision should document whether proportional scaling (matching HP and damage growth) is the intended design, or whether the current asymmetric scaling is deliberate to create a "war of attrition" feel.
 
-### 3. Add strategy tier definitions
-The vision currently mentions "multiple viable strategies" but doesn't define tiers. Suggest adding:
-- **Simple tier** (random, greedy, conservative): No encounter-state awareness. Picks cards based on cost or value only.
-- **Intermediate tier** (tactician): Reads enemy hand/token state. Adapts card selection per encounter.
-- **Advanced tier** (future: meta-strategist): Manages resources across encounters. Plans card usage over multiple combats.
-Each tier should have target streak ranges to make balancing goals concrete.
+### 3. Document dodge vs shield design intent
+The B2.1 rebalance established dodge as the "skill card" (high absorption, FixedTypeDuration, 1 round, rewards timing) and shield as the "safety card" (low absorption, PersistentCounter, consumed on damage — persists across encounters when not fully consumed). This design intent should be explicitly stated to guide future card designers — new defence mechanics should fit into this spectrum.
 
-### 4. Clarify cost system semantics
-The cost percentage on a card is a percentage of the **effect's rolled value**, not of the player's current HP/resource pool. This is non-obvious and has major balancing implications — a 50% cost on a 1000-damage attack costs 500 HP, while a 1% cost costs only 10 HP. Vision should document this clearly so future card designers understand cost impact.
+### 4. Consider adding health regeneration mechanics
+Currently health only decreases (except on death reset). Cost_damage cards drain HP over time with no recovery. This makes all strategies eventually fatal. A health regeneration mechanic (e.g., rest encounters or resource cards that heal) could extend game sessions and create more strategic depth around health management.
 
 ## roadmap.md suggestions
 
-### 1. Replace Python tooling references with Rust
-Several B4/B5/B8 sections still reference `tools/balance/analyze.py`, `tools/balance/llm_analyze.py`, `tools/balance/auto_balance.py`. Now that B2.1 established Rust integration tests as the simulation approach, consider updating these references or noting that the implementation language may differ from the original plan.
+### 1. Add a B2.2 step for scouting difficulty reset on death
+The death spiral (difficulty compounds after death) is the single largest factor affecting balance. A dedicated step to implement and tune death-difficulty interaction would be high-impact. Options: (a) reset to base difficulty, (b) reduce difficulty by N%, (c) keep current behavior. Each has different balance implications.
 
-### 2. Simplify worktree-based approach
-The original B3 plan called for per-discipline git worktrees with separate server instances. B2.1 showed that in-process `rocket::local::blocking::Client` eliminates the need for running servers, managing ports, or isolating worktrees. The worktree approach adds complexity with little benefit when tests run in-process. Consider simplifying B3-B6 to use branch-based development with shared test infrastructure instead of worktree isolation.
+### 2. Add a B2.3 step for proportional mutation scaling
+The current mutation system creates HP sponges because only 10% of enemy cards scale per step. A dedicated step to implement proportional scaling (all enemy effects scale with difficulty factor) would dramatically improve the feel of high-difficulty encounters. This could be a game_rules.json config change (mutation_fraction=1.0, scale_probability=1.0) or a code change to scale effects alongside initial_tokens.
 
-### 3. Add B2.1 learnings as B3 guidance
-Key tuning lessons from combat simulation that apply to all disciplines:
-- **RNG coupling**: Changing card counts changes the RNG state, invalidating before/after comparisons across config changes. Each config must be evaluated independently.
-- **Compile-time config embedding**: Configs are loaded via `include_str!` at compile time, so config changes affect ALL tests (not just balance tests). Balance-specific overrides require custom `GameState::new_from_json()`.
-- **Scouting interaction**: Balance tests that use the full game loop must handle scouting encounters, which have their own config sensitivity (e.g., `difficulty_delta_min_separation` with a zero delta range causes infinite loops).
+### 3. Document the 35-iteration tuning methodology
+The B2.1 rebalance required 35 iterations across multiple mechanical discoveries (GainTokens duration bug, FixedTypeDuration expiration not implemented, shield accumulation, encounter hand size, scouting infinite loops). Future discipline tuning should expect similar iteration counts and be budgeted accordingly. Consider adding an "expected iteration count" field to each balancing step.
 
-### 4. Document `make balance-check` as partially implemented
-`make balance-check` already exists and runs combat simulation tests. Roadmap B9 still describes it as "(Future)" — update to reflect that combat balance regression is already operational, with future disciplines to be added incrementally.
+### 4. Add strategy differentiation testing to B3+
+The current balance test only measures win rate and streak. Strategy ORDERING (Tactician > Random > Greedy > Conservative for streaks) is a critical invariant that should be explicitly tested. Add ordering assertions to the balance test framework so future config changes can't accidentally make Random outperform Tactician.
 
-### 5. Add a "balance test architecture" section
-The test infrastructure in `tests/balance/` has a clear layered design that should be documented:
-- `game_driver.rs` — generic game loop driver (discipline-agnostic)
-- `runner.rs` — simulation runner (parallel game execution, result aggregation)
-- `output.rs` — report formatting and assertion framework
-- `strategies/mod.rs` — Strategy trait definition
-- `<discipline>/` — per-discipline test, driver, output, and strategies
-
-This architecture should be documented so future discipline runner authors follow the established pattern.
+### 5. Consider larger simulation sample sizes
+Current: 10 games × 50 encounters = 500 per strategy. With high variance, results fluctuate significantly between seeds. Consider increasing to 50+ games for final validation runs (configurable via feature flag or env var) to reduce variance in pass/fail decisions.

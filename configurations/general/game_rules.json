@@ -1,69 +1,197 @@
 {
-  "general": {
-    "death_reset_health": 3000,
-    "death_reset_stamina": 1000
-  },
-  "combat": {
-    "milestone_insight_on_win": 100
-  },
-  "research": {
-    "max_hand_size": 7,
-    "base_insight_cost": 10,
-    "insight_cost_multiplier": 2
-  },
-  "crafting": {
-    "initial_draw_count": 5,
-    "durability_material_cost": 50,
-    "durability_grant": 300,
-    "min_craft_token_cost": 2,
-    "base_cost_divisor": 4,
-    "max_material_percent": 75,
-    "material_token_min": 2,
-    "material_token_max": 4,
-    "cost_reduction_floor_percent": 50,
-    "cost_formula_divisor": 100
-  },
-  "milestone": {
-    "base_insight_cost": 100,
-    "insight_cost_multiplier": 2,
-    "scale_factor_base": 1.5,
-    "default_combat_enemy_hp": 3000,
-    "default_woodcutting_max_plays_base": 8,
-    "default_woodcutting_max_plays_min": 3,
-    "default_woodcutting_lumber_reward": 50,
-    "default_woodcutting_insight_reward": 10,
-    "default_fishing_valid_range_min": -60,
-    "default_fishing_valid_range_max": 60,
-    "default_fishing_max_turns": 10,
-    "default_fishing_win_turns_needed": 6,
-    "effect_scaling_factor": 1.5,
-    "draw_cards_attack_increment": 1
-  },
-  "scouting": {
-    "choice_count": 3,
-    "difficulty_delta_min": -0.20,
-    "difficulty_delta_max": 0.25,
-    "difficulty_delta_min_separation": 0.10,
-    "mutation_fraction": 0.20,
-    "mutation_scale_probability": 0.50,
-    "mutation_redistribute_probability": 0.30
-  },
-  "woodcutting_patterns": [
-    { "name": "Eight of a Kind", "min_type_count": 8, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 30.0 },
-    { "name": "Seven of a Kind", "min_type_count": 7, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 18.0 },
-    { "name": "Perfect Straight", "min_type_count": 0, "min_straight": 8, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 15.0 },
-    { "name": "Six of a Kind", "min_type_count": 6, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 10.0 },
-    { "name": "Long Straight", "min_type_count": 0, "min_straight": 6, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 6.0 },
-    { "name": "Full Set", "min_type_count": 0, "min_straight": 0, "min_distinct_types": 5, "second_type_min": 0, "value_freq_min": 0, "multiplier": 5.0 },
-    { "name": "Five of a Kind", "min_type_count": 5, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 5.0 },
-    { "name": "Full House", "min_type_count": 4, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 2, "value_freq_min": 0, "multiplier": 4.0 },
-    { "name": "Four of a Kind", "min_type_count": 4, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 3.5 },
-    { "name": "Short Straight", "min_type_count": 0, "min_straight": 4, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 3.0 },
-    { "name": "Two Pair Types", "min_type_count": 3, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 3, "value_freq_min": 0, "multiplier": 2.5 },
-    { "name": "Value Quads", "min_type_count": 0, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 4, "multiplier": 8.0 },
-    { "name": "Triple", "min_type_count": 3, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 2.0 },
-    { "name": "Value Triple", "min_type_count": 0, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 3, "multiplier": 5.0 },
-    { "name": "Pair", "min_type_count": 2, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 1.5 },
-    { "name": "High Card", "min_type_count": 0, "min_straight": 0, "min_distinct_types": 0, "second_type_min": 0, "value_freq_min": 0, "multiplier": 1.0 }
-  ]
+    "general": {
+        "death_reset_health": 1000,
+        "death_reset_stamina": 1000
+    },
+    "combat": {
+        "milestone_insight_on_win": 100
+    },
+    "research": {
+        "max_hand_size": 7,
+        "base_insight_cost": 10,
+        "insight_cost_multiplier": 2
+    },
+    "crafting": {
+        "initial_draw_count": 5,
+        "durability_material_cost": 50,
+        "durability_grant": 300,
+        "min_craft_token_cost": 2,
+        "base_cost_divisor": 4,
+        "max_material_percent": 75,
+        "material_token_min": 2,
+        "material_token_max": 4,
+        "cost_reduction_floor_percent": 50,
+        "cost_formula_divisor": 100
+    },
+    "milestone": {
+        "base_insight_cost": 100,
+        "insight_cost_multiplier": 2,
+        "scale_factor_base": 1.5,
+        "default_combat_enemy_hp": 400,
+        "default_woodcutting_max_plays_base": 8,
+        "default_woodcutting_max_plays_min": 3,
+        "default_woodcutting_lumber_reward": 50,
+        "default_woodcutting_insight_reward": 10,
+        "default_fishing_valid_range_min": -60,
+        "default_fishing_valid_range_max": 60,
+        "default_fishing_max_turns": 10,
+        "default_fishing_win_turns_needed": 6,
+        "effect_scaling_factor": 1.5,
+        "draw_cards_attack_increment": 1
+    },
+    "scouting": {
+        "choice_count": 3,
+        "difficulty_delta_min": 0.1,
+        "difficulty_delta_max": 0.4,
+        "difficulty_delta_min_separation": 0.1,
+        "mutation_fraction": 0.2,
+        "mutation_scale_probability": 0.5,
+        "mutation_redistribute_probability": 0.3
+    },
+    "woodcutting_patterns": [
+        {
+            "name": "Eight of a Kind",
+            "min_type_count": 8,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 30.0
+        },
+        {
+            "name": "Seven of a Kind",
+            "min_type_count": 7,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 18.0
+        },
+        {
+            "name": "Perfect Straight",
+            "min_type_count": 0,
+            "min_straight": 8,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 15.0
+        },
+        {
+            "name": "Six of a Kind",
+            "min_type_count": 6,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 10.0
+        },
+        {
+            "name": "Long Straight",
+            "min_type_count": 0,
+            "min_straight": 6,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 6.0
+        },
+        {
+            "name": "Full Set",
+            "min_type_count": 0,
+            "min_straight": 0,
+            "min_distinct_types": 5,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 5.0
+        },
+        {
+            "name": "Five of a Kind",
+            "min_type_count": 5,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 5.0
+        },
+        {
+            "name": "Full House",
+            "min_type_count": 4,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 2,
+            "value_freq_min": 0,
+            "multiplier": 4.0
+        },
+        {
+            "name": "Four of a Kind",
+            "min_type_count": 4,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 3.5
+        },
+        {
+            "name": "Short Straight",
+            "min_type_count": 0,
+            "min_straight": 4,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 3.0
+        },
+        {
+            "name": "Two Pair Types",
+            "min_type_count": 3,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 3,
+            "value_freq_min": 0,
+            "multiplier": 2.5
+        },
+        {
+            "name": "Value Quads",
+            "min_type_count": 0,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 4,
+            "multiplier": 8.0
+        },
+        {
+            "name": "Triple",
+            "min_type_count": 3,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 2.0
+        },
+        {
+            "name": "Value Triple",
+            "min_type_count": 0,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 3,
+            "multiplier": 5.0
+        },
+        {
+            "name": "Pair",
+            "min_type_count": 2,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 1.5
+        },
+        {
+            "name": "High Card",
+            "min_type_count": 0,
+            "min_straight": 0,
+            "min_distinct_types": 0,
+            "second_type_min": 0,
+            "value_freq_min": 0,
+            "multiplier": 1.0
+        }
+    ]
 }

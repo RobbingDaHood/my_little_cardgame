@@ -155,12 +155,12 @@ fn scenario_scouting_generates_three_mutated_combat_encounters() {
     );
 
     // Verify HP values are in a reasonable range relative to source
-    // Factor range: 1.0 + [-0.15, +0.30] = [0.85, 1.30]
+    // Factor range: 1.0 + [0.10, 0.40] = [1.10, 1.40]
     for &hp in &hp_values {
         let ratio = hp as f64 / source_hp as f64;
         assert!(
-            (0.80..=1.35).contains(&ratio),
-            "Mutated HP {} should be within [0.85, 1.30] of source HP {}, ratio={}",
+            (1.05..=1.50).contains(&ratio),
+            "Mutated HP {} should be within [1.10, 1.40] of source HP {}, ratio={}",
             hp,
             source_hp,
             ratio
