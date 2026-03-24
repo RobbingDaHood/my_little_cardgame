@@ -536,7 +536,7 @@ Design implications and notes
 - Milestone encounters (future): ~20-30% win rate, requiring good decks and strategic play
 - Multiple viable strategies per discipline: no single strategy should dominate (>90%) while others fail (<30%)
 - Player death (material reset) is an acceptable setback — not a full progression reset
-- Token lifecycle is the primary balance lever: Dodge (FixedTypeDuration, high absorption, 1 round) rewards precise timing; Shield (PersistentCounter, low absorption, consumed on damage) provides steady damage reduction that persists across encounters when not fully consumed. Card persistence across encounters means deck composition matters long-term.
+- Token lifecycle is the primary balance lever: Dodge (FixedTypeDuration, high absorption, 1 round) rewards precise timing; Shield (combat-encounter-scoped, low absorption, consumed on damage) provides steady damage reduction within a single combat but does not persist across encounters. Card persistence across encounters means deck composition matters long-term. Moderate healing and stamina recovery are available via resource cards, but the main healing and stamina gain should come from resting encounters.
 
 **Strategy tier definitions:**
 - **Simple tier** (random, greedy, conservative): No encounter-state awareness. Picks cards based on value or cost avoidance only. Random selects uniformly; greedy picks highest value; conservative picks lowest non-cost. Target streak range: 3.0–8.5.
@@ -544,7 +544,10 @@ Design implications and notes
 - **Advanced tier** (future: meta-strategist): Manages resources across encounters. Plans card usage over multiple combats, considers scouting difficulty scaling and HP attrition.
 
 **Card persistence across encounters:**
-Cards are never reset between encounters — deck, hand, and discard states carry over. Card depletion over a full game session is a critical balancing dimension: if basic cards run out, all strategies converge regardless of intelligence. Deck sizes must be generous enough that strategy differentiation is maintained across a full 50-encounter session.
+Cards are never reset between encounters — deck, hand, and discard states carry over. When a card is drawn from the deck and there are no more cards to draw, the full discard pile is moved into the deck. Card depletion over a full game session is a critical balancing dimension: if basic cards run out, all strategies converge regardless of intelligence. Adjust the card gain from relevant resource cards to avoid card depletion — do NOT change deck or hand sizes for this purpose.
+
+For detailed combat balance targets and mechanics, see `docs/vision/balances/combat_balance.md`.
+For scouting difficulty mechanics, see `docs/vision/balances/scouting_balance.md`.
 
 Layered balancing approach:
 
@@ -558,7 +561,9 @@ Tuning pipeline and instrumentation:
 - **Headless Monte Carlo simulation (primary):** The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing. Scripted strategy bots (random, greedy, conservative, tactician/enemy-aware) play hundreds of games as Rust integration tests using `rocket::local::blocking::Client` (in-process, no HTTP overhead), producing statistically significant streak and win-rate data per encounter type.
 - **LLM analysis (secondary):** LLMs analyze Monte Carlo output, card definitions, and token curves to suggest specific parameter changes. LLMs are effective at reasoning about balancing data but are poor card game players — their gameplay sessions are statistically indistinguishable from random play and should not be used as a primary balancing signal.
 - Instrument metrics: capture resource inflows/outflows, sink rates, median playtime-to-milestone, and token velocity via a `GET /metrics` endpoint.
-- Regression checks and assertions: automated tests should assert invariants (e.g., average win streak length, resource lifetime, expected craft throughput per N operations). A `make balance-check` target runs quick simulations and asserts consecutive win streaks stay within documented target ranges per strategy tier.
+- Regression checks and assertions: automated tests should assert invariants (e.g., average win streak length, resource lifetime, expected craft throughput per N operations). `make balance-check` runs the Rust simulation suite (`cargo test --features simulation --test balance`) and asserts win rates stay within documented target ranges. Currently exercises combat encounters only; will expand to all disciplines as B2.x runners are added.
+
+**Baseline findings (B2.1):** Initial 1000-game simulation (seed 42, 3 strategies × 20 max encounters) showed ~99% combat win rate across all strategies with ~3 encounters per game before stamina depletion. This confirmed combat was significantly too easy relative to targets. Key observations: all strategies performed nearly identically, games terminated due to stamina depletion not death, and combat rebalancing needed to focus on enemy damage scaling, stamina economy, and card differentiation. Subsequent 35-iteration tuning addressed these issues.
 
 Operational controls & feedback:
 
