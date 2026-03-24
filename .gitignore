@@ -17,3 +17,4 @@ Cargo.lock
 /.idea/workspace.xml
 /my_little_cardgame.iml
 docs/.issues.md.swp
+.env
