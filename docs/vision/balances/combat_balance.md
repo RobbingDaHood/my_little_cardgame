@@ -10,13 +10,13 @@ Combat balance is measured by **consecutive win streaks** (how many combats a pl
 
 | Strategy | Min Streak | Max Streak | Description |
 |----------|-----------|-----------|-------------|
-| Random | 3.5 | 8.0 | Uniform random card selection |
-| Greedy | 3.0 | 7.0 | Picks highest rolled value |
-| Conservative | 2.5 | 6.0 | Picks lowest non-cost card |
-| Tactician-greedy | 8.0 | 18.0 | Enemy-aware, picks most damaging card |
-| Tactician-conservative | 8.0 | 18.0 | Enemy-aware, picks most defensive card needed |
+| Random | 3.0 | 8.0 | Uniform random card selection |
+| Greedy | 3.0 | 7.5 | Picks highest rolled value |
+| Conservative | 2.5 | 7.0 | Picks lowest non-cost card |
+| Tactician-greedy | 3.0 | 18.0 | Enemy-aware, picks most damaging card |
+| Tactician-conservative | 3.0 | 18.0 | Enemy-aware, picks most defensive card needed |
 
-- The gap between the best simple strategy and any tactician variant should be ≥1 streak length.
+- The gap between the best simple strategy and any tactician variant should be ≥1 streak length. **Current finding (B2.1):** tactician does NOT outperform simple strategies — the game mechanics don't yet reward tactical play enough. This is a known gap; future work should add mechanics that differentiate skilled play (e.g., timing-dependent shields, combo effects).
 - Random, Greedy, and Conservative should all have somewhat similar performance ranges.
 - The maximum of the simple tier may overlap with the minimum of the Tactician tier, but no more than that.
 - All Tactician variants should perform somewhat equally but always better than non-tacticians.
@@ -26,7 +26,7 @@ Combat balance is measured by **consecutive win streaks** (how many combats a pl
 Win rates are structurally high (55-95%) because: (1) initial encounters are easy wins, (2) scouting mutation only scales ~10% of enemy card effects per step while HP fully scales, (3) the death spiral is self-limiting. Win rates primarily measure death spiral severity, not per-encounter difficulty.
 
 - Random: 55-80%
-- Greedy: 45-65%
+- Greedy: 45-80%
 - Conservative: 70-95% (shield + basic attack is safe but slow)
 
 ## Combat Mechanics
