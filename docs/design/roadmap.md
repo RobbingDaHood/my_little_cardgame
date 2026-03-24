@@ -117,7 +117,7 @@ Roadmap steps
    - Win: OreHealth ≤ 0 → grant rewards (Ore: 10, Token-keyed HashMap<Token, i64>). Loss: MiningDurability ≤ 0 → PlayerLost, no failure penalties (durability loss IS the penalty).
    - EncounterAbort: available for mining (marks as PlayerLost, no rewards/penalties).
    - BREAKING changes: /combat → /encounter, CombatState → EncounterState, CombatOutcome → EncounterOutcome, EnemyCardCounts → DeckCounts, EncounterPhase::Combat+Gathering → InEncounter.
-   - Cleanup (docs/issues.md): is_finished removed, encounter_card_id mandatory, ore_tokens replaces ore_hp, Durability → MiningDurability, game-start durability init.
+   - Cleanup: is_finished removed, encounter_card_id mandatory, ore_tokens replaces ore_hp, Durability → MiningDurability, game-start durability init.
    - Playable acceptance: ✅ Mining end-to-end with 3 card types (Aggressive 5/0, Balanced 3/2, Protective 1/3), scenario tests, replay support.
    - **Costs note:** Costs are now defined IN the CardEffectKind template via `CardEffectCost`, not applied post-hoc. `compute_*_card_value()` / `apply_*_costs()` patterns have been eliminated. Discipline-specific effect structs (MiningCardEffect) have been fully removed.
 
