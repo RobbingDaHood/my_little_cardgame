@@ -70,7 +70,7 @@ fn apply_card_effects(
                 let dodge_absorbed = dodge.min(damage);
                 target_tokens.insert(types::Token::dodge(), (dodge - dodge_absorbed).max(0));
                 let after_dodge = damage - dodge_absorbed;
-                // Shield absorbs next (expires each round like dodge)
+                // Shield absorbs next (expires at end of combat encounter)
                 let shield_key = types::Token::shield();
                 let shield = target_tokens.get(&shield_key).copied().unwrap_or(0);
                 let shield_absorbed = shield.min(after_dodge);
@@ -260,6 +260,7 @@ impl GameState {
                 );
                 *entry += self.game_rules.combat.milestone_insight_on_win;
             }
+            self.clear_combat_shield();
             self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
             self.capture_last_encounter_kind();
             self.current_encounter = None;
@@ -373,6 +374,7 @@ impl GameState {
                 }
                 let outcome = combat.outcome.clone();
                 let rounds = combat.round;
+                self.clear_combat_shield();
                 self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
                 self.capture_last_encounter_kind();
                 self.current_encounter = None;
@@ -388,6 +390,12 @@ impl GameState {
         for _ in 0..count {
             crate::library::game_state::deck_draw_random(rng, deck);
         }
+    }
+
+    /// Remove shield tokens from player balances. Shield only persists within a
+    /// single combat encounter and is cleared when combat ends.
+    fn clear_combat_shield(&mut self) {
+        self.token_balances.remove(&types::Token::shield());
     }
 
     /// Advance combat phase to next (Defending → Attacking → Resourcing → Defending).
