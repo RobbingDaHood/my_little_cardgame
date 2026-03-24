@@ -87,6 +87,7 @@ Notes for Copilot sessions
 - When adding or changing endpoints, update both `src/lib.rs` and `src/main.rs` and add an integration test under `tests/`.
 - Keep changes minimal. 
 - Before every commit, run `make check` to validate all checks pass. Pre-commit hooks provide a fast safety net (fmt + clippy) on commit.
+- When printing a URL to the console, never wrap it in parentheses or brackets — bare URLs are clickable in the terminal, wrapped ones are not.
 
 Suggest changes to vision.md and roadmap.md
 
