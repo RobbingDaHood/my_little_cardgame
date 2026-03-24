@@ -14,9 +14,13 @@ This skill accelerates balance config tuning by running multiple config variants
 
 ## Phase 0: Setup Worktrees
 
-Create 3 worktrees for parallel exploration:
+Create worktrees for parallel exploration. Ensure worktrees do not already exist before creating — do NOT delete existing worktrees, create new ones with different names instead:
 
 ```bash
+# Check existing worktrees first
+./scripts/worktree-manage.sh list
+
+# Create worktrees with unique names (adjust names if already taken)
 ./scripts/worktree-manage.sh add wt-a
 ./scripts/worktree-manage.sh add wt-b
 ./scripts/worktree-manage.sh add wt-c
@@ -62,7 +66,14 @@ Based on Phase 1 results, identify the best-performing region. Design 3 new vari
 
 ## Phase 3: Fine-tune and Validate
 
-After 2-3 rounds of narrowing, apply the best config to the main repo. Run full validation:
+Keep iterating — do not limit to a fixed number of rounds. After each round:
+
+1. Analyze results and identify the most promising direction
+2. Consider whether the current path could ever reach the goals — if not, note it as a possibly blind path and start from a new broad approach
+3. Keep track of ALL results so far and keep exploring the most promising lead
+4. Regularly print a status summary for the user to observe progress
+
+Apply the best config to the main repo when targets are met. Run full validation:
 
 ```bash
 make balance-check
@@ -78,8 +89,9 @@ During exploration, use smaller simulations for faster feedback. Only run full s
 1. **Each agent gets its own worktree** — no filesystem conflicts
 2. **Include ALL context in each agent prompt** — agents are stateless
 3. **Compare aggregate metrics only** — RNG coupling makes per-encounter comparison invalid across different configs
-4. **3 rounds × 3 variants typically sufficient** to converge on targets
+4. **Keep iterating until targets are met** — track all results, explore the most promising lead, abandon blind paths early
 5. **CPU: 4 cores available** — 3 parallel builds/tests run at ~75% efficiency
+6. **Print regular status summaries** — so the user can observe progress
 
 ## Cleanup
 
@@ -91,11 +103,25 @@ During exploration, use smaller simulations for faster feedback. Only run full s
 
 ## Balance Targets (Combat)
 
+Simple strategies (Random, Greedy, Conservative) should all achieve **similar performance** ranges. Tactician variants should always perform better, with minimal overlap between tiers.
+
+### Simple Tier
+
 | Strategy | Min Streak | Max Streak |
 |----------|-----------|-----------|
 | Random | 3.5 | 8.0 |
 | Greedy | 3.0 | 7.0 |
 | Conservative | 2.5 | 6.0 |
-| Tactician | 8.0 | 18.0 |
+
+### Intermediate Tier (Tactician)
+
+Tactician has multiple variations that all perform somewhat equally, but always better than non-tacticians:
+
+| Strategy | Min Streak | Max Streak | Description |
+|----------|-----------|-----------|-------------|
+| Tactician-greedy | 8.0 | 18.0 | Enemy-aware, plays the most damaging card |
+| Tactician-conservative | 8.0 | 18.0 | Enemy-aware, plays the most defensive card needed |
+
+The maximum of the simple tier may equal the minimum of the Tactician tier, but no more overlap than that.
 
 All strategies should average ≥3.0 rounds per encounter.

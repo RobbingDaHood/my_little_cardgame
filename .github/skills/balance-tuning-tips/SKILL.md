@@ -7,6 +7,10 @@ description: Key learnings and tips for balance simulation tuning sessions. Refe
 
 Lessons learned from B2.1 combat simulation tuning. Read before starting any balance tuning session.
 
+For combat-specific balancing guidance, see `docs/vision/balances/combat_balance.md`.
+For scouting-specific balancing guidance, see `docs/vision/balances/scouting_balance.md`.
+The tuning phases are defined in the `parallel-balance-tuning` skill.
+
 ## RNG Coupling Warning
 
 Changing card counts changes the RNG state for the entire game. This means:
@@ -49,19 +53,9 @@ Only run full simulations for final validation.
 
 ## Card Persistence Across Encounters
 
-Cards are **never reset** between encounters. Card depletion over a full game session is a critical balancing dimension. Deck sizes must be generous enough that strategy differentiation is maintained across 50+ encounters.
+Cards are **never reset** between encounters. When a card is drawn from the deck and there are no more cards to draw, the full discard pile is moved into the deck. Because cards are randomized when drawing from deck to hand, there is no additional randomization needed when moving discard to deck.
 
-## Shield Carryover
-
-Shield (PersistentCounter) carries across encounters. Strategies that efficiently build shield between combats gain compounding advantages. This is the **primary differentiator** between strategy tiers.
-
-## Dodge Mechanics
-
-Dodge tokens have `FixedTypeDuration { duration: 1, phases: [Defending] }`:
-- Absorbed before shield during damage resolution
-- Expires after the Defending phase — timing matters
-- Higher per-card value than shield but temporary
-- Well-timed dodge blocks a full attack; wasted if enemy doesn't attack
+In combat, adjust the card gain from relevant resource cards to avoid card depletion — do NOT change deck or hand sizes for this purpose.
 
 ## Cost System
 
@@ -69,16 +63,3 @@ Dodge tokens have `FixedTypeDuration { duration: 1, phases: [Defending] }`:
 - **Concrete cards** (`ConcreteEffectCost`): always absolute values (`amount: u32`)
 - All costs are pre-computed at roll time — no per-play randomness
 - `is_absolute: true` means the rolled value IS the cost (not a percentage of gain)
-
-## Session Workflow
-
-1. **Phase 0**: Set up worktrees and pre-build (use parallel-balance-tuning skill)
-2. **Phase 1-4**: Make code changes (if any needed)
-3. **Phase 5**: Config tuning — use parallel agents for broad sweep → narrow → fine-tune
-4. **Validation**: Run `make balance-check` then `make check`
-
-## Scouting Pitfalls
-
-- `difficulty_delta_min_separation` must be less than the total delta range (`delta_max - delta_min`)
-- A zero-width range causes infinite loops in encounter generation
-- Current values: delta_min=-0.20, delta_max=0.25, min_separation=0.10
