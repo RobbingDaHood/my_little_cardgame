@@ -522,11 +522,14 @@ pub async fn play(
 
             // Generate 3 mutated scouting choices from the just-completed encounter
             if let Some(source_kind) = gs.last_encounter_kind.take() {
+                let death_occurred = gs.last_death_occurred;
+                gs.last_death_occurred = false;
                 let mut rng = player_data.random_generator_state.lock().await;
                 let choice_ids = crate::library::disciplines::scouting::generate_scouting_choices(
                     &mut gs.library,
                     &mut rng,
                     &source_kind,
+                    death_occurred,
                 );
                 gs.pending_scouting_choice_ids = choice_ids;
             }

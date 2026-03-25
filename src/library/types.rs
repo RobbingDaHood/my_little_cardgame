@@ -262,6 +262,15 @@ impl Token {
             },
         }
     }
+
+    /// Create a shield token. Shield persists through all rounds within a single
+    /// combat but is cleared when the combat encounter ends.
+    pub fn shield() -> Self {
+        Token {
+            token_type: TokenType::Shield,
+            lifecycle: TokenLifecycle::PersistentCounter,
+        }
+    }
 }
 
 /// Describes what kind of effect a card applies.

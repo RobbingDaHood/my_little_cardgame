@@ -195,6 +195,8 @@ Encounter-scoped costs (e.g., `TokenType::RestToken`) are deducted from encounte
 
 Token cap mechanic: GainTokens effects have a `rolled_cap` that limits the gain from a single card effect. The gain = `rolled_cap * rolled_gain_percent / 100`. The total token balance may exceed the cap — caps prevent excessive single-effect grants, not total accumulation.
 
+**Cost percentage semantics:** The cost percentage on a CardEffectCost template (`min_percent`/`max_percent`) is a percentage of the **effect's rolled value**, not of the player's current token balance. For example, a 25% cost on a card with rolled_value 1000 costs 250 of the specified token — regardless of how much of that token the player currently has. This is important for card designers: a high-value effect with a modest cost percentage can still impose a large absolute cost.
+
 Additional rules:
 - If the player can't pay the full cost of any effect on a card, the card cannot be played.
 - Cost cards are more powerful but require resource management.
@@ -287,7 +289,7 @@ Combat is fully reproducible by recording the game's single initial seed and the
 - **Encounter-scoped token storage (design principle):** Encounter state owns encounter-scoped data; global `GameState.token_balances` only holds persistent player tokens. Encounter-scoped tokens (e.g., MiningLightLevel, MiningYield, FishingRangeMin, FishingRangeMax, FishAmount, RestToken, enemy tokens) live on the encounter state struct's `encounter_tokens` field, not in the global token_balances. This ensures encounter-scoped data is automatically cleaned up when the encounter ends and prevents cross-encounter token leakage.
 - Encounter state lives in GameState (`current_encounter: Option<EncounterState>`, `encounter_phase: EncounterPhase`) and src/combat/ endpoints delegate to GameState methods. EncounterState is an enum with variants Combat, Mining, Herbalism, Woodcutting, Fishing, Rest, Crafting, Research, and Milestone, each containing encounter-type-specific state. Milestone wraps an inner discipline encounter with tier-based progression.
 - Encounter outcome is tracked via an `EncounterOutcome` enum with variants: Undecided, PlayerWon, PlayerLost. GameState maintains `encounter_results: Vec<EncounterOutcome>`. Encounter completion is determined solely by `outcome != EncounterOutcome::Undecided`.
-- Dodge and Shield absorption: damage consumes Dodge tokens first, then Shield tokens, before Health is reduced. Dodge expires after the Defending phase (FixedTypeDuration). Shield persists for the encounter (PersistentCounter) but has smaller CardEffect ranges.
+- Dodge and Shield absorption: damage consumes Dodge tokens first, then Shield tokens, before Health is reduced. Dodge uses FixedTypeDuration lifecycle (duration 1, phases: [Defending]) — granted during the Defending phase, active during Attacking (when enemy damage is dealt), expires at the start of the next Defending phase. Shield uses PersistentCounter lifecycle — it accumulates across rounds and encounters but is consumed when absorbing damage (shield value decreases by absorbed amount). With enemy damage exceeding shield per round, shield is fully consumed each round; it only accumulates when shield grants exceed incoming damage. Dodge has larger CardEffect ranges (550–750); Shield has smaller ranges (50–90).
 - `CardEffectKind` has ten variants: `GainTokens` for capped token grants, `LoseTokens` for token loss, `DrawCards { attack, defence, resource }` for per-deck-type card draw, `Insight` for per-discipline insight token generation, `WoodcuttingChop` for woodcutting chop-type/value mechanics, `HerbalismMatch` for herbalism characteristic matching, `FishingValue` for fishing numeric card values, `CraftingReduction` for crafting difficulty reduction, `ResearchProbe` for research symbol probing, and `ResearchInterference` for research interference effects. New effect types should be added as new variants (not by overloading existing ones).
 - Enemy decks use `DeckCounts { deck, hand, discard }`. At combat start, enemy hands are shuffled via seeded RNG. Enemies play from hand; played cards go to discard with recycling when deck is empty.
 - Auto-advance after EncounterPlayCard: resolve player effects → resolve enemy play → advance combat phase → check end conditions.
@@ -341,7 +343,7 @@ Token identifiers are a closed `TokenType` enum. Tokens are organized into the f
 | Health | Player hit points | 1000 |
 | MaxHealth | Maximum health cap | — |
 | Stamina | Cross-discipline cost currency | 1000 |
-| Shield | Damage absorption (encounter-scoped) | 0 |
+| Shield | Damage absorption (PersistentCounter, consumed when absorbing) | 0 |
 | Dodge | Phase-limited damage avoidance | 0 |
 | Mana | Reserved for future use | — |
 | PlayerDeaths | Lifetime death counter | 0 |
@@ -492,7 +494,7 @@ Tokens explicitly declare their lifecycle semantics so designers, clients, and t
 - Conditional: persist until a condition is met (for example MiningDurability hitting 0, Corruption crossing a threshold, or a specific external event).
 
 Rules and implementation notes:
-- Every token type must document its lifecycle class, generation rules, caps/decay semantics, authoritative spend paths, and whether it carries structured payload data. Lifecycle is declared solely on the `Token` struct (token_type + lifecycle), not on card effects. Card effects reference a `TokenType` and the lifecycle comes from the token definition. PersistentCounter is the default lifecycle; any token type can use any lifecycle (e.g. Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }). Token constructors Token::persistent(token_type) and Token::dodge() enforce these defaults. Token definitions live in the `TokenType` enum — there is no separate token registry data structure.
+- Every token type must document its lifecycle class, generation rules, caps/decay semantics, authoritative spend paths, and whether it carries structured payload data. Lifecycle is declared solely on the `Token` struct (token_type + lifecycle), not on card effects. Card effects reference a `TokenType` and the lifecycle comes from the token definition. PersistentCounter is the default lifecycle; any token type can use any lifecycle (e.g. Dodge uses FixedTypeDuration { duration: 1, phases: [Defending] }). Token constructors Token::persistent(token_type), Token::shield(), and Token::dodge() enforce these defaults. Shield uses PersistentCounter (persists across rounds/encounters, consumed when absorbing damage). Token definitions live in the `TokenType` enum — there is no separate token registry data structure.
 - The actions log records only player actions for reproducibility. Internal token operations (grant, consume, expire) are deterministic consequences of player actions and the seed. The action log combined with the initial seed is sufficient to reproduce all token state transitions.
 - Designers may choose whether expired tokens are archived (kept in history) or removed.
 
@@ -522,12 +524,30 @@ Design implications and notes
 
 ## Balancing
 
-**Target win rates (design principle):**
+**Target balance metrics (design principle):**
+- Combat balance is measured by **consecutive win streaks** (how many combats a player wins before dying), not per-combat win rate. Streak length reflects sustained resource management across encounters.
+  - Strategy hierarchy (streak): Tactician (~8+) > Random (~7.5) > Greedy (~6.4) > Conservative (~5.0)
+  - Enemy-aware strategies (tactician): ~7.5-18 average consecutive wins before death — rewarding players who leverage dodge timing and cost-damage efficiency
+  - Simple strategies (random, greedy, conservative): ~3-8.5 average consecutive wins before death
+  - The gap between the best simple strategy and tactician should be ≥1 streak length
+- Win rates are structurally high (55-95%) because: (1) initial encounters are easy wins, (2) scouting mutation only scales ~10% of enemy card effects per step while HP fully scales, (3) the death spiral is self-limiting. Win rates primarily measure death spiral severity, not per-encounter difficulty.
+  - Random: 55-80% win rate; Greedy: 45-65%; Conservative: 70-95% (shield + basic attack is safe but slow)
 - Easy encounters (gathering: mining, herbalism, woodcutting, fishing, rest): ~80% win rate for a competent (greedy/heuristic) strategy, ~60% for random play
-- Hard encounters (combat): ~50% win rate for a competent strategy, ~30% for random play
 - Milestone encounters (future): ~20-30% win rate, requiring good decks and strategic play
 - Multiple viable strategies per discipline: no single strategy should dominate (>90%) while others fail (<30%)
 - Player death (material reset) is an acceptable setback — not a full progression reset
+- Token lifecycle is the primary balance lever: Dodge (FixedTypeDuration, high absorption, 1 round) rewards precise timing; Shield (combat-encounter-scoped, low absorption, consumed on damage) provides steady damage reduction within a single combat but does not persist across encounters. Card persistence across encounters means deck composition matters long-term. Moderate healing and stamina recovery are available via resource cards, but the main healing and stamina gain should come from resting encounters.
+
+**Strategy tier definitions:**
+- **Simple tier** (random, greedy, conservative): No encounter-state awareness. Picks cards based on value or cost avoidance only. Random selects uniformly; greedy picks highest value; conservative picks lowest non-cost. Target streak range: 3.0–8.5.
+- **Intermediate tier** (tactician): Reads combat phase and card types. Picks dodge for defence (avoids cost), cost_damage for attack (high burst), highest value for resource. Target streak range: 7.5–18.0.
+- **Advanced tier** (future: meta-strategist): Manages resources across encounters. Plans card usage over multiple combats, considers scouting difficulty scaling and HP attrition.
+
+**Card persistence across encounters:**
+Cards are never reset between encounters — deck, hand, and discard states carry over. When a card is drawn from the deck and there are no more cards to draw, the full discard pile is moved into the deck. Card depletion over a full game session is a critical balancing dimension: if basic cards run out, all strategies converge regardless of intelligence. Adjust the card gain from relevant resource cards to avoid card depletion — do NOT change deck or hand sizes for this purpose.
+
+For detailed combat balance targets and mechanics, see `docs/vision/balances/combat_balance.md`.
+For scouting difficulty mechanics, see `docs/vision/balances/scouting_balance.md`.
 
 Layered balancing approach:
 
@@ -538,10 +558,12 @@ Layered balancing approach:
 
 Tuning pipeline and instrumentation:
 
-- **Headless Monte Carlo simulation (primary):** The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing. Scripted strategy bots (random, greedy, conservative, discipline-specific) play thousands of games via the REST API at CPU speed, producing statistically significant win-rate data per encounter type. Multiple server instances can run in parallel on different ports.
+- **Headless Monte Carlo simulation (primary):** The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing. Scripted strategy bots (random, greedy, conservative, tactician/enemy-aware) play hundreds of games as Rust integration tests using `rocket::local::blocking::Client` (in-process, no HTTP overhead), producing statistically significant streak and win-rate data per encounter type.
 - **LLM analysis (secondary):** LLMs analyze Monte Carlo output, card definitions, and token curves to suggest specific parameter changes. LLMs are effective at reasoning about balancing data but are poor card game players — their gameplay sessions are statistically indistinguishable from random play and should not be used as a primary balancing signal.
 - Instrument metrics: capture resource inflows/outflows, sink rates, median playtime-to-milestone, and token velocity via a `GET /metrics` endpoint.
-- Regression checks and assertions: automated tests should assert invariants (e.g., average resource lifetime, expected craft throughput per N operations). A `make balance-check` target runs quick simulations and asserts win rates stay within documented target ranges.
+- Regression checks and assertions: automated tests should assert invariants (e.g., average win streak length, resource lifetime, expected craft throughput per N operations). `make balance-check` runs the Rust simulation suite (`cargo test --features simulation --test balance`) and asserts win rates stay within documented target ranges. Currently exercises combat encounters only; will expand to all disciplines as B2.x runners are added.
+
+**Baseline findings (B2.1):** Initial 1000-game simulation (seed 42, 3 strategies × 20 max encounters) showed ~99% combat win rate across all strategies with ~3 encounters per game before stamina depletion. This confirmed combat was significantly too easy relative to targets. Key observations: all strategies performed nearly identically, games terminated due to stamina depletion not death, and combat rebalancing needed to focus on enemy damage scaling, stamina economy, and card differentiation. Subsequent 35-iteration tuning addressed these issues.
 
 Operational controls & feedback:
 

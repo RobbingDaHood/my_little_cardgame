@@ -20,18 +20,24 @@ fn scenario_cost_card_rejected_without_stamina() {
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
-    // Verify player starts with 1000 stamina
-    let stamina_before = player_token(&client, "Stamina");
-    assert_eq!(
-        stamina_before, 1000,
-        "Player should start with 1000 Stamina"
-    );
-
-    // Play cost Defence card — it has a stamina cost effect.
-    let cost_def_id = cost_card_id(&client, "Defence");
+    // Play Defence first to advance past Defending phase
+    let def_ids = hand_card_ids_by_kind(&client, "Defence");
     let json = format!(
         r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-        cost_def_id
+        def_ids[0]
+    );
+    let (status, _) = post_action(&client, &json);
+    assert_eq!(status, Status::Created, "Defence card should succeed");
+
+    // Record stamina before playing cost Attack card (cost_damage has Stamina cost)
+    let stamina_before = player_token(&client, "Stamina");
+    assert!(stamina_before > 0, "Player should have Stamina");
+
+    // Play cost Attack card — it has a stamina cost effect.
+    let cost_atk_id = cost_card_id(&client, "Attack");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        cost_atk_id
     );
     let (status, _body) = post_action(&client, &json);
     assert_eq!(
@@ -66,7 +72,7 @@ fn scenario_cost_card_deducts_stamina() {
     let (status, _) = post_action(&client, &pick_json);
     assert_eq!(status, Status::Created, "PickEncounter should succeed");
 
-    // Play a full round to get stamina: Defence -> Attack -> Resource
+    // Play a full round to advance: Defence -> Attack -> Resource
     let def_ids = hand_card_ids_by_kind(&client, "Defence");
     let json = format!(
         r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
@@ -91,34 +97,35 @@ fn scenario_cost_card_deducts_stamina() {
     let (status, _) = post_action(&client, &json);
     assert_eq!(status, Status::Created, "Resource card should succeed");
 
-    // Verify player now has stamina
-    let stamina_after_resource = player_token(&client, "Stamina");
-    assert!(
-        stamina_after_resource > 0,
-        "Player should have Stamina after playing Resource card (got {})",
-        stamina_after_resource
-    );
+    // Record stamina before playing cost Attack card
+    let stamina_before = player_token(&client, "Stamina");
+    assert!(stamina_before > 0, "Player should have Stamina");
 
-    // Defending phase again: play cost Defence card — should succeed now
-    let cost_def_id = cost_card_id(&client, "Defence");
+    // Defending phase again: play Defence card first, then cost Attack in Attacking phase
+    let def_ids = hand_card_ids_by_kind(&client, "Defence");
     let json = format!(
         r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
-        cost_def_id
+        def_ids[0]
     );
     let (status, _) = post_action(&client, &json);
-    assert_eq!(
-        status,
-        Status::Created,
-        "Cost Defence card should succeed with stamina"
-    );
+    assert_eq!(status, Status::Created, "Defence card should succeed");
 
-    // Verify stamina was consumed
-    let stamina_after_cost = player_token(&client, "Stamina");
+    // Now in Attacking phase: play cost Attack card
+    let cost_atk_id = cost_card_id(&client, "Attack");
+    let json = format!(
+        r#"{{"action_type":"EncounterPlayCard","card_id":{}}}"#,
+        cost_atk_id
+    );
+    let (status, _) = post_action(&client, &json);
+    assert_eq!(status, Status::Created, "Cost Attack card should succeed");
+
+    // Verify stamina was consumed by the cost
+    let stamina_after = player_token(&client, "Stamina");
     assert!(
-        stamina_after_cost < stamina_after_resource,
+        stamina_after < stamina_before,
         "Stamina should decrease after playing cost card (before={}, after={})",
-        stamina_after_resource,
-        stamina_after_cost
+        stamina_before,
+        stamina_after
     );
 }
 
@@ -270,26 +277,10 @@ fn scenario_cost_cards_exist_in_starting_decks() {
     let defence_cards = get_json(&client, "/library/cards?card_kind=Defence");
     let defence_arr = defence_cards.as_array().expect("Defence cards array");
     assert!(
-        defence_arr.len() >= 2,
-        "Should have at least 2 Defence cards (cost and non-cost), got {}",
+        !defence_arr.is_empty(),
+        "Should have at least 1 Defence card, got {}",
         defence_arr.len()
     );
-    let cost_defence = defence_arr.iter().find(|c| {
-        c.get("kind")
-            .and_then(|k| k.get("effects"))
-            .and_then(|e| e.as_array())
-            .map(|effects| {
-                effects.iter().any(|e| {
-                    e.get("rolled_costs")
-                        .and_then(|c| c.as_array())
-                        .map(|costs| !costs.is_empty())
-                        .unwrap_or(false)
-                })
-            })
-            .unwrap_or(false)
-    });
-    assert!(cost_defence.is_some(), "Should have a cost Defence card");
-
     // Check that at least one cost Mining card exists
     let mining_cards = get_json(&client, "/library/cards?card_kind=Mining");
     let mining_arr = mining_cards.as_array().expect("Mining cards array");

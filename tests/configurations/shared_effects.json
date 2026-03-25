@@ -1,75 +1,91 @@
 {
-  "cards": [
-    {
-      "type": "effect",
-      "name": "deal_damage",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "LoseTokens",
-        "token_type": "Health",
-        "min": 500,
-        "max": 500,
-        "costs": [],
-        "duration": "PersistentCounter"
-      },
-      "valid_disciplines": ["Combat"]
-    },
-    {
-      "type": "effect",
-      "name": "grant_shield",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "GainTokens",
-        "target": "OnSelf",
-        "token_type": "Shield",
-        "cap_min": 300,
-        "cap_max": 300,
-        "gain_min_percent": 100,
-        "gain_max_percent": 100,
-        "costs": [],
-        "duration": "PersistentCounter"
-      },
-      "valid_disciplines": ["Combat"]
-    },
-    {
-      "type": "effect",
-      "name": "grant_stamina",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "GainTokens",
-        "target": "OnSelf",
-        "token_type": "Stamina",
-        "cap_min": 200,
-        "cap_max": 200,
-        "gain_min_percent": 100,
-        "gain_max_percent": 100,
-        "costs": [],
-        "duration": "PersistentCounter"
-      },
-      "valid_disciplines": ["Combat"]
-    },
-    {
-      "type": "effect",
-      "name": "draw_cards",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "DrawCards",
-        "attack": 1,
-        "defence": 1,
-        "resource": 1
-      },
-      "valid_disciplines": ["Combat"]
-    },
-    {
-      "type": "effect",
-      "name": "insight",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "Insight",
-        "min": 1,
-        "max": 1
-      },
-      "valid_disciplines": ["Combat", "Mining", "Herbalism", "Woodcutting", "Fishing", "Rest", "Crafting"]
-    }
-  ]
+    "cards": [
+        {
+            "type": "effect",
+            "name": "deal_damage",
+            "owner": "Player",
+            "kind": {
+                "effect_type": "LoseTokens",
+                "token_type": "Health",
+                "min": 500,
+                "max": 500,
+                "costs": [],
+                "duration": "PersistentCounter"
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "effect",
+            "name": "grant_shield",
+            "owner": "Player",
+            "kind": {
+                "effect_type": "GainTokens",
+                "target": "OnSelf",
+                "token_type": "Shield",
+                "cap_min": 300,
+                "cap_max": 300,
+                "gain_min_percent": 100,
+                "gain_max_percent": 100,
+                "costs": [],
+                "duration": "PersistentCounter"
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "effect",
+            "name": "grant_stamina",
+            "owner": "Player",
+            "kind": {
+                "effect_type": "GainTokens",
+                "target": "OnSelf",
+                "token_type": "Stamina",
+                "cap_min": 200,
+                "cap_max": 200,
+                "gain_min_percent": 100,
+                "gain_max_percent": 100,
+                "costs": [],
+                "duration": "PersistentCounter"
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "effect",
+            "name": "draw_cards",
+            "owner": "Player",
+            "kind": {
+                "effect_type": "DrawCards",
+                "attack": 1,
+                "defence": 1,
+                "resource": 1
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "effect",
+            "name": "insight",
+            "owner": "Player",
+            "kind": {
+                "effect_type": "Insight",
+                "min": 1,
+                "max": 1
+            },
+            "valid_disciplines": [
+                "Combat",
+                "Mining",
+                "Herbalism",
+                "Woodcutting",
+                "Fishing",
+                "Rest",
+                "Crafting"
+            ]
+        }
+    ]
 }

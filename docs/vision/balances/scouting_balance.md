@@ -1,0 +1,47 @@
+# Scouting Balance
+
+This document contains scouting-specific balancing information. It is the authoritative reference for scouting difficulty mechanics, configuration, and known issues.
+
+## Difficulty Delta System
+
+Scouting generates replacement encounters by mutating the source encounter with a difficulty delta. The delta is a multiplier offset: `factor = 1.0 + delta`.
+
+### Configuration Parameters
+
+Located in `configurations/general/game_rules.json` under `"scouting"`:
+
+| Parameter | Description | Current Value |
+|-----------|-------------|---------------|
+| `choice_count` | Number of scouting choices offered | 3 |
+| `difficulty_delta_min` | Minimum difficulty delta | 0.1 |
+| `difficulty_delta_max` | Maximum difficulty delta | 0.4 |
+| `difficulty_delta_min_separation` | Minimum separation between deltas | 0.1 |
+| `mutation_fraction` | Fraction of deck cards mutated | 0.2 |
+| `mutation_scale_probability` | Probability of scale mutation | 0.5 |
+| `mutation_redistribute_probability` | Probability of redistribute mutation | 0.3 |
+| `death_difficulty_reduction_min` | Min reduction after death | -0.25 |
+| `death_difficulty_reduction_max` | Max reduction after death | -0.05 |
+
+### Death Difficulty Reduction
+
+When a player dies, the next scouting phase generates encounters that are easier than the killing encounter. The reduction range is configurable via `death_difficulty_reduction_min` and `death_difficulty_reduction_max`. This prevents the death spiral from making the game unwinnable and creates a "catch-up" mechanic.
+
+### Known Issues and Pitfalls
+
+- **Infinite loop risk**: `difficulty_delta_min_separation` must be less than the total delta range (`delta_max - delta_min`). A zero-width range causes infinite loops in encounter generation. Ensure `(delta_max - delta_min) > (choice_count - 1) × min_separation` with margin.
+- **Current values**: delta_min=0.1, delta_max=0.4, min_separation=0.1
+
+## Mutation Asymmetry
+
+The current scouting mutation system creates an asymmetry between token scaling and card effect scaling:
+
+- **Token scaling (initial_tokens)**: Scales 100% with the difficulty factor. Enemy HP, starting resources, etc. all scale proportionally.
+- **Card effect scaling**: Only ~10% of cards are affected per step (`mutation_fraction × scale_probability = 0.20 × 0.50 = 10%`). This means enemy damage, shield, and other card effects lag behind HP scaling.
+
+This asymmetry creates "HP sponge" encounters at high difficulty — long fights with moderate danger. Whether this is intentional (war of attrition feel) or should be changed to proportional scaling is a future design decision.
+
+### Future Work
+
+- **Proportional mutation scaling**: Consider increasing `mutation_fraction` and `scale_probability` so that enemy card effects scale more proportionally with difficulty. This would make high-difficulty encounters feel harder rather than just longer.
+- **Per-token-type scaling**: Different tokens could scale at different rates (e.g., enemy HP scales at 80%, enemy damage at 100%) for finer balance control.
+- **Scouting difficulty reset granularity**: The death difficulty reduction could be more nuanced — e.g., scaling with the number of consecutive deaths, or with the magnitude of the difficulty gap.

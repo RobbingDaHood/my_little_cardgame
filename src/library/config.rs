@@ -348,6 +348,18 @@ pub struct ScoutingRules {
     pub mutation_fraction: f64,
     pub mutation_scale_probability: f64,
     pub mutation_redistribute_probability: f64,
+    #[serde(default = "default_death_reduction_min")]
+    pub death_difficulty_reduction_min: f64,
+    #[serde(default = "default_death_reduction_max")]
+    pub death_difficulty_reduction_max: f64,
+}
+
+fn default_death_reduction_min() -> f64 {
+    -0.25
+}
+
+fn default_death_reduction_max() -> f64 {
+    -0.05
 }
 
 #[derive(Debug, Clone, Deserialize)]

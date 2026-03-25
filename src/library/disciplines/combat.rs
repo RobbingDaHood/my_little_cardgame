@@ -20,9 +20,12 @@ fn apply_card_effects(
             None => continue,
         };
 
-        let (target_tokens, token_type, is_loss) = match &kind {
+        let (target_tokens, token_type, is_loss, gain_duration) = match &kind {
             types::CardEffectKind::GainTokens {
-                target, token_type, ..
+                target,
+                token_type,
+                duration,
+                ..
             } => {
                 let tokens = match (target, is_player) {
                     (types::EffectTarget::OnSelf, true)
@@ -30,7 +33,7 @@ fn apply_card_effects(
                     (types::EffectTarget::OnOpponent, true)
                     | (types::EffectTarget::OnSelf, false) => &mut combat.enemy_tokens,
                 };
-                (tokens, token_type, false)
+                (tokens, token_type, false, Some(duration))
             }
             types::CardEffectKind::LoseTokens { token_type, .. } => {
                 let tokens = if is_player {
@@ -38,7 +41,7 @@ fn apply_card_effects(
                 } else {
                     &mut *player_tokens
                 };
-                (tokens, token_type, true)
+                (tokens, token_type, true, None)
             }
             types::CardEffectKind::DrawCards { .. } => continue,
             types::CardEffectKind::Insight { .. } => {
@@ -67,8 +70,8 @@ fn apply_card_effects(
                 let dodge_absorbed = dodge.min(damage);
                 target_tokens.insert(types::Token::dodge(), (dodge - dodge_absorbed).max(0));
                 let after_dodge = damage - dodge_absorbed;
-                // Shield absorbs next (persists for encounter, blocks 1:1)
-                let shield_key = types::Token::persistent(types::TokenType::Shield);
+                // Shield absorbs next (expires at end of combat encounter)
+                let shield_key = types::Token::shield();
                 let shield = target_tokens.get(&shield_key).copied().unwrap_or(0);
                 let shield_absorbed = shield.min(after_dodge);
                 target_tokens.insert(shield_key, (shield - shield_absorbed).max(0));
@@ -91,9 +94,13 @@ fn apply_card_effects(
                 (Some(cap), Some(pct)) => cap * pct as i64 / 100,
                 _ => effect.rolled_value,
             };
-            let entry = target_tokens
-                .entry(types::Token::persistent(token_type.clone()))
-                .or_insert(0);
+            let token_key = types::Token {
+                token_type: token_type.clone(),
+                lifecycle: gain_duration
+                    .cloned()
+                    .unwrap_or(types::TokenLifecycle::PersistentCounter),
+            };
+            let entry = target_tokens.entry(token_key).or_insert(0);
             *entry = (*entry + grant_amount).max(0);
         }
     }
@@ -253,6 +260,7 @@ impl GameState {
                 );
                 *entry += self.game_rules.combat.milestone_insight_on_win;
             }
+            self.clear_combat_shield();
             self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
             self.capture_last_encounter_kind();
             self.current_encounter = None;
@@ -366,6 +374,7 @@ impl GameState {
                 }
                 let outcome = combat.outcome.clone();
                 let rounds = combat.round;
+                self.clear_combat_shield();
                 self.record_encounter_finish(types::Discipline::Combat, outcome, rounds);
                 self.capture_last_encounter_kind();
                 self.current_encounter = None;
@@ -383,13 +392,32 @@ impl GameState {
         }
     }
 
+    /// Remove shield tokens from player balances. Shield only persists within a
+    /// single combat encounter and is cleared when combat ends.
+    fn clear_combat_shield(&mut self) {
+        self.token_balances.remove(&types::Token::shield());
+    }
+
     /// Advance combat phase to next (Defending → Attacking → Resourcing → Defending).
+    /// Expires any `FixedTypeDuration` tokens whose phase list includes the phase
+    /// we are entering (they were active for one full cycle and now expire).
+    /// Example: dodge tokens (phases=[Defending]) expire when re-entering Defending,
+    /// having absorbed damage during the Attacking phase.
     pub fn advance_combat_phase(&mut self) -> Result<(), String> {
         let combat = match &mut self.current_encounter {
             Some(EncounterState::Combat(c)) => c,
             _ => return Err("No active combat".to_string()),
         };
         combat.phase = combat.phase.next();
+        let entering_phase = combat.phase.clone();
+
+        self.token_balances.retain(|token, _| {
+            !matches!(
+                &token.lifecycle,
+                types::TokenLifecycle::FixedTypeDuration { phases, .. }
+                    if phases.contains(&entering_phase)
+            )
+        });
         Ok(())
     }
 }
