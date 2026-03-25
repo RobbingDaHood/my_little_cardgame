@@ -501,13 +501,52 @@ B2) General config bypass — quick-win optimizations
    B2.3) Future — Proportional mutation scaling
       - Goal: Address the scouting mutation asymmetry where HP scales 100% but card effects only scale ~10%. See `docs/vision/balances/scouting_balance.md` for details.
 
-   B2.4–B2.9) Future — Per-discipline simulation runners
-      - B2.4: Mining simulation runner
-      - B2.5: Herbalism simulation runner
-      - B2.6: Woodcutting simulation runner
-      - B2.7: Fishing simulation runner
-      - B2.8: Rest simulation runner
-      - B2.9: Whole-game balance simulation — cross-discipline interactions, resource flows, death frequency, progression pacing
+   B2.4) Mining simulation runner
+      - Goal: Build a mining balance simulation measuring yield per durability across strategies. Reuses Strategy trait, GameDriver, and runner infrastructure from B2.1.
+      - Key metrics: Ore gained per MiningDurability spent, light-level management effectiveness, voluntary-conclude timing.
+      - Balance targets: See `docs/vision/balances/mining_balance.md`.
+
+   B2.5) Herbalism simulation runner
+      - Goal: Build an herbalism balance simulation measuring yield per durability across strategies. Focus on match-mode selection and over-elimination risk.
+      - Key metrics: Plant tokens gained per HerbalismDurability spent, win rate (reaching exactly 1 plant), durability cost per attempt.
+      - Balance targets: See `docs/vision/balances/herbalism_balance.md`.
+
+   B2.6) Woodcutting simulation runner
+      - Goal: Build a woodcutting balance simulation measuring yield per durability across strategies. Focus on pattern-building and early-stop decisions.
+      - Key metrics: Lumber gained per WoodcuttingDurability spent, average pattern multiplier achieved, early-stop frequency and effectiveness.
+      - Balance targets: See `docs/vision/balances/woodcutting_balance.md`.
+
+   B2.7) Fishing simulation runner
+      - Goal: Build a fishing balance simulation measuring yield per durability across strategies. Focus on range management and value selection.
+      - Key metrics: Fish gained per FishingDurability spent, win rate per encounter, range-modifier usage effectiveness.
+      - Balance targets: See `docs/vision/balances/fishing_balance.md`.
+
+   B2.8) Scouting simulation runner
+      - Goal: Build a scouting simulation measuring difficulty progression and death-recovery mechanics across game sessions.
+      - Key metrics: Difficulty curve shape, death frequency, recovery speed after death, encounter variety offered.
+      - Balance targets: See `docs/vision/balances/scouting_balance.md`.
+
+   B2.9) Crafting simulation runner
+      - Goal: Build a crafting balance simulation measuring crafting throughput and material efficiency across strategies.
+      - Key metrics: Crafted item value per materials consumed, crafting success rate, material acquisition-to-consumption ratio.
+
+   B2.10) Research simulation runner
+      - Goal: Build a research balance simulation measuring research progress and insight efficiency across strategies.
+      - Key metrics: Research completions per Insight spent, hypothesis success rate, cross-discipline research effectiveness.
+
+   B2.11) Milestone simulation runner
+      - Goal: Build a milestone balance simulation measuring milestone encounter difficulty and reward scaling across tiers.
+      - Key metrics: Milestone completion rate per tier, reward value scaling, difficulty progression across milestone tiers.
+
+   B2.12) Rest simulation runner
+      - Goal: Build a rest encounter simulation measuring recovery efficiency — health and stamina restored per rest encounter.
+      - Key metrics: Health and stamina recovered per rest encounter, rest frequency needed to sustain gathering/combat sessions, durability recovery (if applicable).
+
+   B2.13) Whole-game balance simulation
+      - Goal: Build a cross-discipline simulation that runs full game sessions (all encounter types) and validates overall progression, resource flows, death frequency, and progression pacing.
+      - Key metrics: Total yield across all disciplines per session, death frequency, resource flow balance (are some disciplines over/under-rewarding?), progression curve smoothness.
+      - Description: This is the integration-level simulation that validates cross-discipline interactions. Individual discipline runners (B2.1–B2.12) must pass before this step is meaningful.
+      - Prerequisite: All per-discipline simulation runners (B2.1–B2.12) complete and passing.
 
    B2.1 learnings for future discipline runners:
    - **RNG coupling**: Changing card counts changes the RNG state for ALL subsequent rolls — before/after comparisons across config changes are invalidated. Each config must be evaluated independently with fixed seeds.
