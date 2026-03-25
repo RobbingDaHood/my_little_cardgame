@@ -114,7 +114,7 @@ Roadmap steps
 8.1) Mining (gathering) — COMPLETE
    - Goal: First gathering discipline, establishing the EncounterState enum pattern for all future encounter types.
    - Description: Single-deck resolution. Player Mining deck with cards trading off ore_damage vs durability_prevent. Ore node has OreDeck with cards dealing 0-3 durability damage (skewed low). OreHealth tracked as encounter-scoped token in ore_tokens HashMap. MiningDurability initialized to 100 at game start, persists across encounters (NOT re-initialized per encounter).
-   - Win: OreHealth ≤ 0 → grant rewards (Ore: 10, Token-keyed HashMap<Token, i64>). Loss: MiningDurability ≤ 0 → PlayerLost, no failure penalties (durability loss IS the penalty).
+   - Win: OreHealth ≤ 0 → grant rewards (Ore: 10, Token-keyed HashMap<Token, i64>). Loss: MiningDurability ≤ 0 → PlayerLost, rewards still granted (durability loss IS the penalty, stamina cost still applies).
    - EncounterAbort: available for mining (marks as PlayerLost, no rewards/penalties).
    - BREAKING changes: /combat → /encounter, CombatState → EncounterState, CombatOutcome → EncounterOutcome, EnemyCardCounts → DeckCounts, EncounterPhase::Combat+Gathering → InEncounter.
    - Cleanup: is_finished removed, encounter_card_id mandatory, ore_tokens replaces ore_hp, Durability → MiningDurability, game-start durability init.
@@ -125,7 +125,7 @@ Roadmap steps
    - Goal: Third gathering discipline with a UNIQUE mechanic (card-characteristic matching) that differentiates it from Mining/Woodcutting's damage-vs-durability template.
    - Description: The plant (enemy) starts with X cards on hand and does NOT draw more cards. Each enemy card has 1-3 characteristics from a small enum (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous). Player plays Herbalism cards that target characteristics; playing a card removes all enemy cards that share at least one characteristic with the player's card. Player draws 1 Herbalism card per play.
    - Win condition: exactly 1 enemy card remains → that card is the reward, plus Plant tokens are granted.
-   - Loss conditions: 0 enemy cards remain (over-harvested — player was too aggressive with broad-matching cards), OR HerbalismDurability ≤ 0 (durability depleted — durability cost applied via costs vec on play).
+   - Loss conditions: 0 enemy cards remain (over-harvested — player was too aggressive with broad-matching cards), OR HerbalismDurability ≤ 0 (durability depleted — rewards still granted, durability cost applied via costs vec on play).
    - Tokens: HerbalismDurability (persistent, init 100 at game start), Plant (reward material token).
    - Key design notes:
      - The strategic tension is between playing narrow cards (remove fewer enemy cards, safer) vs broad cards (remove more, risk over-harvesting).
@@ -167,7 +167,7 @@ Roadmap steps
        - There should always be some reward — even the worst hand matches a simple pattern (e.g., "high card" equivalent).
        - Pattern rarity should have a significant impact on the multiplier to reward playing more cards.
      - Win: Always wins after all cards are played or the player stops early (the pattern determines reward amount).
-     - Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost, no rewards granted.
+     - Loss: WoodcuttingDurability ≤ 0 during play → PlayerLost, rewards still granted (pattern evaluated with cards played so far).
    - Tokens: WoodcuttingDurability (persistent, init 100 at game start), Lumber (reward material token).
    - EncounterAbort: available.
    - Key design notes:
@@ -202,7 +202,7 @@ Roadmap steps
    - Goal: Fourth gathering discipline with a numeric card-subtraction mechanic that differentiates it from other gathering types.
    - Description: Each fishing encounter defines a `valid_range` (min, max), `max_turns`, and `win_turns_needed`. Each round the player plays a numeric card first, then the enemy (fish) plays a numeric card. The two values are subtracted: `result = (player_value - fish_value).max(0)`. If the result falls within the `valid_range` (inclusive), the turn counts as "won". Player draws 1 Fishing card per play. Costs (durability, stamina, etc.) are in the `costs: Vec<GatheringCost>` vector.
    - Win: player wins `win_turns_needed` rounds before `max_turns` are exhausted → grant Fish tokens.
-   - Loss: `max_turns` exhausted without enough wins → PlayerLost. OR FishingDurability ≤ 0 → PlayerLost.
+   - Loss: `max_turns` exhausted without enough wins → PlayerLost. OR FishingDurability ≤ 0 → PlayerLost, rewards still granted (FishAmount-scaled).
    - Tokens: FishingDurability (persistent, init 100 at game start), Fish (reward material token).
    - EncounterAbort: available.
    - Key design notes:
