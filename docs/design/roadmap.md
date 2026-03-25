@@ -488,8 +488,8 @@ B2) General config bypass — quick-win optimizations
       - Key results (with tuned configs on current branch):
         - Strategy hierarchy: Tactician (8.07 streak) > Random (7.49) > Greedy (6.39) > Conservative (5.01)
         - Win rates: Random 71.6%, Greedy 55.2%, Conservative 87.4%, Tactician 70.3%
-      - Config changes (B2.1 rebalance): Health 1000, enemy HP 400, dodge mechanic (FixedTypeDuration 550-750), shield kept as PersistentCounter (50-90, consumed when absorbing damage), cost_damage 500-700 (HP cost 18-28%), enemy damage 300-420, draw cards 3/3/3.
-      - Key discoveries: Shield as PersistentCounter is consumed when absorbing damage — with enemy damage (300-420) far exceeding shield per round (50-90), shield is fully consumed each round and does not accumulate. Scouting mutation only scales ~10% of enemy card effects per step while HP fully scales — encounters become HP sponges not death threats. Death does not reset difficulty (death spiral). GainTokens had a bug ignoring the duration field.
+      - Config changes (B2.1 rebalance): Health 1000, enemy HP 400, dodge mechanic (FixedTypeDuration 550-750), shield combat-encounter-scoped (50-90, consumed when absorbing damage, cleared between encounters), cost_damage 500-700 (HP cost 18-28%), enemy damage 300-420, draw cards 3/3/3.
+      - Key discoveries: Shield is combat-encounter-scoped (cleared between encounters) — with enemy damage (300-420) far exceeding shield per round (50-90), shield is fully consumed each round and does not accumulate. Scouting mutation only scales ~10% of enemy card effects per step while HP fully scales — encounters become HP sponges not death threats. Death does not reset difficulty (death spiral). GainTokens had a bug ignoring the duration field.
       - Infrastructure: Runtime config loading behind `--features simulation`, config parity test, Copilot skills for parallel balance tuning.
       - Branch: `feature/b2.1-combat-simulation-runner`
 
@@ -512,7 +512,7 @@ B2) General config bypass — quick-win optimizations
    B2.1 learnings for future discipline runners:
    - **RNG coupling**: Changing card counts changes the RNG state for ALL subsequent rolls — before/after comparisons across config changes are invalidated. Each config must be evaluated independently with fixed seeds.
    - **Scouting interaction**: Balance tests using the full game loop must handle scouting encounters. The `sample_difficulty_deltas()` rejection sampler can infinite-loop if `(delta_max - delta_min) < (choice_count - 1) × min_separation` — ensure sufficient margin.
-   - **Shield/dodge lifecycle matters more than values**: The balance lever in combat is the relationship between enemy damage and shield grant per round. When enemy damage exceeds shield per round, PersistentCounter shield is fully consumed each round (no accumulation). If shield ever exceeds enemy damage, it accumulates and can make defensive strategies invincible. Token lifecycle is a first-class balance parameter.
+   - **Shield/dodge lifecycle matters more than values**: The balance lever in combat is the relationship between enemy damage and shield grant per round. Shield is combat-encounter-scoped (cleared between encounters). When enemy damage exceeds shield per round, shield is fully consumed each round (no accumulation). If shield ever exceeds enemy damage, it accumulates within the combat and can make defensive strategies invincible. Token lifecycle is a first-class balance parameter.
    - **Runtime config loading**: Use `--features simulation` with `load_library_from_disk()` to test config changes without recompiling (~11s saved per iteration).
 
    Balance test architecture (`tests/balance/`):

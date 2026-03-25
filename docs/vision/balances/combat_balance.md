@@ -23,11 +23,7 @@ Combat balance is measured by **consecutive win streaks** (how many combats a pl
 
 ### Win Rates
 
-Win rates are structurally high (55-95%) because: (1) initial encounters are easy wins, (2) scouting mutation only scales ~10% of enemy card effects per step while HP fully scales, (3) the death spiral is self-limiting. Win rates primarily measure death spiral severity, not per-encounter difficulty.
-
-- Random: 55-80%
-- Greedy: 45-80%
-- Conservative: 70-95% (shield + basic attack is safe but slow)
+Combat balance is measured by **consecutive win streaks**, not per-combat win rates. Win rates can appear structurally high due to easy initial encounters and scouting mechanics, but they do not reflect per-encounter difficulty. Streak length is the authoritative metric for sustained resource management across encounters.
 
 ## Combat Mechanics
 

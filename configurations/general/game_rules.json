@@ -41,7 +41,7 @@
     },
     "scouting": {
         "choice_count": 3,
-        "difficulty_delta_min": 0.1,
+        "difficulty_delta_min": -0.05,
         "difficulty_delta_max": 0.4,
         "difficulty_delta_min_separation": 0.1,
         "mutation_fraction": 0.2,
