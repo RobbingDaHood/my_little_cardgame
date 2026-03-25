@@ -61,6 +61,16 @@ Key combat config parameters in `configurations/combat/cards.json`:
 - Draw card counts (resource cards)
 - Healing/stamina amounts (resource cards)
 
+## Strategy Tier Definitions
+
+- **Simple tier** (random, greedy, conservative): No encounter-state awareness. Picks cards based on value or cost avoidance only. Random selects uniformly; greedy picks highest value; conservative picks lowest non-cost. Target streak range: 3.0–8.5.
+- **Intermediate tier** (tactician): Reads combat phase and card types. Picks dodge for defence (avoids cost), cost_damage for attack (high burst), highest value for resource. Target streak range: 7.5–18.0.
+- **Advanced tier** (future: meta-strategist): Manages resources across encounters. Plans card usage over multiple combats, considers scouting difficulty scaling and HP attrition.
+
+## Baseline Findings (B2.1)
+
+Initial 1000-game simulation (seed 42, 3 strategies × 20 max encounters) showed ~99% combat win rate across all strategies with ~3 encounters per game before stamina depletion. This confirmed combat was significantly too easy relative to targets. Key observations: all strategies performed nearly identically, games terminated due to stamina depletion not death, and combat rebalancing needed to focus on enemy damage scaling, stamina economy, and card differentiation. Subsequent 35-iteration tuning addressed these issues.
+
 ## Tuning Tips
 
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Results from different configs are not directly comparable per-encounter. Only aggregate metrics are meaningful.

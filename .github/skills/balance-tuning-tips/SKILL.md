@@ -9,6 +9,10 @@ Lessons learned from B2.1 combat simulation tuning. Read before starting any bal
 
 For combat-specific balancing guidance, see `docs/vision/balances/combat_balance.md`.
 For scouting-specific balancing guidance, see `docs/vision/balances/scouting_balance.md`.
+For mining-specific balancing guidance, see `docs/vision/balances/mining_balance.md`.
+For herbalism-specific balancing guidance, see `docs/vision/balances/herbalism_balance.md`.
+For woodcutting-specific balancing guidance, see `docs/vision/balances/woodcutting_balance.md`.
+For fishing-specific balancing guidance, see `docs/vision/balances/fishing_balance.md`.
 The tuning phases are defined in the `parallel-balance-tuning` skill.
 
 ## RNG Coupling Warning

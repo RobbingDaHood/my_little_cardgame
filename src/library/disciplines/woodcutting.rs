@@ -218,21 +218,7 @@ impl GameState {
         };
 
         if all_played {
-            // Evaluate pattern and finish as win
-            let (pattern_name, multiplier) = {
-                let woodcutting = match &self.current_encounter {
-                    Some(EncounterState::Woodcutting(w)) => w,
-                    _ => return Err("No active woodcutting encounter".to_string()),
-                };
-                evaluate_best_pattern(
-                    &woodcutting.played_cards,
-                    &self.library.woodcutting_patterns,
-                )
-            };
-            if let Some(EncounterState::Woodcutting(w)) = &mut self.current_encounter {
-                w.pattern_name = Some(pattern_name);
-                w.pattern_multiplier = Some(multiplier);
-            }
+            self.evaluate_and_grant_woodcutting_rewards();
             self.finish_woodcutting_encounter(true);
         } else {
             self.draw_player_woodcutting_card(rng);
@@ -254,8 +240,7 @@ impl GameState {
         })
     }
 
-    /// Finalize a woodcutting encounter: grant pattern-scaled rewards on win.
-    /// Conclude a woodcutting encounter voluntarily: grant rewards if any accumulated.
+    /// Conclude a woodcutting encounter voluntarily: evaluate pattern and grant rewards.
     pub fn conclude_woodcutting_encounter(&mut self) -> Result<(), String> {
         match &self.current_encounter {
             Some(EncounterState::Woodcutting(w)) if w.outcome == EncounterOutcome::Undecided => {
@@ -265,24 +250,35 @@ impl GameState {
             }
             _ => return Err("No active woodcutting encounter to conclude".to_string()),
         }
+        self.evaluate_and_grant_woodcutting_rewards();
         self.finish_woodcutting_encounter(true);
         Ok(())
     }
 
-    fn finish_woodcutting_encounter(&mut self, is_win: bool) {
-        if is_win {
-            let (base_rewards, multiplier) = match &self.current_encounter {
-                Some(EncounterState::Woodcutting(w)) => {
-                    (w.base_rewards.clone(), w.pattern_multiplier.unwrap_or(1.0))
-                }
-                _ => return,
-            };
-            for (token, amount) in &base_rewards {
-                let scaled = (*amount as f64 * multiplier).round() as i64;
-                let entry = self.token_balances.entry(token.clone()).or_insert(0);
-                *entry += scaled;
+    /// Evaluate the best pattern from played cards and grant scaled rewards.
+    fn evaluate_and_grant_woodcutting_rewards(&mut self) {
+        let (pattern_name, multiplier) = match &self.current_encounter {
+            Some(EncounterState::Woodcutting(w)) if !w.played_cards.is_empty() => {
+                evaluate_best_pattern(&w.played_cards, &self.library.woodcutting_patterns)
             }
+            _ => return,
+        };
+        let base_rewards = match &self.current_encounter {
+            Some(EncounterState::Woodcutting(w)) => w.base_rewards.clone(),
+            _ => return,
+        };
+        if let Some(EncounterState::Woodcutting(w)) = &mut self.current_encounter {
+            w.pattern_name = Some(pattern_name);
+            w.pattern_multiplier = Some(multiplier);
         }
+        for (token, amount) in &base_rewards {
+            let scaled = (*amount as f64 * multiplier).round() as i64;
+            let entry = self.token_balances.entry(token.clone()).or_insert(0);
+            *entry += scaled;
+        }
+    }
+
+    fn finish_woodcutting_encounter(&mut self, is_win: bool) {
         let outcome = if is_win {
             EncounterOutcome::PlayerWon
         } else {

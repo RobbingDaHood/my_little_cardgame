@@ -101,27 +101,14 @@ During exploration, use smaller simulations for faster feedback. Only run full s
 ./scripts/worktree-manage.sh remove wt-c
 ```
 
-## Balance Targets (Combat)
+## Balance Targets
 
-Simple strategies (Random, Greedy, Conservative) should all achieve **similar performance** ranges. Tactician variants should always perform better, with minimal overlap between tiers.
+For detailed per-discipline balance targets, see the balance docs:
+- Combat: `docs/vision/balances/combat_balance.md` — streak-based metrics, strategy hierarchy, win rate targets
+- Mining: `docs/vision/balances/mining_balance.md` — yield per durability targets
+- Herbalism: `docs/vision/balances/herbalism_balance.md` — yield per durability targets
+- Woodcutting: `docs/vision/balances/woodcutting_balance.md` — yield per durability targets
+- Fishing: `docs/vision/balances/fishing_balance.md` — yield per durability targets
+- Scouting: `docs/vision/balances/scouting_balance.md` — difficulty delta targets
 
-### Simple Tier
-
-| Strategy | Min Streak | Max Streak |
-|----------|-----------|-----------|
-| Random | 3.5 | 8.0 |
-| Greedy | 3.0 | 7.0 |
-| Conservative | 2.5 | 6.0 |
-
-### Intermediate Tier (Tactician)
-
-Tactician has multiple variations that all perform somewhat equally, but always better than non-tacticians:
-
-| Strategy | Min Streak | Max Streak | Description |
-|----------|-----------|-----------|-------------|
-| Tactician-greedy | 8.0 | 18.0 | Enemy-aware, plays the most damaging card |
-| Tactician-conservative | 8.0 | 18.0 | Enemy-aware, plays the most defensive card needed |
-
-The maximum of the simple tier may equal the minimum of the Tactician tier, but no more overlap than that.
-
-All strategies should average ≥3.0 rounds per encounter.
+**General principle:** Combat balance uses consecutive win streaks; gathering discipline balance uses yield per durability. All gathering disciplines should produce roughly the same yield value per durability. Simple approaches should always be less rewarding than tactical approaches.
