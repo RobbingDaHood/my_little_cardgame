@@ -8,7 +8,7 @@ Mining balance is measured by **yield per durability** — how much Ore a player
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **X–Y yield tokens per Z total durability spent**. These targets are tuned in the balance simulation step (see roadmap B2.4) and should be identical across disciplines to ensure no single gathering path dominates.
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.4) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
 ### Strategy Hierarchy (yield per durability)
 

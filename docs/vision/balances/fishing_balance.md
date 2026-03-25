@@ -8,7 +8,7 @@ Fishing balance is measured by **yield per durability** — how many Fish tokens
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **X–Y yield tokens per Z total durability spent**. These targets are tuned in the balance simulation step (see roadmap B2.7) and should be identical across disciplines to ensure no single gathering path dominates.
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.7) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
 ### Strategy Hierarchy (yield per durability)
 
@@ -48,8 +48,7 @@ Fishing cards can have **multiple values**. When a card is played, the system au
 ### Win and Loss Conditions
 
 - **Win**: `turns_won ≥ wins_required` within `max_turns` → base Fish token reward × FishAmount
-- **Loss**: Max turns exhausted without enough wins, all hand cards unpayable
-- **Durability depletion**: If FishingDurability ≤ 0, the encounter ends immediately — rewards are still granted (FishAmount-scaled) before ending as a loss. Stamina cost still applies.
+- **Loss**: Max turns exhausted without enough wins, FishingDurability ≤ 0, or all hand cards unpayable
 
 ### Encounter-Scoped Tokens
 
@@ -61,7 +60,7 @@ Fishing cards can have **multiple values**. When a card is played, the system au
 
 ### FishAmount as Reward Multiplier
 
-FishAmount starts at a baseline value and can be modified by card effects. When the encounter ends with a win (or on durability depletion), the base reward is multiplied by the current FishAmount value. This means FishAmount is a **reward optimisation lever**, not a win-counting shortcut. Cards that boost FishAmount trade immediate value-play for higher payoff on the final reward.
+FishAmount starts at a baseline value and can be modified by card effects. When the encounter ends with a win, the base reward is multiplied by the current FishAmount value. This means FishAmount is a **reward optimisation lever**, not a win-counting shortcut. Cards that boost FishAmount trade immediate value-play for higher payoff on the final reward.
 
 ## Fish Deck Composition
 
@@ -69,7 +68,7 @@ The fish deck contains cards with a weighted distribution across several value t
 
 ## Token Lifecycle in Fishing
 
-- **FishingDurability**: Persistent counter. Decreased by post-play costs. Triggers encounter end (with rewards) if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
+- **FishingDurability**: Persistent counter. Decreased by post-play costs. Triggers encounter loss if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
 - **Stamina**: Persistent counter. Pre-play cost on advanced cards. Persists across encounters; main recovery comes from resting.
 - **Health**: Persistent counter. Pre-play cost on high-tier cards. Persists across encounters.
 - **FishingRangeMin/FishingRangeMax**: Encounter-scoped. Modified by range-modifier effects on player cards. Resets each encounter.
@@ -100,7 +99,7 @@ Key fishing config parameters in `configurations/fishing/cards.json`:
 - **Fish deck distribution determines base difficulty**: More low-value fish makes the encounter easier because more player cards will land in range. More high-value fish forces players to use expensive high-tier cards or rely on best-matching multi-value selection.
 - **Three tactical levers (not just one)**: Players optimise through (1) **best-matching value selection** — multi-value cards give flexibility to match different fish, (2) **range management** — expanding the valid range makes subsequent turns easier, and (3) **FishAmount boosting** — trading turns for higher reward scaling. All three levers should contribute meaningfully to yield-per-durability.
 - **FishAmount as reward multiplier**: Cards that boost FishAmount increase the final reward. Balance FishAmount modifiers carefully — too accessible and they trivialize the encounter; too rare and the lever becomes irrelevant.
-- **Dual loss conditions**: Both turn exhaustion and durability depletion can end an encounter. Durability depletion still grants rewards (FishAmount-scaled), so running out of durability is costly (encounter ends as a loss on record) but not catastrophic (you keep what you earned).
+- **Dual loss conditions**: Both turn exhaustion and durability depletion can end an encounter as a loss. The balance between max_turns and durability cost per turn determines which is the binding constraint.
 - **Durability budget**: Total durability across all fishing encounters bounds the session. The per-card durability cost relative to other disciplines determines how many encounters fishing supports.
 - **Tiered balance enforcement**: Tactical play (combining range management, best-matching value selection, and FishAmount optimization) must produce more yield per durability than random value selection. If strategies converge, increase the impact of range modifiers or add cards with stronger multi-lever trade-offs.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.

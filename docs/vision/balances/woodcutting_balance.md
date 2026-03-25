@@ -8,7 +8,7 @@ Woodcutting balance is measured by **yield per durability** — how much Lumber 
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **X–Y yield tokens per Z total durability spent**. These targets are tuned in the balance simulation step (see roadmap B2.6) and should be identical across disciplines to ensure no single gathering path dominates.
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.6) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
 ### Strategy Hierarchy (yield per durability)
 
@@ -68,11 +68,11 @@ The player may stop playing cards before reaching max_plays. This is **not an ab
 
 ### Durability Depletion
 
-If WoodcuttingDurability reaches 0 during play, the encounter ends immediately as a loss, but **rewards are still granted** — the pattern is evaluated with cards played so far and the scaled reward is applied. This means running out of durability is costly on the record but the player keeps what they earned.
+If WoodcuttingDurability reaches 0 during play, the encounter ends immediately as a loss with no rewards granted.
 
 ## Token Lifecycle in Woodcutting
 
-- **WoodcuttingDurability**: Persistent counter. Decreased by post-play costs. Triggers encounter end (with rewards, pattern evaluated) if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
+- **WoodcuttingDurability**: Persistent counter. Decreased by post-play costs. Triggers encounter loss if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
 - **Stamina**: Persistent counter. Pre-play cost on advanced chops. Persists across encounters; main recovery comes from resting.
 - **Health**: Persistent counter. Pre-play cost on high-tier cards. Rare but significant. Persists across encounters.
 
@@ -95,7 +95,6 @@ Key woodcutting config parameters in `configurations/woodcutting/cards.json`:
 - **sqrt inverse-probability scaling**: Current multipliers use sqrt of inverse probability. This prevents rare patterns from being disproportionately valuable while still rewarding them meaningfully. Adjusting the scaling function (e.g., log vs sqrt vs linear) changes the reward curve shape.
 - **Early stop as tactical lever**: If early stop is too safe (stop after a few cards with a pair = good yield), tactical play loses value. If early stop is too punishing (partial hands always get low multipliers), players are forced to play all cards regardless. The balance point is where stopping mid-encounter with a good pattern is viable but playing more for a better pattern is rewarded.
 - **Uniform chop value range**: All chop types produce values from the same range, so pattern probability depends on card selection and cost management, not inherent value tiers. The overlap of a shared range means pairs are achievable from any type; straights require spreading across the range.
-- **Durability depletion grants rewards**: Running out of durability still triggers pattern evaluation and reward granting. This makes durability management an efficiency concern (fewer remaining encounters) rather than a catastrophic-loss concern.
 - **Durability budget**: Total durability across all woodcutting encounters bounds the session. High-cost cards eat into the durability budget faster, creating tension between playing expensive cards for better patterns vs cheap cards for more encounters.
 - **Tiered balance enforcement**: Tactical pattern-building (recognizing when to aim for a straight vs a flush, timing early stop) must produce higher yield per durability than random chop selection. If strategies converge, increase multiplier spread or adjust cost differentials between chop types.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
