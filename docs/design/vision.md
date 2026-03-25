@@ -204,6 +204,18 @@ Additional rules:
 - Cost system extends to gathering encounters (Mining, Woodcutting stamina costs) via LoseTokens effects in the ConcreteEffect model.
 - Rest card material costs (Fish/Plant) use the same percentage-of-gain pipeline.
 
+### Card Abundance Tiers
+
+Across all disciplines, starting decks follow a consistent abundance pattern:
+
+1. **Free cards** (no cost) are the most abundant in every deck (50-60%). They provide basic benefit and ensure the player always has safe plays available.
+2. **Stamina-cost cards** are the second most common tier (20-30%). They are not rare — players should regularly choose between free and stamina-cost options.
+3. **Health-cost cards** are rare (5-10%). They provide the greatest benefit but sacrifice the player's most precious resource.
+
+**Value hierarchy invariant:** `free_max < stamina_cost_min < health_cost_min` — cost cards always outperform free cards in raw effect value, making them worth playing when affordable. Health-cost cards in combat must have high enough impact to justify the sacrifice most times.
+
+**Recovery during encounters:** Health and stamina recovery from non-rest encounter resource cards is supplemental and minor. Primary health and stamina restoration comes from rest encounters. Combat resource cards provide small healing (50-150 HP) and minor stamina gains (50-150) — enough for tactical flexibility but not enough to replace dedicated resting.
+
 ### Gathering Card Effect Model (Library-Referenced)
 
 All gathering disciplines now use `effects: Vec<ConcreteEffect>` referencing PlayerCardEffect library templates — the same two-layer architecture as Combat and Rest. Costs are expressed as `LoseTokens` effects and gains as `GainTokens` effects. The former `costs: Vec<TokenAmount>` / `gains: Vec<TokenAmount>` fields and discipline-specific effect structs (`MiningCardEffect`, `CraftingCardEffect`, `HerbalismCardEffect`, `WoodcuttingCardEffect`, `FishingCardEffect`) have been removed.

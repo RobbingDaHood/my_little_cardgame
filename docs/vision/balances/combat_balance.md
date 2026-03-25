@@ -50,6 +50,69 @@ In combat, resource cards that draw new cards are the primary mechanism to avoid
 
 Moderate healing and stamina recovery cards exist in the resource deck, allowing small amounts of recovery during combat. However, the main healing and stamina gain should come from resting encounters. Combat resource cards provide supplemental recovery only.
 
+## Card Cost Distribution Philosophy
+
+All combat decks follow a three-tier cost distribution that creates a risk/reward spectrum:
+
+### Abundance Tiers
+
+1. **Free cards** (no cost) — the most abundant in every deck (50-60%). These are the bread-and-butter plays with moderate effect values.
+2. **Stamina-cost cards** — the second most common tier (20-30%). These cost Stamina but always outperform free cards in raw effect value.
+3. **Health-cost cards** — rare but devastating (5-10%). These sacrifice Health but deal enough damage to justify the cost most times.
+
+### Card Tier Value Hierarchy
+
+For each deck type, effect values follow a strict ordering:
+
+```
+free_max < stamina_cost_min < health_cost_min
+```
+
+This ensures that cost cards are always worth playing when affordable. The "crit" free cards (natural high rolls from the same CardEffect template) can never exceed cost card minimums.
+
+Within the free tier, "moderate" and "crit" cards share the same CardEffect template — the variance comes from independent per-copy rolls across the template's min-max range. Having many "main" copies and fewer "crit" copies documents design intent without creating separate mechanics.
+
+### Current Combat Card Distribution
+
+**Attack Deck (50 cards):**
+
+| Card Type | Effect | Range | Cost | Count | % |
+|-----------|--------|-------|------|-------|---|
+| Main free | deal_damage | 200–400 | None | 28 | 56% |
+| Crit free | deal_damage | 200–400 | None | 6 | 12% |
+| Stamina-cost | stamina_damage | 420–550 | Stamina 15-20% | 11 | 22% |
+| Health-cost | health_damage | 500–750 | Health 15-25% | 5 | 10% |
+
+**Defence Deck (50 cards, 50/50 shield/dodge):**
+
+| Card Type | Effect | Range | Cost | Count | % |
+|-----------|--------|-------|------|-------|---|
+| Shield moderate | grant_shield | 80–230 | None | 13 | 26% |
+| Shield crit | grant_shield | 80–230 | None | 5 | 10% |
+| Shield stamina | stamina_shield | 240–320 | Stamina 15-20% | 7 | 14% |
+| Dodge moderate | grant_dodge | 350–650 | None | 11 | 22% |
+| Dodge crit | grant_dodge | 350–650 | None | 4 | 8% |
+| Dodge stamina | stamina_dodge | 670–900 | Stamina 15-20% | 10 | 20% |
+
+**Resource Deck (50 cards, split focus):**
+
+| Card Type | Effects | Count | % |
+|-----------|---------|-------|---|
+| Draw-only | draw_cards (3/3/3) | 22 | 44% |
+| Stamina-only | minor_stamina (50-150) | 10 | 20% |
+| Heal-only | heal_health (50-150) | 5 | 10% |
+| Stamina + Draw | minor_stamina + draw_cards | 7 | 14% |
+| Heal + Draw | heal_health + draw_cards | 3 | 6% |
+| Insight | insight (1-5) | 3 | 6% |
+
+**Enemy Decks (50 cards each):**
+
+| Deck | Effect | Range | Deck/Hand |
+|------|--------|-------|-----------|
+| Attack | enemy_damage | 300–420 | 40/10 |
+| Defence | enemy_shield | 100–200 | 40/10 |
+| Resource | enemy_stamina (80-120) + enemy_draw (1/1/1) | — | 40/10 |
+
 ## Config Parameters
 
 Key combat config parameters in `configurations/combat/cards.json`:
@@ -57,9 +120,9 @@ Key combat config parameters in `configurations/combat/cards.json`:
 - Dodge values (min/max on defence cards)
 - Shield values (min/max on defence cards)
 - Damage values (min/max on attack cards)
-- Cost-damage values (attack cards with HP cost)
+- Cost-damage values (attack cards with stamina or HP cost)
 - Draw card counts (resource cards)
-- Healing/stamina amounts (resource cards)
+- Healing/stamina amounts (resource cards, minor only — primary recovery from rest)
 
 ## Strategy Tier Definitions
 

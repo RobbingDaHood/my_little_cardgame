@@ -493,6 +493,16 @@ B2) General config bypass — quick-win optimizations
       - Infrastructure: Runtime config loading behind `--features simulation`, config parity test, Copilot skills for parallel balance tuning.
       - Branch: `feature/b2.1-combat-simulation-runner`
 
+   B2.1.1) Combat card diversity and cost card philosophy ✅ COMPLETE
+      - Goal: Fix bugs in enemy cards (zero shield, no resource draw) and redesign combat decks for strategic diversity with a three-tier cost system.
+      - Bug fixes: enemy_shield cap 0/0 → 100-200 (enemy was getting zero shield), enemy_draw resource 0 → 1 (enemy running out of cards).
+      - Attack deck: 4 card types — free main (56%), free crit (12%), stamina-cost (22%), health-cost (10%). Free and crit use same CardEffect for natural roll variance. Strict `free_max < stamina_min` ordering.
+      - Defence deck: 50/50 shield/dodge split, each with 3 tiers (moderate, stamina-cost, crit). Replaced health-cost dodge with stamina-cost dodge.
+      - Resource deck: Split into focused cards (draw-only 44%, stamina-only 20%, heal-only 10%, combos 20%, insight 6%). Minor recovery values (50-150) — primary recovery from rest.
+      - All decks normalized to 50 cards (player and enemy).
+      - Documentation: Added card abundance tiers to vision.md and combat_balance.md.
+      - Closes: #53, #54
+
    B2.2) Scouting difficulty reset on death
       - Goal: Implement death-difficulty reduction — after player death, scouting generates encounters -25% to -5% easier than the killing encounter's difficulty. This prevents the death spiral from making the game unwinnable.
       - Description: Add configurable `death_difficulty_reduction_min` and `death_difficulty_reduction_max` to scouting rules. When a player dies, the next scouting phase uses these reduced deltas.
