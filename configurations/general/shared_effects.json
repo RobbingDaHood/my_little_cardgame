@@ -7,8 +7,8 @@
             "kind": {
                 "effect_type": "LoseTokens",
                 "token_type": "Health",
-                "min": 300,
-                "max": 450,
+                "min": 200,
+                "max": 400,
                 "costs": [],
                 "duration": "PersistentCounter"
             },
@@ -30,9 +30,9 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Shield",
-                "cap_min": 120,
-                "cap_max": 200,
-                "gain_min_percent": 100,
+                "cap_min": 30,
+                "cap_max": 80,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
@@ -57,7 +57,7 @@
                 "token_type": "Stamina",
                 "cap_min": 100,
                 "cap_max": 200,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"

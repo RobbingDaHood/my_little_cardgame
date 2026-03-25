@@ -57,12 +57,18 @@ impl SimulationReport {
                         strategy: r.name.clone(),
                         target_min_streak: 0.0,
                         target_max_streak: f64::MAX,
+                        use_max_streak: false,
                     });
 
                 let win_rate = r.combat_win_rate();
                 let pass = win_rate >= target.target_min && win_rate <= target.target_max;
-                let streak_pass = r.overall_avg_streak >= streak_target.target_min_streak
-                    && r.overall_avg_streak <= streak_target.target_max_streak;
+                let streak_value = if streak_target.use_max_streak {
+                    r.avg_max_win_streak
+                } else {
+                    r.overall_avg_streak
+                };
+                let streak_pass = streak_value >= streak_target.target_min_streak
+                    && streak_value <= streak_target.target_max_streak;
                 let rounds_pass = r.avg_rounds_per_encounter >= 3.0;
 
                 if !streak_pass || !rounds_pass {

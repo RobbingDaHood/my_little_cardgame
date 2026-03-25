@@ -24,9 +24,9 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Shield",
-                "cap_min": 0,
-                "cap_max": 0,
-                "gain_min_percent": 100,
+                "cap_min": 30,
+                "cap_max": 80,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
@@ -45,7 +45,7 @@
                 "token_type": "Stamina",
                 "cap_min": 80,
                 "cap_max": 120,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
@@ -62,7 +62,7 @@
                 "effect_type": "DrawCards",
                 "attack": 1,
                 "defence": 1,
-                "resource": 0
+                "resource": 1
             },
             "valid_disciplines": [
                 "Combat"
@@ -76,9 +76,9 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Dodge",
-                "cap_min": 550,
-                "cap_max": 750,
-                "gain_min_percent": 100,
+                "cap_min": 200,
+                "cap_max": 450,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": {
@@ -96,21 +96,22 @@
         },
         {
             "type": "effect",
-            "name": "cost_dodge",
+            "name": "stamina_dodge",
             "owner": "Player",
             "kind": {
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Dodge",
-                "cap_min": 550,
-                "cap_max": 750,
-                "gain_min_percent": 100,
+                "cap_min": 2000,
+                "cap_max": 3000,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [
                     {
-                        "token_type": "Health",
-                        "min_percent": 18,
-                        "max_percent": 28
+                        "token_type": "Stamina",
+                        "min_percent": 20,
+                        "max_percent": 50,
+                        "is_absolute": true
                     }
                 ],
                 "duration": {
@@ -127,145 +128,34 @@
             ]
         },
         {
-            "type": "player_card",
-            "card_kind": "Attack",
-            "effect_refs": [
-                "shared:deal_damage"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 33,
-                "hand": 3,
-                "discard": 0
+            "type": "effect",
+            "name": "stamina_shield",
+            "owner": "Player",
+            "kind": {
+                "effect_type": "GainTokens",
+                "target": "OnSelf",
+                "token_type": "Shield",
+                "cap_min": 1200,
+                "cap_max": 2000,
+                "gain_min_percent": 80,
+                "gain_max_percent": 100,
+                "costs": [
+                    {
+                        "token_type": "Stamina",
+                        "min_percent": 20,
+                        "max_percent": 50,
+                        "is_absolute": true
+                    }
+                ],
+                "duration": "PersistentCounter"
             },
             "valid_disciplines": [
                 "Combat"
             ]
-        },
-        {
-            "type": "player_card",
-            "card_kind": "Defence",
-            "effect_refs": [
-                "shared:grant_shield"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 10,
-                "hand": 2,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "player_card",
-            "card_kind": "Defence",
-            "effect_refs": [
-                "combat:grant_dodge"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 15,
-                "hand": 2,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "player_card",
-            "card_kind": "Defence",
-            "effect_refs": [
-                "combat:cost_dodge"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 10,
-                "hand": 1,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "player_card",
-            "card_kind": "Resource",
-            "effect_refs": [
-                "shared:grant_stamina",
-                "shared:draw_cards"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 43,
-                "hand": 5,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "encounter",
-            "encounter_def": {
-                "encounter_type": "Combat",
-                "combatant": {
-                    "initial_tokens": {
-                        "Health": 400,
-                        "MaxHealth": 400
-                    },
-                    "attack_deck": [
-                        {
-                            "effect_refs": [
-                                "combat:enemy_damage"
-                            ],
-                            "counts": {
-                                "deck": 20,
-                                "hand": 4,
-                                "discard": 0
-                            }
-                        }
-                    ],
-                    "defence_deck": [
-                        {
-                            "effect_refs": [
-                                "combat:enemy_shield"
-                            ],
-                            "counts": {
-                                "deck": 20,
-                                "hand": 4,
-                                "discard": 0
-                            }
-                        }
-                    ],
-                    "resource_deck": [
-                        {
-                            "effect_refs": [
-                                "combat:enemy_stamina",
-                                "combat:enemy_draw"
-                            ],
-                            "counts": {
-                                "deck": 0,
-                                "hand": 8,
-                                "discard": 0
-                            }
-                        }
-                    ]
-                }
-            },
-            "counts": {
-                "library": 1,
-                "deck": 0,
-                "hand": 4,
-                "discard": 0
-            },
-            "valid_disciplines": []
         },
         {
             "type": "effect",
-            "name": "cost_damage",
+            "name": "stamina_damage",
             "owner": "Player",
             "kind": {
                 "effect_type": "LoseTokens",
@@ -275,8 +165,9 @@
                 "costs": [
                     {
                         "token_type": "Stamina",
-                        "min_percent": 15,
-                        "max_percent": 25
+                        "min_percent": 20,
+                        "max_percent": 50,
+                        "is_absolute": true
                     }
                 ],
                 "duration": "PersistentCounter"
@@ -286,89 +177,20 @@
             ]
         },
         {
-            "type": "player_card",
-            "card_kind": "Attack",
-            "effect_refs": [
-                "combat:cost_damage"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 10,
-                "hand": 2,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "player_card",
-            "card_kind": "Resource",
-            "effect_refs": [
-                "shared:insight"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 2,
-                "hand": 0,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
             "type": "effect",
-            "name": "stamina_start_damage",
+            "name": "health_damage",
             "owner": "Player",
             "kind": {
                 "effect_type": "LoseTokens",
                 "token_type": "Health",
-                "min": 200,
-                "max": 300,
-                "costs": [
-                    {
-                        "token_type": "Stamina",
-                        "min_percent": 15,
-                        "max_percent": 25
-                    }
-                ],
-                "duration": "PersistentCounter"
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "player_card",
-            "card_kind": "Attack",
-            "effect_refs": [
-                "combat:stamina_start_damage"
-            ],
-            "counts": {
-                "library": 1,
-                "deck": 1,
-                "hand": 0,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "effect",
-            "name": "health_start_damage",
-            "owner": "Player",
-            "kind": {
-                "effect_type": "LoseTokens",
-                "token_type": "Health",
-                "min": 250,
-                "max": 350,
+                "min": 500,
+                "max": 750,
                 "costs": [
                     {
                         "token_type": "Health",
-                        "min_percent": 10,
-                        "max_percent": 20
+                        "min_percent": 30,
+                        "max_percent": 75,
+                        "is_absolute": true
                     }
                 ],
                 "duration": "PersistentCounter"
@@ -378,16 +200,19 @@
             ]
         },
         {
-            "type": "player_card",
-            "card_kind": "Attack",
-            "effect_refs": [
-                "combat:health_start_damage"
-            ],
-            "counts": {
-                "library": 1,
-                "deck": 1,
-                "hand": 0,
-                "discard": 0
+            "type": "effect",
+            "name": "minor_stamina",
+            "owner": "Player",
+            "kind": {
+                "effect_type": "GainTokens",
+                "target": "OnSelf",
+                "token_type": "Stamina",
+                "cap_min": 200,
+                "cap_max": 400,
+                "gain_min_percent": 80,
+                "gain_max_percent": 100,
+                "costs": [],
+                "duration": "PersistentCounter"
             },
             "valid_disciplines": [
                 "Combat"
@@ -403,10 +228,238 @@
                 "token_type": "Health",
                 "cap_min": 100,
                 "cap_max": 250,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+
+        {
+            "type": "player_card",
+            "card_kind": "Attack",
+            "effect_refs": [
+                "shared:deal_damage"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 25,
+                "hand": 3,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Attack",
+            "effect_refs": [
+                "shared:deal_damage"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 5,
+                "hand": 1,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Attack",
+            "effect_refs": [
+                "combat:stamina_damage"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 9,
+                "hand": 2,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Attack",
+            "effect_refs": [
+                "combat:health_damage"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 4,
+                "hand": 1,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+
+        {
+            "type": "player_card",
+            "card_kind": "Defence",
+            "effect_refs": [
+                "shared:grant_shield"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 8,
+                "hand": 2,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Defence",
+            "effect_refs": [
+                "shared:grant_shield"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 2,
+                "hand": 1,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Defence",
+            "effect_refs": [
+                "combat:stamina_shield"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 8,
+                "hand": 4,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Defence",
+            "effect_refs": [
+                "combat:grant_dodge"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 6,
+                "hand": 2,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Defence",
+            "effect_refs": [
+                "combat:grant_dodge"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 1,
+                "hand": 1,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Defence",
+            "effect_refs": [
+                "combat:stamina_dodge"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 10,
+                "hand": 5,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+
+        {
+            "type": "player_card",
+            "card_kind": "Resource",
+            "effect_refs": [
+                "shared:draw_cards"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 18,
+                "hand": 4,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Resource",
+            "effect_refs": [
+                "combat:minor_stamina"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 8,
+                "hand": 2,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Resource",
+            "effect_refs": [
+                "combat:heal_health"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 4,
+                "hand": 1,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Resource",
+            "effect_refs": [
+                "combat:minor_stamina",
+                "shared:draw_cards"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 5,
+                "hand": 2,
+                "discard": 0
             },
             "valid_disciplines": [
                 "Combat"
@@ -421,13 +474,86 @@
             ],
             "counts": {
                 "library": 0,
-                "deck": 6,
+                "deck": 2,
                 "hand": 1,
                 "discard": 0
             },
             "valid_disciplines": [
                 "Combat"
             ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Resource",
+            "effect_refs": [
+                "shared:insight"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 2,
+                "hand": 1,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+
+        {
+            "type": "encounter",
+            "encounter_def": {
+                "encounter_type": "Combat",
+                "combatant": {
+                    "initial_tokens": {
+                        "Health": 400,
+                        "MaxHealth": 400
+                    },
+                    "attack_deck": [
+                        {
+                            "effect_refs": [
+                                "combat:enemy_damage"
+                            ],
+                            "counts": {
+                                "deck": 40,
+                                "hand": 10,
+                                "discard": 0
+                            }
+                        }
+                    ],
+                    "defence_deck": [
+                        {
+                            "effect_refs": [
+                                "combat:enemy_shield"
+                            ],
+                            "counts": {
+                                "deck": 40,
+                                "hand": 10,
+                                "discard": 0
+                            }
+                        }
+                    ],
+                    "resource_deck": [
+                        {
+                            "effect_refs": [
+                                "combat:enemy_stamina",
+                                "combat:enemy_draw"
+                            ],
+                            "counts": {
+                                "deck": 40,
+                                "hand": 10,
+                                "discard": 0
+                            }
+                        }
+                    ]
+                }
+            },
+            "counts": {
+                "library": 1,
+                "deck": 0,
+                "hand": 4,
+                "discard": 0
+            },
+            "valid_disciplines": []
         }
     ]
 }

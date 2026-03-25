@@ -2,7 +2,10 @@ use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
 use serde_json::Value;
 
-use crate::combat::driver::{find_combat_encounter, play_combat_encounter};
+use crate::combat::driver::{
+    find_combat_encounter, get_combat_encounter_choices_filtered, get_combat_encounter_ids,
+    play_combat_encounter,
+};
 use crate::strategies::{GameSnapshot, Strategy};
 
 /// Results from a single game session.
@@ -61,6 +64,9 @@ impl GameDriver {
         let mut current_streak: u32 = 0;
 
         for encounter_num in 0..self.max_encounters {
+            // Record encounter IDs before scouting generates new ones
+            let pre_scouting_ids = get_combat_encounter_ids(&client);
+
             if !self.advance_to_encounter_pick(&client, strategy) {
                 // Game is stuck — restart to continue simulation (counts as death/streak break).
                 let new_game = serde_json::json!({"action_type": "NewGame", "seed": seed.wrapping_add(encounter_num as u64 * 1000)});
@@ -74,7 +80,19 @@ impl GameDriver {
                 continue;
             }
 
-            let combat_enc_id = find_combat_encounter(&client);
+            // Get scouting-generated encounters (exclude pre-scouting ones)
+            let scouting_encounters =
+                get_combat_encounter_choices_filtered(&client, &pre_scouting_ids);
+            let combat_enc_id = if !scouting_encounters.is_empty() {
+                let snapshot = get_snapshot(&client);
+                let chosen = strategy.choose_action(&scouting_encounters, &snapshot);
+                chosen
+                    .get("card_id")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize)
+            } else {
+                find_combat_encounter(&client)
+            };
             let combat_enc_id = match combat_enc_id {
                 Some(id) => id,
                 None => {

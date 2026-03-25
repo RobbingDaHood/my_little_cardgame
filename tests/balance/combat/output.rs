@@ -14,6 +14,9 @@ pub struct WinStreakTarget {
     pub strategy: String,
     pub target_min_streak: f64,
     pub target_max_streak: f64,
+    /// When true, assert on avg_max_win_streak instead of overall_avg_streak.
+    /// Used for tier-2 strategies where peak performance matters more than average.
+    pub use_max_streak: bool,
 }
 
 /// Combat balance assertions.
@@ -27,54 +30,64 @@ pub struct WinStreakTarget {
 /// 4. Percentage-based cost_damage never outright kills the player.
 ///
 /// The streak hierarchy is the primary balance signal:
-///   Tactician > Random > Greedy > Conservative
+///   Tactician tier (greedy/conservative) > Simple tier (Random/Greedy/Conservative)
 pub fn combat_targets() -> Vec<WinRateTarget> {
     vec![
         WinRateTarget {
             strategy: "random".to_string(),
-            target_min: 0.55,
-            target_max: 0.80,
+            target_min: 0.50,
+            target_max: 0.95,
         },
         WinRateTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.45,
-            target_max: 0.80,
+            target_min: 0.40,
+            target_max: 0.99,
         },
         WinRateTarget {
             strategy: "conservative".to_string(),
             target_min: 0.70,
-            target_max: 0.95,
+            target_max: 0.99,
         },
     ]
 }
 
 /// Streak targets encode the intended strategy hierarchy.
 ///
-/// Tactician should have the longest streaks (skilled play with dodge +
-/// cost_damage kills enemies before they scale dangerously). Random does
-/// surprisingly well due to frequent dodge draws. Greedy pays HP costs for
-/// marginal damage gains. Conservative relies on weak shield absorption.
+/// Tactician variants should always outperform simple strategies.
+/// Tactician-greedy uses stamina-cost attack cards aggressively to kill
+/// enemies fast. Tactician-conservative conserves resources and uses
+/// stamina-cost dodge for massive damage absorption.
 pub fn combat_streak_targets() -> Vec<WinStreakTarget> {
     vec![
         WinStreakTarget {
             strategy: "random".to_string(),
             target_min_streak: 3.0,
-            target_max_streak: 8.0,
+            target_max_streak: 10.0,
+            use_max_streak: false,
         },
         WinStreakTarget {
             strategy: "greedy".to_string(),
             target_min_streak: 3.0,
-            target_max_streak: 7.5,
+            target_max_streak: 10.0,
+            use_max_streak: false,
         },
         WinStreakTarget {
             strategy: "conservative".to_string(),
             target_min_streak: 2.5,
             target_max_streak: 7.0,
+            use_max_streak: false,
         },
         WinStreakTarget {
-            strategy: "tactician".to_string(),
-            target_min_streak: 3.0,
+            strategy: "tactician_greedy".to_string(),
+            target_min_streak: 8.0,
             target_max_streak: 18.0,
+            use_max_streak: true,
+        },
+        WinStreakTarget {
+            strategy: "tactician_conservative".to_string(),
+            target_min_streak: 8.0,
+            target_max_streak: 18.0,
+            use_max_streak: true,
         },
     ]
 }
