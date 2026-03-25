@@ -1,0 +1,16 @@
+{
+    "base_insight_cost": 100,
+    "insight_cost_multiplier": 2,
+    "scale_factor_base": 1.5,
+    "default_combat_enemy_hp": 400,
+    "default_woodcutting_max_plays_base": 8,
+    "default_woodcutting_max_plays_min": 3,
+    "default_woodcutting_lumber_reward": 50,
+    "default_woodcutting_insight_reward": 10,
+    "default_fishing_valid_range_min": -60,
+    "default_fishing_valid_range_max": 60,
+    "default_fishing_max_turns": 10,
+    "default_fishing_win_turns_needed": 6,
+    "effect_scaling_factor": 1.5,
+    "draw_cards_attack_increment": 1
+}
