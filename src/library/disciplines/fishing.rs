@@ -95,8 +95,6 @@ impl GameState {
         }
 
         if durability_depleted {
-            // Grant rewards even on durability depletion
-            self.grant_fishing_rewards();
             self.finish_fishing_encounter(false);
             return Ok(());
         }

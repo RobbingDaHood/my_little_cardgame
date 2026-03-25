@@ -196,8 +196,6 @@ impl GameState {
         }
 
         if durability_depleted {
-            // Evaluate pattern with cards played so far and grant rewards
-            self.evaluate_and_grant_woodcutting_rewards();
             self.finish_woodcutting_encounter(false);
             return Ok(());
         }

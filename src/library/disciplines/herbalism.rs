@@ -81,7 +81,6 @@ impl GameState {
         }
 
         if durability_depleted {
-            self.grant_herbalism_rewards();
             self.finish_herbalism_encounter(false);
             return Ok(());
         }
