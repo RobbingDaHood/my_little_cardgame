@@ -13,7 +13,7 @@ Located in `configurations/general/game_rules.json` under `"scouting"`:
 | Parameter | Description | Current Value |
 |-----------|-------------|---------------|
 | `choice_count` | Number of scouting choices offered | 3 |
-| `difficulty_delta_min` | Minimum difficulty delta | 0.1 |
+| `difficulty_delta_min` | Minimum difficulty delta | -0.05 |
 | `difficulty_delta_max` | Maximum difficulty delta | 0.4 |
 | `difficulty_delta_min_separation` | Minimum separation between deltas | 0.1 |
 | `mutation_fraction` | Fraction of deck cards mutated | 0.2 |
@@ -29,7 +29,7 @@ When a player dies, the next scouting phase generates encounters that are easier
 ### Known Issues and Pitfalls
 
 - **Infinite loop risk**: `difficulty_delta_min_separation` must be less than the total delta range (`delta_max - delta_min`). A zero-width range causes infinite loops in encounter generation. Ensure `(delta_max - delta_min) > (choice_count - 1) × min_separation` with margin.
-- **Current values**: delta_min=0.1, delta_max=0.4, min_separation=0.1
+- **Current values**: delta_min=-0.05, delta_max=0.4, min_separation=0.1
 
 ## Mutation Asymmetry
 
