@@ -31,17 +31,26 @@ When a player dies, the next scouting phase generates encounters that are easier
 - **Infinite loop risk**: `difficulty_delta_min_separation` must be less than the total delta range (`delta_max - delta_min`). A zero-width range causes infinite loops in encounter generation. Ensure `(delta_max - delta_min) > (choice_count - 1) × min_separation` with margin.
 - **Current values**: delta_min=-0.05, delta_max=0.4, min_separation=0.1
 
-## Mutation Asymmetry
+## Mutation System (Current: Simple Approach)
 
-The current scouting mutation system creates an asymmetry between token scaling and card effect scaling:
+The current scouting mutation system is intentionally simple. It creates an asymmetry between token scaling and card effect scaling:
 
 - **Token scaling (initial_tokens)**: Scales 100% with the difficulty factor. Enemy HP, starting resources, etc. all scale proportionally.
 - **Card effect scaling**: Only ~10% of cards are affected per step (`mutation_fraction × scale_probability = 0.20 × 0.50 = 10%`). This means enemy damage, shield, and other card effects lag behind HP scaling.
 
-This asymmetry creates "HP sponge" encounters at high difficulty — long fights with moderate danger. Whether this is intentional (war of attrition feel) or should be changed to proportional scaling is a future design decision.
+This asymmetry creates "HP sponge" encounters at high difficulty — long fights with moderate danger. The current system works as a baseline but does not fully capture encounter difficulty.
 
-### Future Work
+### Future Vision: Per-Encounter Difficulty Adjustment
 
-- **Proportional mutation scaling**: Consider increasing `mutation_fraction` and `scale_probability` so that enemy card effects scale more proportionally with difficulty. This would make high-difficulty encounters feel harder rather than just longer.
+The goal is to evolve scouting so that all aspects of an encounter are considered when calculating the difficulty of new encounters. The future approach for each scouted encounter:
+
+1. **Roll card mutations** within a ~10-20% limit so the new encounter still feels familiar to the player.
+2. **Roll the difficulty delta** from the configured range.
+3. **Adjust all initial tokens** (enemy HP, resources, etc.) so the encounter follows the new difficulty level proportionally.
+
+This keeps encounters recognizable (small card mutations) while ensuring difficulty scales holistically through token adjustments. It should be straightforward to implement and not overly difficult to balance.
+
+### Additional Future Work
+
 - **Per-token-type scaling**: Different tokens could scale at different rates (e.g., enemy HP scales at 80%, enemy damage at 100%) for finer balance control.
 - **Scouting difficulty reset granularity**: The death difficulty reduction could be more nuanced — e.g., scaling with the number of consecutive deaths, or with the magnitude of the difficulty gap.
