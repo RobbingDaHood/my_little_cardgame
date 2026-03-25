@@ -66,9 +66,23 @@ fn filter_play_card_actions(actions: &[Value]) -> Vec<Value> {
 }
 
 fn pick_any_encounter(actions: &[Value]) -> Value {
-    actions
+    let encounter_picks: Vec<&Value> = actions
         .iter()
-        .find(|a| a.get("action_type").and_then(|v| v.as_str()) == Some("EncounterPickEncounter"))
+        .filter(|a| a.get("action_type").and_then(|v| v.as_str()) == Some("EncounterPickEncounter"))
+        .collect();
+
+    if encounter_picks.len() > 1 {
+        // Greedy picks the hardest encounter (highest enemy HP = biggest reward potential)
+        return encounter_picks
+            .iter()
+            .max_by_key(|a| a.get("enemy_health").and_then(|v| v.as_i64()).unwrap_or(0))
+            .map(|a| (*a).clone())
+            .unwrap_or_else(|| encounter_picks[0].clone());
+    }
+
+    encounter_picks
+        .first()
+        .cloned()
         .cloned()
         .unwrap_or_else(|| serde_json::json!({"action_type": "NewGame"}))
 }

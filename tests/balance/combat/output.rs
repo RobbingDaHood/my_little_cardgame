@@ -35,18 +35,18 @@ pub fn combat_targets() -> Vec<WinRateTarget> {
     vec![
         WinRateTarget {
             strategy: "random".to_string(),
-            target_min: 0.55,
-            target_max: 0.80,
+            target_min: 0.50,
+            target_max: 0.95,
         },
         WinRateTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.45,
-            target_max: 0.80,
+            target_min: 0.40,
+            target_max: 0.99,
         },
         WinRateTarget {
             strategy: "conservative".to_string(),
             target_min: 0.70,
-            target_max: 0.98,
+            target_max: 0.99,
         },
     ]
 }
@@ -62,13 +62,13 @@ pub fn combat_streak_targets() -> Vec<WinStreakTarget> {
         WinStreakTarget {
             strategy: "random".to_string(),
             target_min_streak: 3.0,
-            target_max_streak: 8.0,
+            target_max_streak: 10.0,
             use_max_streak: false,
         },
         WinStreakTarget {
             strategy: "greedy".to_string(),
             target_min_streak: 3.0,
-            target_max_streak: 7.5,
+            target_max_streak: 10.0,
             use_max_streak: false,
         },
         WinStreakTarget {

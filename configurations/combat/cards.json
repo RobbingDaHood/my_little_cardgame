@@ -26,7 +26,7 @@
                 "token_type": "Shield",
                 "cap_min": 30,
                 "cap_max": 80,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
@@ -45,7 +45,7 @@
                 "token_type": "Stamina",
                 "cap_min": 80,
                 "cap_max": 120,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
@@ -78,7 +78,7 @@
                 "token_type": "Dodge",
                 "cap_min": 200,
                 "cap_max": 450,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": {
@@ -104,7 +104,7 @@
                 "token_type": "Dodge",
                 "cap_min": 2000,
                 "cap_max": 3000,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [
                     {
@@ -137,7 +137,7 @@
                 "token_type": "Shield",
                 "cap_min": 1200,
                 "cap_max": 2000,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [
                     {
@@ -209,7 +209,7 @@
                 "token_type": "Stamina",
                 "cap_min": 200,
                 "cap_max": 400,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
@@ -228,7 +228,7 @@
                 "token_type": "Health",
                 "cap_min": 100,
                 "cap_max": 250,
-                "gain_min_percent": 100,
+                "gain_min_percent": 80,
                 "gain_max_percent": 100,
                 "costs": [],
                 "duration": "PersistentCounter"
