@@ -95,6 +95,8 @@ impl GameState {
         }
 
         if durability_depleted {
+            // Grant rewards even on durability depletion
+            self.grant_fishing_rewards();
             self.finish_fishing_encounter(false);
             return Ok(());
         }
@@ -151,6 +153,7 @@ impl GameState {
                 (all_turns_used, enough_wins)
             };
             if enough_wins {
+                self.grant_fishing_rewards();
                 self.finish_fishing_encounter(true);
             } else if all_turns_used {
                 self.finish_fishing_encounter(false);
@@ -165,20 +168,14 @@ impl GameState {
             return Ok(());
         }
 
-        // Read current range and fish amount from encounter tokens
-        let (valid_min, valid_max, fish_amount) = match &self.current_encounter {
+        // Read current range from encounter tokens
+        let (valid_min, valid_max) = match &self.current_encounter {
             Some(EncounterState::Fishing(f)) => {
                 let min_key = types::Token::persistent(types::TokenType::FishingRangeMin);
                 let max_key = types::Token::persistent(types::TokenType::FishingRangeMax);
-                let amount_key = types::Token::persistent(types::TokenType::FishAmount);
                 (
                     f.encounter_tokens.get(&min_key).copied().unwrap_or(0),
                     f.encounter_tokens.get(&max_key).copied().unwrap_or(0),
-                    f.encounter_tokens
-                        .get(&amount_key)
-                        .copied()
-                        .unwrap_or(1)
-                        .max(1),
                 )
             }
             _ => return Err("No active fishing encounter".to_string()),
@@ -216,7 +213,7 @@ impl GameState {
                 _ => return Err("No active fishing encounter".to_string()),
             };
             if turn_won {
-                fishing.turns_won += fish_amount as u32;
+                fishing.turns_won += 1;
             }
             fishing.round += 1;
             // Sync range fields from tokens for display
@@ -228,6 +225,7 @@ impl GameState {
         };
 
         if enough_wins {
+            self.grant_fishing_rewards();
             self.finish_fishing_encounter(true);
         } else if all_turns_used {
             self.finish_fishing_encounter(false);
@@ -281,21 +279,33 @@ impl GameState {
             }
             _ => return Err("No active fishing encounter to conclude".to_string()),
         }
+        self.grant_fishing_rewards();
         self.finish_fishing_encounter(true);
         Ok(())
     }
 
-    fn finish_fishing_encounter(&mut self, is_win: bool) {
-        if is_win {
-            let rewards = match &self.current_encounter {
-                Some(EncounterState::Fishing(f)) => f.rewards.clone(),
-                _ => return,
-            };
-            for (token, amount) in &rewards {
-                let entry = self.token_balances.entry(token.clone()).or_insert(0);
-                *entry += amount;
+    /// Grant fishing rewards scaled by FishAmount from the encounter's reward table.
+    fn grant_fishing_rewards(&mut self) {
+        let (rewards, fish_amount) = match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) => {
+                let amount_key = types::Token::persistent(types::TokenType::FishAmount);
+                let amount = f
+                    .encounter_tokens
+                    .get(&amount_key)
+                    .copied()
+                    .unwrap_or(1)
+                    .max(1);
+                (f.rewards.clone(), amount)
             }
+            _ => return,
+        };
+        for (token, base_amount) in &rewards {
+            let entry = self.token_balances.entry(token.clone()).or_insert(0);
+            *entry += base_amount * fish_amount;
         }
+    }
+
+    fn finish_fishing_encounter(&mut self, is_win: bool) {
         let outcome = if is_win {
             EncounterOutcome::PlayerWon
         } else {

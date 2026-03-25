@@ -202,36 +202,50 @@ impl GameState {
             .copied()
             .unwrap_or(0);
         if durability <= 0 {
+            // Grant rewards even on durability depletion (stamina cost applies)
+            self.grant_mining_rewards();
             self.finish_mining_encounter(false);
         }
     }
 
     /// Conclude a mining encounter voluntarily: reward = min(stamina, yield) ore tokens.
     pub fn conclude_mining_encounter(&mut self) -> Result<(), String> {
-        let mining_yield = match &self.current_encounter {
+        match &self.current_encounter {
             Some(EncounterState::Mining(m)) if m.outcome == EncounterOutcome::Undecided => {
+                let yield_key = types::Token::persistent(types::TokenType::MiningYield);
+                if m.encounter_tokens.get(&yield_key).copied().unwrap_or(0) <= 0 {
+                    return Err("No yield accumulated; abort the encounter instead".to_string());
+                }
+            }
+            _ => return Err("No active mining encounter to conclude".to_string()),
+        };
+
+        self.grant_mining_rewards();
+        self.finish_mining_encounter(true);
+        Ok(())
+    }
+
+    /// Grant mining rewards: ore = min(stamina, yield), deducting stamina cost.
+    fn grant_mining_rewards(&mut self) {
+        let mining_yield = match &self.current_encounter {
+            Some(EncounterState::Mining(m)) => {
                 let yield_key = types::Token::persistent(types::TokenType::MiningYield);
                 m.encounter_tokens.get(&yield_key).copied().unwrap_or(0)
             }
-            _ => return Err("No active mining encounter to conclude".to_string()),
+            _ => return,
         };
 
         let stamina_key = types::Token::persistent(types::TokenType::Stamina);
         let stamina = self.token_balances.get(&stamina_key).copied().unwrap_or(0);
         let reward = stamina.min(mining_yield);
 
-        // Deduct stamina cost
         if let Some(s) = self.token_balances.get_mut(&stamina_key) {
             *s -= reward;
         }
 
-        // Grant ore reward
         let ore_key = types::Token::persistent(types::TokenType::Ore);
         let ore = self.token_balances.entry(ore_key).or_insert(0);
         *ore += reward;
-
-        self.finish_mining_encounter(true);
-        Ok(())
     }
 
     /// Finalize a mining encounter: record outcome. Encounter-scoped tokens are

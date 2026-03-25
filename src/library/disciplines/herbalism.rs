@@ -81,6 +81,7 @@ impl GameState {
         }
 
         if durability_depleted {
+            self.grant_herbalism_rewards();
             self.finish_herbalism_encounter(false);
             return Ok(());
         }
@@ -202,6 +203,7 @@ impl GameState {
         };
 
         if remaining == 1 {
+            self.grant_herbalism_rewards();
             self.finish_herbalism_encounter(true);
         } else if remaining == 0 {
             self.finish_herbalism_encounter(false);
@@ -286,21 +288,24 @@ impl GameState {
             }
             _ => return Err("No active herbalism encounter to conclude".to_string()),
         }
+        self.grant_herbalism_rewards();
         self.finish_herbalism_encounter(true);
         Ok(())
     }
 
-    fn finish_herbalism_encounter(&mut self, is_win: bool) {
-        if is_win {
-            let rewards = match &self.current_encounter {
-                Some(EncounterState::Herbalism(h)) => h.rewards.clone(),
-                _ => return,
-            };
-            for (token, amount) in &rewards {
-                let entry = self.token_balances.entry(token.clone()).or_insert(0);
-                *entry += amount;
-            }
+    /// Grant herbalism rewards from the encounter's reward table.
+    fn grant_herbalism_rewards(&mut self) {
+        let rewards = match &self.current_encounter {
+            Some(EncounterState::Herbalism(h)) => h.rewards.clone(),
+            _ => return,
+        };
+        for (token, amount) in &rewards {
+            let entry = self.token_balances.entry(token.clone()).or_insert(0);
+            *entry += amount;
         }
+    }
+
+    fn finish_herbalism_encounter(&mut self, is_win: bool) {
         let outcome = if is_win {
             EncounterOutcome::PlayerWon
         } else {
