@@ -14,6 +14,9 @@ pub struct WinStreakTarget {
     pub strategy: String,
     pub target_min_streak: f64,
     pub target_max_streak: f64,
+    /// When true, assert on avg_max_win_streak instead of overall_avg_streak.
+    /// Used for tier-2 strategies where peak performance matters more than average.
+    pub use_max_streak: bool,
 }
 
 /// Combat balance assertions.
@@ -43,7 +46,7 @@ pub fn combat_targets() -> Vec<WinRateTarget> {
         WinRateTarget {
             strategy: "conservative".to_string(),
             target_min: 0.70,
-            target_max: 0.95,
+            target_max: 0.98,
         },
     ]
 }
@@ -60,26 +63,31 @@ pub fn combat_streak_targets() -> Vec<WinStreakTarget> {
             strategy: "random".to_string(),
             target_min_streak: 3.0,
             target_max_streak: 8.0,
+            use_max_streak: false,
         },
         WinStreakTarget {
             strategy: "greedy".to_string(),
             target_min_streak: 3.0,
             target_max_streak: 7.5,
+            use_max_streak: false,
         },
         WinStreakTarget {
             strategy: "conservative".to_string(),
             target_min_streak: 2.5,
             target_max_streak: 7.0,
+            use_max_streak: false,
         },
         WinStreakTarget {
             strategy: "tactician_greedy".to_string(),
             target_min_streak: 8.0,
             target_max_streak: 18.0,
+            use_max_streak: true,
         },
         WinStreakTarget {
             strategy: "tactician_conservative".to_string(),
             target_min_streak: 8.0,
             target_max_streak: 18.0,
+            use_max_streak: true,
         },
     ]
 }

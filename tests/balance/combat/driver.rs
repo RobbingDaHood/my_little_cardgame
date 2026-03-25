@@ -64,6 +64,66 @@ pub fn find_combat_encounter(client: &Client) -> Option<usize> {
         .map(|v| v as usize)
 }
 
+/// Get all combat encounter cards enriched with enemy data for strategy decision-making.
+/// Returns action-ready JSON values with card_id and enemy_health metadata.
+pub fn get_combat_encounter_choices(client: &Client) -> Vec<Value> {
+    get_combat_encounter_choices_filtered(client, &[])
+}
+
+/// Get combat encounter choices, excluding encounters with IDs in `exclude_ids`.
+/// Used to filter out pre-scouting encounters so strategies pick from scouting-generated ones.
+pub fn get_combat_encounter_choices_filtered(client: &Client, exclude_ids: &[u64]) -> Vec<Value> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter(|c| {
+            let id = c.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+            c.get("kind")
+                .and_then(|k| k.get("encounter_kind"))
+                .and_then(|ek| ek.get("encounter_type"))
+                .and_then(|et| et.as_str())
+                == Some("Combat")
+                && !exclude_ids.contains(&id)
+        })
+        .map(|c| {
+            let card_id = c.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+            let enemy_health = c
+                .get("kind")
+                .and_then(|k| k.get("encounter_kind"))
+                .and_then(|ek| ek.get("combatant_def"))
+                .and_then(|cb| cb.get("initial_tokens"))
+                .and_then(|t| t.as_object())
+                .and_then(|map| map.get("Health").and_then(|v| v.as_i64()))
+                .unwrap_or(0);
+            serde_json::json!({
+                "action_type": "EncounterPickEncounter",
+                "card_id": card_id,
+                "enemy_health": enemy_health
+            })
+        })
+        .collect()
+}
+
+/// Get IDs of all combat encounter cards currently in the encounter hand.
+pub fn get_combat_encounter_ids(client: &Client) -> Vec<u64> {
+    let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
+    cards
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter(|c| {
+            c.get("kind")
+                .and_then(|k| k.get("encounter_kind"))
+                .and_then(|ek| ek.get("encounter_type"))
+                .and_then(|et| et.as_str())
+                == Some("Combat")
+        })
+        .filter_map(|c| c.get("id").and_then(|v| v.as_u64()))
+        .collect()
+}
+
 /// Get playable combat cards enriched with details for strategy decision-making.
 /// Returns action-ready JSON values with card_id and card metadata.
 pub fn get_playable_combat_cards(client: &Client, snapshot: &GameSnapshot) -> Vec<Value> {

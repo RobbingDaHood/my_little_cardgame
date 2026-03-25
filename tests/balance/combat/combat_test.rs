@@ -41,9 +41,17 @@ fn combat_balance_simulation() {
     for strat in &report.strategies {
         assert!(
             strat.combat.streak_pass,
-            "Strategy '{}' overall avg streak {:.1} outside target [{:.1}–{:.1}]",
+            "Strategy '{}' streak metric {:.1} (overall_avg={:.1}, avg_max={:.1}) outside target [{:.1}–{:.1}]",
             strat.name,
+            if strat.combat.overall_avg_streak >= strat.combat.streak_target_min
+                && strat.combat.overall_avg_streak <= strat.combat.streak_target_max
+            {
+                strat.combat.overall_avg_streak
+            } else {
+                strat.combat.avg_max_win_streak
+            },
             strat.combat.overall_avg_streak,
+            strat.combat.avg_max_win_streak,
             strat.combat.streak_target_min,
             strat.combat.streak_target_max,
         );

@@ -24,8 +24,8 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Shield",
-                "cap_min": 100,
-                "cap_max": 200,
+                "cap_min": 30,
+                "cap_max": 80,
                 "gain_min_percent": 100,
                 "gain_max_percent": 100,
                 "costs": [],
@@ -76,8 +76,8 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Dodge",
-                "cap_min": 350,
-                "cap_max": 650,
+                "cap_min": 200,
+                "cap_max": 450,
                 "gain_min_percent": 100,
                 "gain_max_percent": 100,
                 "costs": [],
@@ -102,15 +102,16 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Dodge",
-                "cap_min": 670,
-                "cap_max": 900,
+                "cap_min": 2000,
+                "cap_max": 3000,
                 "gain_min_percent": 100,
                 "gain_max_percent": 100,
                 "costs": [
                     {
                         "token_type": "Stamina",
-                        "min_percent": 15,
-                        "max_percent": 20
+                        "min_percent": 20,
+                        "max_percent": 50,
+                        "is_absolute": true
                     }
                 ],
                 "duration": {
@@ -134,15 +135,16 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Shield",
-                "cap_min": 240,
-                "cap_max": 320,
+                "cap_min": 1200,
+                "cap_max": 2000,
                 "gain_min_percent": 100,
                 "gain_max_percent": 100,
                 "costs": [
                     {
                         "token_type": "Stamina",
-                        "min_percent": 15,
-                        "max_percent": 20
+                        "min_percent": 20,
+                        "max_percent": 50,
+                        "is_absolute": true
                     }
                 ],
                 "duration": "PersistentCounter"
@@ -158,13 +160,14 @@
             "kind": {
                 "effect_type": "LoseTokens",
                 "token_type": "Health",
-                "min": 420,
-                "max": 550,
+                "min": 500,
+                "max": 700,
                 "costs": [
                     {
                         "token_type": "Stamina",
-                        "min_percent": 15,
-                        "max_percent": 20
+                        "min_percent": 20,
+                        "max_percent": 50,
+                        "is_absolute": true
                     }
                 ],
                 "duration": "PersistentCounter"
@@ -185,8 +188,9 @@
                 "costs": [
                     {
                         "token_type": "Health",
-                        "min_percent": 15,
-                        "max_percent": 25
+                        "min_percent": 30,
+                        "max_percent": 75,
+                        "is_absolute": true
                     }
                 ],
                 "duration": "PersistentCounter"
@@ -203,8 +207,8 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Stamina",
-                "cap_min": 50,
-                "cap_max": 150,
+                "cap_min": 200,
+                "cap_max": 400,
                 "gain_min_percent": 100,
                 "gain_max_percent": 100,
                 "costs": [],
@@ -222,8 +226,8 @@
                 "effect_type": "GainTokens",
                 "target": "OnSelf",
                 "token_type": "Health",
-                "cap_min": 50,
-                "cap_max": 150,
+                "cap_min": 100,
+                "cap_max": 250,
                 "gain_min_percent": 100,
                 "gain_max_percent": 100,
                 "costs": [],
@@ -307,7 +311,7 @@
             ],
             "counts": {
                 "library": 0,
-                "deck": 11,
+                "deck": 8,
                 "hand": 2,
                 "discard": 0
             },
@@ -323,7 +327,7 @@
             ],
             "counts": {
                 "library": 0,
-                "deck": 4,
+                "deck": 2,
                 "hand": 1,
                 "discard": 0
             },
@@ -339,7 +343,23 @@
             ],
             "counts": {
                 "library": 0,
-                "deck": 5,
+                "deck": 8,
+                "hand": 4,
+                "discard": 0
+            },
+            "valid_disciplines": [
+                "Combat"
+            ]
+        },
+        {
+            "type": "player_card",
+            "card_kind": "Defence",
+            "effect_refs": [
+                "combat:grant_dodge"
+            ],
+            "counts": {
+                "library": 0,
+                "deck": 6,
                 "hand": 2,
                 "discard": 0
             },
@@ -355,23 +375,7 @@
             ],
             "counts": {
                 "library": 0,
-                "deck": 9,
-                "hand": 2,
-                "discard": 0
-            },
-            "valid_disciplines": [
-                "Combat"
-            ]
-        },
-        {
-            "type": "player_card",
-            "card_kind": "Defence",
-            "effect_refs": [
-                "combat:grant_dodge"
-            ],
-            "counts": {
-                "library": 0,
-                "deck": 3,
+                "deck": 1,
                 "hand": 1,
                 "discard": 0
             },
@@ -387,8 +391,8 @@
             ],
             "counts": {
                 "library": 0,
-                "deck": 7,
-                "hand": 3,
+                "deck": 10,
+                "hand": 5,
                 "discard": 0
             },
             "valid_disciplines": [

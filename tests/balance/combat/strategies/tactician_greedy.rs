@@ -67,9 +67,27 @@ fn filter_play_card_actions(actions: &[Value]) -> Vec<Value> {
 }
 
 fn pick_any_encounter(actions: &[Value]) -> Value {
-    actions
+    let encounter_picks: Vec<&Value> = actions
         .iter()
-        .find(|a| a.get("action_type").and_then(|v| v.as_str()) == Some("EncounterPickEncounter"))
+        .filter(|a| a.get("action_type").and_then(|v| v.as_str()) == Some("EncounterPickEncounter"))
+        .collect();
+
+    if encounter_picks.len() > 1 {
+        // Tactician: pick the encounter with the lowest enemy HP (lowest difficulty)
+        return encounter_picks
+            .iter()
+            .min_by_key(|a| {
+                a.get("enemy_health")
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(i64::MAX)
+            })
+            .map(|a| (*a).clone())
+            .unwrap_or_else(|| encounter_picks[0].clone());
+    }
+
+    encounter_picks
+        .first()
+        .cloned()
         .cloned()
         .unwrap_or_else(|| serde_json::json!({"action_type": "NewGame"}))
 }
@@ -96,7 +114,7 @@ fn pick_defending_card(play_cards: &[Value], game_state: &GameSnapshot) -> Value
 
     // Prefer stamina-cost dodge — massive absorption (670-900) fully blocks
     // enemy attacks (300-420). Only use if we have enough stamina.
-    if !stamina_cost.is_empty() && game_state.player_stamina() > 100 {
+    if !stamina_cost.is_empty() && game_state.player_stamina() > 30 {
         return best_card(&stamina_cost);
     }
 
@@ -130,7 +148,7 @@ fn pick_attacking_card(
 
     // Prefer stamina-cost damage — high damage (420-550) for manageable stamina cost.
     // Always exceeds free card max, kills enemy faster = fewer rounds of damage taken.
-    if !stamina_cost.is_empty() && game_state.player_stamina() > 100 {
+    if !stamina_cost.is_empty() && game_state.player_stamina() > 30 {
         return best_card(&stamina_cost);
     }
 
@@ -280,8 +298,16 @@ fn first_effect_value(card: &Value) -> i64 {
         .and_then(|d| d.get("effects"))
         .and_then(|e| e.as_array())
         .and_then(|arr| arr.first())
-        .and_then(|eff| eff.get("rolled_value"))
-        .and_then(|v| v.as_i64())
+        .map(|eff| {
+            let rv = eff
+                .get("rolled_value")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            if rv != 0 {
+                return rv;
+            }
+            eff.get("rolled_cap").and_then(|v| v.as_i64()).unwrap_or(0)
+        })
         .unwrap_or(0)
 }
 
