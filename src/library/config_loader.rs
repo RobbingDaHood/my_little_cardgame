@@ -21,14 +21,21 @@ static TOKENS_JSON: &str = include_str!("../../configurations/general/tokens.jso
 static GAME_RULES_JSON: &str = include_str!("../../configurations/general/game_rules.json");
 static SHARED_EFFECTS_JSON: &str = include_str!("../../configurations/general/shared_effects.json");
 static COMBAT_JSON: &str = include_str!("../../configurations/combat/cards.json");
+static COMBAT_CONFIGS_JSON: &str = include_str!("../../configurations/combat/configs.json");
 static MINING_JSON: &str = include_str!("../../configurations/mining/cards.json");
 static HERBALISM_JSON: &str = include_str!("../../configurations/herbalism/cards.json");
 static WOODCUTTING_JSON: &str = include_str!("../../configurations/woodcutting/cards.json");
+static WOODCUTTING_CONFIGS_JSON: &str =
+    include_str!("../../configurations/woodcutting/configs.json");
 static FISHING_JSON: &str = include_str!("../../configurations/fishing/cards.json");
 static REST_JSON: &str = include_str!("../../configurations/rest/cards.json");
 static CRAFTING_JSON: &str = include_str!("../../configurations/crafting/cards.json");
+static CRAFTING_CONFIGS_JSON: &str = include_str!("../../configurations/crafting/configs.json");
 static RESEARCH_JSON: &str = include_str!("../../configurations/research/cards.json");
+static RESEARCH_CONFIGS_JSON: &str = include_str!("../../configurations/research/configs.json");
 static MILESTONE_JSON: &str = include_str!("../../configurations/milestone/cards.json");
+static MILESTONE_CONFIGS_JSON: &str = include_str!("../../configurations/milestone/configs.json");
+static SCOUTING_CONFIGS_JSON: &str = include_str!("../../configurations/scouting/configs.json");
 
 /// Name→card_id mapping used for resolving effect references.
 pub type EffectNameMap = HashMap<String, usize>;
@@ -48,6 +55,60 @@ pub fn load_game_rules_from_json(json: &str) -> super::config::GameRulesConfig {
     serde_json::from_str(json).expect("Failed to parse game_rules JSON")
 }
 
+// ---- Per-discipline config loaders (compile-time) ----
+
+pub fn load_combat_rules() -> super::config::CombatRules {
+    load_combat_rules_from_json(COMBAT_CONFIGS_JSON)
+}
+
+pub fn load_combat_rules_from_json(json: &str) -> super::config::CombatRules {
+    serde_json::from_str(json).expect("Failed to parse combat configs JSON")
+}
+
+pub fn load_research_rules() -> super::config::ResearchRules {
+    load_research_rules_from_json(RESEARCH_CONFIGS_JSON)
+}
+
+pub fn load_research_rules_from_json(json: &str) -> super::config::ResearchRules {
+    serde_json::from_str(json).expect("Failed to parse research configs JSON")
+}
+
+pub fn load_crafting_rules() -> super::config::CraftingRules {
+    load_crafting_rules_from_json(CRAFTING_CONFIGS_JSON)
+}
+
+pub fn load_crafting_rules_from_json(json: &str) -> super::config::CraftingRules {
+    serde_json::from_str(json).expect("Failed to parse crafting configs JSON")
+}
+
+pub fn load_milestone_rules() -> super::config::MilestoneRules {
+    load_milestone_rules_from_json(MILESTONE_CONFIGS_JSON)
+}
+
+pub fn load_milestone_rules_from_json(json: &str) -> super::config::MilestoneRules {
+    serde_json::from_str(json).expect("Failed to parse milestone configs JSON")
+}
+
+pub fn load_scouting_rules() -> super::config::ScoutingRules {
+    load_scouting_rules_from_json(SCOUTING_CONFIGS_JSON)
+}
+
+pub fn load_scouting_rules_from_json(json: &str) -> super::config::ScoutingRules {
+    serde_json::from_str(json).expect("Failed to parse scouting configs JSON")
+}
+
+pub fn load_woodcutting_patterns() -> Vec<super::config::WoodcuttingPatternRule> {
+    load_woodcutting_patterns_from_json(WOODCUTTING_CONFIGS_JSON)
+}
+
+pub fn load_woodcutting_patterns_from_json(
+    json: &str,
+) -> Vec<super::config::WoodcuttingPatternRule> {
+    let config: super::config::WoodcuttingDisciplineConfig =
+        serde_json::from_str(json).expect("Failed to parse woodcutting configs JSON");
+    config.patterns
+}
+
 /// Return the embedded game rules JSON string (for hashing in /version).
 pub fn game_rules_json() -> &'static str {
     GAME_RULES_JSON
@@ -60,14 +121,20 @@ pub fn all_config_json_strings() -> Vec<&'static str> {
         GAME_RULES_JSON,
         SHARED_EFFECTS_JSON,
         COMBAT_JSON,
+        COMBAT_CONFIGS_JSON,
         MINING_JSON,
         HERBALISM_JSON,
         WOODCUTTING_JSON,
+        WOODCUTTING_CONFIGS_JSON,
         FISHING_JSON,
         REST_JSON,
         CRAFTING_JSON,
+        CRAFTING_CONFIGS_JSON,
         RESEARCH_JSON,
+        RESEARCH_CONFIGS_JSON,
         MILESTONE_JSON,
+        MILESTONE_CONFIGS_JSON,
+        SCOUTING_CONFIGS_JSON,
     ]
 }
 
@@ -481,4 +548,51 @@ pub fn load_game_rules_from_disk(config_dir: &str) -> super::config::GameRulesCo
     let json = std::fs::read_to_string(&full_path)
         .unwrap_or_else(|e| panic!("Failed to read {}: {}", full_path, e));
     load_game_rules_from_json(&json)
+}
+
+// ---- Per-discipline disk loaders (simulation feature only) ----
+
+#[cfg(feature = "simulation")]
+fn load_discipline_config_from_disk<T: serde::de::DeserializeOwned>(
+    config_dir: &str,
+    rel_path: &str,
+) -> T {
+    let full_path = format!("{}/{}", config_dir, rel_path);
+    let json = std::fs::read_to_string(&full_path)
+        .unwrap_or_else(|e| panic!("Failed to read {}: {}", full_path, e));
+    serde_json::from_str(&json).unwrap_or_else(|e| panic!("Failed to parse {}: {}", full_path, e))
+}
+
+#[cfg(feature = "simulation")]
+pub fn load_combat_rules_from_disk(config_dir: &str) -> super::config::CombatRules {
+    load_discipline_config_from_disk(config_dir, "combat/configs.json")
+}
+
+#[cfg(feature = "simulation")]
+pub fn load_research_rules_from_disk(config_dir: &str) -> super::config::ResearchRules {
+    load_discipline_config_from_disk(config_dir, "research/configs.json")
+}
+
+#[cfg(feature = "simulation")]
+pub fn load_crafting_rules_from_disk(config_dir: &str) -> super::config::CraftingRules {
+    load_discipline_config_from_disk(config_dir, "crafting/configs.json")
+}
+
+#[cfg(feature = "simulation")]
+pub fn load_milestone_rules_from_disk(config_dir: &str) -> super::config::MilestoneRules {
+    load_discipline_config_from_disk(config_dir, "milestone/configs.json")
+}
+
+#[cfg(feature = "simulation")]
+pub fn load_scouting_rules_from_disk(config_dir: &str) -> super::config::ScoutingRules {
+    load_discipline_config_from_disk(config_dir, "scouting/configs.json")
+}
+
+#[cfg(feature = "simulation")]
+pub fn load_woodcutting_patterns_from_disk(
+    config_dir: &str,
+) -> Vec<super::config::WoodcuttingPatternRule> {
+    let config: super::config::WoodcuttingDisciplineConfig =
+        load_discipline_config_from_disk(config_dir, "woodcutting/configs.json");
+    config.patterns
 }

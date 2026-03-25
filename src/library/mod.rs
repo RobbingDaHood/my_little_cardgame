@@ -159,6 +159,8 @@ fn calculate_crafting_cost(
 #[derive(Debug, Clone)]
 pub struct Library {
     pub cards: Vec<LibraryCard>,
+    pub combat_rules: config::CombatRules,
+    pub research_rules: config::ResearchRules,
     pub crafting_rules: config::CraftingRules,
     pub milestone_rules: config::MilestoneRules,
     pub scouting_rules: config::ScoutingRules,
@@ -173,13 +175,14 @@ impl Default for Library {
 
 impl Library {
     pub fn new() -> Self {
-        let rules = config_loader::load_game_rules();
         Library {
             cards: Vec::new(),
-            crafting_rules: rules.crafting,
-            milestone_rules: rules.milestone,
-            scouting_rules: rules.scouting,
-            woodcutting_patterns: rules.woodcutting_patterns,
+            combat_rules: config_loader::load_combat_rules(),
+            research_rules: config_loader::load_research_rules(),
+            crafting_rules: config_loader::load_crafting_rules(),
+            milestone_rules: config_loader::load_milestone_rules(),
+            scouting_rules: config_loader::load_scouting_rules(),
+            woodcutting_patterns: config_loader::load_woodcutting_patterns(),
         }
     }
 
