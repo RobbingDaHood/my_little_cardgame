@@ -27,7 +27,7 @@ pub struct WinStreakTarget {
 /// 4. Percentage-based cost_damage never outright kills the player.
 ///
 /// The streak hierarchy is the primary balance signal:
-///   Tactician > Random > Greedy > Conservative
+///   Tactician tier (greedy/conservative) > Simple tier (Random/Greedy/Conservative)
 pub fn combat_targets() -> Vec<WinRateTarget> {
     vec![
         WinRateTarget {
@@ -50,10 +50,10 @@ pub fn combat_targets() -> Vec<WinRateTarget> {
 
 /// Streak targets encode the intended strategy hierarchy.
 ///
-/// Tactician should have the longest streaks (skilled play with dodge +
-/// cost_damage kills enemies before they scale dangerously). Random does
-/// surprisingly well due to frequent dodge draws. Greedy pays HP costs for
-/// marginal damage gains. Conservative relies on weak shield absorption.
+/// Tactician variants should always outperform simple strategies.
+/// Tactician-greedy uses stamina-cost attack cards aggressively to kill
+/// enemies fast. Tactician-conservative conserves resources and uses
+/// stamina-cost dodge for massive damage absorption.
 pub fn combat_streak_targets() -> Vec<WinStreakTarget> {
     vec![
         WinStreakTarget {
@@ -72,8 +72,13 @@ pub fn combat_streak_targets() -> Vec<WinStreakTarget> {
             target_max_streak: 7.0,
         },
         WinStreakTarget {
-            strategy: "tactician".to_string(),
-            target_min_streak: 3.0,
+            strategy: "tactician_greedy".to_string(),
+            target_min_streak: 8.0,
+            target_max_streak: 18.0,
+        },
+        WinStreakTarget {
+            strategy: "tactician_conservative".to_string(),
+            target_min_streak: 8.0,
             target_max_streak: 18.0,
         },
     ]

@@ -1,11 +1,12 @@
 use crate::combat::strategies::conservative::ConservativeStrategy;
 use crate::combat::strategies::greedy::GreedyStrategy;
 use crate::combat::strategies::random::RandomStrategy;
-use crate::combat::strategies::tactician::TacticianStrategy;
+use crate::combat::strategies::tactician_conservative::TacticianConservativeStrategy;
+use crate::combat::strategies::tactician_greedy::TacticianGreedyStrategy;
 use crate::output::SimulationReport;
 use crate::runner::{SimulationConfig, SimulationRunner};
 
-/// Runs games across 4 strategies and asserts:
+/// Runs games across 5 strategies and asserts:
 /// - Win streak targets based on overall_avg_streak: simple ~3-5, tactician ~10+
 /// - Avg rounds per encounter ≥ 3
 #[test]
@@ -19,10 +20,16 @@ fn combat_balance_simulation() {
     let random = RandomStrategy::new(7777);
     let greedy = GreedyStrategy::new();
     let conservative = ConservativeStrategy::new();
-    let tactician = TacticianStrategy::new();
+    let tactician_greedy = TacticianGreedyStrategy::new();
+    let tactician_conservative = TacticianConservativeStrategy::new();
 
-    let strategies: Vec<&dyn crate::strategies::Strategy> =
-        vec![&random, &greedy, &conservative, &tactician];
+    let strategies: Vec<&dyn crate::strategies::Strategy> = vec![
+        &random,
+        &greedy,
+        &conservative,
+        &tactician_greedy,
+        &tactician_conservative,
+    ];
 
     let runner = SimulationRunner::new(config);
     let report: SimulationReport = runner.run_all(&strategies);
