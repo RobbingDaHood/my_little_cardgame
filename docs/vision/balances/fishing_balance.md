@@ -6,6 +6,10 @@ This document contains fishing-specific balancing information. It is the authori
 
 Fishing balance is measured by **yield per durability** — how many Fish tokens a player earns for the FishingDurability spent across encounters. Unlike combat (which uses win streaks), gathering disciplines focus on resource efficiency over a session of encounters.
 
+### Yield-per-Durability Targets
+
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **X–Y yield tokens per Z total durability spent**. These targets are tuned in the balance simulation step (see roadmap B2.7) and should be identical across disciplines to ensure no single gathering path dominates.
+
 ### Strategy Hierarchy (yield per durability)
 
 | Strategy | Description |
@@ -13,11 +17,11 @@ Fishing balance is measured by **yield per durability** — how many Fish tokens
 | Random | Plays any available fishing card without considering fish value or range |
 | Greedy | Always plays the highest-value fishing card available |
 | Conservative | Plays lowest-cost cards to preserve durability |
-| Tactician | Reads fish deck distribution, manages valid range, selects values that maximize wins within the current range window |
+| Tactician | Manages valid range (widening/narrowing), selects values that best match the current fish, and boosts FishAmount for reward scaling |
 
 - Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios.
-- Tactician strategies should achieve measurably higher yield per durability — range management and value selection must be rewarded.
-- The gap must reflect the skill of reading the fish distribution and selecting optimal values.
+- Tactician strategies should achieve measurably higher yield per durability — range management, best-matching value selection, and FishAmount optimization must all be rewarded.
+- The gap must reflect the skill of reading the fish distribution and combining multiple optimisation levers.
 
 ### Cross-Discipline Yield Parity
 
@@ -37,77 +41,66 @@ The round is a **win** if `result ∈ [FishingRangeMin, FishingRangeMax]`.
 
 This creates a "sweet spot" mechanic: the player must play a value that is higher than the fish's value, but not by too much — the difference must fall within the valid range.
 
+### Smart Value Selection (Best Matching)
+
+Fishing cards can have **multiple values**. When a card is played, the system automatically selects the best-matching value — the one most likely to produce a result within the valid range given the current fish value. This is a core mechanic, not just a convenience: cards with more values offer more flexibility and are inherently more valuable. The auto-selection logic picks the qualifying value closest to the range center, falling back to the first value if none qualify.
+
 ### Win and Loss Conditions
 
-- **Win**: `turns_won ≥ wins_required` (default 4) within `max_turns` (default 8) → 1000 Fish tokens
-- **Loss**: Max turns exhausted without enough wins, FishingDurability ≤ 0, or all hand cards unpayable
+- **Win**: `turns_won ≥ wins_required` within `max_turns` → base Fish token reward × FishAmount
+- **Loss**: Max turns exhausted without enough wins, all hand cards unpayable
+- **Durability depletion**: If FishingDurability ≤ 0, the encounter ends immediately — rewards are still granted (FishAmount-scaled) before ending as a loss. Stamina cost still applies.
 
 ### Encounter-Scoped Tokens
 
-| Token | Initial Value | Description |
-|-------|--------------|-------------|
-| FishingRangeMin | 100 | Lower bound of valid range |
-| FishingRangeMax | 300 | Upper bound of valid range |
-| FishAmount | 1 | Wins counted per successful turn |
+| Token | Description |
+|-------|-------------|
+| FishingRangeMin | Lower bound of valid range |
+| FishingRangeMax | Upper bound of valid range |
+| FishAmount | Reward multiplier — scales the base reward on encounter win (does NOT change the number of counted wins) |
 
-### Smart Value Selection
+### FishAmount as Reward Multiplier
 
-When multiple fishing values are available, the optimal strategy:
-1. Find values where `(player_value - fish_value) ∈ [RangeMin, RangeMax]`
-2. Among qualifying values, pick the one closest to range center
-3. Fall back to first value if none qualify
+FishAmount starts at a baseline value and can be modified by card effects. When the encounter ends with a win (or on durability depletion), the base reward is multiplied by the current FishAmount value. This means FishAmount is a **reward optimisation lever**, not a win-counting shortcut. Cards that boost FishAmount trade immediate value-play for higher payoff on the final reward.
 
 ## Fish Deck Composition
 
-50 fish cards with weighted distribution:
-
-| Fish Value | Count | Proportion | Balance Role |
-|-----------|-------|-----------|-------------|
-| 100 | 16 | 32% | Easy targets — most player values will land in range |
-| 300 | 17 | 34% | Medium targets — require mid-range player values |
-| 500 | 11 | 22% | Hard targets — need high player values, risk overshooting low fish |
-| 700 | 6 | 12% | Very hard — only highest player values can land in range |
-
-The distribution is weighted toward lower-value fish, creating a base win rate, with occasional high-value fish that test range management.
+The fish deck contains cards with a weighted distribution across several value tiers. Lower-value fish are more common, creating a base win rate, while higher-value fish test the player's range management and card selection. The exact values and distribution are configuration-driven — see `configurations/fishing/cards.json`.
 
 ## Token Lifecycle in Fishing
 
-- **FishingDurability**: `PersistentCounter` (initialized at 10,000). Decreased by post-play costs (30–60% of card cost range). Triggers encounter loss if ≤ 0. Persists across encounters — total durability is the session budget.
-- **Stamina**: `PersistentCounter`. Pre-play cost on advanced cards (50–100%). Persists across encounters; main recovery comes from resting.
-- **Health**: `PersistentCounter`. Pre-play cost on high-tier cards (60–100%). Persists across encounters.
-- **FishingRangeMin/FishingRangeMax**: Encounter-scoped. Modified by range-modifier effects on player cards. Min can shift -150 to +50; Max can shift -50 to +150. Resets each encounter.
-- **FishAmount**: Encounter-scoped. Modified by amount-modifier effects (±1). Affects how many wins count per successful turn. Resets each encounter.
+- **FishingDurability**: Persistent counter. Decreased by post-play costs. Triggers encounter end (with rewards) if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
+- **Stamina**: Persistent counter. Pre-play cost on advanced cards. Persists across encounters; main recovery comes from resting.
+- **Health**: Persistent counter. Pre-play cost on high-tier cards. Persists across encounters.
+- **FishingRangeMin/FishingRangeMax**: Encounter-scoped. Modified by range-modifier effects on player cards. Resets each encounter.
+- **FishAmount**: Encounter-scoped. Modified by amount-modifier effects. Scales the base reward on win. Resets each encounter.
 
 ## Player Card Tiers
 
-| Tier | Value Range | Cost Profile | Range/Amount Modifiers |
-|------|------------|-------------|----------------------|
-| Basic | 50–200 | Low durability (30–60%) | None or minor range adjustments |
-| Mid | 250–450 | Medium durability + stamina (50–100%) | May include range widening |
-| High | 500–750 | High durability + health (60–100%) | May include range narrowing or FishAmount boost |
+Cards span several tiers with increasing value ranges, higher costs, and stronger modifiers. Basic cards have low durability cost and simple values; mid-tier cards add stamina costs and may include range adjustments; high-tier cards add health costs and may include range narrowing or FishAmount boosts. The exact values are configuration-driven.
 
 ## Config Parameters
 
 Key fishing config parameters in `configurations/fishing/cards.json`:
-- Player card value ranges (min/max per tier)
+- Player card value ranges (min/max per tier) and number of values per card
 - Fish deck value distribution (count per value level)
-- Wins required per encounter (default 4)
-- Max turns per encounter (default 8)
+- Wins required per encounter
+- Max turns per encounter
 - Initial valid range (FishingRangeMin, FishingRangeMax)
 - Range modifier limits (min/max shifts)
 - FishAmount modifier limits
 - Durability cost ranges (min/max per tier)
 - Stamina cost ranges (min/max per tier)
 - Health cost ranges (min/max per tier)
-- Fish token reward per win (currently 1000)
+- Base Fish token reward per win
 
 ## Tuning Tips
 
-- **Valid range width is the primary balance lever**: A wider range (larger RangeMax - RangeMin) makes it easier to land wins; a narrower range increases difficulty. The initial range (100–300) means the player needs a difference of 100–300 between their value and the fish's value.
-- **Fish deck distribution determines base difficulty**: More low-value fish (100, 300) makes the encounter easier because more player cards will land in range. More high-value fish (500, 700) forces players to use expensive high-tier cards.
-- **Range modifiers as tactical lever**: Cards that widen the valid range (increase RangeMax, decrease RangeMin) make subsequent turns easier. This creates a tactical dimension: spend a turn widening the range vs immediately going for wins.
-- **FishAmount as multiplier**: Cards that boost FishAmount allow double-counting wins on a turn, creating "power turns." Balance FishAmount modifiers carefully — too accessible and they trivialize the encounter.
-- **Dual loss conditions**: Both turn exhaustion and durability depletion can end an encounter. The balance between max_turns and durability cost per turn determines which is the binding constraint. Currently max_turns=8 and wins_required=4 means a 50% win rate per turn is needed.
-- **Durability budget**: 10,000 durability across all fishing encounters. Lower per-card durability cost (30–60%) compared to other disciplines means fishing supports more encounters but each encounter's yield is also high (1000 Fish per win).
-- **Tiered balance enforcement**: Tactical range management (widening range on early turns, selecting optimal values based on expected fish distribution) must produce more wins per durability than random value selection. If strategies converge, increase the impact of range modifiers or add cards with stronger range/amount trade-offs.
+- **Valid range width is the primary balance lever**: A wider range makes it easier to land wins; a narrower range increases difficulty. The interaction between initial range width and card-based range modifiers determines how much tactical play matters.
+- **Fish deck distribution determines base difficulty**: More low-value fish makes the encounter easier because more player cards will land in range. More high-value fish forces players to use expensive high-tier cards or rely on best-matching multi-value selection.
+- **Three tactical levers (not just one)**: Players optimise through (1) **best-matching value selection** — multi-value cards give flexibility to match different fish, (2) **range management** — expanding the valid range makes subsequent turns easier, and (3) **FishAmount boosting** — trading turns for higher reward scaling. All three levers should contribute meaningfully to yield-per-durability.
+- **FishAmount as reward multiplier**: Cards that boost FishAmount increase the final reward. Balance FishAmount modifiers carefully — too accessible and they trivialize the encounter; too rare and the lever becomes irrelevant.
+- **Dual loss conditions**: Both turn exhaustion and durability depletion can end an encounter. Durability depletion still grants rewards (FishAmount-scaled), so running out of durability is costly (encounter ends as a loss on record) but not catastrophic (you keep what you earned).
+- **Durability budget**: Total durability across all fishing encounters bounds the session. The per-card durability cost relative to other disciplines determines how many encounters fishing supports.
+- **Tiered balance enforcement**: Tactical play (combining range management, best-matching value selection, and FishAmount optimization) must produce more yield per durability than random value selection. If strategies converge, increase the impact of range modifiers or add cards with stronger multi-lever trade-offs.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.

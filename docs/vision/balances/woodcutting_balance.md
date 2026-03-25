@@ -6,6 +6,10 @@ This document contains woodcutting-specific balancing information. It is the aut
 
 Woodcutting balance is measured by **yield per durability** — how much Lumber a player earns for the WoodcuttingDurability spent across encounters. Unlike combat (which uses win streaks), gathering disciplines focus on resource efficiency over a session of encounters.
 
+### Yield-per-Durability Targets
+
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **X–Y yield tokens per Z total durability spent**. These targets are tuned in the balance simulation step (see roadmap B2.6) and should be identical across disciplines to ensure no single gathering path dominates.
+
 ### Strategy Hierarchy (yield per durability)
 
 | Strategy | Description |
@@ -27,34 +31,28 @@ Woodcutting should produce roughly the same yield value per durability as other 
 
 ### Core Mechanic: Pattern Matching
 
-Woodcutting uses a poker-inspired pattern system. The player plays up to **max_plays** (default 8) chop cards, each producing a numeric value. After all plays (or early stop), the sequence is evaluated for patterns.
+Woodcutting uses a poker-inspired pattern system. The player plays up to **max_plays** chop cards, each producing a numeric value. After all plays (or early stop), the sequence is evaluated for patterns.
 
 ### Chop Types
 
-| Chop Type | Value Range | Description |
-|-----------|------------|-------------|
-| LightChop | 1–3 | Low values, cheap |
-| MediumChop | 3–6 | Mid-range values |
-| HeavyChop | 3–7 | Wider range, more costly |
-| PrecisionChop | 7–9 | High values, expensive |
-| SplitChop | 4–8 | Unlocked via research/crafting (no starting cards) |
+All chop types share the **same value range** (e.g., 1–10). The number of distinct chop types and the exact range bounds are configuration-driven balance levers. Having all types produce values from the same range means the tactical distinction between chop types comes from their **cost profiles** and **availability**, not inherent value advantages. SplitChop is unlocked via research/crafting (no starting cards).
 
 ### Pattern Evaluation
 
 Patterns are evaluated in priority order. The highest-matching pattern determines the multiplier:
 
-| Pattern | Multiplier Range | Description |
-|---------|-----------------|-------------|
-| High Card | 1.0x | No pattern — base reward |
-| Pair | ~1.0–1.5x | Two cards with same value |
-| Two Pair | ~1.5–2.0x | Two different pairs |
-| Three of a Kind | ~2.0–2.5x | Three cards with same value |
-| Straight | ~2.5–3.5x | Consecutive values |
-| Flush | ~2.0–3.0x | All same chop type |
-| Full House | ~3.0–4.0x | Three of a kind + pair |
-| Rare combinations | Up to 5.0x+ | Complex multi-pattern hands |
+| Pattern | Description |
+|---------|-------------|
+| High Card | No pattern — base reward (lowest multiplier) |
+| Pair | Two cards with same value |
+| Two Pair | Two different pairs |
+| Three of a Kind | Three cards with same value |
+| Straight | Consecutive values |
+| Flush | All same chop type |
+| Full House | Three of a kind + pair |
+| Rare combinations | Complex multi-pattern hands (highest multipliers) |
 
-Pattern multipliers are calibrated using **sqrt inverse-probability scaling**: most common patterns get low multipliers (1.0–1.5x), rare patterns get significantly higher multipliers (up to 55.0x for extremely rare combinations).
+Pattern multipliers are calibrated using **sqrt inverse-probability scaling**: common patterns get low multipliers, rare patterns get significantly higher multipliers. **Rare combinations should have quite good rewards** to motivate risk-taking — the best strategy should NOT be to always play for simple, safe combos. Building toward a rare pattern should be a viable and rewarding strategy when the hand supports it.
 
 ### Reward Calculation
 
@@ -62,36 +60,42 @@ Pattern multipliers are calibrated using **sqrt inverse-probability scaling**: m
 lumber_reward = base_rewards × pattern_multiplier
 ```
 
-Where `base_rewards` defaults to 1000 Lumber. A high-card hand yields 1000; a full house might yield 3500.
+Where `base_rewards` is a configured Lumber amount. The multiplier from pattern evaluation scales the reward, making pattern-building the core tactical lever.
 
 ### Early Stop
 
 The player may stop playing cards before reaching max_plays. This is **not an abort** — the pattern is evaluated with the cards played so far, rewards are granted, and durability costs are only paid for cards actually played. Early stop is a key tactical decision: stop early with a good partial pattern vs risk weakening it with additional cards.
 
+### Durability Depletion
+
+If WoodcuttingDurability reaches 0 during play, the encounter ends immediately as a loss, but **rewards are still granted** — the pattern is evaluated with cards played so far and the scaled reward is applied. This means running out of durability is costly on the record but the player keeps what they earned.
+
 ## Token Lifecycle in Woodcutting
 
-- **WoodcuttingDurability**: `PersistentCounter` (initialized at 10,000). Decreased by post-play costs (50–100% of card cost range). Triggers encounter loss if ≤ 0. Persists across encounters — total durability is the session budget.
-- **Stamina**: `PersistentCounter`. Pre-play cost on advanced chops (100–250%). Persists across encounters; main recovery comes from resting.
-- **Health**: `PersistentCounter`. Pre-play cost on high-tier cards (150–200%). Rare but significant. Persists across encounters.
+- **WoodcuttingDurability**: Persistent counter. Decreased by post-play costs. Triggers encounter end (with rewards, pattern evaluated) if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
+- **Stamina**: Persistent counter. Pre-play cost on advanced chops. Persists across encounters; main recovery comes from resting.
+- **Health**: Persistent counter. Pre-play cost on high-tier cards. Rare but significant. Persists across encounters.
 
 ## Config Parameters
 
 Key woodcutting config parameters in `configurations/woodcutting/cards.json`:
-- Chop type value ranges (min/max per chop type)
+- Chop type value range (shared across all types — the number of types and range bounds are balance levers)
 - Card counts per chop type and variation
 - Durability cost ranges (min/max per chop type)
 - Stamina cost ranges (min/max for advanced chops)
 - Health cost ranges (min/max for high-tier chops)
 - Pattern multiplier table (multiplier per pattern type)
-- Base reward (default 1000 Lumber)
-- Max plays per encounter (default 8)
+- Base reward (Lumber amount)
+- Max plays per encounter
 
 ## Tuning Tips
 
-- **Pattern multipliers are the primary balance lever**: The relationship between pattern rarity and multiplier magnitude determines whether tactical play is rewarded. Multipliers should scale with rarity — common patterns (pair, two pair) should have modest multipliers; rare patterns (straight, flush, full house) should have significantly higher multipliers to justify the risk and skill.
+- **Pattern multipliers are the primary balance lever**: The relationship between pattern rarity and multiplier magnitude determines whether tactical play is rewarded. Common patterns (pair, two pair) should have modest multipliers; rare patterns (straight, flush, full house) should have significantly higher multipliers to justify the risk and skill.
+- **Rare combos must be rewarding**: Rare combinations should have quite good rewards to motivate risk-taking and creative pattern-building. The best strategy should NOT be to always play for safe, simple combos — players who recognise and build toward rare hands should be meaningfully rewarded.
 - **sqrt inverse-probability scaling**: Current multipliers use sqrt of inverse probability. This prevents rare patterns from being disproportionately valuable while still rewarding them meaningfully. Adjusting the scaling function (e.g., log vs sqrt vs linear) changes the reward curve shape.
-- **Early stop as tactical lever**: If early stop is too safe (stop after 2–3 cards with a pair = good yield), tactical play loses value. If early stop is too punishing (partial hands always get low multipliers), players are forced to play all 8 cards regardless. The balance point is where stopping at 4–6 cards with a good pattern is viable but playing all 8 for a better pattern is rewarded.
-- **Chop type value ranges create pattern probability**: The overlap between chop type ranges (e.g., MediumChop 3–6 overlaps with HeavyChop 3–7) determines how likely pairs and straights are. More overlap = more pairs; less overlap = more straights.
-- **Durability budget**: 10,000 durability across all woodcutting encounters. High-cost cards (PrecisionChop, HeavyChop) eat into the durability budget faster, creating tension between playing expensive cards for better patterns vs cheap cards for more encounters.
+- **Early stop as tactical lever**: If early stop is too safe (stop after a few cards with a pair = good yield), tactical play loses value. If early stop is too punishing (partial hands always get low multipliers), players are forced to play all cards regardless. The balance point is where stopping mid-encounter with a good pattern is viable but playing more for a better pattern is rewarded.
+- **Uniform chop value range**: All chop types produce values from the same range, so pattern probability depends on card selection and cost management, not inherent value tiers. The overlap of a shared range means pairs are achievable from any type; straights require spreading across the range.
+- **Durability depletion grants rewards**: Running out of durability still triggers pattern evaluation and reward granting. This makes durability management an efficiency concern (fewer remaining encounters) rather than a catastrophic-loss concern.
+- **Durability budget**: Total durability across all woodcutting encounters bounds the session. High-cost cards eat into the durability budget faster, creating tension between playing expensive cards for better patterns vs cheap cards for more encounters.
 - **Tiered balance enforcement**: Tactical pattern-building (recognizing when to aim for a straight vs a flush, timing early stop) must produce higher yield per durability than random chop selection. If strategies converge, increase multiplier spread or adjust cost differentials between chop types.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.

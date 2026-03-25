@@ -6,6 +6,10 @@ This document contains herbalism-specific balancing information. It is the autho
 
 Herbalism balance is measured by **yield per durability** — how many Plant tokens a player earns for the HerbalismDurability spent across encounters. Unlike combat (which uses win streaks), gathering disciplines focus on resource efficiency over a session of encounters.
 
+### Yield-per-Durability Targets
+
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **X–Y yield tokens per Z total durability spent**. These targets are tuned in the balance simulation step (see roadmap B2.5) and should be identical across disciplines to ensure no single gathering path dominates.
+
 ### Strategy Hierarchy (yield per durability)
 
 | Strategy | Description |
@@ -27,9 +31,9 @@ Herbalism should produce roughly the same yield value per durability as other ga
 
 ### Core Mechanic: Characteristic Matching
 
-The encounter starts with 50 plant cards (5 types × 10), each with a set of 5 possible characteristics: Fragile, Thorny, Aromatic, Bitter, Luminous.
+The encounter starts with a set of plant cards across several types, each with a set of possible characteristics (e.g., Fragile, Thorny, Aromatic, Bitter, Luminous).
 
-The goal is to eliminate plants until exactly **1 plant remains** — that is a win, granting 500 Plant tokens.
+The goal is to eliminate plants until exactly **1 plant remains** — that is a win, granting the base Plant token reward.
 
 ### Match Modes
 
@@ -44,8 +48,9 @@ Player cards use different match modes to eliminate plants:
 
 ### Win and Loss Conditions
 
-- **Win**: Exactly 1 plant remains → 500 Plant tokens
-- **Loss**: 0 plants remain (over-elimination), HerbalismDurability ≤ 0, or all hand cards unpayable
+- **Win**: Exactly 1 plant remains → base Plant token reward
+- **Loss**: 0 plants remain (over-elimination), all hand cards unpayable
+- **Durability depletion**: If HerbalismDurability ≤ 0, the encounter ends immediately — rewards are still granted before ending as a loss. Stamina cost still applies.
 
 ### Strategic Tension
 
@@ -53,24 +58,13 @@ The core tension is **precision vs efficiency**: broad matches (Or with multiple
 
 ## Token Lifecycle in Herbalism
 
-- **HerbalismDurability**: `PersistentCounter` (initialized at 10,000). Decreased by post-play costs (50–100% of card cost range). Triggers encounter loss if ≤ 0. Persists across encounters — total durability is the session budget.
-- **Stamina**: `PersistentCounter`. Pre-play cost on complex match cards (100–150%). Persists across encounters; main recovery comes from resting.
-- **Health**: `PersistentCounter`. Pre-play cost on high-tier cards (150–200%). Rare but significant. Persists across encounters.
+- **HerbalismDurability**: Persistent counter. Decreased by post-play costs. Triggers encounter end (with rewards) if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
+- **Stamina**: Persistent counter. Pre-play cost on complex match cards. Persists across encounters; main recovery comes from resting.
+- **Health**: Persistent counter. Pre-play cost on high-tier cards. Rare but significant. Persists across encounters.
 
 ## Card Composition
 
-~50 player cards across 8 match variations plus stamina recovery:
-
-| Card Type | Match Mode | Characteristics | Cost Profile |
-|-----------|-----------|----------------|-------------|
-| Simple Or (single) | Or | 1 characteristic | Low durability |
-| Simple Or (dual) | Or | 2 characteristics | Low durability |
-| And (dual) | And | 2 characteristics | Medium durability + stamina |
-| And (triple) | And | 3 characteristics | Medium durability + stamina |
-| MostCommon | MostCommon | Context-dependent | Medium durability + stamina |
-| LeastCommon | LeastCommon | Context-dependent | Medium durability + stamina |
-| High-tier | Various | Multiple | High durability + health |
-| Stamina recovery | N/A | Gains stamina | Low durability |
+Player cards span several match mode variations plus stamina recovery. The cost profile increases with match complexity: simple Or cards are cheap, And/MostCommon/LeastCommon cost more, and high-tier multi-mode cards add health costs. The exact composition is configuration-driven — see `configurations/herbalism/cards.json`.
 
 ## Config Parameters
 
@@ -80,14 +74,15 @@ Key herbalism config parameters in `configurations/herbalism/cards.json`:
 - Durability cost ranges (min/max per match mode)
 - Stamina cost ranges (min/max for complex modes)
 - Health cost ranges (min/max for high-tier cards)
-- Plant token reward per win (currently 500)
+- Base Plant token reward per win
 
 ## Tuning Tips
 
-- **Reward is binary**: Unlike mining (variable yield), herbalism has a fixed 500-Plant reward per win. Balance is about the win rate and durability cost per attempt, not reward magnitude.
+- **Reward is binary**: Unlike mining (variable yield), herbalism has a fixed reward per win. Balance is about the win rate and durability cost per attempt, not reward magnitude.
 - **Plant composition drives difficulty**: The distribution of characteristics across plant types determines how easy it is to isolate a single plant. More uniform distributions make precision harder; more varied distributions make it easier.
 - **Match mode costs as the balance lever**: The cost differential between Or (cheap, imprecise) and And/MostCommon/LeastCommon (expensive, precise) is the primary lever for tiered balance. If precise modes are too cheap, simple strategies converge with tactical ones.
 - **Over-elimination risk**: The main failure mode is eliminating all plants. Cards that remove too many plants per play increase this risk. The Or mode with multiple characteristics is the highest-risk play.
-- **Durability budget**: 10,000 durability across all herbalism encounters. Higher per-encounter durability cost means fewer total encounters (and fewer chances to earn Plant tokens).
+- **Durability depletion grants rewards**: Running out of durability still triggers the reward. This makes durability management an efficiency concern (fewer remaining encounters) rather than a catastrophic-loss concern.
+- **Durability budget**: Total durability across all herbalism encounters bounds the session. Higher per-encounter durability cost means fewer total encounters (and fewer chances to earn Plant tokens).
 - **Tiered balance enforcement**: Tactical play (reading characteristics, choosing And/LeastCommon at the right moment) must achieve more wins per durability than random Or-mode play. If strategies converge, increase the cost differential between broad and precise match modes.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
