@@ -73,8 +73,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -100,8 +100,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -128,8 +128,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -159,8 +159,8 @@
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -190,8 +190,8 @@
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -223,8 +223,8 @@
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -247,8 +247,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -282,8 +282,8 @@
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -318,8 +318,8 @@
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 150,
+            "max_percent": 300,
             "is_absolute": true
           }
         ]
@@ -452,7 +452,7 @@
             }
           ],
           "rewards": {
-            "Plant": 500
+            "Plant": 350
           }
         }
       },

@@ -67,7 +67,7 @@ fn herbalism_greedy_diagnostic() {
 #[test]
 fn herbalism_balance_simulation() {
     let config = SimulationConfig {
-        games_per_strategy: 3,
+        games_per_strategy: 5,
         encounters_per_game: 20,
         base_seed: 42,
         max_actions_per_encounter: 200,

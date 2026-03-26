@@ -35,12 +35,7 @@ impl DisciplineDriver for HerbalismDisciplineDriver {
         }))
     }
 
-    fn post_encounter(
-        &self,
-        client: &Client,
-        pre_state: &Option<Value>,
-        result: &mut GameResult,
-    ) {
+    fn post_encounter(&self, client: &Client, pre_state: &Option<Value>, result: &mut GameResult) {
         if let Some(pre) = pre_state {
             let snapshot = get_snapshot(client);
             let plant_before = pre
@@ -70,11 +65,7 @@ impl DisciplineDriver for HerbalismDisciplineDriver {
 
 /// Play an herbalism encounter to completion using the given strategy.
 /// Returns the number of rounds played.
-pub fn play_herbalism_encounter(
-    client: &Client,
-    strategy: &dyn Strategy,
-    max_actions: u32,
-) -> u32 {
+pub fn play_herbalism_encounter(client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32 {
     let effect_map = build_effect_map(client);
     let mut rounds = 0;
 

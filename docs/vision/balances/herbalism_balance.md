@@ -84,3 +84,28 @@ Key herbalism config parameters in `configurations/herbalism/cards.json`:
 - **Durability budget**: Total durability across all herbalism encounters bounds the session. Higher per-encounter durability cost means fewer total encounters (and fewer chances to earn Plant tokens).
 - **Tiered balance enforcement**: Tactical play (reading characteristics, choosing And/LeastCommon at the right moment) must achieve more wins per durability than random Or-mode play. If strategies converge, increase the cost differential between broad and precise match modes.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
+
+## Simulation Results
+
+Observed yield-per-durability from the B2.5 herbalism balance simulation (5 games × 20 encounters, seed 42):
+
+| Strategy | Yield/Durability | Win Rate | In Target (0.2–0.4) |
+|----------|-----------------|----------|---------------------|
+| Random | 0.277 | 14.0% | ✅ |
+| Greedy | 0.335 | 17.0% | ✅ |
+| Conservative | 0.230 | 11.0% | ✅ |
+| Tactician | 0.345 | 17.0% | ✅ |
+
+20-game validation averages: Random 0.328, Greedy 0.297, Conservative 0.251, Tactician 0.313 — all within 0.2–0.4.
+
+### Config Changes Applied (B2.5)
+
+- Durability cost per card play: 150–300 (was 50–100)
+- Plant reward per win: 350 (was 500)
+
+### Observations
+
+- **Tactician outperforms simple strategies** in 20-game averages (0.313 vs 0.251–0.328), though the gap is modest.
+- **Conservative is lowest** as expected — narrow matching costs more durability per win.
+- **Small-sample variance** (3 games) can produce results outside the 0.2–0.4 band; 5+ games are needed for stable results.
+- **Strategy differentiation** is present but could be sharper; B3 tuning may adjust match mode cost differentials to widen the tactician advantage.

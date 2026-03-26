@@ -14,29 +14,30 @@ pub struct YieldTarget {
 /// From docs/vision/balances/herbalism_balance.md:
 ///   Goal target: 0.2 – 0.4
 ///
-/// Exploration-phase targets are widened to capture current game behavior.
-/// Tightening to strategy-specific bands happens in B3 (tuning phase).
+/// Test bands are slightly wider (0.15–0.50) to accommodate small-sample
+/// RNG variance in CI while still catching regressions. The authoritative
+/// goal target remains 0.2–0.4.
 pub fn herbalism_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
-            target_min: 0.01,
-            target_max: 10.0,
+            target_min: 0.15,
+            target_max: 0.50,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.01,
-            target_max: 10.0,
+            target_min: 0.15,
+            target_max: 0.50,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
-            target_min: 0.01,
-            target_max: 10.0,
+            target_min: 0.15,
+            target_max: 0.50,
         },
         YieldTarget {
             strategy: "tactician".to_string(),
-            target_min: 0.01,
-            target_max: 10.0,
+            target_min: 0.15,
+            target_max: 0.50,
         },
     ]
 }
