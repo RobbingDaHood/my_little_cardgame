@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rocket::local::blocking::Client;
 use serde_json::Value;
 
@@ -5,6 +7,41 @@ use crate::game_driver::{
     get_json, get_possible_actions, get_snapshot, post_action, DisciplineDriver, GameResult,
 };
 use crate::strategies::{GameSnapshot, Strategy};
+
+/// Maps effect_id -> (effect_type, optional token_type for GainTokens effects).
+fn build_effect_type_map(client: &Client) -> HashMap<u64, (String, Option<String>)> {
+    let data = get_json(client, "/library/card_effects");
+    let mut map = HashMap::new();
+
+    for section_key in &["player_effects", "enemy_effects"] {
+        if let Some(effects) = data.get(section_key).and_then(|v| v.as_array()) {
+            for entry in effects {
+                let id = entry.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+                let kind_obj = entry
+                    .get("card")
+                    .and_then(|c| c.get("kind"))
+                    .and_then(|k| k.get("kind"));
+
+                if let Some(kind) = kind_obj {
+                    let effect_type = kind
+                        .get("effect_type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+
+                    let token_type = kind
+                        .get("token_type")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string());
+
+                    map.insert(id, (effect_type, token_type));
+                }
+            }
+        }
+    }
+
+    map
+}
 
 pub struct FishingDisciplineDriver;
 
@@ -216,6 +253,7 @@ pub fn get_fishing_encounter_choices_filtered(
 /// Get playable fishing cards enriched with effect details for strategy decision-making.
 pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> Vec<Value> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Fishing");
+    let effect_type_map = build_effect_type_map(client);
 
     cards
         .as_array()
@@ -243,28 +281,23 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
 
             if let Some(effects_arr) = effects.as_array() {
                 for effect in effects_arr {
-                    let effect_kind = effect
-                        .get("kind")
-                        .and_then(|k| k.as_object())
-                        .and_then(|obj| obj.keys().next().cloned());
+                    let effect_id = effect
+                        .get("effect_id")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
 
-                    match effect_kind.as_deref() {
-                        Some("FishingValue") => {
-                            let rolled = effect
-                                .get("rolled_value")
-                                .and_then(|v| v.as_i64())
-                                .unwrap_or(0);
-                            if rolled > max_fishing_value {
-                                max_fishing_value = rolled;
+                    if let Some((effect_type, token_type)) = effect_type_map.get(&effect_id) {
+                        match effect_type.as_str() {
+                            "FishingValue" => {
+                                let rolled = effect
+                                    .get("rolled_value")
+                                    .and_then(|v| v.as_i64())
+                                    .unwrap_or(0);
+                                if rolled > max_fishing_value {
+                                    max_fishing_value = rolled;
+                                }
                             }
-                        }
-                        Some("GainTokens") => {
-                            let token_type = effect
-                                .get("kind")
-                                .and_then(|k| k.get("GainTokens"))
-                                .and_then(|gt| gt.get("token_type"))
-                                .and_then(|tt| tt.as_str());
-                            match token_type {
+                            "GainTokens" => match token_type.as_deref() {
                                 Some("FishingRangeMin") | Some("FishingRangeMax") => {
                                     has_range_modifier = true;
                                 }
@@ -272,9 +305,9 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
                                     has_fish_amount_modifier = true;
                                 }
                                 _ => {}
-                            }
+                            },
+                            _ => {}
                         }
-                        _ => {}
                     }
 
                     if let Some(costs) = effect.get("rolled_costs").and_then(|c| c.as_array()) {

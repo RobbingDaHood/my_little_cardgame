@@ -15,7 +15,21 @@ impl Strategy for ConservativeFishingStrategy {
             return serde_json::json!({"action_type": "EncounterAbort"});
         }
 
-        let best = actions
+        let card_actions: Vec<&Value> = actions
+            .iter()
+            .filter(|a| {
+                !a.get("is_conclude")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        if card_actions.is_empty() {
+            // Only conclude actions available — return the first one
+            return actions[0].clone();
+        }
+
+        let best = card_actions
             .iter()
             .min_by_key(|a| {
                 a.get("card_details")
