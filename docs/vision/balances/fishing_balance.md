@@ -78,6 +78,34 @@ The fish deck contains cards with a weighted distribution across several value t
 
 Cards span several tiers with increasing value ranges, higher costs, and stronger modifiers. Basic cards have low durability cost and simple values; mid-tier cards add stamina costs and may include range adjustments; high-tier cards add health costs and may include range narrowing or FishAmount boosts. The exact values are configuration-driven.
 
+## Simulation Results (B2.7 Baseline)
+
+Initial simulation run: 10 games × 50 encounters per game, seed 42–51.
+
+### Observed Yield per Durability
+
+| Strategy | Win Rate | Avg Fish | Avg Durability Spent | Yield/Durability |
+|----------|----------|----------|---------------------|-----------------|
+| Random | 4.0% | 47,200 | 4,432 | 10.96 |
+| Greedy | 3.4% | 47,200 | 4,332 | 11.59 |
+| Conservative | 4.2% | 47,300 | 4,073 | 12.16 |
+| Tactician | 3.4% | 47,000 | 4,356 | 11.72 |
+
+### Key Findings
+
+1. **Yield is ~10–12 per durability** — far above the aspirational 0.2–0.4 target. This is because `conclude_fishing_encounter` grants full base reward (~1,000 Fish) on nearly every encounter, regardless of win/loss outcome. Most fish come from the conclude path, not from encounter wins.
+2. **Win rate is very low** (~3–4%) across all strategies, suggesting the encounter win condition (`turns_won ≥ win_turns_needed`) is quite difficult. Strategies do not differentiate meaningfully on win rate.
+3. **All strategies produce similar yield** — no meaningful skill gap exists in the current config. The conclude mechanism dominates yield, nullifying tactical advantages from range management or FishAmount boosting.
+4. **Durability consumption is moderate** — ~4,000–4,500 out of 10,000 durability is spent per game (50 encounters). Durability is not the binding constraint.
+
+### Recommended Tuning Direction
+
+To reach the aspirational 0.2–0.4 yield per durability:
+- **Option A**: Reduce or remove fish rewards from the conclude path (only grant full rewards on encounter win).
+- **Option B**: Increase durability costs significantly (~25–50× current).
+- **Option C**: Reduce base Fish reward per encounter (~50–100× reduction).
+- **Increase win rate differentiation**: Make encounter difficulty tunable so that tactical play (range management + value selection + FishAmount) produces 2–3× the win rate of random play.
+
 ## Config Parameters
 
 Key fishing config parameters in `configurations/fishing/cards.json`:
