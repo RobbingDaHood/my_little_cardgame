@@ -2,18 +2,44 @@ use rocket::http::{ContentType, Status};
 use rocket::local::blocking::Client;
 use serde_json::Value;
 
-use crate::combat::driver::{
-    find_combat_encounter, get_combat_encounter_choices_filtered, get_combat_encounter_ids,
-    play_combat_encounter,
-};
 use crate::strategies::{GameSnapshot, Strategy};
+
+/// Discipline-specific encounter driver. Each discipline implements this trait
+/// to handle encounter finding, playing, and metric tracking.
+pub trait DisciplineDriver {
+    /// Get IDs of encounters matching this discipline in the encounter hand.
+    fn get_encounter_ids(&self, client: &Client) -> Vec<u64>;
+
+    /// Get enriched encounter choices for strategy selection, excluding given IDs.
+    fn get_encounter_choices_filtered(&self, client: &Client, exclude_ids: &[u64]) -> Vec<Value>;
+
+    /// Find any encounter of this discipline. Returns card ID.
+    fn find_encounter(&self, client: &Client) -> Option<usize>;
+
+    /// Play an encounter to completion using the strategy. Returns rounds played.
+    fn play_encounter(&self, client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32;
+
+    /// Called before each encounter. Returns opaque state for post_encounter.
+    fn pre_encounter(&self, _client: &Client) -> Option<Value> {
+        None
+    }
+
+    /// Called after each encounter completes. Updates result with discipline-specific metrics.
+    fn post_encounter(
+        &self,
+        _client: &Client,
+        _pre_state: &Option<Value>,
+        _result: &mut GameResult,
+    ) {
+    }
+}
 
 /// Results from a single game session.
 #[derive(Debug, Clone)]
 pub struct GameResult {
     pub seed: u64,
-    pub combat_wins: u32,
-    pub combat_losses: u32,
+    pub wins: u32,
+    pub losses: u32,
     pub total_encounters: u32,
     pub deaths: i64,
     pub final_health: i64,
@@ -24,9 +50,13 @@ pub struct GameResult {
     pub win_streaks: Vec<u32>,
     /// Maximum consecutive wins achieved in this game.
     pub max_win_streak: u32,
+    /// Discipline-specific: total yield earned (e.g., Ore for mining).
+    pub yield_total: i64,
+    /// Discipline-specific: total durability spent.
+    pub durability_spent: i64,
 }
 
-/// Drives one full game session through repeated combat encounters.
+/// Drives one full game session through repeated encounters for a given discipline.
 pub struct GameDriver {
     max_encounters: u32,
     max_actions_per_encounter: u32,
@@ -40,7 +70,12 @@ impl GameDriver {
         }
     }
 
-    pub fn play_game(&self, seed: u64, strategy: &dyn Strategy) -> GameResult {
+    pub fn play_game(
+        &self,
+        seed: u64,
+        strategy: &dyn Strategy,
+        discipline: &dyn DisciplineDriver,
+    ) -> GameResult {
         let client =
             Client::tracked(my_little_cardgame::rocket_initialize()).expect("valid rocket");
 
@@ -49,8 +84,8 @@ impl GameDriver {
 
         let mut result = GameResult {
             seed,
-            combat_wins: 0,
-            combat_losses: 0,
+            wins: 0,
+            losses: 0,
             total_encounters: 0,
             deaths: 0,
             final_health: 0,
@@ -58,17 +93,17 @@ impl GameDriver {
             rounds_per_encounter: Vec::new(),
             win_streaks: Vec::new(),
             max_win_streak: 0,
+            yield_total: 0,
+            durability_spent: 0,
         };
 
         let mut initial_deaths = get_snapshot(&client).player_deaths();
         let mut current_streak: u32 = 0;
 
         for encounter_num in 0..self.max_encounters {
-            // Record encounter IDs before scouting generates new ones
-            let pre_scouting_ids = get_combat_encounter_ids(&client);
+            let pre_scouting_ids = discipline.get_encounter_ids(&client);
 
             if !self.advance_to_encounter_pick(&client, strategy) {
-                // Game is stuck — restart to continue simulation (counts as death/streak break).
                 let new_game = serde_json::json!({"action_type": "NewGame", "seed": seed.wrapping_add(encounter_num as u64 * 1000)});
                 post_action(&client, &new_game);
                 initial_deaths = get_snapshot(&client).player_deaths();
@@ -80,10 +115,9 @@ impl GameDriver {
                 continue;
             }
 
-            // Get scouting-generated encounters (exclude pre-scouting ones)
             let scouting_encounters =
-                get_combat_encounter_choices_filtered(&client, &pre_scouting_ids);
-            let combat_enc_id = if !scouting_encounters.is_empty() {
+                discipline.get_encounter_choices_filtered(&client, &pre_scouting_ids);
+            let enc_id = if !scouting_encounters.is_empty() {
                 let snapshot = get_snapshot(&client);
                 let chosen = strategy.choose_action(&scouting_encounters, &snapshot);
                 chosen
@@ -91,9 +125,9 @@ impl GameDriver {
                     .and_then(|v| v.as_u64())
                     .map(|v| v as usize)
             } else {
-                find_combat_encounter(&client)
+                discipline.find_encounter(&client)
             };
-            let combat_enc_id = match combat_enc_id {
+            let enc_id = match enc_id {
                 Some(id) => id,
                 None => {
                     let enc_ids = get_encounter_hand_ids(&client);
@@ -105,33 +139,36 @@ impl GameDriver {
                         "card_id": enc_ids[0]
                     });
                     post_action(&client, &pick);
-                    self.play_non_combat_encounter(&client, strategy);
+                    self.play_non_target_encounter(&client, strategy);
                     continue;
                 }
             };
 
             let pick = serde_json::json!({
                 "action_type": "EncounterPickEncounter",
-                "card_id": combat_enc_id
+                "card_id": enc_id
             });
             post_action(&client, &pick);
             result.total_encounters += 1;
 
+            let pre_state = discipline.pre_encounter(&client);
             let results_before = get_encounter_results_count(&client);
-            let rounds = play_combat_encounter(&client, strategy, self.max_actions_per_encounter);
+            let rounds =
+                discipline.play_encounter(&client, strategy, self.max_actions_per_encounter);
             result.rounds_per_encounter.push(rounds);
+            discipline.post_encounter(&client, &pre_state, &mut result);
 
             let outcome = get_last_encounter_outcome(&client, results_before);
             match outcome.as_deref() {
                 Some("PlayerWon") => {
-                    result.combat_wins += 1;
+                    result.wins += 1;
                     current_streak += 1;
                     if current_streak > result.max_win_streak {
                         result.max_win_streak = current_streak;
                     }
                 }
                 Some("PlayerLost") => {
-                    result.combat_losses += 1;
+                    result.losses += 1;
                     if current_streak > 0 {
                         result.win_streaks.push(current_streak);
                     }
@@ -154,7 +191,6 @@ impl GameDriver {
             }
         }
 
-        // Push final streak if game ended without death/loss
         if current_streak > 0 {
             result.win_streaks.push(current_streak);
         }
@@ -207,8 +243,8 @@ impl GameDriver {
         false
     }
 
-    fn play_non_combat_encounter(&self, client: &Client, _strategy: &dyn Strategy) {
-        // Abort non-combat encounters immediately — simulation only tracks combat.
+    fn play_non_target_encounter(&self, client: &Client, _strategy: &dyn Strategy) {
+        // Abort non-target encounters immediately — simulation only tracks the target discipline.
         // Then handle scouting to return to NoEncounter phase.
         for _ in 0..self.max_actions_per_encounter {
             let possible = get_possible_actions(client);

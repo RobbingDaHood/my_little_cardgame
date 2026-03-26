@@ -1,8 +1,29 @@
 use rocket::local::blocking::Client;
 use serde_json::Value;
 
-use crate::game_driver::{get_json, get_possible_actions, get_snapshot, post_action};
+use crate::game_driver::{get_json, get_possible_actions, get_snapshot, post_action, DisciplineDriver};
 use crate::strategies::{GameSnapshot, Strategy};
+
+/// Combat discipline driver — wraps existing combat functions into the DisciplineDriver trait.
+pub struct CombatDisciplineDriver;
+
+impl DisciplineDriver for CombatDisciplineDriver {
+    fn get_encounter_ids(&self, client: &Client) -> Vec<u64> {
+        get_combat_encounter_ids(client)
+    }
+
+    fn get_encounter_choices_filtered(&self, client: &Client, exclude_ids: &[u64]) -> Vec<Value> {
+        get_combat_encounter_choices_filtered(client, exclude_ids)
+    }
+
+    fn find_encounter(&self, client: &Client) -> Option<usize> {
+        find_combat_encounter(client)
+    }
+
+    fn play_encounter(&self, client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32 {
+        play_combat_encounter(client, strategy, max_actions)
+    }
+}
 
 /// Play a combat encounter to completion using the given strategy.
 /// Returns the number of rounds played.

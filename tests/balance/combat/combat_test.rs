@@ -1,3 +1,4 @@
+use crate::combat::driver::CombatDisciplineDriver;
 use crate::combat::strategies::conservative::ConservativeStrategy;
 use crate::combat::strategies::greedy::GreedyStrategy;
 use crate::combat::strategies::random::RandomStrategy;
@@ -31,8 +32,10 @@ fn combat_balance_simulation() {
         &tactician_conservative,
     ];
 
-    let runner = SimulationRunner::new(config);
-    let report: SimulationReport = runner.run_all(&strategies);
+    let discipline = CombatDisciplineDriver;
+    let runner = SimulationRunner::new(config.clone());
+    let results = runner.run_all(&strategies, &discipline);
+    let report = SimulationReport::from_results(&config, results);
 
     // Output JSON to stdout for piping to jq/nushell
     println!("{}", report.to_json());
