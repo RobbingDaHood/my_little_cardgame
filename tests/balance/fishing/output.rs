@@ -10,30 +10,31 @@ pub struct YieldTarget {
     pub target_max: f64,
 }
 
-/// Fishing balance targets from docs/vision/balances/fishing_balance.md.
-/// Exploration-phase targets are widened to capture current config baseline;
-/// tightening to strategy-specific bands happens in B3 tuning.
+/// Fishing balance targets from docs/vision/balances/fishing_balance.md:
+///   Goal: 0.2–0.4 yield per durability.
+///   Simple strategies (Random, Greedy, Conservative) in lower half.
+///   Tactician in upper half.
 pub fn fishing_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "FishingRandom".to_string(),
-            target_min: 0.0,
-            target_max: 50.0,
+            target_min: 0.2,
+            target_max: 0.4,
         },
         YieldTarget {
             strategy: "FishingGreedy".to_string(),
-            target_min: 0.0,
-            target_max: 50.0,
+            target_min: 0.2,
+            target_max: 0.4,
         },
         YieldTarget {
             strategy: "FishingConservative".to_string(),
-            target_min: 0.0,
-            target_max: 50.0,
+            target_min: 0.2,
+            target_max: 0.4,
         },
         YieldTarget {
             strategy: "FishingTactician".to_string(),
-            target_min: 0.0,
-            target_max: 50.0,
+            target_min: 0.2,
+            target_max: 0.4,
         },
     ]
 }
