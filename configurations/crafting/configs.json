@@ -1,0 +1,12 @@
+{
+    "initial_draw_count": 5,
+    "durability_material_cost": 50,
+    "durability_grant": 300,
+    "min_craft_token_cost": 2,
+    "base_cost_divisor": 4,
+    "max_material_percent": 75,
+    "material_token_min": 2,
+    "material_token_max": 4,
+    "cost_reduction_floor_percent": 50,
+    "cost_formula_divisor": 100
+}

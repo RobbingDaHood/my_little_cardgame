@@ -1,0 +1,5 @@
+{
+    "max_hand_size": 7,
+    "base_insight_cost": 10,
+    "insight_cost_multiplier": 2
+}

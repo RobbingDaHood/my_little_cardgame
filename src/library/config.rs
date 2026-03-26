@@ -271,16 +271,12 @@ pub struct MilestoneDefConfig {
 // ---------------------------------------------------------------------------
 
 /// Top-level game rules loaded from `configurations/general/game_rules.json`.
+/// Contains only general (non-discipline-specific) rules. Discipline-specific
+/// rules are loaded from their own `configs.json` files.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct GameRulesConfig {
     pub general: GeneralRules,
-    pub combat: CombatRules,
-    pub research: ResearchRules,
-    pub crafting: CraftingRules,
-    pub milestone: MilestoneRules,
-    pub scouting: ScoutingRules,
-    pub woodcutting_patterns: Vec<WoodcuttingPatternRule>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -372,4 +368,12 @@ pub struct WoodcuttingPatternRule {
     pub second_type_min: usize,
     pub value_freq_min: usize,
     pub multiplier: f64,
+}
+
+/// Wrapper for woodcutting discipline config loaded from
+/// `configurations/woodcutting/configs.json`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct WoodcuttingDisciplineConfig {
+    pub patterns: Vec<WoodcuttingPatternRule>,
 }

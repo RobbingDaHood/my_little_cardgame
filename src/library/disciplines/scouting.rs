@@ -544,7 +544,7 @@ mod tests {
     #[test]
     fn difficulty_deltas_have_minimum_separation() {
         let mut rng = rand_pcg::Lcg64Xsh32::seed_from_u64(42);
-        let rules = crate::library::config_loader::load_game_rules().scouting;
+        let rules = crate::library::config_loader::load_scouting_rules();
         for _ in 0..100 {
             let deltas = sample_difficulty_deltas(&mut rng, &rules);
             for &d in &deltas {

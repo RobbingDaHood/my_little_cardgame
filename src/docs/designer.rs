@@ -390,14 +390,17 @@ fn build_json_configuration() -> DesignerSection {
                 name: "Directory layout".to_string(),
                 description: "configurations/general/tokens.json — initial token balances \
                     (Health, Stamina, Durabilities, max hand sizes). \
-                    configurations/general/game_rules.json — game-wide mechanics constants \
-                    (death reset values, combat rewards, crafting costs, scouting parameters, \
-                    milestone scaling, woodcutting patterns). \
+                    configurations/general/game_rules.json — general game rules \
+                    (death reset values). \
                     configurations/general/shared_effects.json — 5 shared effect templates \
                     reusable across disciplines (deal_damage, grant_shield, grant_stamina, \
                     draw_cards, insight). \
-                    configurations/<discipline>/cards.json — per-discipline file for combat, \
-                    mining, herbalism, woodcutting, fishing, rest, crafting, research, milestone."
+                    configurations/<discipline>/cards.json — per-discipline card definitions for \
+                    combat, mining, herbalism, woodcutting, fishing, rest, crafting, research, \
+                    milestone. \
+                    configurations/<discipline>/configs.json — per-discipline tuning constants \
+                    (combat rewards, crafting costs, scouting parameters, milestone scaling, \
+                    woodcutting patterns, research limits)."
                     .to_string(),
             },
             ReferenceEntry {

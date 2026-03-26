@@ -41,7 +41,7 @@ impl GameState {
         self.encounter_phase = types::EncounterPhase::InEncounter;
 
         // Draw crafting cards to hand
-        self.draw_player_crafting_cards(self.game_rules.crafting.initial_draw_count, rng);
+        self.draw_player_crafting_cards(self.library.crafting_rules.initial_draw_count, rng);
 
         // Play the encounter card (move from hand to discard)
         let _ = self.library.play(encounter_card_id);
@@ -127,7 +127,7 @@ impl GameState {
             return Err("Not enough crafting tokens".to_string());
         }
 
-        let durability_cost = self.game_rules.crafting.durability_material_cost;
+        let durability_cost = self.library.crafting_rules.durability_material_cost;
         let (durability_token, cost_token, cost_amount) = match discipline {
             "Mining" => (
                 types::TokenType::MiningDurability,
@@ -171,7 +171,7 @@ impl GameState {
         // Grant durability
         let dur_key = types::Token::persistent(durability_token);
         *self.token_balances.entry(dur_key).or_insert(0) +=
-            self.game_rules.crafting.durability_grant;
+            self.library.crafting_rules.durability_grant;
 
         // Deduct crafting token
         if let Some(EncounterState::Crafting(c)) = &mut self.current_encounter {
@@ -206,10 +206,10 @@ impl GameState {
 
         // Crafting cost based on card quality — token cost is proportional
         let total_material_cost: i64 = target_card.crafting_cost.values().sum();
-        let token_cost = ((total_material_cost / self.game_rules.crafting.cost_formula_divisor)
+        let token_cost = ((total_material_cost / self.library.crafting_rules.cost_formula_divisor)
             + 1)
         .min(crafting.crafting_tokens);
-        let token_cost = token_cost.max(self.game_rules.crafting.min_craft_token_cost);
+        let token_cost = token_cost.max(self.library.crafting_rules.min_craft_token_cost);
 
         if crafting.crafting_tokens < token_cost {
             return Err(format!(
@@ -278,7 +278,7 @@ impl GameState {
                                 let original =
                                     craft.original_costs.get(token_type).copied().unwrap_or(0);
                                 let floor = original
-                                    * self.game_rules.crafting.cost_reduction_floor_percent
+                                    * self.library.crafting_rules.cost_reduction_floor_percent
                                     / 100;
                                 *current = (*current - effect.rolled_value).max(floor);
                             }
