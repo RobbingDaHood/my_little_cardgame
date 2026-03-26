@@ -8,3 +8,4 @@ mod mining;
 mod output;
 mod runner;
 mod strategies;
+mod woodcutting;
