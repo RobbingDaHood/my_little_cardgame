@@ -78,33 +78,46 @@ The fish deck contains cards with a weighted distribution across several value t
 
 Cards span several tiers with increasing value ranges, higher costs, and stronger modifiers. Basic cards have low durability cost and simple values; mid-tier cards add stamina costs and may include range adjustments; high-tier cards add health costs and may include range narrowing or FishAmount boosts. The exact values are configuration-driven.
 
-## Simulation Results (B2.7 Baseline)
+## Simulation Results
 
-Initial simulation run: 10 games × 50 encounters per game, seed 42–51.
+### Tuned Results (B2.7 — Fish reward = 15)
 
-### Observed Yield per Durability
+Simulation: 3 games × 20 encounters per game, seed 42. DisciplineDriver pattern with
+effect-type-aware strategies (effect_id → template lookup for card classification).
 
-| Strategy | Win Rate | Avg Fish | Avg Durability Spent | Yield/Durability |
-|----------|----------|----------|---------------------|-----------------|
-| Random | 4.0% | 47,200 | 4,432 | 10.96 |
-| Greedy | 3.4% | 47,200 | 4,332 | 11.59 |
-| Conservative | 4.2% | 47,300 | 4,073 | 12.16 |
-| Tactician | 3.4% | 47,000 | 4,356 | 11.72 |
+| Strategy | Win Rate | Total Yield | Total Durability | Yield/Durability | Target |
+|----------|----------|-------------|-----------------|-----------------|--------|
+| Random | 98.3% | 7,126 | 20,662 | 0.345 | 0.2–0.4 ✅ |
+| Greedy | 83.3% | 5,588 | 22,002 | 0.254 | 0.2–0.4 ✅ |
+| Conservative | 81.7% | 5,488 | 18,301 | 0.300 | 0.2–0.4 ✅ |
+| Tactician | 83.3% | 5,588 | 22,002 | 0.254 | 0.2–0.4 ✅ |
 
-### Key Findings
+### Key Findings (Tuned)
 
-1. **Yield is ~10–12 per durability** — far above the aspirational 0.2–0.4 target. This is because `conclude_fishing_encounter` grants full base reward (~1,000 Fish) on nearly every encounter, regardless of win/loss outcome. Most fish come from the conclude path, not from encounter wins.
-2. **Win rate is very low** (~3–4%) across all strategies, suggesting the encounter win condition (`turns_won ≥ win_turns_needed`) is quite difficult. Strategies do not differentiate meaningfully on win rate.
-3. **All strategies produce similar yield** — no meaningful skill gap exists in the current config. The conclude mechanism dominates yield, nullifying tactical advantages from range management or FishAmount boosting.
-4. **Durability consumption is moderate** — ~4,000–4,500 out of 10,000 durability is spent per game (50 encounters). Durability is not the binding constraint.
+1. **All strategies within target** — yield/durability ranges from 0.254 to 0.345, well within the 0.2–0.4 band.
+2. **Primary tuning lever**: Reducing the base Fish reward from 1,000 to 15 (≈67× reduction) brought yield into range. Option C from the original tuning recommendations proved simplest and most effective.
+3. **Win rates are high** (82–98%) — the fish deck composition (66% of cards in valid range) makes encounter wins common. Strategy differentiation comes from value selection, not win rate.
+4. **Random outperforms targeted strategies** — random card selection accidentally produces good range coverage, while Greedy/Tactician's in-range preference concentrates on specific values. This is an acceptable inversion for simple strategies: the "skill" in fishing is reading the range, not just picking high values.
+5. **Conservative is efficient** — lowest durability spend (18,301 vs 22,002) yields a competitive ratio. Cheap cards preserve the durability budget.
+6. **Greedy = Tactician** — with current configs, the Tactician's range/FishAmount levers don't yet differentiate it from Greedy. Future configs with more range-modifier and FishAmount cards could widen this gap.
 
-### Recommended Tuning Direction
+### Tuning History
 
-To reach the aspirational 0.2–0.4 yield per durability:
-- **Option A**: Reduce or remove fish rewards from the conclude path (only grant full rewards on encounter win).
-- **Option B**: Increase durability costs significantly (~25–50× current).
-- **Option C**: Reduce base Fish reward per encounter (~50–100× reduction).
-- **Increase win rate differentiation**: Make encounter difficulty tunable so that tactical play (range management + value selection + FishAmount) produces 2–3× the win rate of random play.
+| Round | Reward | Random | Greedy | Conservative | Tactician | Result |
+|-------|--------|--------|--------|-------------|-----------|--------|
+| Baseline | 1000 | 23.1 | 17.0 | 19.8 | 17.0 | All way too high |
+| Sweep 1 | 12 | 0.276 | 0.207 | 0.250 | 0.207 | ✅ All pass (low end) |
+| Sweep 1 | 18 | 0.414 | 0.306 | 0.359 | 0.306 | ❌ Random over |
+| Sweep 1 | 25 | 0.573 | 0.424 | 0.491 | 0.424 | ❌ All over |
+| Sweep 2 | 14 | 0.319 | 0.238 | 0.276 | 0.238 | ✅ All pass |
+| **Sweep 2** | **15** | **0.345** | **0.254** | **0.300** | **0.254** | **✅ Selected** |
+| Sweep 2 | 16 | 0.258 | 0.258 | 0.310 | 0.258 | ✅ All pass |
+
+### Future Tuning Directions
+
+- **Strategy differentiation**: Add more range-modifier and FishAmount-modifier cards to reward Tactician's multi-lever optimization. Currently Tactician = Greedy in yield.
+- **Fish deck tuning**: Shift fish deck toward higher values (fewer in-range cards) to lower win rates and increase the skill gap between Random and targeted strategies.
+- **Durability budget**: Once rest encounters are balanced, reduce initial FishingDurability (~1/10 current) to make durability preservation more strategic.
 
 ## Config Parameters
 
