@@ -323,6 +323,49 @@ impl GameDriver {
 
 // --- HTTP helper functions (public API only) ---
 
+/// Advance game state until EncounterPickEncounter is available.
+/// Handles conclude and scouting phases. Returns false if stuck or no encounters.
+pub(crate) fn advance_to_encounter_pick(client: &Client) -> bool {
+    for _ in 0..50 {
+        let possible = get_possible_actions(client);
+        let action_types: Vec<String> = possible
+            .iter()
+            .filter_map(|a| {
+                a.get("action_type")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+            })
+            .collect();
+
+        if action_types.contains(&"EncounterPickEncounter".to_string()) {
+            return true;
+        }
+
+        if action_types.contains(&"EncounterConcludeEncounter".to_string()) {
+            post_action(
+                client,
+                &serde_json::json!({"action_type": "EncounterConcludeEncounter"}),
+            );
+            continue;
+        }
+
+        if action_types.contains(&"EncounterApplyScouting".to_string()) {
+            post_action(
+                client,
+                &serde_json::json!({"action_type": "EncounterApplyScouting", "card_ids": []}),
+            );
+            continue;
+        }
+
+        if action_types.contains(&"NewGame".to_string()) {
+            return false;
+        }
+
+        return false;
+    }
+    false
+}
+
 pub(crate) fn post_action(client: &Client, action: &Value) -> (Status, Value) {
     let response = client
         .post("/action")

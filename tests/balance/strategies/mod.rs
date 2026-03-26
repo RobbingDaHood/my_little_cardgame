@@ -38,6 +38,14 @@ impl GameSnapshot {
             .map(String::from)
     }
 
+    pub fn encounter_state_type(&self) -> Option<String> {
+        self.encounter
+            .as_ref()?
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    }
+
     pub fn mining_outcome(&self) -> Option<String> {
         let enc = self.encounter.as_ref()?;
         if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Mining") {
@@ -77,6 +85,16 @@ impl GameSnapshot {
     pub fn herbalism_outcome(&self) -> Option<String> {
         let enc = self.encounter.as_ref()?;
         if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Herbalism") {
+            return None;
+        }
+        enc.get("outcome")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    }
+
+    pub fn fishing_outcome(&self) -> Option<String> {
+        let enc = self.encounter.as_ref()?;
+        if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Fishing") {
             return None;
         }
         enc.get("outcome")
@@ -146,6 +164,14 @@ impl GameSnapshot {
 
     pub fn player_lumber(&self) -> i64 {
         extract_token_value(&self.tokens, "Lumber")
+    }
+
+    pub fn fishing_durability(&self) -> i64 {
+        extract_token_value(&self.tokens, "FishingDurability")
+    }
+
+    pub fn fish_tokens(&self) -> i64 {
+        extract_token_value(&self.tokens, "Fish")
     }
 }
 
