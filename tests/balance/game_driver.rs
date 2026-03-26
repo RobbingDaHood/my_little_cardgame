@@ -207,7 +207,7 @@ impl GameDriver {
     }
 
     /// Advance game state until EncounterPickEncounter is available.
-    /// Handles conclude and scouting phases. Returns false if stuck or no encounters.
+    /// Handles conclude, scouting, and stuck encounters. Returns false if stuck or no encounters.
     fn advance_to_encounter_pick(&self, client: &Client, _strategy: &dyn Strategy) -> bool {
         for _ in 0..50 {
             let possible = get_possible_actions(client);
@@ -224,14 +224,6 @@ impl GameDriver {
                 return true;
             }
 
-            if action_types.contains(&"EncounterConcludeEncounter".to_string()) {
-                post_action(
-                    client,
-                    &serde_json::json!({"action_type": "EncounterConcludeEncounter"}),
-                );
-                continue;
-            }
-
             if action_types.contains(&"EncounterApplyScouting".to_string()) {
                 post_action(
                     client,
@@ -240,7 +232,24 @@ impl GameDriver {
                 continue;
             }
 
-            // Stuck (e.g., in combat with no playable cards).
+            // If we're inside an active encounter (has PlayCard/Conclude but no Pick),
+            // play through it as a non-target encounter.
+            if action_types.contains(&"EncounterPlayCard".to_string())
+                || action_types.contains(&"EncounterAbort".to_string())
+            {
+                self.play_non_target_encounter(client, _strategy);
+                continue;
+            }
+
+            if action_types.contains(&"EncounterConcludeEncounter".to_string()) {
+                post_action(
+                    client,
+                    &serde_json::json!({"action_type": "EncounterConcludeEncounter"}),
+                );
+                continue;
+            }
+
+            // Stuck — game needs reset.
             if action_types.contains(&"NewGame".to_string()) {
                 return false;
             }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rocket::local::blocking::Client;
 use serde_json::Value;
 
@@ -65,9 +67,19 @@ impl DisciplineDriver for MiningDisciplineDriver {
 /// Mining's `/actions/possible` returns a generic `EncounterPlayCard { card_id: 0 }`
 /// placeholder, NOT individual card IDs like combat. We must query the mining hand
 /// directly and handle 400 errors for cards the player can't afford.
+///
+/// Key edge cases:
+/// - Cards with cross-discipline costs (e.g., Lumber) are permanently unplayable in
+///   a mining-only simulation. They get blacklisted on first 400 error and stay blacklisted.
+/// - Conclude fails when yield=0 ("No yield accumulated; abort instead").
+///   In that case we abort to exit the encounter cleanly.
 pub fn play_mining_encounter(client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32 {
     let mut rounds = 0;
     let mut unplayable_card_ids: Vec<u64> = Vec::new();
+    let effect_map = load_effect_token_map(client);
+    // Track cards that fail due to resource costs — these stay blacklisted even after
+    // a successful play, since the missing resource won't appear mid-encounter.
+    let mut permanently_unplayable: Vec<u64> = Vec::new();
 
     for _ in 0..max_actions {
         let snapshot = get_snapshot(client);
@@ -91,24 +103,34 @@ pub fn play_mining_encounter(client: &Client, strategy: &dyn Strategy, max_actio
         }
 
         let possible = get_possible_actions(client);
-        let can_play_card = possible
+        let action_types: Vec<String> = possible
             .iter()
-            .any(|a| a.get("action_type").and_then(|v| v.as_str()) == Some("EncounterPlayCard"));
-        let has_conclude = possible.iter().any(|a| {
-            a.get("action_type").and_then(|v| v.as_str()) == Some("EncounterConcludeEncounter")
-        });
+            .filter_map(|a| {
+                a.get("action_type")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+            })
+            .collect();
+        let can_play_card = action_types.contains(&"EncounterPlayCard".to_string());
+        let has_conclude = action_types.contains(&"EncounterConcludeEncounter".to_string());
+        let has_abort = action_types.contains(&"EncounterAbort".to_string());
 
-        if !can_play_card && !has_conclude {
+        if !can_play_card && !has_conclude && !has_abort {
             return rounds;
         }
 
-        // Get mining cards in hand, excluding known-unplayable cards
+        // Get mining cards in hand, excluding unplayable cards
+        let all_blacklisted: Vec<u64> = unplayable_card_ids
+            .iter()
+            .chain(permanently_unplayable.iter())
+            .copied()
+            .collect();
         let mut playable: Vec<Value> = if can_play_card {
-            get_playable_mining_cards(client, &snapshot)
+            get_playable_mining_cards(client, &snapshot, &effect_map)
                 .into_iter()
                 .filter(|c| {
                     let id = c.get("card_id").and_then(|v| v.as_u64()).unwrap_or(0);
-                    !unplayable_card_ids.contains(&id)
+                    !all_blacklisted.contains(&id)
                 })
                 .collect()
         } else {
@@ -122,24 +144,58 @@ pub fn play_mining_encounter(client: &Client, strategy: &dyn Strategy, max_actio
             }));
         }
 
+        // No playable cards and no conclude — abort the encounter
         if playable.is_empty() {
+            if has_abort {
+                post_action(
+                    client,
+                    &serde_json::json!({"action_type": "EncounterAbort"}),
+                );
+            }
             return rounds;
         }
 
         let action = strategy.choose_action(&playable, &snapshot);
-        let (status, _) = post_action(client, &action);
+        let is_conclude = action
+            .get("is_conclude")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
+        // Strip non-API fields before posting
+        let api_action = if is_conclude {
+            serde_json::json!({"action_type": "EncounterConcludeEncounter"})
+        } else {
+            serde_json::json!({
+                "action_type": action.get("action_type").and_then(|v| v.as_str()).unwrap_or(""),
+                "card_id": action.get("card_id").and_then(|v| v.as_u64()).unwrap_or(0)
+            })
+        };
+        let (status, _) = post_action(client, &api_action);
 
         if status.code >= 400 {
-            // Card was rejected (e.g., insufficient resources). Blacklist it.
-            if let Some(id) = action.get("card_id").and_then(|v| v.as_u64()) {
-                unplayable_card_ids.push(id);
+            if is_conclude {
+                // Conclude rejected (e.g., "No yield accumulated") — abort instead
+                if has_abort {
+                    post_action(
+                        client,
+                        &serde_json::json!({"action_type": "EncounterAbort"}),
+                    );
+                }
+                return rounds;
             }
-            // Don't count failed actions as rounds; retry immediately
+            // Card play rejected — blacklist it. Resource-cost failures are permanent.
+            if let Some(id) = action.get("card_id").and_then(|v| v.as_u64()) {
+                permanently_unplayable.push(id);
+            }
             continue;
         }
 
-        // Reset unplayable list after a successful play — state may have changed
-        // allowing previously-unplayable cards to become playable again.
+        if is_conclude {
+            return rounds;
+        }
+
+        // Successful card play — reset temporary blacklist (state changed),
+        // but keep permanent blacklist (resource costs don't change mid-encounter).
         unplayable_card_ids.clear();
         rounds += 1;
     }
@@ -217,8 +273,39 @@ pub fn get_mining_encounter_choices_filtered(client: &Client, exclude_ids: &[u64
         .collect()
 }
 
+/// Load effect templates and build a mapping from effect_id → token_type string.
+/// This maps each effect definition to the token it affects (e.g., "MiningPower", "MiningLightLevel").
+fn load_effect_token_map(client: &Client) -> HashMap<u64, String> {
+    let effects = get_json(client, "/library/card-effects");
+    let mut map = HashMap::new();
+
+    for key in ["player_effects", "enemy_effects"] {
+        if let Some(arr) = effects.get(key).and_then(|v| v.as_array()) {
+            for entry in arr {
+                let id = entry.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
+                // CardKind uses internally-tagged serde: { "card_kind": "PlayerCardEffect", "kind": { "effect_type": "GainTokens", "token_type": "MiningPower" } }
+                // Navigate: entry.card.kind.kind.token_type
+                if let Some(token_type) = entry
+                    .get("card")
+                    .and_then(|c| c.get("kind"))
+                    .and_then(|k| k.get("kind"))
+                    .and_then(|ik| ik.get("token_type"))
+                    .and_then(|v| v.as_str())
+                {
+                    map.insert(id, token_type.to_string());
+                }
+            }
+        }
+    }
+    map
+}
+
 /// Get playable mining cards enriched with effect details for strategy decision-making.
-pub fn get_playable_mining_cards(client: &Client, _snapshot: &GameSnapshot) -> Vec<Value> {
+pub fn get_playable_mining_cards(
+    client: &Client,
+    _snapshot: &GameSnapshot,
+    effect_map: &HashMap<u64, String>,
+) -> Vec<Value> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Mining");
 
     cards
@@ -232,17 +319,18 @@ pub fn get_playable_mining_cards(client: &Client, _snapshot: &GameSnapshot) -> V
                 .unwrap_or(0)
                 > 0
         })
-        .map(enrich_mining_card)
+        .map(|c| enrich_mining_card(c, effect_map))
         .collect()
 }
 
-fn enrich_mining_card(c: &Value) -> Value {
+fn enrich_mining_card(c: &Value, effect_map: &HashMap<u64, String>) -> Value {
     let card_id = c.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
     let effects = c
         .get("kind")
         .and_then(|k| k.get("effects"))
         .cloned()
         .unwrap_or(Value::Null);
+
     let has_cost = effects
         .as_array()
         .and_then(|arr| arr.first())
@@ -251,8 +339,27 @@ fn enrich_mining_card(c: &Value) -> Value {
         .map(|a| !a.is_empty())
         .unwrap_or(false);
 
-    let mining_power = extract_effect_gain(&effects, "MiningPower");
-    let light_gain = extract_effect_gain(&effects, "MiningLightLevel");
+    // Use effect_id → token_type mapping to extract mining_power and light_gain
+    let mut mining_power: i64 = 0;
+    let mut light_gain: i64 = 0;
+
+    if let Some(arr) = effects.as_array() {
+        for eff in arr {
+            let eff_id = eff.get("effect_id").and_then(|v| v.as_u64()).unwrap_or(0);
+            let rolled_value = eff
+                .get("rolled_value")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+
+            if let Some(token_type) = effect_map.get(&eff_id) {
+                match token_type.as_str() {
+                    "MiningPower" => mining_power += rolled_value,
+                    "MiningLightLevel" => light_gain += rolled_value,
+                    _ => {}
+                }
+            }
+        }
+    }
 
     serde_json::json!({
         "action_type": "EncounterPlayCard",
@@ -265,33 +372,4 @@ fn enrich_mining_card(c: &Value) -> Value {
             "light_gain": light_gain
         }
     })
-}
-
-/// Extract the gain amount for a specific token type from a card's effects array.
-fn extract_effect_gain(effects: &Value, token_type: &str) -> i64 {
-    effects
-        .as_array()
-        .unwrap_or(&vec![])
-        .iter()
-        .filter(|e| {
-            e.get("effect_type")
-                .and_then(|v| v.as_str())
-                .map(|s| s == "ApplyTokens" || s == "GainTokens")
-                .unwrap_or(false)
-        })
-        .filter_map(|e| {
-            // Check rolled_amounts for the token type
-            e.get("rolled_amounts")
-                .and_then(|ra| ra.as_object())
-                .and_then(|map| map.get(token_type))
-                .and_then(|v| v.as_i64())
-                .or_else(|| {
-                    // Fallback: check amounts field
-                    e.get("amounts")
-                        .and_then(|a| a.as_object())
-                        .and_then(|map| map.get(token_type))
-                        .and_then(|v| v.as_i64())
-                })
-        })
-        .sum()
 }

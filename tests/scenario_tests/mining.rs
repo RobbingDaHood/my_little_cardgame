@@ -202,7 +202,7 @@ fn scenario_mining_encounter_full_loop() {
 
     // 5. Verify light level is initialized at 300
     let light_level = encounter_token(&client, "MiningLightLevel");
-    assert_eq!(light_level, 300, "Light level should start at 300");
+    assert_eq!(light_level, 50, "Light level should start at 50");
 
     // 6. Verify yield starts at 0
     let mining_yield = encounter_token(&client, "MiningYield");
@@ -211,8 +211,8 @@ fn scenario_mining_encounter_full_loop() {
     // 7. Verify player has MiningDurability token
     let durability = player_token(&client, "MiningDurability");
     assert_eq!(
-        durability, 10000,
-        "Player should start with 10000 mining durability"
+        durability, 100000,
+        "Player should start with 100000 mining durability"
     );
 
     // 8. Play mining cards to accumulate some yield

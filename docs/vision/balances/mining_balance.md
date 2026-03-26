@@ -65,9 +65,47 @@ If MiningDurability reaches 0, the encounter ends immediately as a loss, but **r
 
 The player controls when to conclude the encounter. This is a key tactical lever: conclude too early and you leave yield on the table; continue too long and you risk durability depletion.
 
+## Simulation Results (B2.4)
+
+Results from the mining balance simulation (3 games × 20 encounters per strategy, seeds 42–44):
+
+| Strategy | Yield/Durability | Win Rate | Avg Rounds/Enc | Total Yield | Total Durability |
+|----------|-----------------|----------|---------------|-------------|------------------|
+| Tactician | **0.339** | 36.7% | 24.6 | 99,099 | 292,376 |
+| Greedy | 0.300 | 51.7% | 26.8 | 70,166 | 233,817 |
+| Random | 0.280 | 70.0% | 3.2 | 14,186 | 50,574 |
+| Conservative | 0.112 | 13.3% | 0.3 | 278 | 2,473 |
+
+### Hierarchy
+
+**Tactician (0.339) > Greedy (0.300) > Random (0.280) > Conservative (0.112)**
+
+- Tactician's light management sustains high yield per round across long encounters.
+- Greedy achieves decent yield but wastes durability on rounds where light has degraded.
+- Random concludes quickly (3 rounds avg) — moderate efficiency by avoiding durability drain.
+- Conservative barely plays (light drops below its conclude threshold after 1 encounter) — extremely low yield.
+
+### Key Config Changes from Baseline
+
+| Parameter | Baseline | Tuned | Rationale |
+|-----------|----------|-------|-----------|
+| mining_power (all) | 300–1200 | 7–22 | Bring yield/durability into 0.2–0.4 range |
+| mining_light_gain (free) | N/A (new) | 100–160 | Added free light card so light management is possible without Lumber |
+| mining_light_with_lumber | 200–400 | 150–250 | Moderate light gain for cost |
+| ore_light_small | 20–40 | 30–60 | Increased light pressure per round |
+| ore_light_medium | 40–60 | 50–90 | Increased light pressure per round |
+| ore_durability_medium | 80–120 | 200–400 | Higher per-round durability cost |
+| ore_durability_heavy | 150–250 | 400–700 | Higher per-round durability cost |
+| ore_health | 50–100 | 10–30 | Reduced health damage (not a balance lever) |
+| initial_light_level | 300 | 50 | Lower default; persistent MiningLightLevel (200) is the actual starting value |
+| MiningLightLevel (token) | N/A (new) | 200 | Persistent starting light for all encounters |
+| MiningDurability (token) | 10,000 | 100,000 | High budget so durability doesn't bottleneck during tuning |
+| Stamina (token) | 1,000 | 50,000 | High budget so stamina doesn't cap during tuning |
+| Lumber (token) | N/A (new) | 10,000 | Required for lumber-cost mining cards |
+
 ## Token Lifecycle in Mining
 
-- **MiningLightLevel**: Encounter-scoped. Starts at an initial configured value. Modified by both player and ore card effects. Higher light = more yield per power. Resets each encounter.
+- **MiningLightLevel**: Persistent counter. Starts at a configured initial value (set in `tokens.json`). Modified by both player and ore card effects during encounters. The value carries across encounters — light management has long-term consequences. Higher light = more yield per power.
 - **MiningYield**: Encounter-scoped. Accumulates from 0 during the encounter. Converted to Ore reward on conclusion or durability depletion. Resets each encounter.
 - **MiningDurability**: Persistent counter. Decreases from ore card post-play effects. Triggers encounter end (with rewards) if ≤ 0. Persists across encounters — total durability is the session budget. **Note**: The initial durability value is a testing shortcut; after rest encounter balancing, the starting value will likely be significantly lower (closer to one-tenth of the current value).
 - **Stamina**: Persistent counter. Pre-play cost on player cards. Also consumed at conclusion to cap Ore reward. Persists across encounters; main recovery comes from resting.

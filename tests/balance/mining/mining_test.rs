@@ -115,4 +115,24 @@ fn mining_balance_simulation() {
         report.all_assertions_passed,
         "Not all mining balance assertions passed"
     );
+
+    // Strategy hierarchy: tactician should be the most efficient
+    let tactician_yd = report
+        .strategies
+        .iter()
+        .find(|s| s.name == "tactician")
+        .map(|s| s.mining.avg_yield_per_durability)
+        .unwrap();
+    let conservative_yd = report
+        .strategies
+        .iter()
+        .find(|s| s.name == "conservative")
+        .map(|s| s.mining.avg_yield_per_durability)
+        .unwrap();
+    assert!(
+        tactician_yd > conservative_yd,
+        "Tactician ({:.3}) should beat Conservative ({:.3}) in yield/durability",
+        tactician_yd,
+        conservative_yd,
+    );
 }

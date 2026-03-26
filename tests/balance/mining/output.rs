@@ -11,32 +11,32 @@ pub struct YieldTarget {
 }
 
 /// Mining balance targets: yield per durability ratio.
-/// From docs/vision/balances/mining_balance.md:
-///   Aspirational target: 0.2 – 0.4
 ///
-/// Exploration-phase targets are widened to capture current game behavior.
-/// Tightening to strategy-specific bands happens in B3 (tuning phase).
+/// Tuned values (B2.4):
+///   Tactician ≈ 0.34, Greedy ≈ 0.30, Random ≈ 0.28, Conservative ≈ 0.11
+///
+/// Bands are ±30–40% to absorb minor game-logic changes while catching regressions.
 pub fn mining_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
-            target_min: 0.01,
-            target_max: 10.0,
+            target_min: 0.18,
+            target_max: 0.40,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.01,
-            target_max: 10.0,
+            target_min: 0.20,
+            target_max: 0.42,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
             target_min: 0.01,
-            target_max: 10.0,
+            target_max: 0.25,
         },
         YieldTarget {
             strategy: "tactician".to_string(),
-            target_min: 0.01,
-            target_max: 10.0,
+            target_min: 0.24,
+            target_max: 0.46,
         },
     ]
 }
