@@ -3,6 +3,7 @@
 
 mod combat;
 mod game_driver;
+mod herbalism;
 mod mining;
 mod output;
 mod runner;
