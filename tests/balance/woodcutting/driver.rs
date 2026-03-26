@@ -123,7 +123,7 @@ pub fn play_woodcutting_encounter(
         }
 
         // Get woodcutting cards in hand, excluding known-unplayable cards
-        let mut playable: Vec<Value> = if can_play_card {
+        let playable: Vec<Value> = if can_play_card {
             get_playable_woodcutting_cards(client, &snapshot)
                 .into_iter()
                 .filter(|c| {
@@ -153,13 +153,6 @@ pub fn play_woodcutting_encounter(
                 );
             }
             return rounds;
-        }
-
-        if has_conclude {
-            playable.push(serde_json::json!({
-                "action_type": "EncounterConcludeEncounter",
-                "is_conclude": true
-            }));
         }
 
         let action = strategy.choose_action(&playable, &snapshot);
