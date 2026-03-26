@@ -60,7 +60,7 @@ impl SimulationReport {
                         use_max_streak: false,
                     });
 
-                let win_rate = r.combat_win_rate();
+                let win_rate = r.win_rate();
                 let pass = win_rate >= target.target_min && win_rate <= target.target_max;
                 let streak_value = if streak_target.use_max_streak {
                     r.avg_max_win_streak
@@ -85,9 +85,9 @@ impl SimulationReport {
                     name: r.name.clone(),
                     total_games: r.total_games,
                     combat: CombatReport {
-                        total_encounters: r.total_combat_encounters,
-                        wins: r.combat_wins,
-                        losses: r.combat_losses,
+                        total_encounters: r.total_encounters,
+                        wins: r.wins,
+                        losses: r.losses,
                         win_rate,
                         target_min: target.target_min,
                         target_max: target.target_max,

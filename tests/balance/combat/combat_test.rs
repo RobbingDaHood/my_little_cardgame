@@ -1,3 +1,4 @@
+use crate::combat::driver::CombatDisciplineDriver;
 use crate::combat::strategies::conservative::ConservativeStrategy;
 use crate::combat::strategies::greedy::GreedyStrategy;
 use crate::combat::strategies::random::RandomStrategy;
@@ -15,6 +16,7 @@ fn combat_balance_simulation() {
         games_per_strategy: 10,
         encounters_per_game: 50,
         base_seed: 42,
+        max_actions_per_encounter: 200,
     };
 
     let random = RandomStrategy::new(7777);
@@ -31,8 +33,10 @@ fn combat_balance_simulation() {
         &tactician_conservative,
     ];
 
-    let runner = SimulationRunner::new(config);
-    let report: SimulationReport = runner.run_all(&strategies);
+    let discipline = CombatDisciplineDriver;
+    let runner = SimulationRunner::new(config.clone());
+    let results = runner.run_all(&strategies, &discipline);
+    let report = SimulationReport::from_results(&config, results);
 
     // Output JSON to stdout for piping to jq/nushell
     println!("{}", report.to_json());
