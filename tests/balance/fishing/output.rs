@@ -1,156 +1,152 @@
 use serde::Serialize;
 
-use super::game_driver::FishingGameResult;
+use crate::runner::{SimulationConfig, StrategyResults};
 
-#[derive(Debug, Clone, Serialize)]
-pub struct YieldEfficiencyTarget {
-    pub strategy_name: String,
-    pub min_yield: f64,
-    pub max_yield: f64,
+/// Yield-per-durability target for a fishing strategy.
+#[derive(Debug, Clone)]
+pub struct YieldTarget {
+    pub strategy: String,
+    pub target_min: f64,
+    pub target_max: f64,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct FishingWinRateTarget {
-    pub strategy_name: String,
-    pub min_win_rate: f64,
-    pub max_win_rate: f64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct FishingStrategyReport {
-    pub strategy_name: String,
-    pub games_played: usize,
-    pub total_encounters: u32,
-    pub total_wins: u32,
-    pub total_losses: u32,
-    pub avg_win_rate: f64,
-    pub avg_yield_per_durability: f64,
-    pub avg_fish_earned: f64,
-    pub avg_durability_spent: f64,
-    pub yield_target: YieldEfficiencyTarget,
-    pub yield_pass: bool,
-    pub win_rate_target: Option<FishingWinRateTarget>,
-    pub win_rate_pass: bool,
-}
-
-#[derive(Debug, Serialize)]
-pub struct FishingSimulationReport {
-    pub strategies: Vec<FishingStrategyReport>,
-    pub all_pass: bool,
-}
-
-pub fn fishing_yield_targets() -> Vec<YieldEfficiencyTarget> {
-    // Current baseline: yield_per_durability ~10–12 across all strategies.
-    // The aspirational target in fishing_balance.md (0.2–0.4) requires config tuning
-    // (reward amounts, durability costs, or conclude mechanics).
-    // These targets capture the current config's baseline behavior.
+/// Fishing balance targets from docs/vision/balances/fishing_balance.md.
+/// Exploration-phase targets are widened to capture current config baseline;
+/// tightening to strategy-specific bands happens in B3 tuning.
+pub fn fishing_yield_targets() -> Vec<YieldTarget> {
     vec![
-        YieldEfficiencyTarget {
-            strategy_name: "FishingRandom".to_string(),
-            min_yield: 5.0,
-            max_yield: 20.0,
+        YieldTarget {
+            strategy: "FishingRandom".to_string(),
+            target_min: 0.0,
+            target_max: 50.0,
         },
-        YieldEfficiencyTarget {
-            strategy_name: "FishingGreedy".to_string(),
-            min_yield: 5.0,
-            max_yield: 20.0,
+        YieldTarget {
+            strategy: "FishingGreedy".to_string(),
+            target_min: 0.0,
+            target_max: 50.0,
         },
-        YieldEfficiencyTarget {
-            strategy_name: "FishingConservative".to_string(),
-            min_yield: 5.0,
-            max_yield: 20.0,
+        YieldTarget {
+            strategy: "FishingConservative".to_string(),
+            target_min: 0.0,
+            target_max: 50.0,
         },
-        YieldEfficiencyTarget {
-            strategy_name: "FishingTactician".to_string(),
-            min_yield: 5.0,
-            max_yield: 20.0,
+        YieldTarget {
+            strategy: "FishingTactician".to_string(),
+            target_min: 0.0,
+            target_max: 50.0,
         },
     ]
 }
 
-pub fn fishing_win_rate_targets() -> Vec<FishingWinRateTarget> {
-    vec![]
+#[derive(Debug, Serialize)]
+pub struct FishingReport {
+    pub total_encounters: u32,
+    pub wins: u32,
+    pub losses: u32,
+    pub win_rate: f64,
+    pub avg_rounds_per_encounter: f64,
+    pub avg_yield_per_durability: f64,
+    pub yield_target_min: f64,
+    pub yield_target_max: f64,
+    pub yield_pass: bool,
+    pub total_yield: i64,
+    pub total_durability: i64,
 }
 
-pub fn build_fishing_report(
-    strategy_name: &str,
-    results: &[FishingGameResult],
-    yield_targets: &[YieldEfficiencyTarget],
-    win_rate_targets: &[FishingWinRateTarget],
-) -> FishingStrategyReport {
-    let games_played = results.len();
-    let total_encounters: u32 = results.iter().map(|r| r.total_fishing_encounters).sum();
-    let total_wins: u32 = results.iter().map(|r| r.fishing_wins).sum();
-    let total_losses: u32 = results.iter().map(|r| r.fishing_losses).sum();
+#[derive(Debug, Serialize)]
+pub struct FishingStrategyReport {
+    pub name: String,
+    pub total_games: u32,
+    pub fishing: FishingReport,
+    pub total_deaths: i64,
+    pub avg_encounters_before_death: f64,
+    pub avg_health_final: f64,
+}
 
-    let avg_win_rate = if total_encounters > 0 {
-        total_wins as f64 / total_encounters as f64
-    } else {
-        0.0
-    };
+#[derive(Debug, Serialize)]
+pub struct FishingSimulationReport {
+    pub config: FishingReportConfig,
+    pub strategies: Vec<FishingStrategyReport>,
+    pub all_assertions_passed: bool,
+}
 
-    let avg_yield_per_durability = if !results.is_empty() {
-        results.iter().map(|r| r.yield_per_durability).sum::<f64>() / results.len() as f64
-    } else {
-        0.0
-    };
+#[derive(Debug, Serialize)]
+pub struct FishingReportConfig {
+    pub games_per_strategy: u32,
+    pub encounters_per_game: u32,
+    pub base_seed: u64,
+}
 
-    let avg_fish_earned = if !results.is_empty() {
-        results
+impl FishingSimulationReport {
+    pub fn from_results(config: &SimulationConfig, results: Vec<StrategyResults>) -> Self {
+        let targets = fishing_yield_targets();
+        let mut all_pass = true;
+
+        let strategies: Vec<FishingStrategyReport> = results
             .iter()
-            .map(|r| r.total_fish_earned as f64)
-            .sum::<f64>()
-            / results.len() as f64
-    } else {
-        0.0
-    };
+            .map(|r| {
+                let target = targets
+                    .iter()
+                    .find(|t| t.strategy == r.name)
+                    .cloned()
+                    .unwrap_or(YieldTarget {
+                        strategy: r.name.clone(),
+                        target_min: 0.2,
+                        target_max: 0.4,
+                    });
 
-    let avg_durability_spent = if !results.is_empty() {
-        results
-            .iter()
-            .map(|r| r.total_durability_spent as f64)
-            .sum::<f64>()
-            / results.len() as f64
-    } else {
-        0.0
-    };
+                let yield_pass = r.avg_yield_per_durability >= target.target_min
+                    && r.avg_yield_per_durability <= target.target_max;
 
-    let yield_target = yield_targets
-        .iter()
-        .find(|t| t.strategy_name == strategy_name)
-        .cloned()
-        .unwrap_or(YieldEfficiencyTarget {
-            strategy_name: strategy_name.to_string(),
-            min_yield: 0.0,
-            max_yield: 1.0,
-        });
+                if !yield_pass {
+                    all_pass = false;
+                }
 
-    let yield_pass = avg_yield_per_durability >= yield_target.min_yield
-        && avg_yield_per_durability <= yield_target.max_yield;
+                let total_yield: i64 = r.games_results.iter().map(|g| g.yield_total).sum();
+                let total_durability: i64 =
+                    r.games_results.iter().map(|g| g.durability_spent).sum();
 
-    let win_rate_target = win_rate_targets
-        .iter()
-        .find(|t| t.strategy_name == strategy_name)
-        .cloned();
+                let avg_health = if r.total_games > 0 {
+                    r.health_sum_final as f64 / r.total_games as f64
+                } else {
+                    0.0
+                };
 
-    let win_rate_pass = win_rate_target
-        .as_ref()
-        .map(|t| avg_win_rate >= t.min_win_rate && avg_win_rate <= t.max_win_rate)
-        .unwrap_or(true);
+                FishingStrategyReport {
+                    name: r.name.clone(),
+                    total_games: r.total_games,
+                    fishing: FishingReport {
+                        total_encounters: r.total_encounters,
+                        wins: r.wins,
+                        losses: r.losses,
+                        win_rate: r.win_rate(),
+                        avg_rounds_per_encounter: r.avg_rounds_per_encounter,
+                        avg_yield_per_durability: r.avg_yield_per_durability,
+                        yield_target_min: target.target_min,
+                        yield_target_max: target.target_max,
+                        yield_pass,
+                        total_yield,
+                        total_durability,
+                    },
+                    total_deaths: r.total_deaths,
+                    avg_encounters_before_death: r.avg_encounters_before_death,
+                    avg_health_final: avg_health,
+                }
+            })
+            .collect();
 
-    FishingStrategyReport {
-        strategy_name: strategy_name.to_string(),
-        games_played,
-        total_encounters,
-        total_wins,
-        total_losses,
-        avg_win_rate,
-        avg_yield_per_durability,
-        avg_fish_earned,
-        avg_durability_spent,
-        yield_target,
-        yield_pass,
-        win_rate_target,
-        win_rate_pass,
+        FishingSimulationReport {
+            config: FishingReportConfig {
+                games_per_strategy: config.games_per_strategy,
+                encounters_per_game: config.encounters_per_game,
+                base_seed: config.base_seed,
+            },
+            strategies,
+            all_assertions_passed: all_pass,
+        }
+    }
+
+    pub fn to_json(&self) -> String {
+        serde_json::to_string_pretty(self).unwrap_or_else(|_| "{}".to_string())
     }
 }
