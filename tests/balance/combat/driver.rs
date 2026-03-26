@@ -1,7 +1,9 @@
 use rocket::local::blocking::Client;
 use serde_json::Value;
 
-use crate::game_driver::{get_json, get_possible_actions, get_snapshot, post_action, DisciplineDriver};
+use crate::game_driver::{
+    get_json, get_possible_actions, get_snapshot, post_action, DisciplineDriver,
+};
 use crate::strategies::{GameSnapshot, Strategy};
 
 /// Combat discipline driver — wraps existing combat functions into the DisciplineDriver trait.

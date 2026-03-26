@@ -70,6 +70,13 @@ impl GameDriver {
         }
     }
 
+    pub fn with_max_actions(max_encounters: u32, max_actions_per_encounter: u32) -> Self {
+        Self {
+            max_encounters,
+            max_actions_per_encounter,
+        }
+    }
+
     pub fn play_game(
         &self,
         seed: u64,

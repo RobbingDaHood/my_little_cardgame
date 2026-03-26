@@ -16,6 +16,7 @@ fn combat_balance_simulation() {
         games_per_strategy: 10,
         encounters_per_game: 50,
         base_seed: 42,
+        max_actions_per_encounter: 200,
     };
 
     let random = RandomStrategy::new(7777);

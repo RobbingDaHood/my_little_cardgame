@@ -7,6 +7,9 @@ pub struct SimulationConfig {
     pub games_per_strategy: u32,
     pub encounters_per_game: u32,
     pub base_seed: u64,
+    /// Max actions per encounter before timeout. Defaults to 200 (sufficient for combat).
+    /// Mining encounters are much longer (40-200+ rounds) and need higher limits.
+    pub max_actions_per_encounter: u32,
 }
 
 impl Default for SimulationConfig {
@@ -15,6 +18,7 @@ impl Default for SimulationConfig {
             games_per_strategy: 1000,
             encounters_per_game: 20,
             base_seed: 12345,
+            max_actions_per_encounter: 200,
         }
     }
 }
@@ -64,7 +68,10 @@ impl SimulationRunner {
         strategy: &dyn Strategy,
         discipline: &dyn DisciplineDriver,
     ) -> StrategyResults {
-        let driver = GameDriver::new(self.config.encounters_per_game);
+        let driver = GameDriver::with_max_actions(
+            self.config.encounters_per_game,
+            self.config.max_actions_per_encounter,
+        );
         let mut results = StrategyResults {
             name: strategy.name().to_string(),
             total_games: self.config.games_per_strategy,
@@ -94,7 +101,7 @@ impl SimulationRunner {
 
             results.wins += game_result.wins;
             results.losses += game_result.losses;
-            results.total_encounters += game_result.wins + game_result.losses;
+            results.total_encounters += game_result.total_encounters;
             results.total_deaths += game_result.deaths;
             results.health_sum_final += game_result.final_health;
 
