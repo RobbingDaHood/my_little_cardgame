@@ -8,16 +8,29 @@ Woodcutting balance is measured by **yield per durability** — how much Lumber 
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.6) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
+Yield per durability measures Lumber earned per WoodcuttingDurability spent across all encounters in a game session.
+
+**Calibrated simulation results** (10 games × 50 encounters, seed 42):
+
+| Strategy | Yield/Durability | Win Rate |
+|----------|-----------------|----------|
+| Random | ~13.0 | 98.8% |
+| Greedy | ~12.6 | 99.8% |
+| Conservative | ~11.4 | 99.8% |
+| PatternBuilder | ~11.6 | 99.8% |
+
+**Current target band: [6.0, 20.0]** — exploration-phase targets with ~50% margin for RNG variance. These will be tightened in B3 (tuning phase) once config levers have been adjusted.
+
+> **Note**: The aspirational cross-discipline target of 0.2–0.4 yield/durability does not match current woodcutting config output (~11-13). This gap is expected — the current card costs and pattern multipliers need calibration in B3. The simulation runner (B2.6) establishes the measurement infrastructure; B3 adjusts configs to reach desired balance.
 
 ### Strategy Hierarchy (yield per durability)
 
-| Strategy | Description |
-|----------|-------------|
-| Random | Plays any available woodcutting card without considering pattern potential |
-| Greedy | Always plays the highest-value chop card available |
-| Conservative | Plays lowest-cost cards to preserve durability |
-| Tactician | Reads cards played so far, builds toward high-value patterns, times early stop optimally |
+| Strategy | Description | Observed Yield/Dur |
+|----------|-------------|-------------------|
+| Random | Plays any available woodcutting card without considering pattern potential | ~13.0 |
+| Greedy | Always plays the highest-value chop card available | ~12.6 |
+| Conservative | Plays lowest-cost cards to preserve durability | ~11.4 |
+| PatternBuilder | Reads cards played so far, builds toward high-value patterns (same chop type) | ~11.6 |
 
 - Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios.
 - Tactician strategies should achieve measurably higher yield per durability — pattern-building and early-stop timing must be rewarded.
