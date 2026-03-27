@@ -7,8 +7,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "MiningLightLevel",
-        "min": 30,
-        "max": 60,
+        "min": 15,
+        "max": 30,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -23,8 +23,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "MiningLightLevel",
-        "min": 50,
-        "max": 90,
+        "min": 25,
+        "max": 45,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -39,8 +39,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Durability",
-        "min": 200,
-        "max": 400,
+        "min": 60,
+        "max": 120,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -55,8 +55,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Durability",
-        "min": 400,
-        "max": 700,
+        "min": 120,
+        "max": 210,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -250,8 +250,8 @@
         "costs": [
           {
             "token_type": "Lumber",
-            "min_percent": 3,
-            "max_percent": 15
+            "min_percent": 1,
+            "max_percent": 5
           }
         ],
         "duration": "PersistentCounter"
@@ -329,7 +329,7 @@
       "encounter_def": {
         "encounter_type": "Mining",
         "mining_def": {
-          "initial_light_level": 50,
+          "initial_light_level": 150,
           "ore_deck": [
             {
               "effect_refs": [

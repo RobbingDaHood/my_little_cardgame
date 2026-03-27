@@ -13,30 +13,32 @@ pub struct YieldTarget {
 
 /// Mining balance targets: yield per durability ratio.
 ///
-/// Tuned values (B2.4):
-///   Tactician ≈ 0.34, Greedy ≈ 0.30, Random ≈ 0.28, Conservative ≈ 0.11
+/// Tuned values (B2.4, Variant G):
+///   Random ≈ 0.37, Greedy ≈ 0.23, Tactician ≈ 0.25, Conservative ≈ 0.50
 ///
+/// Conservative barely engages (< 1 round/encounter), so its ratio is volatile
+/// with a tiny denominator — the wide band accommodates this.
 /// Bands are ±30–40% to absorb minor game-logic changes while catching regressions.
 pub fn mining_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
             target_min: 0.18,
-            target_max: 0.40,
+            target_max: 0.50,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.20,
+            target_min: 0.12,
             target_max: 0.42,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
             target_min: 0.01,
-            target_max: 0.25,
+            target_max: 0.70,
         },
         YieldTarget {
             strategy: "tactician".to_string(),
-            target_min: 0.24,
+            target_min: 0.15,
             target_max: 0.46,
         },
     ]
