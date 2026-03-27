@@ -73,6 +73,76 @@ impl GameSnapshot {
     pub fn player_ore(&self) -> i64 {
         extract_token_value(&self.tokens, "Ore")
     }
+
+    pub fn herbalism_outcome(&self) -> Option<String> {
+        let enc = self.encounter.as_ref()?;
+        if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Herbalism") {
+            return None;
+        }
+        enc.get("outcome")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    }
+
+    /// Count surviving plants (counts.hand > 0) in the current herbalism encounter.
+    pub fn herbalism_plant_count(&self) -> Option<usize> {
+        let enc = self.encounter.as_ref()?;
+        if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Herbalism") {
+            return None;
+        }
+        let plants = enc.get("plant_hand")?.as_array()?;
+        Some(
+            plants
+                .iter()
+                .filter(|p| {
+                    p.get("counts")
+                        .and_then(|c| c.get("hand"))
+                        .and_then(|h| h.as_u64())
+                        .unwrap_or(0)
+                        > 0
+                })
+                .count(),
+        )
+    }
+
+    /// Get the characteristics of all surviving plants in the current herbalism encounter.
+    pub fn herbalism_plant_characteristics(&self) -> Option<Vec<Vec<String>>> {
+        let enc = self.encounter.as_ref()?;
+        if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Herbalism") {
+            return None;
+        }
+        let plants = enc.get("plant_hand")?.as_array()?;
+        Some(
+            plants
+                .iter()
+                .filter(|p| {
+                    p.get("counts")
+                        .and_then(|c| c.get("hand"))
+                        .and_then(|h| h.as_u64())
+                        .unwrap_or(0)
+                        > 0
+                })
+                .map(|p| {
+                    p.get("characteristics")
+                        .and_then(|c| c.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                })
+                .collect(),
+        )
+    }
+
+    pub fn herbalism_durability(&self) -> i64 {
+        extract_token_value(&self.tokens, "HerbalismDurability")
+    }
+
+    pub fn plant_tokens(&self) -> i64 {
+        extract_token_value(&self.tokens, "Plant")
+    }
 }
 
 fn extract_token_value(tokens: &Value, token_type: &str) -> i64 {

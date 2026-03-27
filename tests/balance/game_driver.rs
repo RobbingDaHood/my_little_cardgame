@@ -346,7 +346,7 @@ pub(crate) fn get_snapshot(client: &Client) -> GameSnapshot {
     GameSnapshot { encounter, tokens }
 }
 
-fn get_encounter_hand_ids(client: &Client) -> Vec<usize> {
+pub(crate) fn get_encounter_hand_ids(client: &Client) -> Vec<usize> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
     cards
         .as_array()
@@ -375,12 +375,12 @@ fn get_hand_cards(client: &Client) -> Vec<u64> {
         .collect()
 }
 
-fn get_encounter_results_count(client: &Client) -> usize {
+pub(crate) fn get_encounter_results_count(client: &Client) -> usize {
     let results = get_json(client, "/encounter/results");
     results.as_array().map(|a| a.len()).unwrap_or(0)
 }
 
-fn get_last_encounter_outcome(client: &Client, previous_count: usize) -> Option<String> {
+pub(crate) fn get_last_encounter_outcome(client: &Client, previous_count: usize) -> Option<String> {
     let results = get_json(client, "/encounter/results");
     let arr = results.as_array()?;
     if arr.len() > previous_count {
