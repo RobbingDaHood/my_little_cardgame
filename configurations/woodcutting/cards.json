@@ -413,7 +413,7 @@
         "woodcutting_def": {
           "max_plays": 8,
           "base_rewards": {
-            "Lumber": 1000
+            "Lumber": 25
           }
         }
       },
