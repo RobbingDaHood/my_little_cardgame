@@ -149,8 +149,8 @@ fn scenario_cost_mining_card_rejected_without_stamina() {
     // Verify player starts with 1000 stamina
     let stamina_before = player_token(&client, "Stamina");
     assert_eq!(
-        stamina_before, 50000,
-        "Player should start with 50000 Stamina"
+        stamina_before, 1000,
+        "Player should start with 1000 Stamina"
     );
 
     // Find a mining hand card with stamina cost and play it

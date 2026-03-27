@@ -143,6 +143,10 @@ impl GameSnapshot {
     pub fn plant_tokens(&self) -> i64 {
         extract_token_value(&self.tokens, "Plant")
     }
+
+    pub fn player_lumber(&self) -> i64 {
+        extract_token_value(&self.tokens, "Lumber")
+    }
 }
 
 fn extract_token_value(tokens: &Value, token_type: &str) -> i64 {

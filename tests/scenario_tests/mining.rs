@@ -211,8 +211,8 @@ fn scenario_mining_encounter_full_loop() {
     // 7. Verify player has MiningDurability token
     let durability = player_token(&client, "MiningDurability");
     assert_eq!(
-        durability, 100000,
-        "Player should start with 100000 mining durability"
+        durability, 10000,
+        "Player should start with 10000 mining durability"
     );
 
     // 8. Play mining cards to accumulate some yield

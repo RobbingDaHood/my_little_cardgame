@@ -19,6 +19,9 @@ pub trait DisciplineDriver {
     /// Play an encounter to completion using the strategy. Returns rounds played.
     fn play_encounter(&self, client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32;
 
+    /// Called once after NewGame to perform discipline-specific setup (e.g., inject test tokens).
+    fn setup_game(&self, _client: &Client) {}
+
     /// Called before each encounter. Returns opaque state for post_encounter.
     fn pre_encounter(&self, _client: &Client) -> Option<Value> {
         None
@@ -54,6 +57,9 @@ pub struct GameResult {
     pub yield_total: i64,
     /// Discipline-specific: total durability spent.
     pub durability_spent: i64,
+    /// Discipline-specific: total cross-discipline resource consumed (e.g., Lumber in mining).
+    /// Converted to durability equivalent in yield/durability calculation.
+    pub cross_resource_consumed: i64,
 }
 
 /// Drives one full game session through repeated encounters for a given discipline.
@@ -89,6 +95,8 @@ impl GameDriver {
         let new_game = serde_json::json!({"action_type": "NewGame", "seed": seed});
         post_action(&client, &new_game);
 
+        discipline.setup_game(&client);
+
         let mut result = GameResult {
             seed,
             wins: 0,
@@ -102,6 +110,7 @@ impl GameDriver {
             max_win_streak: 0,
             yield_total: 0,
             durability_spent: 0,
+            cross_resource_consumed: 0,
         };
 
         let mut initial_deaths = get_snapshot(&client).player_deaths();

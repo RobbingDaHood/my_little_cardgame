@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use rocket::local::blocking::Client;
 use serde_json::Value;
@@ -7,6 +8,13 @@ use crate::game_driver::{
     get_json, get_possible_actions, get_snapshot, post_action, DisciplineDriver, GameResult,
 };
 use crate::strategies::{GameSnapshot, Strategy};
+
+/// Lumber injected into each mining simulation game so lumber-cost cards are playable.
+pub const MINING_SIM_LUMBER_BUDGET: i64 = 100_000;
+
+/// Assumed woodcutting yield-per-durability for converting lumber consumed to durability equivalent.
+/// Uses the midpoint of the shared gathering target range (0.2–0.4).
+pub const WOODCUTTING_YIELD_PER_DURABILITY: f64 = 0.3;
 
 /// Mining discipline driver — implements DisciplineDriver with yield/durability tracking.
 pub struct MiningDisciplineDriver;
@@ -28,11 +36,16 @@ impl DisciplineDriver for MiningDisciplineDriver {
         play_mining_encounter(client, strategy, max_actions)
     }
 
+    fn setup_game(&self, client: &Client) {
+        inject_lumber(client, MINING_SIM_LUMBER_BUDGET);
+    }
+
     fn pre_encounter(&self, client: &Client) -> Option<Value> {
         let snapshot = get_snapshot(client);
         Some(serde_json::json!({
             "ore_before": snapshot.player_ore(),
             "durability_before": snapshot.mining_durability(),
+            "lumber_before": snapshot.player_lumber(),
         }))
     }
 
@@ -44,18 +57,27 @@ impl DisciplineDriver for MiningDisciplineDriver {
                 .get("durability_before")
                 .and_then(|v| v.as_i64())
                 .unwrap_or(0);
+            let lumber_before = pre
+                .get("lumber_before")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
 
             let ore_after = snapshot.player_ore();
             let durability_after = snapshot.mining_durability();
+            let lumber_after = snapshot.player_lumber();
 
             let ore_gained = ore_after - ore_before;
             let durability_spent = durability_before - durability_after;
+            let lumber_spent = lumber_before - lumber_after;
 
             if ore_gained > 0 {
                 result.yield_total += ore_gained;
             }
             if durability_spent > 0 {
                 result.durability_spent += durability_spent;
+            }
+            if lumber_spent > 0 {
+                result.cross_resource_consumed += lumber_spent;
             }
         }
     }
@@ -69,8 +91,8 @@ impl DisciplineDriver for MiningDisciplineDriver {
 /// directly and handle 400 errors for cards the player can't afford.
 ///
 /// Key edge cases:
-/// - Cards with cross-discipline costs (e.g., Lumber) are permanently unplayable in
-///   a mining-only simulation. They get blacklisted on first 400 error and stay blacklisted.
+/// - Cards that fail due to insufficient resources (e.g., Lumber or Stamina depleted)
+///   are permanently blacklisted for the rest of the encounter.
 /// - Conclude fails when yield=0 ("No yield accumulated; abort instead").
 ///   In that case we abort to exit the encounter cleanly.
 pub fn play_mining_encounter(client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32 {
@@ -271,6 +293,22 @@ pub fn get_mining_encounter_choices_filtered(client: &Client, exclude_ids: &[u64
             })
         })
         .collect()
+}
+
+/// Inject Lumber tokens into the player's balance via direct game state access.
+/// Only used in the mining simulation runner — the game itself does not start with Lumber.
+fn inject_lumber(client: &Client, amount: i64) {
+    let state = client
+        .rocket()
+        .state::<Arc<rocket::futures::lock::Mutex<my_little_cardgame::library::GameState>>>()
+        .expect("GameState not found in Rocket state");
+    let mut gs = state
+        .try_lock()
+        .expect("GameState lock should be available between actions");
+    let lumber_token = my_little_cardgame::library::types::Token::persistent(
+        my_little_cardgame::library::types::TokenType::Lumber,
+    );
+    *gs.token_balances.entry(lumber_token).or_insert(0) += amount;
 }
 
 /// Load effect templates and build a mapping from effect_id → token_type string.

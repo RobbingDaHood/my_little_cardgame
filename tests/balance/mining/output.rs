@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::mining::driver::WOODCUTTING_YIELD_PER_DURABILITY;
 use crate::runner::{SimulationConfig, StrategyResults};
 
 /// Yield-per-durability target for a mining strategy.
@@ -55,6 +56,9 @@ pub struct MiningReport {
     pub yield_pass: bool,
     pub total_yield: i64,
     pub total_durability: i64,
+    pub total_lumber_consumed: i64,
+    pub lumber_durability_equivalent: i64,
+    pub effective_durability: i64,
 }
 
 /// Per-strategy report including mining metrics.
@@ -101,16 +105,30 @@ impl MiningSimulationReport {
                         target_max: 0.4,
                     });
 
-                let yield_pass = r.avg_yield_per_durability >= target.target_min
-                    && r.avg_yield_per_durability <= target.target_max;
+                let total_yield: i64 = r.games_results.iter().map(|g| g.yield_total).sum();
+                let total_durability: i64 =
+                    r.games_results.iter().map(|g| g.durability_spent).sum();
+                let total_lumber: i64 = r
+                    .games_results
+                    .iter()
+                    .map(|g| g.cross_resource_consumed)
+                    .sum();
+                let lumber_dur_equiv =
+                    (total_lumber as f64 / WOODCUTTING_YIELD_PER_DURABILITY) as i64;
+                let effective_durability = total_durability + lumber_dur_equiv;
+
+                let effective_yield_per_dur = if effective_durability > 0 {
+                    total_yield as f64 / effective_durability as f64
+                } else {
+                    0.0
+                };
+
+                let yield_pass = effective_yield_per_dur >= target.target_min
+                    && effective_yield_per_dur <= target.target_max;
 
                 if !yield_pass {
                     all_pass = false;
                 }
-
-                let total_yield: i64 = r.games_results.iter().map(|g| g.yield_total).sum();
-                let total_durability: i64 =
-                    r.games_results.iter().map(|g| g.durability_spent).sum();
 
                 let avg_health = if r.total_games > 0 {
                     r.health_sum_final as f64 / r.total_games as f64
@@ -127,12 +145,15 @@ impl MiningSimulationReport {
                         losses: r.losses,
                         win_rate: r.win_rate(),
                         avg_rounds_per_encounter: r.avg_rounds_per_encounter,
-                        avg_yield_per_durability: r.avg_yield_per_durability,
+                        avg_yield_per_durability: effective_yield_per_dur,
                         yield_target_min: target.target_min,
                         yield_target_max: target.target_max,
                         yield_pass,
                         total_yield,
                         total_durability,
+                        total_lumber_consumed: total_lumber,
+                        lumber_durability_equivalent: lumber_dur_equiv,
+                        effective_durability,
                     },
                     total_deaths: r.total_deaths,
                     avg_encounters_before_death: r.avg_encounters_before_death,
