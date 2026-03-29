@@ -123,19 +123,53 @@ Messages could contain phrases like "rate limit that restricts the number of Cop
 
 Do not continue retrying if that message shows up! 
 
-Branches and pull requests
+Mandatory worktree workflow (CRITICAL)
 
-At the start of every plan, ask the user:
-1. Should this work be done on a new branch or the current branch?
-2. Should a pull request be created at the end?
+**ALL work — without exception — must be done in a dedicated worktree under `my_little_cardgames/`.** Never commit, build, test, or modify files directly in the main `my_little_cardgame/` checkout. Multiple AI agents and manual work run in parallel on this machine; working in the main repo will cause conflicts and data loss.
 
-When creating a new branch, always branch from the latest main branch (fetch and checkout main first).
+If your current working directory is inside `my_little_cardgame/` (the main repo), **stop immediately** and create or switch to a worktree before making any changes.
 
-Always commit small isolated commits, but each commit should pass the tests and other checks.
+**Starting new work:**
+1. Create a worktree: `scripts/worktree-manage.sh add <descriptive-name>` — this fetches the latest `origin/main` and branches from it automatically. The worktree folder name should match the work being done.
+2. All subsequent work (edits, builds, tests, commits) happens inside `my_little_cardgames/<descriptive-name>/`.
+3. Ask the user if a pull request should be created at the end.
 
-Always rebase on main before pushing.
+**Continuing existing work:**
+- If instructed to continue work on an existing branch, that work must still happen in a worktree — either use an existing worktree already on that branch, or create a new one pointing at it.
 
-When creating a pull request, always write a clear, descriptive PR body that summarizes what changed, why, and any important context for reviewers.
+**Verification:**
+- Before making any change, confirm your working directory is inside `my_little_cardgames/`, not `my_little_cardgame/`.
+- If you detect you are in the main repo, create a worktree first — do not proceed with changes.
+
+**Branching rules:**
+- New branches always come from the latest `origin/main` (handled automatically by `worktree-manage.sh add`).
+- Always commit small isolated commits; each commit must pass `make check`.
+- Always rebase on main before pushing.
+- When creating a pull request, write a clear, descriptive PR body summarizing what changed, why, and any important context.
+
+**Worktree layout:**
+```
+Projects/
+  my_little_cardgame/            ← main repo checkout (DO NOT modify directly)
+  my_little_cardgames/           ← worktree parent folder
+    feature-xyz/                 ← worktree for feature-xyz work
+    fix-something/               ← worktree for a bugfix
+    ...
+```
+
+**Worktree details:**
+- Each worktree has its own `target/` build directory — builds are fully independent.
+- The worktree folder should be named something descriptive matching the branch/work.
+- Use `git push` and `gh pr create` from worktrees just like from the main checkout.
+- Remove worktrees after work is merged to keep the workspace clean.
+
+**Managing worktrees with `scripts/worktree-manage.sh`:**
+- `scripts/worktree-manage.sh list` — list all worktrees.
+- `scripts/worktree-manage.sh add <name>` — create a new worktree from latest `origin/main`.
+- `scripts/worktree-manage.sh remove <name>` — remove a worktree and delete its branch.
+- `scripts/worktree-manage.sh reset <name>` — hard-reset a worktree to latest `origin/main` (clean slate).
+
+Run the script from the main repo or any worktree — it resolves paths automatically.
 
 Handling pull request reviews
 
@@ -160,33 +194,3 @@ Authentication:
 - If `GH_TOKEN` is not set in the environment, source it: `export $(cat .env | xargs)` (or instruct the user to set it).
 
 Agents are free to push branches and create pull requests using `gh` and `git`.
-
-Worktree setup for parallel AI work
-
-This repository uses git worktrees to allow multiple AI agents to work in parallel without interfering with each other. Each worktree is an independent working directory with its own branch, sharing the same git history.
-
-Layout:
-```
-Projects/
-  my_little_cardgame/            ← main repo checkout (manual work)
-  my_little_cardgames/           ← worktree parent folder
-    wt1/                         ← worktree, branch: worktree/wt1
-    wt2/                         ← worktree, branch: worktree/wt2
-    wt3/                         ← worktree, branch: worktree/wt3
-```
-
-How AI agents should use worktrees:
-- Each AI session is assigned one worktree directory (e.g., `my_little_cardgames/wt1`).
-- The new folder should be named something similar to the branch. 
-- Detect which worktree you are in by checking the current working directory.
-- Create feature branches from the worktree branch as usual (branch from latest `origin/main`).
-- Each worktree has its own `target/` build directory — builds are fully independent.
-- Use `git push` and `gh pr create` from worktrees just like from the main checkout.
-
-Managing worktrees with `scripts/worktree-manage.sh`:
-- `scripts/worktree-manage.sh list` — list all worktrees.
-- `scripts/worktree-manage.sh add <name>` — create a new worktree from latest `origin/main`.
-- `scripts/worktree-manage.sh remove <name>` — remove a worktree and its branch.
-- `scripts/worktree-manage.sh reset <name>` — hard-reset a worktree to latest `origin/main` (clean slate).
-
-Run the script from the main repo or any worktree — it resolves paths automatically.
