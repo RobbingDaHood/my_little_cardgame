@@ -507,12 +507,8 @@ impl CardKind {
             CardKind::Crafting { .. } => |k| matches!(k, CardKind::Crafting { .. }),
             CardKind::Research { .. } => |k| matches!(k, CardKind::Research { .. }),
             CardKind::Encounter { .. } => |k| matches!(k, CardKind::Encounter { .. }),
-            CardKind::PlayerCardEffect { .. } => {
-                |k| matches!(k, CardKind::PlayerCardEffect { .. })
-            }
-            CardKind::EnemyCardEffect { .. } => {
-                |k| matches!(k, CardKind::EnemyCardEffect { .. })
-            }
+            CardKind::PlayerCardEffect { .. } => |k| matches!(k, CardKind::PlayerCardEffect { .. }),
+            CardKind::EnemyCardEffect { .. } => |k| matches!(k, CardKind::EnemyCardEffect { .. }),
         }
     }
 }

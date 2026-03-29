@@ -6,6 +6,16 @@
     "Stamina": 10000,
     "AttackMaxHand": 10,
     "DefenceMaxHand": 10,
-    "ResourceMaxHand": 10
+    "ResourceMaxHand": 10,
+    "AttackMaxDeck": 500,
+    "DefenceMaxDeck": 500,
+    "ResourceMaxDeck": 500,
+    "MiningMaxDeck": 500,
+    "HerbalismMaxDeck": 500,
+    "WoodcuttingMaxDeck": 500,
+    "FishingMaxDeck": 500,
+    "RestMaxDeck": 500,
+    "CraftingMaxDeck": 500,
+    "MilestoneMaxDeck": 500
   }
 }
