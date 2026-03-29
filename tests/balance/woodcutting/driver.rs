@@ -75,8 +75,9 @@ pub fn play_woodcutting_encounter(
 ) -> u32 {
     let mut rounds = 0;
     let mut unplayable_card_ids: Vec<u64> = Vec::new();
+    let mut _exit_reason = "";
 
-    for _ in 0..max_actions {
+    for _action_num in 0..max_actions {
         let snapshot = get_snapshot(client);
 
         // Check if woodcutting encounter is still active
@@ -86,15 +87,18 @@ pub fn play_woodcutting_encounter(
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             if state_type != "Woodcutting" {
-                return rounds;
+                _exit_reason = "not_woodcutting";
+                break;
             }
             if let Some(outcome) = enc.get("outcome").and_then(|v| v.as_str()) {
                 if outcome != "Undecided" {
-                    return rounds;
+                    _exit_reason = "decided";
+                    break;
                 }
             }
         } else {
-            return rounds;
+            _exit_reason = "no_encounter";
+            break;
         }
 
         let possible = get_possible_actions(client);
@@ -119,28 +123,32 @@ pub fn play_woodcutting_encounter(
                 );
                 continue;
             }
-            return rounds;
+            _exit_reason = "no_actions";
+            break;
         }
 
         // Get woodcutting cards in hand, excluding known-unplayable cards
-        let playable: Vec<Value> = if can_play_card {
+        let all_playable: Vec<Value> = if can_play_card {
             get_playable_woodcutting_cards(client, &snapshot)
-                .into_iter()
-                .filter(|c| {
-                    let id = c.get("card_id").and_then(|v| v.as_u64()).unwrap_or(0);
-                    !unplayable_card_ids.contains(&id)
-                })
-                .collect()
         } else {
             vec![]
         };
+        let playable: Vec<Value> = all_playable
+            .into_iter()
+            .filter(|c| {
+                let id = c.get("card_id").and_then(|v| v.as_u64()).unwrap_or(0);
+                !unplayable_card_ids.contains(&id)
+            })
+            .collect();
 
         if playable.is_empty() && !has_conclude && !has_abort {
-            return rounds;
+            _exit_reason = "empty_no_options";
+            break;
         }
 
         // If all cards are unplayable (filtered out), conclude or abort
         if playable.is_empty() {
+            _exit_reason = "empty_conclude";
             if has_conclude {
                 post_action(
                     client,
@@ -152,7 +160,7 @@ pub fn play_woodcutting_encounter(
                     &serde_json::json!({"action_type": "EncounterAbort"}),
                 );
             }
-            return rounds;
+            break;
         }
 
         let action = strategy.choose_action(&playable, &snapshot);

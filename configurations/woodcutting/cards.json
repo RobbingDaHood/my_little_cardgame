@@ -106,8 +106,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -128,14 +128,14 @@
         "costs": [
           {
             "token_type": "Stamina",
-            "min_percent": 100,
-            "max_percent": 250,
+            "min_percent": 10,
+            "max_percent": 25,
             "is_absolute": true
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -156,8 +156,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -178,14 +178,14 @@
         "costs": [
           {
             "token_type": "Stamina",
-            "min_percent": 100,
-            "max_percent": 250,
+            "min_percent": 10,
+            "max_percent": 25,
             "is_absolute": true
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -206,14 +206,14 @@
         "costs": [
           {
             "token_type": "Health",
-            "min_percent": 150,
-            "max_percent": 200,
+            "min_percent": 15,
+            "max_percent": 20,
             "is_absolute": true
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -234,8 +234,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -256,8 +256,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -278,14 +278,14 @@
         "costs": [
           {
             "token_type": "Stamina",
-            "min_percent": 100,
-            "max_percent": 250,
+            "min_percent": 10,
+            "max_percent": 25,
             "is_absolute": true
           },
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -306,8 +306,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ]
@@ -331,8 +331,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 50,
-            "max_percent": 100,
+            "min_percent": 12,
+            "max_percent": 35,
             "is_absolute": true
           }
         ],
@@ -411,9 +411,9 @@
       "encounter_def": {
         "encounter_type": "Woodcutting",
         "woodcutting_def": {
-          "max_plays": 8,
+          "max_plays": 4,
           "base_rewards": {
-            "Lumber": 25
+            "Lumber": 30
           }
         }
       },

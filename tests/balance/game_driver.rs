@@ -169,6 +169,7 @@ impl GameDriver {
 
             let pre_state = discipline.pre_encounter(&client);
             let results_before = get_encounter_results_count(&client);
+
             let rounds =
                 discipline.play_encounter(&client, strategy, self.max_actions_per_encounter);
             result.rounds_per_encounter.push(rounds);
