@@ -73,10 +73,7 @@ impl DisciplineDriver for FishingDisciplineDriver {
     fn post_encounter(&self, client: &Client, pre_state: &Option<Value>, result: &mut GameResult) {
         if let Some(pre) = pre_state {
             let snapshot = get_snapshot(client);
-            let fish_before = pre
-                .get("fish_before")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
+            let fish_before = pre.get("fish_before").and_then(|v| v.as_i64()).unwrap_or(0);
             let durability_before = pre
                 .get("durability_before")
                 .and_then(|v| v.as_i64())
@@ -214,10 +211,7 @@ pub fn get_fishing_encounter_ids(client: &Client) -> Vec<u64> {
 }
 
 /// Get fishing encounter choices, excluding encounters with IDs in `exclude_ids`.
-pub fn get_fishing_encounter_choices_filtered(
-    client: &Client,
-    exclude_ids: &[u64],
-) -> Vec<Value> {
+pub fn get_fishing_encounter_choices_filtered(client: &Client, exclude_ids: &[u64]) -> Vec<Value> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
     cards
         .as_array()

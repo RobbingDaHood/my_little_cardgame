@@ -44,17 +44,18 @@ impl Strategy for GreedyFishingStrategy {
 
         let best = if !in_range.is_empty() {
             // Pick highest in-range card
-            in_range
-                .iter()
-                .max_by_key(|a| fishing_value(a))
-                .unwrap()
+            in_range.iter().max_by_key(|a| fishing_value(a)).unwrap()
         } else {
             // No in-range cards: pick lowest value to minimize overshoot
             card_actions
                 .iter()
                 .min_by_key(|a| {
                     let v = fishing_value(a);
-                    if v > 0 { v } else { i64::MAX }
+                    if v > 0 {
+                        v
+                    } else {
+                        i64::MAX
+                    }
                 })
                 .unwrap()
         };

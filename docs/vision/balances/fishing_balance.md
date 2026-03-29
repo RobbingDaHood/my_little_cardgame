@@ -1,6 +1,6 @@
 # Fishing Balance
 
-This document contains fishing-specific balancing information. It is the authoritative reference for fishing balance targets, mechanics, and tuning guidance.
+This document contains fishing-specific balancing information. It is the authoritative reference for fishing balance targets, mechanics, and tuning guidance. **Simulation results belong in the PR description of the balancing PR, not in this document.** Only goals, mechanics, config parameters, and tuning tips should go here.
 
 ## Target Metrics
 
@@ -77,47 +77,6 @@ The fish deck contains cards with a weighted distribution across several value t
 ## Player Card Tiers
 
 Cards span several tiers with increasing value ranges, higher costs, and stronger modifiers. Basic cards have low durability cost and simple values; mid-tier cards add stamina costs and may include range adjustments; high-tier cards add health costs and may include range narrowing or FishAmount boosts. The exact values are configuration-driven.
-
-## Simulation Results
-
-### Tuned Results (B2.7 — Fish reward = 15)
-
-Simulation: 3 games × 20 encounters per game, seed 42. DisciplineDriver pattern with
-effect-type-aware strategies (effect_id → template lookup for card classification).
-
-| Strategy | Win Rate | Total Yield | Total Durability | Yield/Durability | Target |
-|----------|----------|-------------|-----------------|-----------------|--------|
-| Random | 98.3% | 7,126 | 20,662 | 0.345 | 0.2–0.4 ✅ |
-| Greedy | 83.3% | 5,588 | 22,002 | 0.254 | 0.2–0.4 ✅ |
-| Conservative | 81.7% | 5,488 | 18,301 | 0.300 | 0.2–0.4 ✅ |
-| Tactician | 83.3% | 5,588 | 22,002 | 0.254 | 0.2–0.4 ✅ |
-
-### Key Findings (Tuned)
-
-1. **All strategies within target** — yield/durability ranges from 0.254 to 0.345, well within the 0.2–0.4 band.
-2. **Primary tuning lever**: Reducing the base Fish reward from 1,000 to 15 (≈67× reduction) brought yield into range. Option C from the original tuning recommendations proved simplest and most effective.
-3. **Win rates are high** (82–98%) — the fish deck composition (66% of cards in valid range) makes encounter wins common. Strategy differentiation comes from value selection, not win rate.
-4. **Random outperforms targeted strategies** — random card selection accidentally produces good range coverage, while Greedy/Tactician's in-range preference concentrates on specific values. This is an acceptable inversion for simple strategies: the "skill" in fishing is reading the range, not just picking high values.
-5. **Conservative is efficient** — lowest durability spend (18,301 vs 22,002) yields a competitive ratio. Cheap cards preserve the durability budget.
-6. **Greedy = Tactician** — with current configs, the Tactician's range/FishAmount levers don't yet differentiate it from Greedy. Future configs with more range-modifier and FishAmount cards could widen this gap.
-
-### Tuning History
-
-| Round | Reward | Random | Greedy | Conservative | Tactician | Result |
-|-------|--------|--------|--------|-------------|-----------|--------|
-| Baseline | 1000 | 23.1 | 17.0 | 19.8 | 17.0 | All way too high |
-| Sweep 1 | 12 | 0.276 | 0.207 | 0.250 | 0.207 | ✅ All pass (low end) |
-| Sweep 1 | 18 | 0.414 | 0.306 | 0.359 | 0.306 | ❌ Random over |
-| Sweep 1 | 25 | 0.573 | 0.424 | 0.491 | 0.424 | ❌ All over |
-| Sweep 2 | 14 | 0.319 | 0.238 | 0.276 | 0.238 | ✅ All pass |
-| **Sweep 2** | **15** | **0.345** | **0.254** | **0.300** | **0.254** | **✅ Selected** |
-| Sweep 2 | 16 | 0.258 | 0.258 | 0.310 | 0.258 | ✅ All pass |
-
-### Future Tuning Directions
-
-- **Strategy differentiation**: Add more range-modifier and FishAmount-modifier cards to reward Tactician's multi-lever optimization. Currently Tactician = Greedy in yield.
-- **Fish deck tuning**: Shift fish deck toward higher values (fewer in-range cards) to lower win rates and increase the skill gap between Random and targeted strategies.
-- **Durability budget**: Once rest encounters are balanced, reduce initial FishingDurability (~1/10 current) to make durability preservation more strategic.
 
 ## Config Parameters
 
