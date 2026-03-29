@@ -8,20 +8,38 @@ Fishing balance is measured by **yield per durability** — how many Fish tokens
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.7) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **0.5–4.0 yield per durability**. This range is deliberately wide to give room for balancing while maintaining cross-discipline parity.
+
+#### Tier-Based Targets
+
+| Tier | Yield/Durability Range | Description |
+|------|----------------------|-------------|
+| **Tier 1** (Simple) | 0.5 – 2.0 | Random, Greedy, Conservative — no encounter-state awareness |
+| **Tier 2** (Tactical) | 1.5 – 4.0 | Tactician variants — encounter-aware, exploits discipline mechanics |
+
+The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple strategy may approach the lower end of the tactical range, but tactical strategies should consistently land higher. These targets are tuned in the balance simulation step (see roadmap) and must be comparable across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
 ### Strategy Hierarchy (yield per durability)
 
-| Strategy | Description |
-|----------|-------------|
-| Random | Plays any available fishing card without considering fish value or range |
-| Greedy | Always plays the highest-value fishing card available |
-| Conservative | Plays lowest-cost cards to preserve durability |
-| Tactician | Manages valid range (widening/narrowing), selects values that best match the current fish, and boosts FishAmount for reward scaling |
+| Strategy | Tier | Description |
+|----------|------|-------------|
+| Random | 1 (Simple) | Plays any available fishing card without considering fish value or range |
+| Greedy | 1 (Simple) | Always plays the highest-value fishing card available |
+| Conservative | 1 (Simple) | Plays lowest-cost cards to preserve durability |
+| Tactician | 2 (Tactical) | Manages valid range (widening/narrowing), selects values that best match the current fish, and boosts FishAmount for reward scaling |
 
-- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios.
-- Tactician strategies should achieve measurably higher yield per durability — range management, best-matching value selection, and FishAmount optimization must all be rewarded.
+- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
+- Tactician strategies should achieve measurably higher yield per durability, landing in the tier 2 range (1.5–4.0) — range management, best-matching value selection, and FishAmount optimization must all be rewarded.
 - The gap must reflect the skill of reading the fish distribution and combining multiple optimisation levers.
+
+### Tier-2 Strategy Requirements
+
+There must be at least **2 distinct tier-2 runners** that outperform all tier-1 strategies:
+
+1. **Yield-optimizer**: A tactician that exploits FishAmount boosting and range management to maximize Fish reward per encounter — trades immediate value-play for higher reward scaling.
+2. **Non-yield tactician**: A tactician that beats tier-1 runners **without ever adjusting yield outcome** — it must never use FishAmount-boosting effects. Instead, it wins through superior value selection, win-rate optimization (landing more turns in range), and durability conservation.
+
+Choosing the correct encounter via scouting is a valid additional tier-2 tactic, but it does **not** count toward the "non-yield tactician" requirement. There must always be at least one tier-2 runner that beats tier-1 purely through in-encounter play decisions.
 
 ### Cross-Discipline Yield Parity
 
@@ -103,3 +121,34 @@ Key fishing config parameters in `configurations/fishing/cards.json`:
 - **Durability budget**: Total durability across all fishing encounters bounds the session. The per-card durability cost relative to other disciplines determines how many encounters fishing supports.
 - **Tiered balance enforcement**: Tactical play (combining range management, best-matching value selection, and FishAmount optimization) must produce more yield per durability than random value selection. If strategies converge, increase the impact of range modifiers or add cards with stronger multi-lever trade-offs.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
+
+## General Design Principles
+
+These principles apply across all disciplines. For full details, see `docs/design/vision.md`.
+
+### Card Cost Distribution
+
+- **Free cards** (no cost) should be the most common card type in every deck.
+- **Stamina-cost cards** should be moderately common and always outperform free cards in raw effect value.
+- **Health-cost cards** should be rare but powerful, always outperforming stamina-cost cards.
+- This creates a risk/reward spectrum: safe low-output plays → moderate-cost moderate-output → high-risk high-output.
+
+### Mutator Scope
+
+Balance mutators (the agents implementing balance changes) **may** change within their discipline:
+- Any CardEffect within fishing (including suggesting new CardEffects as a last resort)
+- Any Card within fishing (including suggesting new Cards, but try without first)
+- Any encounter within fishing (including suggesting new encounters, but try without first)
+
+Balance mutators **must NOT** change:
+- Starting Health, Stamina, or any player starting tokens
+- Health or Stamina after death
+- Hand sizes (all must remain 5)
+- Deck sizes (all must remain 50)
+- Anything outside the fishing discipline
+
+### Deck and Hand Sizing
+
+- All player deck hand sizes: **5** (controlled by per-deck MaxHand tokens)
+- All player deck sizes: **50** (controlled by per-deck MaxDeck tokens)
+- Do NOT change deck or hand sizes to fix balance issues — adjust card effects and encounter parameters instead.

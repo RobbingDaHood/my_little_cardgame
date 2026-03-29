@@ -8,22 +8,40 @@ Woodcutting balance is measured by **yield per durability** — how much Lumber 
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.6) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **0.5–4.0 yield per durability**. This range is deliberately wide to give room for balancing while maintaining cross-discipline parity.
+
+#### Tier-Based Targets
+
+| Tier | Yield/Durability Range | Description |
+|------|----------------------|-------------|
+| **Tier 1** (Simple) | 0.5 – 2.0 | Random, Greedy, Conservative — no encounter-state awareness |
+| **Tier 2** (Tactical) | 1.5 – 4.0 | Tactician variants — encounter-aware, exploits discipline mechanics |
+
+The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple strategy may approach the lower end of the tactical range, but tactical strategies should consistently land higher. These targets are tuned in the balance simulation step (see roadmap) and must be comparable across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
 > **Note**: This document contains only balance goals and general tips on how to achieve them. Simulation results belong in PR descriptions and commit messages, not here.
 
 ### Strategy Hierarchy (yield per durability)
 
-| Strategy | Description |
-|----------|-------------|
-| Random | Plays any available woodcutting card without considering pattern potential |
-| Greedy | Always plays the highest-value chop card available |
-| Conservative | Plays lowest-cost cards to preserve durability |
-| PatternBuilder | Reads cards played so far, builds toward high-value patterns (same chop type) |
+| Strategy | Tier | Description |
+|----------|------|-------------|
+| Random | 1 (Simple) | Plays any available woodcutting card without considering pattern potential |
+| Greedy | 1 (Simple) | Always plays the highest-value chop card available |
+| Conservative | 1 (Simple) | Plays lowest-cost cards to preserve durability |
+| PatternBuilder | 2 (Tactical) | Reads cards played so far, builds toward high-value patterns (same chop type) |
 
-- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios.
-- Tactician strategies should achieve measurably higher yield per durability — pattern-building and early-stop timing must be rewarded.
+- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
+- Tactician strategies should achieve measurably higher yield per durability, landing in the tier 2 range (1.5–4.0) — pattern-building and early-stop timing must be rewarded.
 - The gap must reflect the skill involved in recognizing pattern potential and deciding when to stop.
+
+### Tier-2 Strategy Requirements
+
+There must be at least **2 distinct tier-2 runners** that outperform all tier-1 strategies:
+
+1. **Yield-optimizer**: A tactician that exploits pattern multipliers to maximize Lumber reward — recognizes and builds toward high-multiplier patterns, uses early stop optimally.
+2. **Non-yield tactician**: A tactician that beats tier-1 runners **without ever adjusting yield outcome** — it must never rely on pattern-multiplier optimization. Instead, it wins through superior durability conservation, cost management, and card selection (playing the cheapest viable cards to stretch the durability budget across more encounters).
+
+Choosing the correct encounter via scouting is a valid additional tier-2 tactic, but it does **not** count toward the "non-yield tactician" requirement. There must always be at least one tier-2 runner that beats tier-1 purely through in-encounter play decisions.
 
 ### Cross-Discipline Yield Parity
 
@@ -100,3 +118,34 @@ Key woodcutting config parameters in `configurations/woodcutting/cards.json`:
 - **Durability budget**: Total durability across all woodcutting encounters bounds the session. High-cost cards eat into the durability budget faster, creating tension between playing expensive cards for better patterns vs cheap cards for more encounters.
 - **Tiered balance enforcement**: Tactical pattern-building (recognizing when to aim for a straight vs a flush, timing early stop) must produce higher yield per durability than random chop selection. If strategies converge, increase multiplier spread or adjust cost differentials between chop types.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
+
+## General Design Principles
+
+These principles apply across all disciplines. For full details, see `docs/design/vision.md`.
+
+### Card Cost Distribution
+
+- **Free cards** (no cost) should be the most common card type in every deck.
+- **Stamina-cost cards** should be moderately common and always outperform free cards in raw effect value.
+- **Health-cost cards** should be rare but powerful, always outperforming stamina-cost cards.
+- This creates a risk/reward spectrum: safe low-output plays → moderate-cost moderate-output → high-risk high-output.
+
+### Mutator Scope
+
+Balance mutators (the agents implementing balance changes) **may** change within their discipline:
+- Any CardEffect within woodcutting (including suggesting new CardEffects as a last resort)
+- Any Card within woodcutting (including suggesting new Cards, but try without first)
+- Any encounter within woodcutting (including suggesting new encounters, but try without first)
+
+Balance mutators **must NOT** change:
+- Starting Health, Stamina, or any player starting tokens
+- Health or Stamina after death
+- Hand sizes (all must remain 5)
+- Deck sizes (all must remain 50)
+- Anything outside the woodcutting discipline
+
+### Deck and Hand Sizing
+
+- All player deck hand sizes: **5** (controlled by per-deck MaxHand tokens)
+- All player deck sizes: **50** (controlled by per-deck MaxDeck tokens)
+- Do NOT change deck or hand sizes to fix balance issues — adjust card effects and encounter parameters instead.

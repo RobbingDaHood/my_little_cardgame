@@ -441,6 +441,14 @@ impl GameState {
             return;
         }
 
+        // Check deck size limit before adding a card copy
+        if let Some(card) = self.library.get(craft.target_card_id) {
+            if self.decksize_reached(&card.kind) {
+                self.finish_crafting_encounter(false);
+                return;
+            }
+        }
+
         for (token_type, cost) in &craft.current_costs {
             let key = types::Token::persistent(token_type.clone());
             *self.token_balances.entry(key).or_insert(0) -= cost;

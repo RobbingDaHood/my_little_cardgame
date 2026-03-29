@@ -442,95 +442,88 @@ Roadmap steps
    - Playable acceptance: A developer can run a reproducible session from seed and action-log and follow README to play a full campaign.
    - Notes: Tag a release and include release notes linking vision to implemented features.
 
-Balancing track (B1–B8)
+Balancing track (B1–B9)
 -----------------------
 
 The balancing track runs independently of the main roadmap. It communicates with the game solely through the REST API, making it resilient to internal code changes. Balance measurements should be re-run after any step that changes card values, encounter parameters, or token balances. The game's architecture — 100% in-memory, single-player, deterministic via seed, pure REST/JSON API — makes it uniquely suited for automated balancing through headless simulation.
 
 **Balancing goals:**
-- Easy encounters (gathering: mining, herbalism, woodcutting, fishing, rest): won ~80% of the time by a competent (greedy/heuristic) strategy
-- Hard encounters (combat): measured by **consecutive win streaks**, not per-combat win rate. Win rates are structurally high (55-95%) due to easy initial encounters and partial mutation scaling. Streak hierarchy: Tactician (7.5-18) > Random (5-8.5) > Greedy (4-7.5) > Conservative (3-6).
-- Multiple viable strategies per discipline (no single dominant strategy)
-- Player death (material reset) is an acceptable punishment — already implemented
-- Future milestones: truly hard content (~20-30% win rate) requiring good decks and luck
+- Gathering disciplines (mining, herbalism, woodcutting, fishing): measured by **yield per durability**. Tier 1 (simple strategies): 0.5–2.0. Tier 2 (tactical strategies): 1.5–4.0. See per-discipline balance docs in `docs/vision/balances/`.
+- Combat: measured by **consecutive win streaks**. Tactician variants must always outperform simple strategies. See `docs/vision/balances/combat_balance.md`.
+- Multiple viable strategies per discipline (no single dominant strategy).
+- Each discipline must have at least 2 tier-2 runners that outperform all tier-1 strategies.
+- Player death (material reset) is an acceptable punishment — already implemented.
+- Design principles (card cost tiers, mutator scope, deck/hand sizing) are documented in each balance doc under "General Design Principles".
 
 **Approach — in-process Rust simulation with strategy tiers:**
 
-The primary data source is headless Monte Carlo simulation implemented as Rust integration tests (`tests/balance/`) using `rocket::local::blocking::Client` for zero-overhead in-process execution. Strategies are organized by discipline (e.g., `tests/balance/combat/strategies/`) and range from simple (random, greedy, conservative) to enemy-aware (tactician). Combat balance is measured by **consecutive win streaks** — how many encounters a strategy wins before the player dies. Gathering discipline balance is measured by **yield per durability** — how much yield a player earns for the durability spent. The game's deterministic seeded RNG means scripted strategies produce identical results when re-run, enabling precise before/after comparisons. Config tuning is iterative: adjust JSON configs → recompile → run simulations → check targets → repeat. Use 50+ games per strategy for final validation runs to ensure low variance in pass/fail decisions. See `docs/vision/balances/` for per-discipline balance targets.
+The primary data source is headless Monte Carlo simulation implemented as Rust integration tests (`tests/balance/`) using `rocket::local::blocking::Client` for zero-overhead in-process execution. Strategies are organized by discipline (e.g., `tests/balance/combat/strategies/`) and range from simple (random, greedy, conservative) to encounter-aware (tactician). The game's deterministic seeded RNG means scripted strategies produce identical results when re-run, enabling precise before/after comparisons. Config tuning is iterative: adjust JSON configs → recompile → run simulations → check targets → repeat. Use 50+ games per strategy for final validation runs to ensure low variance in pass/fail decisions. See `docs/vision/balances/` for per-discipline balance targets.
 
 | Layer | Tool | Purpose |
 |-------|------|---------|
 | Per-discipline runners | Rust integration tests (`tests/balance/`) via `rocket::local::blocking::Client` | Run 100+ games per config per discipline with scripted strategies. Primary balancing data source. |
-| Mutation validation | Config JSON changes + `make balance-check` | Test proposed config changes against baseline, compare before/after streak metrics. |
+| Mutation validation | Config JSON changes + `make balance-check` | Test proposed config changes against baseline, compare before/after metrics. |
 | Analysis + proposals | Manual analysis + optional LLM | Analyze runner output, identify imbalances, generate ranked mutation proposals as JSON config diffs. |
-| LLM analysis | GPT-4/Claude via API (optional) | Deeper analysis of Monte Carlo data, suggest non-obvious parameter interactions. |
 
 B1) ~~Multi-instance server support (port configuration)~~ ✅ COMPLETE
    - Goal: Allow running multiple game server instances on the same machine for parallel balancing runs.
    - Status: Implemented. Rocket 0.5.1's built-in figment configuration natively supports `ROCKET_PORT` environment variable. Default port is 8000; any port can be specified at launch via `ROCKET_PORT=8001 cargo run`. Server logs the configured address and port on startup. Integration tests verify port override works.
    - Playable acceptance: `ROCKET_PORT=8001 cargo run` starts the server on port 8001. Two instances can run simultaneously on different ports. ✅ Verified.
 
-B2) General config bypass — quick-win optimizations
-   - Goal: Make a first manual pass over all externalized JSON configs to apply simple, obvious balance fixes before building automated tooling.
-   - Description:
-     - Review every JSON config file under `configurations/` (general/tokens.json, general/shared_effects.json, combat/cards.json, mining/cards.json, herbalism/cards.json, woodcutting/cards.json, fishing/cards.json, rest/cards.json, crafting/cards.json, research/cards.json, milestone/cards.json).
-     - For each config, identify clearly over- or undertuned values: token starting amounts, card effect min/max ranges, durability costs, encounter parameters.
-     - Apply targeted fixes — small, isolated changes (e.g., adjust Health/Stamina starting values, tune card damage/defense/draw ratios, adjust durability cost ranges).
-     - Recompile and run `make check` after each change to validate nothing breaks.
-     - Document each change with rationale (what was wrong, what was changed, expected impact).
-   - Playable acceptance: A documented list of config changes with before/after values and rationale. `make check` passes after all changes.
-   - **Prerequisite:** Step 14 (Configuration externalization) ✅ Complete. All configs are now in JSON under `configurations/`.
-   - Notes: This step validates that the config change → recompile → test cycle works smoothly as a foundation for later automated steps. Changes should be conservative — the goal is fixing obvious outliers, not fine-tuning.
+B2) Per-discipline simulation runners and balance tuning
+
+   Each discipline gets a simulation runner (Rust integration tests in `tests/balance/<discipline>/`), balance targets in `docs/vision/balances/<discipline>_balance.md`, and iterative config tuning until targets are met. The methodology for each discipline follows the same pattern:
+
+   1. **Build runner**: Implement strategies (simple + tactical), wire into the SimulationRunner framework.
+   2. **Establish baseline**: Run simulations, record metrics.
+   3. **Iterate**: Analyze results → propose config mutations → validate in worktrees → accept/reject → repeat.
+   4. **Regression gate**: Once targets are met, assertions in `make balance-check` prevent regressions.
+
+   ### Combat
 
    B2.1) Combat simulation runner — streak-based balance ✅ COMPLETE
       - Goal: Build a Rust-based combat balance simulation that measures consecutive win streaks instead of per-combat win rates, and implement an enemy-aware strategy (tactician) that demonstrates a meaningful skill gap.
       - Implementation: Rust integration tests in `tests/balance/combat/` using `rocket::local::blocking::Client` (in-process, no HTTP server). Four strategies: random, greedy, conservative, tactician (enemy-aware). Runs 10 games × 50 encounters per strategy with fixed seeds.
-      - Key results (with tuned configs on current branch):
-        - Strategy hierarchy: Tactician (8.07 streak) > Random (7.49) > Greedy (6.39) > Conservative (5.01)
-        - Win rates: Random 71.6%, Greedy 55.2%, Conservative 87.4%, Tactician 70.3%
       - Config changes (B2.1 rebalance): Health 1000, enemy HP 400, dodge mechanic (FixedTypeDuration 550-750), shield combat-encounter-scoped (50-90, consumed when absorbing damage, cleared between encounters), cost_damage 500-700 (HP cost 18-28%), enemy damage 300-420, draw cards 3/3/3.
-      - Key discoveries: Shield is combat-encounter-scoped (cleared between encounters) — with enemy damage (300-420) far exceeding shield per round (50-90), shield is fully consumed each round and does not accumulate. Scouting mutation only scales ~10% of enemy card effects per step while HP fully scales — encounters become HP sponges not death threats. Death does not reset difficulty (death spiral). GainTokens had a bug ignoring the duration field.
+      - Key discoveries: Shield is combat-encounter-scoped (cleared between encounters). Scouting mutation only scales ~10% of enemy card effects per step while HP fully scales. Death does not reset difficulty (death spiral). GainTokens had a bug ignoring the duration field.
       - Infrastructure: Runtime config loading behind `--features simulation`, config parity test, Copilot skills for parallel balance tuning.
-      - Branch: `feature/b2.1-combat-simulation-runner`
 
    B2.1.1) Combat card diversity and cost card philosophy ✅ COMPLETE
       - Goal: Fix bugs in enemy cards (zero shield, no resource draw) and redesign combat decks for strategic diversity with a three-tier cost system.
       - Bug fixes: enemy_shield cap 0/0 → 100-200 (enemy was getting zero shield), enemy_draw resource 0 → 1 (enemy running out of cards).
-      - Attack deck: 4 card types — free main (56%), free crit (12%), stamina-cost (22%), health-cost (10%). Free and crit use same CardEffect for natural roll variance. Strict `free_max < stamina_min` ordering.
-      - Defence deck: 50/50 shield/dodge split, each with 3 tiers (moderate, stamina-cost, crit). Replaced health-cost dodge with stamina-cost dodge.
-      - Resource deck: Split into focused cards (draw-only 44%, stamina-only 20%, heal-only 10%, combos 20%, insight 6%). Minor recovery values (50-150) — primary recovery from rest.
       - All decks normalized to 50 cards (player and enemy).
-      - Documentation: Added card abundance tiers to vision.md and combat_balance.md.
       - Closes: #53, #54
 
-   B2.2) Scouting difficulty reset on death
-      - Goal: Implement death-difficulty reduction — after player death, scouting generates encounters -25% to -5% easier than the killing encounter's difficulty. This prevents the death spiral from making the game unwinnable.
-      - Description: Add configurable `death_difficulty_reduction_min` and `death_difficulty_reduction_max` to scouting rules. When a player dies, the next scouting phase uses these reduced deltas.
-      - Branch: `feature/b2.1-combat-simulation-runner` (implemented as part of B2.1 review)
+   B2.2) Scouting difficulty reset on death ✅ COMPLETE
+      - Goal: Implement death-difficulty reduction — after player death, scouting generates encounters easier than the killing encounter's difficulty. Configurable via `death_difficulty_reduction_min` and `death_difficulty_reduction_max`.
 
    B2.3) Future — Proportional mutation scaling
       - Goal: Address the scouting mutation asymmetry where HP scales 100% but card effects only scale ~10%. See `docs/vision/balances/scouting_balance.md` for details.
 
-   B2.4) Mining simulation runner
+   ### Gathering Disciplines
+
+   B2.4) Mining simulation runner ✅ COMPLETE
       - Goal: Build a mining balance simulation measuring yield per durability across strategies. Reuses Strategy trait, GameDriver, and runner infrastructure from B2.1.
       - Key metrics: Ore gained per MiningDurability spent, light-level management effectiveness, voluntary-conclude timing.
       - Balance targets: See `docs/vision/balances/mining_balance.md`.
 
-   B2.5) Herbalism simulation runner
+   B2.5) Herbalism simulation runner ✅ COMPLETE
       - Goal: Build an herbalism balance simulation measuring yield per durability across strategies. Focus on match-mode selection and over-elimination risk.
       - Key metrics: Plant tokens gained per HerbalismDurability spent, win rate (reaching exactly 1 plant), durability cost per attempt.
       - Balance targets: See `docs/vision/balances/herbalism_balance.md`.
 
-   B2.6) Woodcutting simulation runner ✅
+   B2.6) Woodcutting simulation runner ✅ COMPLETE
       - Goal: Build a woodcutting balance simulation measuring yield per durability across strategies. Focus on pattern-building and early-stop decisions.
       - Key metrics: Lumber gained per WoodcuttingDurability spent, average pattern multiplier achieved, early-stop frequency and effectiveness.
       - Balance targets: See `docs/vision/balances/woodcutting_balance.md`.
-      - Implementation: `tests/balance/woodcutting/` — WoodcuttingDisciplineDriver with 4 strategies (Random, Greedy, Conservative, PatternBuilder). Uses pre/post encounter hooks for yield/durability tracking. Calibrated yield/durability: 11–13 across strategies.
+      - Implementation: `tests/balance/woodcutting/` — WoodcuttingDisciplineDriver with 4 strategies (Random, Greedy, Conservative, PatternBuilder). Uses pre/post encounter hooks for yield/durability tracking.
 
-   B2.7) Fishing simulation runner
+   B2.7) Fishing simulation runner ✅ COMPLETE
       - Goal: Build a fishing balance simulation measuring yield per durability across strategies. Focus on range management and value selection.
       - Key metrics: Fish gained per FishingDurability spent, win rate per encounter, range-modifier usage effectiveness.
       - Balance targets: See `docs/vision/balances/fishing_balance.md`.
+
+   ### Support Disciplines
 
    B2.8) Scouting simulation runner
       - Goal: Build a scouting simulation measuring difficulty progression and death-recovery mechanics across game sessions.
@@ -551,19 +544,22 @@ B2) General config bypass — quick-win optimizations
 
    B2.12) Rest simulation runner
       - Goal: Build a rest encounter simulation measuring recovery efficiency — health and stamina restored per rest encounter.
-      - Key metrics: Health and stamina recovered per rest encounter, rest frequency needed to sustain gathering/combat sessions, durability recovery (if applicable).
+      - Key metrics: Health and stamina recovered per rest encounter, rest frequency needed to sustain gathering/combat sessions.
+
+   ### Whole-Game Integration
 
    B2.13) Whole-game balance simulation
-      - Goal: Build a cross-discipline simulation that runs full game sessions (all encounter types) and validates overall progression, resource flows, death frequency, and progression pacing.
-      - Key metrics: Total yield across all disciplines per session, death frequency, resource flow balance (are some disciplines over/under-rewarding?), progression curve smoothness.
-      - Description: This is the integration-level simulation that validates cross-discipline interactions. Individual discipline runners (B2.1–B2.12) must pass before this step is meaningful.
+      - Goal: Build a cross-discipline simulation that runs full game sessions and validates overall progression, resource flows, death frequency, and progression pacing.
+      - Key metrics: Total yield across all disciplines per session, death frequency, resource flow balance, progression curve smoothness.
       - Prerequisite: All per-discipline simulation runners (B2.1–B2.12) complete and passing.
 
-   B2.1 learnings for future discipline runners:
+   ### Learnings and Architecture
+
+   B2.x learnings for discipline runners:
    - **RNG coupling**: Changing card counts changes the RNG state for ALL subsequent rolls — before/after comparisons across config changes are invalidated. Each config must be evaluated independently with fixed seeds.
    - **Scouting interaction**: Balance tests using the full game loop must handle scouting encounters. The `sample_difficulty_deltas()` rejection sampler can infinite-loop if `(delta_max - delta_min) < (choice_count - 1) × min_separation` — ensure sufficient margin.
-   - **Shield/dodge lifecycle matters more than values**: The balance lever in combat is the relationship between enemy damage and shield grant per round. Shield is combat-encounter-scoped (cleared between encounters). When enemy damage exceeds shield per round, shield is fully consumed each round (no accumulation). If shield ever exceeds enemy damage, it accumulates within the combat and can make defensive strategies invincible. Token lifecycle is a first-class balance parameter.
-   - **Runtime config loading**: Use `--features simulation` with `load_library_from_disk()` to test config changes without recompiling (~11s saved per iteration).
+   - **Shield/dodge lifecycle matters more than values**: Token lifecycle is a first-class balance parameter. Shield is combat-encounter-scoped; when enemy damage exceeds shield per round, shield is fully consumed (no accumulation).
+   - **Runtime config loading**: Use `--features simulation` with `load_library_from_disk()` to test config changes without recompiling.
 
    Balance test architecture (`tests/balance/`):
    - `game_driver.rs` — generic game loop driver (discipline-agnostic): advances through encounters, handles scouting, detects stuck states
@@ -571,110 +567,32 @@ B2) General config bypass — quick-win optimizations
    - `output.rs` — report formatting: JSON output with pass/fail assertions per metric
    - `strategies/mod.rs` — Strategy trait definition and GameSnapshot for state inspection
    - `<discipline>/` — per-discipline module: test entry point, discipline-specific driver, output/targets, strategy implementations
-   - `<discipline>/strategies/` — strategy implementations per discipline (random, greedy, conservative, tactician)
 
-B3) Balance analysis and iteration
-   - Goal: Analyze B2.x simulation results to identify imbalances, propose and test config changes using the simulation infrastructure, and iterate until win rates meet vision.md targets.
-   - Description:
-     - The per-discipline simulation runners from B2.x replace the originally planned Python scripts. All runners are Rust integration tests under `tests/balance/` using `rocket::local::blocking::Client` for in-process execution. External Python/nushell scripts may still be used for ad-hoc analysis of JSON output.
-     - **Analysis inputs:** Metrics from B2.x runs (win rates, token curves, encounter durations per strategy), current config files, balancing goals from vision.md.
-     - **Strategy differentiation testing**: Strategy ORDERING (Tactician > Random > Greedy > Conservative for streaks) is a critical invariant. Add ordering assertions to the balance test framework.
-     - **Larger sample sizes**: Consider 50+ games per strategy for final validation to reduce variance in pass/fail decisions. Configurable via feature flag or env var.
-   - Playable acceptance: All primary discipline balance tests pass with targets from vision.md. `make balance-check` passes.
-   - Notes: The 35-iteration tuning in B2.1 demonstrated that balance tuning requires significant iteration. Future discipline tuning should expect similar iteration counts.
+B3) Balance iteration methodology
 
-B4) Per-discipline analysis and mutation proposals
-   - Goal: After collecting baseline data from B3 runs, analyze the results for each discipline and produce concrete mutation proposals — specific config changes expected to improve balance.
-   - Description:
-     - **Analysis inputs:** Metrics from B3 runs (win rates, token curves, encounter durations per strategy), current config files, balancing goals from the goals section above.
-     - **Analysis identifies:**
-       - Outlier win rates (encounters won 0% or 100% of the time by any strategy).
-       - Dominant strategies (one strategy winning >90% while others <30%).
-       - Underused card effects (cards that are never played or never contribute to wins).
-       - Token flow imbalances (resources gained too fast/slow, durability burning too quickly, etc.).
-     - **Mutation proposals:**
-       - Each proposal is a concrete JSON config diff (e.g., "increase Mining card X damage min from 200 to 300", "reduce Herbalism durability cost from 500 to 350").
-       - Proposals are ranked by expected impact and confidence.
-       - Proposals may be generated manually, by LLM analysis, or by systematic parameter sweeps.
-     - **Tooling:**
-       - Analysis is performed in-process within Rust integration tests — the simulation runner outputs JSON reports with pass/fail assertions per metric. No external Python tooling needed.
-       - Optional: LLM analysis via Copilot skills (see `.github/skills/balance-tuning-tips/`) for deeper analysis and suggestion generation.
-   - Playable acceptance: For each discipline with baseline data, the analysis produces at least 3 ranked mutation proposals with rationale and expected impact direction.
-   - Notes: LLM analysis is optional but valuable for identifying non-obvious interactions. Human review of proposals is expected at this stage.
+   The balance tuning process for each discipline follows a consistent pattern. Steps B3–B6 are not sequential phases but describe a repeating cycle applied per-discipline.
 
-B5) Mutation validation runners (worktree-isolated)
-   - Goal: For each proposed mutation from B4, validate whether it actually improves balance by running the discipline runner with the mutated config in a fresh worktree.
-   - Description:
-     - **Per-mutation workflow:**
-       - Create a new worktree on a dedicated branch (e.g., `balance/mining-mutation-1`, `balance/combat-mutation-2`).
-       - Apply the mutated config from the B4 proposal.
-       - Run the discipline runner (same strategies and session counts as B3 baseline).
-       - Collect before/after metrics.
-       - Commit the mutation config + results to the branch.
-     - **Comparison and decision:**
-       - Compare mutation results against baseline (B3 data).
-       - Accept mutations that move metrics toward target win rates.
-       - Reject mutations that make things worse or have negligible effect.
-       - Document the decision with data.
-     - **Multiple mutations:**
-       - Each mutation gets its own worktree/branch, so multiple mutations can be tested in parallel.
-       - Mutations can be combined (apply mutation A + B together) for interaction testing.
-   - Playable acceptance: For each tested mutation, a before/after comparison report is committed to the mutation branch showing whether metrics improved toward target win rates.
-   - Notes: Keep mutation branches even for rejected proposals — they serve as documentation of what was tried. The worktree-per-mutation pattern ensures no interference between parallel experiments.
+   - **Analysis** (per iteration): Analyze simulation output to identify imbalances — outlier win rates, dominant strategies, underused card effects, token flow problems.
+   - **Mutation proposals**: Each proposal is a concrete JSON config diff. Proposals are ranked by expected impact and confidence.
+   - **Validation** (worktree-isolated): For each proposed mutation, create a worktree branch, apply the mutation, run the discipline runner, compare before/after metrics. Accept mutations that improve metrics; reject others.
+   - **Iteration**: Accepted mutations become the new baseline. Re-analyze and repeat until metrics are within target ranges.
+   - **Tracking**: Each iteration is a git commit on the discipline branch with updated configs and metrics. Keep rejected mutation branches as documentation.
+   - Playable acceptance: `make balance-check` passes with all per-discipline metrics within documented target ranges.
 
-B6) Iteration loop (manual)
-   - Goal: Alternate between analysis (B4) and mutation validation (B5) until per-discipline metrics are within target win-rate ranges.
-   - Description:
-     - After B5 completes a round:
-       - Accepted mutations become the new baseline config for the discipline.
-       - Update the main discipline runner worktree (B3) with accepted mutations.
-       - Re-run B3 to establish the new baseline.
-       - Re-run B4 analysis on the new baseline to identify remaining issues.
-       - Generate new mutation proposals and validate with B5.
-     - Repeat until metrics are within target ranges:
-       - Easy encounters (gathering): ≥60% win rate (random), ≥80% (greedy/heuristic).
-       - Hard encounters (combat): streak hierarchy Tactician (7.5-18) > Random (5-8.5) > Greedy (4-7.5) > Conservative (3-6). Win rates: Random 55-80%, Greedy 45-65%, Conservative 70-95%.
-       - No single dominant strategy (>90% while others <30%).
-     - Track iteration history via git commits — each iteration is a commit on the discipline runner branch with updated configs and metrics.
-   - Playable acceptance: Per-discipline metrics are documented and trending toward target ranges after each iteration. Iteration history is visible in git log.
-   - Notes: The number of iterations needed is unknown — some disciplines may converge quickly, others may require many rounds. Stop when diminishing returns are reached even if not perfectly at target.
-
-B7) (Future) Whole-game optimization
+B4) (Future) Whole-game optimization
    - Goal: After per-discipline balance is satisfactory, optimize the game as a whole — accounting for cross-discipline interactions, resource flow between encounters, and progression pacing.
-   - Description:
-     - Run full game sessions (all disciplines, encounter progression, scouting, crafting, research) using the per-discipline-optimized configs.
-     - Analyze cross-discipline metrics:
-       - Resource flow: are materials (Ore, Plant, Lumber, Fish) accumulating or depleting at expected rates across a full session?
-       - Progression pacing: is the player advancing through encounter tiers at a satisfying pace?
-       - Death frequency: is player death occurring at the right frequency (punishing but not frustrating)?
-       - Stamina economy: is Stamina serving as an effective cross-discipline cost currency?
-     - Apply the same worktree-based mutation/validation pattern (B4/B5/B6) but at the whole-game level.
-   - Playable acceptance: Full-game session metrics are documented with cross-discipline balance analysis.
-   - Notes: This step may reveal that per-discipline optimizations conflict when combined. Be prepared to revisit individual discipline configs.
+   - Uses the same worktree-based mutation/validation pattern but at the whole-game level.
 
-B8) (Future) Automated iteration loop
-   - Goal: Automate the B4→B5→B6 cycle so that analysis proposes mutations, the runner validates them, and accepted mutations are auto-applied — reducing the manual effort per iteration.
-   - Description:
-     - Automated iteration using Copilot skills + `make balance-check`:
-       - Runs B3 (discipline runner) → B4 (analysis + proposals) → B5 (mutation validation) → decision (accept/reject) in a loop.
-       - Auto-applies accepted mutations and commits to the discipline branch.
-       - Stops when metrics are within target ranges or after N iterations.
-       - Produces a summary report of all iterations, accepted/rejected mutations, and final metrics.
-     - Human review checkpoints: configurable (every iteration, every N iterations, or only at the end).
-     - Could integrate LLM analysis for mutation proposal generation (feeding metrics + config to GPT-4/Claude and parsing structured suggestions).
-   - Playable acceptance: `python tools/balance/auto_balance.py --discipline mining --max-iterations 10` completes and produces a final config with documented metrics improvement.
-   - Notes: This is a significant automation investment. Only pursue after the manual loop (B6) has been validated and the iteration pattern is well-understood.
+B5) (Future) Automated iteration loop
+   - Goal: Automate the analysis → mutation → validation → decision cycle, reducing manual effort per iteration.
+   - Human review checkpoints remain configurable.
 
-B9) (Future) Continuous balance regression
-   - Goal: Prevent balance regressions by running quick automated simulations after config or code changes.
-   - Description:
-     - `make balance-check` target runs Rust simulation tests (`cargo test --features simulation`) across all discipline runners. ✅ Partially implemented: combat simulation runner (B2.1) is operational with 4 strategies and assertion framework. Future discipline runners will be added as they are built.
-     - Asserts consecutive win streaks stay within documented target ranges per strategy tier (not just win rates).
-     - Integrates into CI as an optional check (not blocking, but reported).
-     - Uses the same Rust integration test infrastructure from `tests/balance/`.
-     - Target ranges are documented per discipline and updated as B6 iterations converge.
-   - Playable acceptance: `make balance-check` completes in under 5 minutes and reports per-discipline streak metrics with pass/fail status.
-   - Notes: This is a regression safety net, not a full balance run. Keep session counts low for fast feedback. Consider running it nightly or on balance-related PRs.
+B6) Continuous balance regression
+   - Goal: Prevent balance regressions by running automated simulations after config or code changes.
+   - `make balance-check` runs all discipline runners and asserts metrics stay within target ranges.
+   - Target ranges are documented per discipline in `docs/vision/balances/` and updated as tuning iterations converge.
+   - Re-run balance checks after any change to card values, encounter parameters, or token balances.
+   - Playable acceptance: `make balance-check` completes and reports per-discipline metrics with pass/fail status.
 
 Ideas and future possibilities
 ------------------------------

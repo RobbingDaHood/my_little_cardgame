@@ -8,20 +8,38 @@ Mining balance is measured by **yield per durability** — how much Ore a player
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.4) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **0.5–4.0 yield per durability**. This range is deliberately wide to give room for balancing while maintaining cross-discipline parity.
+
+#### Tier-Based Targets
+
+| Tier | Yield/Durability Range | Description |
+|------|----------------------|-------------|
+| **Tier 1** (Simple) | 0.5 – 2.0 | Random, Greedy, Conservative — no encounter-state awareness |
+| **Tier 2** (Tactical) | 1.5 – 4.0 | Tactician variants — encounter-aware, exploits discipline mechanics |
+
+The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple strategy may approach the lower end of the tactical range, but tactical strategies should consistently land higher. These targets are tuned in the balance simulation step (see roadmap) and must be comparable across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
 ### Strategy Hierarchy (yield per durability)
 
-| Strategy | Description |
-|----------|-------------|
-| Random | Plays any available mining card without considering light level or costs |
-| Greedy | Always plays the highest-power card available |
-| Conservative | Plays lowest-cost cards to preserve durability |
-| Tactician | Manages light level, times power plays when light is high, concludes at optimal moments |
+| Strategy | Tier | Description |
+|----------|------|-------------|
+| Random | 1 (Simple) | Plays any available mining card without considering light level or costs |
+| Greedy | 1 (Simple) | Always plays the highest-power card available |
+| Conservative | 1 (Simple) | Plays lowest-cost cards to preserve durability |
+| Tactician | 2 (Tactical) | Manages light level, times power plays when light is high, concludes at optimal moments |
 
-- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios.
-- Tactician strategies should achieve measurably higher yield per durability than any simple strategy.
+- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
+- Tactician strategies should achieve measurably higher yield per durability than any simple strategy, landing in the tier 2 range (1.5–4.0).
 - The gap between the best simple strategy and the tactician should be meaningful — tactical light-level management and conclude-timing must be rewarded.
+
+### Tier-2 Strategy Requirements
+
+There must be at least **2 distinct tier-2 runners** that outperform all tier-1 strategies:
+
+1. **Yield-optimizer**: A tactician that exploits yield-boosting card effects (e.g., plays yield-enhancing cards when light level is high, times conclude for maximum ore).
+2. **Non-yield tactician**: A tactician that beats tier-1 runners **without ever adjusting yield outcome** — it must never rely on yield-boosting effects. Instead, it wins through superior resource management (durability conservation, stamina efficiency, optimal encounter conclusion timing).
+
+Choosing the correct encounter via scouting is a valid additional tier-2 tactic, but it does **not** count toward the "non-yield tactician" requirement. There must always be at least one tier-2 runner that beats tier-1 purely through in-encounter play decisions.
 
 ### Cross-Discipline Yield Parity
 
@@ -98,3 +116,34 @@ Key mining config parameters in `configurations/mining/cards.json`:
 - **Ore deck composition**: More heavy/health ore cards increases loss risk but doesn't change yield-per-successful-encounter. Adjust ore deck to control loss rate, not yield rate.
 - **Tiered balance enforcement**: Tactical light-level management (boosting light before power plays, timing conclusion) must produce measurably more yield per durability than random/greedy play. If strategies converge, add mechanics that reward timing (e.g., light-level thresholds, combo bonuses).
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
+
+## General Design Principles
+
+These principles apply across all disciplines. For full details, see `docs/design/vision.md`.
+
+### Card Cost Distribution
+
+- **Free cards** (no cost) should be the most common card type in every deck.
+- **Stamina-cost cards** should be moderately common and always outperform free cards in raw effect value.
+- **Health-cost cards** should be rare but powerful, always outperforming stamina-cost cards.
+- This creates a risk/reward spectrum: safe low-output plays → moderate-cost moderate-output → high-risk high-output.
+
+### Mutator Scope
+
+Balance mutators (the agents implementing balance changes) **may** change within their discipline:
+- Any CardEffect within mining (including suggesting new CardEffects as a last resort)
+- Any Card within mining (including suggesting new Cards, but try without first)
+- Any encounter within mining (including suggesting new encounters, but try without first)
+
+Balance mutators **must NOT** change:
+- Starting Health, Stamina, or any player starting tokens
+- Health or Stamina after death
+- Hand sizes (all must remain 5)
+- Deck sizes (all must remain 50)
+- Anything outside the mining discipline
+
+### Deck and Hand Sizing
+
+- All player deck hand sizes: **5** (controlled by per-deck MaxHand tokens)
+- All player deck sizes: **50** (controlled by per-deck MaxDeck tokens)
+- Do NOT change deck or hand sizes to fix balance issues — adjust card effects and encounter parameters instead.
