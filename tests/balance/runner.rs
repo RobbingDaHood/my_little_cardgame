@@ -42,6 +42,8 @@ pub struct StrategyResults {
     pub overall_avg_streak: f64,
     /// Discipline-specific: average yield per durability across all games.
     pub avg_yield_per_durability: f64,
+    /// Total cross-discipline resource consumed (e.g., Lumber in mining).
+    pub total_cross_resource_consumed: i64,
 }
 
 impl StrategyResults {
@@ -86,6 +88,7 @@ impl SimulationRunner {
             avg_max_win_streak: 0.0,
             overall_avg_streak: 0.0,
             avg_yield_per_durability: 0.0,
+            total_cross_resource_consumed: 0,
         };
 
         let mut total_rounds: u64 = 0;
@@ -94,6 +97,7 @@ impl SimulationRunner {
         let mut all_streaks: Vec<u32> = Vec::new();
         let mut total_yield: i64 = 0;
         let mut total_durability: i64 = 0;
+        let mut total_cross_resource: i64 = 0;
 
         for i in 0..self.config.games_per_strategy {
             let seed = self.config.base_seed + i as u64;
@@ -107,6 +111,7 @@ impl SimulationRunner {
 
             total_yield += game_result.yield_total;
             total_durability += game_result.durability_spent;
+            total_cross_resource += game_result.cross_resource_consumed;
 
             for &rounds in &game_result.rounds_per_encounter {
                 total_rounds += rounds as u64;
@@ -133,6 +138,7 @@ impl SimulationRunner {
             let streak_sum: u64 = all_streaks.iter().map(|&s| s as u64).sum();
             results.overall_avg_streak = streak_sum as f64 / all_streaks.len() as f64;
         }
+        results.total_cross_resource_consumed = total_cross_resource;
         if total_durability > 0 {
             results.avg_yield_per_durability = total_yield as f64 / total_durability as f64;
         }

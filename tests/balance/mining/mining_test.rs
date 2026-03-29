@@ -115,4 +115,26 @@ fn mining_balance_simulation() {
         report.all_assertions_passed,
         "Not all mining balance assertions passed"
     );
+
+    // Strategy hierarchy: tactician should be more efficient than greedy
+    // (Both consume similar total durability, making yield/dur a fair comparison.
+    // Conservative is excluded — its near-zero engagement makes the ratio volatile.)
+    let tactician_yd = report
+        .strategies
+        .iter()
+        .find(|s| s.name == "tactician")
+        .map(|s| s.mining.avg_yield_per_durability)
+        .unwrap();
+    let greedy_yd = report
+        .strategies
+        .iter()
+        .find(|s| s.name == "greedy")
+        .map(|s| s.mining.avg_yield_per_durability)
+        .unwrap();
+    assert!(
+        tactician_yd > greedy_yd,
+        "Tactician ({:.3}) should beat Greedy ({:.3}) in yield/durability",
+        tactician_yd,
+        greedy_yd,
+    );
 }

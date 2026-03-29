@@ -19,6 +19,9 @@ pub trait DisciplineDriver {
     /// Play an encounter to completion using the strategy. Returns rounds played.
     fn play_encounter(&self, client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32;
 
+    /// Called once after NewGame to perform discipline-specific setup (e.g., inject test tokens).
+    fn setup_game(&self, _client: &Client) {}
+
     /// Called before each encounter. Returns opaque state for post_encounter.
     fn pre_encounter(&self, _client: &Client) -> Option<Value> {
         None
@@ -54,6 +57,9 @@ pub struct GameResult {
     pub yield_total: i64,
     /// Discipline-specific: total durability spent.
     pub durability_spent: i64,
+    /// Discipline-specific: total cross-discipline resource consumed (e.g., Lumber in mining).
+    /// Converted to durability equivalent in yield/durability calculation.
+    pub cross_resource_consumed: i64,
 }
 
 /// Drives one full game session through repeated encounters for a given discipline.
@@ -89,6 +95,8 @@ impl GameDriver {
         let new_game = serde_json::json!({"action_type": "NewGame", "seed": seed});
         post_action(&client, &new_game);
 
+        discipline.setup_game(&client);
+
         let mut result = GameResult {
             seed,
             wins: 0,
@@ -102,6 +110,7 @@ impl GameDriver {
             max_win_streak: 0,
             yield_total: 0,
             durability_spent: 0,
+            cross_resource_consumed: 0,
         };
 
         let mut initial_deaths = get_snapshot(&client).player_deaths();
@@ -207,7 +216,7 @@ impl GameDriver {
     }
 
     /// Advance game state until EncounterPickEncounter is available.
-    /// Handles conclude and scouting phases. Returns false if stuck or no encounters.
+    /// Handles conclude, scouting, and stuck encounters. Returns false if stuck or no encounters.
     fn advance_to_encounter_pick(&self, client: &Client, _strategy: &dyn Strategy) -> bool {
         for _ in 0..50 {
             let possible = get_possible_actions(client);
@@ -224,14 +233,6 @@ impl GameDriver {
                 return true;
             }
 
-            if action_types.contains(&"EncounterConcludeEncounter".to_string()) {
-                post_action(
-                    client,
-                    &serde_json::json!({"action_type": "EncounterConcludeEncounter"}),
-                );
-                continue;
-            }
-
             if action_types.contains(&"EncounterApplyScouting".to_string()) {
                 post_action(
                     client,
@@ -240,7 +241,24 @@ impl GameDriver {
                 continue;
             }
 
-            // Stuck (e.g., in combat with no playable cards).
+            // If we're inside an active encounter (has PlayCard/Conclude but no Pick),
+            // play through it as a non-target encounter.
+            if action_types.contains(&"EncounterPlayCard".to_string())
+                || action_types.contains(&"EncounterAbort".to_string())
+            {
+                self.play_non_target_encounter(client, _strategy);
+                continue;
+            }
+
+            if action_types.contains(&"EncounterConcludeEncounter".to_string()) {
+                post_action(
+                    client,
+                    &serde_json::json!({"action_type": "EncounterConcludeEncounter"}),
+                );
+                continue;
+            }
+
+            // Stuck — game needs reset.
             if action_types.contains(&"NewGame".to_string()) {
                 return false;
             }
