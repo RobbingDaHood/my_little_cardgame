@@ -9,7 +9,7 @@ use crate::runner::{SimulationConfig, SimulationRunner};
 #[test]
 fn fishing_balance_simulation() {
     let config = SimulationConfig {
-        games_per_strategy: 3,
+        games_per_strategy: 30,
         encounters_per_game: 20,
         base_seed: 42,
         max_actions_per_encounter: 200,

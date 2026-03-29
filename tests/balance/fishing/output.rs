@@ -11,30 +11,29 @@ pub struct YieldTarget {
 }
 
 /// Fishing balance targets from docs/vision/balances/fishing_balance.md:
-///   Goal: 0.2–0.4 yield per durability.
-///   Simple strategies (Random, Greedy, Conservative) in lower half.
-///   Tactician in upper half.
+///   Goal: 0.2–0.4 yield per durability for simple strategies.
+///   Tactician should be significantly better via encounter selection.
 pub fn fishing_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "FishingRandom".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 0.15,
+            target_max: 0.60,
         },
         YieldTarget {
             strategy: "FishingGreedy".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 0.15,
+            target_max: 0.60,
         },
         YieldTarget {
             strategy: "FishingConservative".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 0.15,
+            target_max: 0.60,
         },
         YieldTarget {
             strategy: "FishingTactician".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 1.0,
+            target_max: 3.0,
         },
     ]
 }

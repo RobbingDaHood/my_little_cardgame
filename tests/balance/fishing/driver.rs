@@ -10,7 +10,7 @@ use crate::strategies::{GameSnapshot, Strategy};
 
 /// Maps effect_id -> (effect_type, optional token_type for GainTokens effects).
 fn build_effect_type_map(client: &Client) -> HashMap<u64, (String, Option<String>)> {
-    let data = get_json(client, "/library/card_effects");
+    let data = get_json(client, "/library/card-effects");
     let mut map = HashMap::new();
 
     for section_key in &["player_effects", "enemy_effects"] {
@@ -97,6 +97,11 @@ impl DisciplineDriver for FishingDisciplineDriver {
 
 /// Play a fishing encounter to completion using the given strategy.
 /// Returns the number of rounds played.
+///
+/// Conclude is NOT offered to strategies as a normal action (it creates
+/// degenerate "free-win" behaviour when chosen voluntarily).  Instead,
+/// conclude is used automatically as a fallback when every card in hand
+/// has been blacklisted (unaffordable).
 pub fn play_fishing_encounter(client: &Client, strategy: &dyn Strategy, max_actions: u32) -> u32 {
     let mut rounds = 0;
     let mut unplayable_card_ids: Vec<u64> = Vec::new();
@@ -134,7 +139,8 @@ pub fn play_fishing_encounter(client: &Client, strategy: &dyn Strategy, max_acti
             return rounds;
         }
 
-        let mut playable: Vec<Value> = if can_play_card {
+        // Build card-only action list for the strategy (no conclude)
+        let card_actions: Vec<Value> = if can_play_card {
             get_playable_fishing_cards(client, &snapshot)
                 .into_iter()
                 .filter(|c| {
@@ -146,18 +152,19 @@ pub fn play_fishing_encounter(client: &Client, strategy: &dyn Strategy, max_acti
             vec![]
         };
 
-        if has_conclude {
-            playable.push(serde_json::json!({
-                "action_type": "EncounterConcludeEncounter",
-                "is_conclude": true
-            }));
-        }
-
-        if playable.is_empty() {
+        // Fallback: all cards blacklisted → auto-conclude if available
+        if card_actions.is_empty() {
+            if has_conclude {
+                let conclude = serde_json::json!({
+                    "action_type": "EncounterConcludeEncounter"
+                });
+                post_action(client, &conclude);
+                rounds += 1;
+            }
             return rounds;
         }
 
-        let action = strategy.choose_action(&playable, &snapshot);
+        let action = strategy.choose_action(&card_actions, &snapshot);
         let (status, _) = post_action(client, &action);
 
         if status.code >= 400 {
@@ -211,6 +218,7 @@ pub fn get_fishing_encounter_ids(client: &Client) -> Vec<u64> {
 }
 
 /// Get fishing encounter choices, excluding encounters with IDs in `exclude_ids`.
+/// Includes `fish_reward` so strategies can pick encounters by reward value.
 pub fn get_fishing_encounter_choices_filtered(client: &Client, exclude_ids: &[u64]) -> Vec<Value> {
     let cards = get_json(client, "/library/cards?location=Hand&card_kind=Encounter");
     cards
@@ -228,17 +236,24 @@ pub fn get_fishing_encounter_choices_filtered(client: &Client, exclude_ids: &[u6
         })
         .map(|c| {
             let card_id = c.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
-            let wins_required = c
+            let fishing_def = c
                 .get("kind")
                 .and_then(|k| k.get("encounter_kind"))
-                .and_then(|ek| ek.get("fishing_def"))
+                .and_then(|ek| ek.get("fishing_def"));
+            let wins_required = fishing_def
                 .and_then(|fd| fd.get("wins_required"))
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0);
+            let fish_reward = fishing_def
+                .and_then(|fd| fd.get("rewards"))
+                .and_then(|r| r.get("Fish"))
                 .and_then(|v| v.as_i64())
                 .unwrap_or(0);
             serde_json::json!({
                 "action_type": "EncounterPickEncounter",
                 "card_id": card_id,
-                "wins_required": wins_required
+                "wins_required": wins_required,
+                "fish_reward": fish_reward
             })
         })
         .collect()
@@ -269,6 +284,7 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
                 .unwrap_or(Value::Null);
 
             let mut max_fishing_value: i64 = 0;
+            let mut num_fishing_values: i64 = 0;
             let mut total_durability_cost: i64 = 0;
             let mut has_range_modifier = false;
             let mut has_fish_amount_modifier = false;
@@ -283,6 +299,7 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
                     if let Some((effect_type, token_type)) = effect_type_map.get(&effect_id) {
                         match effect_type.as_str() {
                             "FishingValue" => {
+                                num_fishing_values += 1;
                                 let rolled = effect
                                     .get("rolled_value")
                                     .and_then(|v| v.as_i64())
@@ -327,6 +344,7 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
                 "card_details": {
                     "effects": effects,
                     "max_fishing_value": max_fishing_value,
+                    "num_fishing_values": num_fishing_values,
                     "total_durability_cost": total_durability_cost,
                     "has_range_modifier": has_range_modifier,
                     "has_fish_amount_modifier": has_fish_amount_modifier,

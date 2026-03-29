@@ -173,6 +173,38 @@ impl GameSnapshot {
     pub fn fish_tokens(&self) -> i64 {
         extract_token_value(&self.tokens, "Fish")
     }
+
+    pub fn fishing_turns_won(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("turns_won")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
+
+    pub fn fishing_round(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("round")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
+
+    pub fn fishing_max_turns(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("max_turns")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
+
+    pub fn fishing_win_turns_needed(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("win_turns_needed")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
 }
 
 fn extract_token_value(tokens: &Value, token_type: &str) -> i64 {
