@@ -4298,3 +4298,57 @@ fn possible_action_types(client: &Client) -> Vec<String> {
         })
         .collect()
 }
+
+/// The initial game state must never have any player deck exceeding its
+/// MaxDeck token limit.
+///
+/// This is important for deck-size enforcement (issue #66): new games
+/// should start within bounds so players only approach the cap through
+/// gameplay (crafting / research).
+#[test]
+fn initial_deck_sizes_within_max_deck_limits() {
+    let client =
+        rocket::local::blocking::Client::tracked(rocket_initialize()).expect("valid rocket");
+    let (status, _) = post_action(&client, r#"{"action_type":"NewGame","seed":42}"#);
+    assert_eq!(status, Status::Created);
+
+    let deck_kinds_and_tokens = [
+        ("Attack", "AttackMaxDeck"),
+        ("Defence", "DefenceMaxDeck"),
+        ("Resource", "ResourceMaxDeck"),
+        ("Mining", "MiningMaxDeck"),
+        ("Herbalism", "HerbalismMaxDeck"),
+        ("Woodcutting", "WoodcuttingMaxDeck"),
+        ("Fishing", "FishingMaxDeck"),
+        ("Rest", "RestMaxDeck"),
+        ("Crafting", "CraftingMaxDeck"),
+    ];
+
+    let mut violations = Vec::new();
+    for (kind, max_token) in &deck_kinds_and_tokens {
+        let cards = get_json(&client, &format!("/library/cards?card_kind={}", kind));
+        let total: u32 = cards
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|c| {
+                let counts = &c["counts"];
+                counts["library"].as_u64().unwrap_or(0) as u32
+                    + counts["deck"].as_u64().unwrap_or(0) as u32
+                    + counts["hand"].as_u64().unwrap_or(0) as u32
+                    + counts["discard"].as_u64().unwrap_or(0) as u32
+            })
+            .sum();
+
+        let max_deck = player_token(&client, max_token);
+
+        if (total as i64) > max_deck {
+            violations.push(format!("{kind}: {total} cards > MaxDeck {max_deck}"));
+        }
+    }
+    assert!(
+        violations.is_empty(),
+        "Deck size violations:\n{}",
+        violations.join("\n")
+    );
+}
