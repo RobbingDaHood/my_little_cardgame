@@ -97,7 +97,38 @@ Key combat config parameters in `configurations/combat/cards.json`:
 
 ## Baseline Findings (B2.1)
 
-Initial 1000-game simulation (seed 42, 3 strategies × 20 max encounters) showed ~99% combat win rate across all strategies with ~3 encounters per game before stamina depletion. This confirmed combat was significantly too easy relative to targets. Key observations: all strategies performed nearly identically, games terminated due to stamina depletion not death, and combat rebalancing needed to focus on enemy damage scaling, stamina economy, and card differentiation. Subsequent 35-iteration tuning addressed these issues.
+*Simulation results belong in PR descriptions, not in this document. See PR history for specific run data.*
+
+## General Design Principles
+
+These principles apply across all disciplines. For full details, see `docs/design/vision.md`.
+
+### Card Cost Distribution
+
+- **Free cards** (no cost) should be the most common card type in every deck.
+- **Stamina-cost cards** should be moderately common and always outperform free cards in raw effect value.
+- **Health-cost cards** should be rare but powerful, always outperforming stamina-cost cards.
+- This creates a risk/reward spectrum: safe low-output plays → moderate-cost moderate-output → high-risk high-output.
+
+### Mutator Scope
+
+Balance mutators (the agents implementing balance changes) **may** change within their discipline:
+- Any CardEffect within combat (including suggesting new CardEffects as a last resort)
+- Any Card within combat (including suggesting new Cards, but try without first)
+- Any encounter within combat (including suggesting new encounters, but try without first)
+
+Balance mutators **must NOT** change:
+- Starting Health, Stamina, or any player starting tokens
+- Health or Stamina after death
+- Hand sizes (all must remain 5)
+- Deck sizes (all must remain 50)
+- Anything outside the combat discipline
+
+### Deck and Hand Sizing
+
+- All player deck hand sizes: **5** (controlled by per-deck MaxHand tokens)
+- All player deck sizes: **50** (controlled by per-deck MaxDeck tokens)
+- Do NOT change deck or hand sizes to fix balance issues — adjust card effects and encounter parameters instead.
 
 ## Tuning Tips
 

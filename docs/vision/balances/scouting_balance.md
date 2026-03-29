@@ -54,3 +54,27 @@ This keeps encounters recognizable (small card mutations) while ensuring difficu
 
 - **Per-token-type scaling**: Different tokens could scale at different rates (e.g., enemy HP scales at 80%, enemy damage at 100%) for finer balance control.
 - **Scouting difficulty reset granularity**: The death difficulty reduction could be more nuanced — e.g., scaling with the number of consecutive deaths, or with the magnitude of the difficulty gap.
+
+## General Design Principles
+
+These principles apply across all disciplines. For full details, see `docs/design/vision.md`.
+
+### Mutator Scope
+
+Balance mutators (the agents implementing balance changes) **may** change within scouting:
+- Scouting configuration parameters (delta ranges, mutation fractions, probabilities)
+- Death difficulty reduction parameters
+- Choice count
+
+Balance mutators **must NOT** change:
+- Starting Health, Stamina, or any player starting tokens
+- Health or Stamina after death
+- Hand sizes (all must remain 5)
+- Deck sizes (all must remain 50)
+- Anything outside the scouting discipline
+
+### Deck and Hand Sizing
+
+- All player deck hand sizes: **5** (controlled by per-deck MaxHand tokens)
+- All player deck sizes: **50** (controlled by per-deck MaxDeck tokens)
+- Do NOT change deck or hand sizes to fix balance issues — adjust card effects and encounter parameters instead.

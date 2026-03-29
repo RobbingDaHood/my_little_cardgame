@@ -8,20 +8,38 @@ Herbalism balance is measured by **yield per durability** — how many Plant tok
 
 ### Yield-per-Durability Targets
 
-All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.5) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
+All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **0.5–4.0 yield per durability**. This range is deliberately wide to give room for balancing while maintaining cross-discipline parity.
+
+#### Tier-Based Targets
+
+| Tier | Yield/Durability Range | Description |
+|------|----------------------|-------------|
+| **Tier 1** (Simple) | 0.5 – 2.0 | Random, Greedy, Conservative — no encounter-state awareness |
+| **Tier 2** (Tactical) | 1.5 – 4.0 | Tactician variants — encounter-aware, exploits discipline mechanics |
+
+The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple strategy may approach the lower end of the tactical range, but tactical strategies should consistently land higher. These targets are tuned in the balance simulation step (see roadmap) and must be comparable across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
 ### Strategy Hierarchy (yield per durability)
 
-| Strategy | Description |
-|----------|-------------|
-| Random | Plays any available herbalism card without considering plant characteristics |
-| Greedy | Plays the broadest match card to eliminate the most plants per play |
-| Conservative | Plays narrow (single-characteristic) cards for safe, predictable elimination |
-| Tactician | Reads remaining plant characteristics, selects optimal match mode and targets to reach exactly 1 plant remaining with minimal durability spent |
+| Strategy | Tier | Description |
+|----------|------|-------------|
+| Random | 1 (Simple) | Plays any available herbalism card without considering plant characteristics |
+| Greedy | 1 (Simple) | Plays the broadest match card to eliminate the most plants per play |
+| Conservative | 1 (Simple) | Plays narrow (single-characteristic) cards for safe, predictable elimination |
+| Tactician | 2 (Tactical) | Reads remaining plant characteristics, selects optimal match mode and targets to reach exactly 1 plant remaining with minimal durability spent |
 
-- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios.
-- Tactician strategies should achieve measurably higher yield per durability — reading the plant composition and choosing precise eliminations should be rewarded.
+- Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
+- Tactician strategies should achieve measurably higher yield per durability, landing in the tier 2 range (1.5–4.0) — reading the plant composition and choosing precise eliminations should be rewarded.
 - The gap must be meaningful: tactical play (And, MostCommon, LeastCommon modes) should reliably outperform simple Or-only play.
+
+### Tier-2 Strategy Requirements
+
+There must be at least **2 distinct tier-2 runners** that outperform all tier-1 strategies:
+
+1. **Yield-optimizer**: A tactician that exploits yield-related card effects or optimal elimination sequences to maximize Plant reward per encounter.
+2. **Non-yield tactician**: A tactician that beats tier-1 runners **without ever adjusting yield outcome** — it must never rely on yield-boosting effects. Instead, it wins through superior match-mode selection, durability conservation, and precision elimination (reaching exactly 1 plant with fewer costly plays).
+
+Choosing the correct encounter via scouting is a valid additional tier-2 tactic, but it does **not** count toward the "non-yield tactician" requirement. There must always be at least one tier-2 runner that beats tier-1 purely through in-encounter play decisions.
 
 ### Cross-Discipline Yield Parity
 
@@ -85,27 +103,33 @@ Key herbalism config parameters in `configurations/herbalism/cards.json`:
 - **Tiered balance enforcement**: Tactical play (reading characteristics, choosing And/LeastCommon at the right moment) must achieve more wins per durability than random Or-mode play. If strategies converge, increase the cost differential between broad and precise match modes.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
 
-## Simulation Results
+## General Design Principles
 
-Observed yield-per-durability from the B2.5 herbalism balance simulation (5 games × 20 encounters, seed 42):
+These principles apply across all disciplines. For full details, see `docs/design/vision.md`.
 
-| Strategy | Yield/Durability | Win Rate | In Target (0.2–0.4) |
-|----------|-----------------|----------|---------------------|
-| Random | 0.277 | 14.0% | ✅ |
-| Greedy | 0.335 | 17.0% | ✅ |
-| Conservative | 0.230 | 11.0% | ✅ |
-| Tactician | 0.345 | 17.0% | ✅ |
+### Card Cost Distribution
 
-20-game validation averages: Random 0.328, Greedy 0.297, Conservative 0.251, Tactician 0.313 — all within 0.2–0.4.
+- **Free cards** (no cost) should be the most common card type in every deck.
+- **Stamina-cost cards** should be moderately common and always outperform free cards in raw effect value.
+- **Health-cost cards** should be rare but powerful, always outperforming stamina-cost cards.
+- This creates a risk/reward spectrum: safe low-output plays → moderate-cost moderate-output → high-risk high-output.
 
-### Config Changes Applied (B2.5)
+### Mutator Scope
 
-- Durability cost per card play: 150–300 (was 50–100)
-- Plant reward per win: 350 (was 500)
+Balance mutators (the agents implementing balance changes) **may** change within their discipline:
+- Any CardEffect within herbalism (including suggesting new CardEffects as a last resort)
+- Any Card within herbalism (including suggesting new Cards, but try without first)
+- Any encounter within herbalism (including suggesting new encounters, but try without first)
 
-### Observations
+Balance mutators **must NOT** change:
+- Starting Health, Stamina, or any player starting tokens
+- Health or Stamina after death
+- Hand sizes (all must remain 5)
+- Deck sizes (all must remain 50)
+- Anything outside the herbalism discipline
 
-- **Tactician outperforms simple strategies** in 20-game averages (0.313 vs 0.251–0.328), though the gap is modest.
-- **Conservative is lowest** as expected — narrow matching costs more durability per win.
-- **Small-sample variance** (3 games) can produce results outside the 0.2–0.4 band; 5+ games are needed for stable results.
-- **Strategy differentiation** is present but could be sharper; B3 tuning may adjust match mode cost differentials to widen the tactician advantage.
+### Deck and Hand Sizing
+
+- All player deck hand sizes: **5** (controlled by per-deck MaxHand tokens)
+- All player deck sizes: **50** (controlled by per-deck MaxDeck tokens)
+- Do NOT change deck or hand sizes to fix balance issues — adjust card effects and encounter parameters instead.
