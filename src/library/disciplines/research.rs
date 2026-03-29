@@ -279,19 +279,22 @@ impl GameState {
                 .take()
                 .ok_or("Research project disappeared")?;
 
-            self.library.add_card(
-                CardKind::Attack {
-                    effects: finished.chosen_card.effects.clone(),
-                },
-                CardCounts {
-                    library: 0,
-                    deck: 0,
-                    hand: 0,
-                    discard: 0,
-                },
-                rng,
-                vec![finished.chosen_card.discipline.clone()],
-            );
+            let new_kind = CardKind::Attack {
+                effects: finished.chosen_card.effects.clone(),
+            };
+            if !self.decksize_reached(&new_kind) {
+                self.library.add_card(
+                    new_kind,
+                    CardCounts {
+                        library: 0,
+                        deck: 0,
+                        hand: 0,
+                        discard: 0,
+                    },
+                    rng,
+                    vec![finished.chosen_card.discipline.clone()],
+                );
+            }
         }
 
         Ok(())
@@ -717,19 +720,22 @@ impl GameState {
                         .take()
                         .ok_or("Research project disappeared")?;
 
-                    self.library.add_card(
-                        CardKind::Attack {
-                            effects: finished.chosen_card.effects.clone(),
-                        },
-                        CardCounts {
-                            library: 0,
-                            deck: 0,
-                            hand: 0,
-                            discard: 0,
-                        },
-                        rng,
-                        vec![finished.chosen_card.discipline.clone()],
-                    );
+                    let new_kind = CardKind::Attack {
+                        effects: finished.chosen_card.effects.clone(),
+                    };
+                    if !self.decksize_reached(&new_kind) {
+                        self.library.add_card(
+                            new_kind,
+                            CardCounts {
+                                library: 0,
+                                deck: 0,
+                                hand: 0,
+                                discard: 0,
+                            },
+                            rng,
+                            vec![finished.chosen_card.discipline.clone()],
+                        );
+                    }
                 }
             }
         }

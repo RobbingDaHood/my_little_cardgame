@@ -91,6 +91,17 @@ pub enum TokenType {
     CraftingMaxHand,
     // Milestone encounter tokens
     MilestoneMaxHand,
+    // Max decksize tokens (player decks)
+    AttackMaxDeck,
+    DefenceMaxDeck,
+    ResourceMaxDeck,
+    MiningMaxDeck,
+    HerbalismMaxDeck,
+    WoodcuttingMaxDeck,
+    FishingMaxDeck,
+    RestMaxDeck,
+    CraftingMaxDeck,
+    MilestoneMaxDeck,
     // Death tracking
     PlayerDeaths,
 }
@@ -150,6 +161,16 @@ impl TokenType {
             TokenType::CraftingToken,
             TokenType::CraftingMaxHand,
             TokenType::MilestoneMaxHand,
+            TokenType::AttackMaxDeck,
+            TokenType::DefenceMaxDeck,
+            TokenType::ResourceMaxDeck,
+            TokenType::MiningMaxDeck,
+            TokenType::HerbalismMaxDeck,
+            TokenType::WoodcuttingMaxDeck,
+            TokenType::FishingMaxDeck,
+            TokenType::RestMaxDeck,
+            TokenType::CraftingMaxDeck,
+            TokenType::MilestoneMaxDeck,
             TokenType::PlayerDeaths,
         ]
     }
@@ -222,6 +243,21 @@ impl TokenType {
             Discipline::Herbalism => Some(TokenType::HerbalismDurability),
             Discipline::Woodcutting => Some(TokenType::WoodcuttingDurability),
             Discipline::Fishing => Some(TokenType::FishingDurability),
+            _ => None,
+        }
+    }
+
+    pub fn max_deck_token_for_kind(kind: &CardKind) -> Option<TokenType> {
+        match kind {
+            CardKind::Attack { .. } => Some(TokenType::AttackMaxDeck),
+            CardKind::Defence { .. } => Some(TokenType::DefenceMaxDeck),
+            CardKind::Resource { .. } => Some(TokenType::ResourceMaxDeck),
+            CardKind::Mining { .. } => Some(TokenType::MiningMaxDeck),
+            CardKind::Herbalism { .. } => Some(TokenType::HerbalismMaxDeck),
+            CardKind::Woodcutting { .. } => Some(TokenType::WoodcuttingMaxDeck),
+            CardKind::Fishing { .. } => Some(TokenType::FishingMaxDeck),
+            CardKind::Rest { .. } => Some(TokenType::RestMaxDeck),
+            CardKind::Crafting { .. } => Some(TokenType::CraftingMaxDeck),
             _ => None,
         }
     }
@@ -454,6 +490,31 @@ pub enum CardKind {
     Encounter { encounter_kind: EncounterKind },
     PlayerCardEffect { kind: CardEffectKind },
     EnemyCardEffect { kind: CardEffectKind },
+}
+
+impl CardKind {
+    /// Returns a function that matches any CardKind of the same variant (ignoring inner data).
+    pub fn kind_matcher(reference: &CardKind) -> fn(&CardKind) -> bool {
+        match reference {
+            CardKind::Attack { .. } => |k| matches!(k, CardKind::Attack { .. }),
+            CardKind::Defence { .. } => |k| matches!(k, CardKind::Defence { .. }),
+            CardKind::Resource { .. } => |k| matches!(k, CardKind::Resource { .. }),
+            CardKind::Mining { .. } => |k| matches!(k, CardKind::Mining { .. }),
+            CardKind::Herbalism { .. } => |k| matches!(k, CardKind::Herbalism { .. }),
+            CardKind::Woodcutting { .. } => |k| matches!(k, CardKind::Woodcutting { .. }),
+            CardKind::Fishing { .. } => |k| matches!(k, CardKind::Fishing { .. }),
+            CardKind::Rest { .. } => |k| matches!(k, CardKind::Rest { .. }),
+            CardKind::Crafting { .. } => |k| matches!(k, CardKind::Crafting { .. }),
+            CardKind::Research { .. } => |k| matches!(k, CardKind::Research { .. }),
+            CardKind::Encounter { .. } => |k| matches!(k, CardKind::Encounter { .. }),
+            CardKind::PlayerCardEffect { .. } => {
+                |k| matches!(k, CardKind::PlayerCardEffect { .. })
+            }
+            CardKind::EnemyCardEffect { .. } => {
+                |k| matches!(k, CardKind::EnemyCardEffect { .. })
+            }
+        }
+    }
 }
 
 /// Plant characteristics used by Herbalism encounters.

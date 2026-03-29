@@ -597,6 +597,26 @@ impl GameState {
         }
     }
 
+    /// Check if the total card count (library + deck + hand + discard) for a given
+    /// card kind has reached the MaxDeck token limit. Returns true when the limit is
+    /// reached and no more cards of this kind should be added.
+    pub(crate) fn decksize_reached(&self, kind: &super::types::CardKind) -> bool {
+        if let Some(token) = super::types::TokenType::max_deck_token_for_kind(kind) {
+            let max_deck = super::types::token_balance_by_type(&self.token_balances, &token);
+            let kind_filter = super::types::CardKind::kind_matcher(kind);
+            let current_total: u32 = self
+                .library
+                .cards
+                .iter()
+                .filter(|c| kind_filter(&c.kind))
+                .map(|c| c.counts.library + c.counts.deck + c.counts.hand + c.counts.discard)
+                .sum();
+            current_total as i64 >= max_deck
+        } else {
+            false
+        }
+    }
+
     /// Abort a non-combat encounter: mark as lost, transition to Scouting.
     pub fn abort_encounter(&mut self) {
         let (discipline, rounds) = match &self.current_encounter {
