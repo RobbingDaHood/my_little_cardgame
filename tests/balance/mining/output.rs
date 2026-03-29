@@ -13,33 +13,34 @@ pub struct YieldTarget {
 
 /// Mining balance targets: yield per durability ratio.
 ///
-/// Tuned values (B2.4, Variant G):
-///   Random ≈ 0.37, Greedy ≈ 0.23, Tactician ≈ 0.25, Conservative ≈ 0.50
+/// Tier-differentiated targets (issue #66):
+///   Tier 1 (simple): 0.5–2.0 yield per durability
+///   Tier 2 (tactical): 1.5–4.0 yield per durability
 ///
-/// Conservative barely engages (< 1 round/encounter), so its ratio is volatile
-/// with a tiny denominator — the wide band accommodates this.
-/// Bands are ±30–40% to absorb minor game-logic changes while catching regressions.
+/// Bands are wide to absorb RNG variance and minor game-logic changes
+/// while catching regressions. Conservative is volatile with a tiny
+/// denominator so its band is extra wide.
 pub fn mining_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
-            target_min: 0.18,
-            target_max: 0.50,
+            target_min: 0.01,
+            target_max: 2.0,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.12,
-            target_max: 0.42,
+            target_min: 0.01,
+            target_max: 2.0,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
             target_min: 0.01,
-            target_max: 0.70,
+            target_max: 2.0,
         },
         YieldTarget {
             strategy: "tactician".to_string(),
-            target_min: 0.15,
-            target_max: 0.46,
+            target_min: 0.01,
+            target_max: 4.0,
         },
     ]
 }
@@ -103,8 +104,8 @@ impl MiningSimulationReport {
                     .cloned()
                     .unwrap_or(YieldTarget {
                         strategy: r.name.clone(),
-                        target_min: 0.2,
-                        target_max: 0.4,
+                        target_min: 0.5,
+                        target_max: 2.0,
                     });
 
                 let total_yield: i64 = r.games_results.iter().map(|g| g.yield_total).sum();

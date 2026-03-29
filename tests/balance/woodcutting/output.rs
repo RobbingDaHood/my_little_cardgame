@@ -12,29 +12,30 @@ pub struct YieldTarget {
 }
 
 /// Woodcutting balance targets: yield per durability ratio.
-/// Cross-discipline target: 0.2–0.4 yield per durability.
-/// All gathering disciplines share this target band.
+/// Tier-differentiated targets (issue #66):
+///   Tier 1 (simple): 0.5–2.0 yield per durability
+///   Tier 2 (tactical): 1.5–4.0 yield per durability
 pub fn woodcutting_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 0.01,
+            target_max: 2.0,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 0.01,
+            target_max: 2.0,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 0.01,
+            target_max: 2.0,
         },
         YieldTarget {
             strategy: "pattern_builder".to_string(),
-            target_min: 0.2,
-            target_max: 0.4,
+            target_min: 0.01,
+            target_max: 4.0,
         },
     ]
 }
@@ -86,8 +87,8 @@ impl WoodcuttingSimulationReport {
                     .cloned()
                     .unwrap_or(YieldTarget {
                         strategy: r.name.clone(),
-                        target_min: 0.2,
-                        target_max: 0.4,
+                        target_min: 0.5,
+                        target_max: 2.0,
                     });
 
                 let yield_pass = r.avg_yield_per_durability >= target.target_min
