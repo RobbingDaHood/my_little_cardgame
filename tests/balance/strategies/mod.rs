@@ -38,6 +38,14 @@ impl GameSnapshot {
             .map(String::from)
     }
 
+    pub fn encounter_state_type(&self) -> Option<String> {
+        self.encounter
+            .as_ref()?
+            .get("encounter_state_type")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    }
+
     pub fn mining_outcome(&self) -> Option<String> {
         let enc = self.encounter.as_ref()?;
         if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Mining") {
@@ -77,6 +85,16 @@ impl GameSnapshot {
     pub fn herbalism_outcome(&self) -> Option<String> {
         let enc = self.encounter.as_ref()?;
         if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Herbalism") {
+            return None;
+        }
+        enc.get("outcome")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    }
+
+    pub fn fishing_outcome(&self) -> Option<String> {
+        let enc = self.encounter.as_ref()?;
+        if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Fishing") {
             return None;
         }
         enc.get("outcome")
@@ -160,6 +178,46 @@ impl GameSnapshot {
 
     pub fn player_lumber(&self) -> i64 {
         extract_token_value(&self.tokens, "Lumber")
+    }
+
+    pub fn fishing_durability(&self) -> i64 {
+        extract_token_value(&self.tokens, "FishingDurability")
+    }
+
+    pub fn fish_tokens(&self) -> i64 {
+        extract_token_value(&self.tokens, "Fish")
+    }
+
+    pub fn fishing_turns_won(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("turns_won")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
+
+    pub fn fishing_round(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("round")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
+
+    pub fn fishing_max_turns(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("max_turns")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
+    }
+
+    pub fn fishing_win_turns_needed(&self) -> Option<u32> {
+        self.encounter
+            .as_ref()?
+            .get("win_turns_needed")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32)
     }
 }
 

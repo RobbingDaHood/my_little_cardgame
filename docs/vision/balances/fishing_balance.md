@@ -1,6 +1,6 @@
 # Fishing Balance
 
-This document contains fishing-specific balancing information. It is the authoritative reference for fishing balance targets, mechanics, and tuning guidance.
+This document contains fishing-specific balancing information. It is the authoritative reference for fishing balance targets, mechanics, and tuning guidance. **Simulation results belong in the PR description of the balancing PR, not in this document.** Only goals, mechanics, config parameters, and tuning tips should go here.
 
 ## Target Metrics
 
