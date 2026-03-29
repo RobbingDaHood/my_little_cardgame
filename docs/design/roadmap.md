@@ -521,10 +521,11 @@ B2) General config bypass — quick-win optimizations
       - Key metrics: Plant tokens gained per HerbalismDurability spent, win rate (reaching exactly 1 plant), durability cost per attempt.
       - Balance targets: See `docs/vision/balances/herbalism_balance.md`.
 
-   B2.6) Woodcutting simulation runner
+   B2.6) Woodcutting simulation runner ✅
       - Goal: Build a woodcutting balance simulation measuring yield per durability across strategies. Focus on pattern-building and early-stop decisions.
       - Key metrics: Lumber gained per WoodcuttingDurability spent, average pattern multiplier achieved, early-stop frequency and effectiveness.
       - Balance targets: See `docs/vision/balances/woodcutting_balance.md`.
+      - Implementation: `tests/balance/woodcutting/` — WoodcuttingDisciplineDriver with 4 strategies (Random, Greedy, Conservative, PatternBuilder). Uses pre/post encounter hooks for yield/durability tracking. Calibrated yield/durability: 11–13 across strategies.
 
    B2.7) Fishing simulation runner
       - Goal: Build a fishing balance simulation measuring yield per durability across strategies. Focus on range management and value selection.

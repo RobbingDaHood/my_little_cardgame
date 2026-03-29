@@ -10,6 +10,8 @@ Woodcutting balance is measured by **yield per durability** — how much Lumber 
 
 All yield disciplines (mining, herbalism, woodcutting, fishing) share the same aggregate target: **2,000–4,000 yield tokens per 10,000 total durability spent** (0.2–0.4 yield per durability). The tactician strategy should reliably land in the upper half of this range, while simple strategies land in the lower half. These targets are tuned in the balance simulation step (see roadmap B2.6) and must be identical across disciplines to enable parallel balancing — if one discipline significantly over- or under-produces relative to this band, its config needs adjustment.
 
+> **Note**: This document contains only balance goals and general tips on how to achieve them. Simulation results belong in PR descriptions and commit messages, not here.
+
 ### Strategy Hierarchy (yield per durability)
 
 | Strategy | Description |
@@ -17,7 +19,7 @@ All yield disciplines (mining, herbalism, woodcutting, fishing) share the same a
 | Random | Plays any available woodcutting card without considering pattern potential |
 | Greedy | Always plays the highest-value chop card available |
 | Conservative | Plays lowest-cost cards to preserve durability |
-| Tactician | Reads cards played so far, builds toward high-value patterns, times early stop optimally |
+| PatternBuilder | Reads cards played so far, builds toward high-value patterns (same chop type) |
 
 - Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios.
 - Tactician strategies should achieve measurably higher yield per durability — pattern-building and early-stop timing must be rewarded.

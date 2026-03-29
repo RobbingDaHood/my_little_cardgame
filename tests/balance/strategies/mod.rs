@@ -144,6 +144,20 @@ impl GameSnapshot {
         extract_token_value(&self.tokens, "Plant")
     }
 
+    pub fn woodcutting_outcome(&self) -> Option<String> {
+        let enc = self.encounter.as_ref()?;
+        if enc.get("encounter_state_type").and_then(|v| v.as_str()) != Some("Woodcutting") {
+            return None;
+        }
+        enc.get("outcome")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+    }
+
+    pub fn woodcutting_durability(&self) -> i64 {
+        extract_token_value(&self.tokens, "WoodcuttingDurability")
+    }
+
     pub fn player_lumber(&self) -> i64 {
         extract_token_value(&self.tokens, "Lumber")
     }
