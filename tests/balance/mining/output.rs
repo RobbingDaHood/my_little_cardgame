@@ -13,33 +13,37 @@ pub struct YieldTarget {
 
 /// Mining balance targets: yield per durability ratio.
 ///
-/// Tier-differentiated targets (issue #66):
+/// Tier-differentiated targets (from mining_balance.md):
 ///   Tier 1 (simple): 0.5–2.0 yield per durability
 ///   Tier 2 (tactical): 1.5–4.0 yield per durability
 ///
 /// Bands are wide to absorb RNG variance and minor game-logic changes
-/// while catching regressions. Conservative is volatile with a tiny
-/// denominator so its band is extra wide.
+/// while catching regressions.
 pub fn mining_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "tactician".to_string(),
-            target_min: 0.01,
+            target_min: 1.5,
+            target_max: 4.0,
+        },
+        YieldTarget {
+            strategy: "durability_tactician".to_string(),
+            target_min: 1.5,
             target_max: 4.0,
         },
     ]
