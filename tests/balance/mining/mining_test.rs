@@ -90,8 +90,13 @@ fn mining_balance_simulation() {
     let tactician = TacticianStrategy::new();
     let durability_tactician = DurabilityTacticianStrategy::new();
 
-    let strategies: Vec<&dyn crate::strategies::Strategy> =
-        vec![&random, &greedy, &conservative, &tactician, &durability_tactician];
+    let strategies: Vec<&dyn crate::strategies::Strategy> = vec![
+        &random,
+        &greedy,
+        &conservative,
+        &tactician,
+        &durability_tactician,
+    ];
 
     let discipline = MiningDisciplineDriver;
     let runner = SimulationRunner::new(config.clone());
@@ -140,7 +145,9 @@ fn mining_balance_simulation() {
         assert!(
             t2_yd > best_tier1_yd,
             "Tier-2 '{}' ({:.3}) must beat best Tier-1 ({:.3})",
-            t2_name, t2_yd, best_tier1_yd,
+            t2_name,
+            t2_yd,
+            best_tier1_yd,
         );
     }
 }

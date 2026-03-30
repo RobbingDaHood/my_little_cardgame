@@ -116,6 +116,6 @@ impl Strategy for DurabilityTacticianStrategy {
                     .unwrap_or(0)
             })
             .unwrap();
-        cheapest.clone()
+        (*cheapest).clone()
     }
 }

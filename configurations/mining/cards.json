@@ -7,8 +7,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "MiningLightLevel",
-        "min": 15,
-        "max": 30,
+        "min": 25,
+        "max": 50,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -23,8 +23,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "MiningLightLevel",
-        "min": 25,
-        "max": 45,
+        "min": 35,
+        "max": 60,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -39,8 +39,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Durability",
-        "min": 60,
-        "max": 120,
+        "min": 15,
+        "max": 35,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -55,8 +55,8 @@
       "kind": {
         "effect_type": "LoseTokens",
         "token_type": "Durability",
-        "min": 120,
-        "max": 210,
+        "min": 30,
+        "max": 60,
         "costs": [],
         "duration": "PersistentCounter"
       },
@@ -88,8 +88,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "MiningPower",
-        "cap_min": 7,
-        "cap_max": 22,
+        "cap_min": 12,
+        "cap_max": 30,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [],
@@ -107,7 +107,7 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "MiningLightLevel",
-        "cap_min": 100,
+        "cap_min": 80,
         "cap_max": 160,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
@@ -193,8 +193,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "MiningPower",
-        "cap_min": 7,
-        "cap_max": 22,
+        "cap_min": 12,
+        "cap_max": 30,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [
@@ -218,8 +218,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "MiningPower",
-        "cap_min": 7,
-        "cap_max": 22,
+        "cap_min": 12,
+        "cap_max": 30,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [
@@ -243,8 +243,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "MiningLightLevel",
-        "cap_min": 150,
-        "cap_max": 250,
+        "cap_min": 80,
+        "cap_max": 180,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [
@@ -268,7 +268,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 7,
+        "deck": 9,
         "hand": 2,
         "discard": 0
       },
@@ -284,7 +284,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 10,
+        "deck": 14,
         "hand": 1,
         "discard": 0
       },
@@ -300,7 +300,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 8,
+        "deck": 2,
         "hand": 1,
         "discard": 0
       },
@@ -316,7 +316,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 3,
+        "deck": 6,
         "hand": 1,
         "discard": 0
       },
@@ -329,7 +329,7 @@
       "encounter_def": {
         "encounter_type": "Mining",
         "mining_def": {
-          "initial_light_level": 150,
+          "initial_light_level": 200,
           "ore_deck": [
             {
               "effect_refs": [
@@ -439,7 +439,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 3,
+        "deck": 1,
         "hand": 0,
         "discard": 0
       },
