@@ -374,6 +374,20 @@ pub async fn play(
                             card_id
                         )))));
                     }
+                    // Pre-check costs before playing (matches Woodcutting pattern)
+                    if let crate::library::types::CardKind::Herbalism { effects } = &lib_card.kind {
+                        let costs = crate::library::GameState::extract_gathering_costs_from_effects(
+                            effects,
+                        );
+                        let (pre_play_costs, _) =
+                            crate::library::types::split_token_amounts(&costs);
+                        if let Err(e) = crate::library::GameState::preview_gathering_costs(
+                            &pre_play_costs,
+                            &gs.token_balances,
+                        ) {
+                            return Err(Right(BadRequest(new_status(e))));
+                        }
+                    }
                     match gs.library.play(card_id as usize) {
                         Ok(()) => {
                             let mut rng = player_data.random_generator_state.lock().await;
@@ -425,6 +439,20 @@ pub async fn play(
                             "Card {} is not a Fishing card (required for fishing encounter)",
                             card_id
                         )))));
+                    }
+                    // Pre-check costs before playing (matches Woodcutting pattern)
+                    if let crate::library::types::CardKind::Fishing { effects } = &lib_card.kind {
+                        let costs = crate::library::GameState::extract_gathering_costs_from_effects(
+                            effects,
+                        );
+                        let (pre_play_costs, _) =
+                            crate::library::types::split_token_amounts(&costs);
+                        if let Err(e) = crate::library::GameState::preview_gathering_costs(
+                            &pre_play_costs,
+                            &gs.token_balances,
+                        ) {
+                            return Err(Right(BadRequest(new_status(e))));
+                        }
                     }
                     match gs.library.play(card_id as usize) {
                         Ok(()) => {

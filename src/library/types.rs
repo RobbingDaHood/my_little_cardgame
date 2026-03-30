@@ -1431,12 +1431,15 @@ pub struct FishingEncounterState {
     pub round: u64,
     pub encounter_card_id: usize,
     pub outcome: EncounterOutcome,
-    pub turns_won: u32,
+    pub turns_won: i32,
     pub max_turns: u32,
     pub win_turns_needed: u32,
     pub valid_range_min: i64,
     pub valid_range_max: i64,
     pub fish_deck: Vec<FishCard>,
+    /// The value of the fish drawn for the current round. Visible to the
+    /// player before they choose which card to play.
+    pub current_fish_value: Option<i64>,
     #[serde(with = "token_map_serde")]
     #[schemars(with = "token_map_serde::SchemaHelper")]
     pub rewards: HashMap<Token, i64>,

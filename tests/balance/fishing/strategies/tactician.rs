@@ -6,14 +6,12 @@ use crate::strategies::{GameSnapshot, Strategy};
 ///
 /// 1. **Encounter selection** — always picks the highest-reward encounter from
 ///    scouting choices.  Scouting scales rewards with difficulty, so harder
-///    encounters give significantly more Fish.  Simple strategies pick
-///    arbitrarily, getting average rewards.
+///    encounters give significantly more Fish.
 ///
-/// 2. **Multi-value card preference** — multi-value cards benefit from the
-///    auto-select mechanic (the game picks the best sub-value per fish),
-///    achieving ~56% per-round win rates.  Once victory is secured or
-///    mathematically impossible, switches to cheapest cards to conserve
-///    durability.
+/// 2. **Fish-value-aware card selection** — uses the visible fish value to
+///    pick the cheapest card that wins the duel, conserving durability while
+///    maintaining high win rates.  When no card can win, plays cheapest to
+///    save durability.
 pub struct TacticianFishingStrategy;
 
 impl Strategy for TacticianFishingStrategy {
@@ -31,7 +29,7 @@ impl Strategy for TacticianFishingStrategy {
             return pick_highest_reward(actions);
         }
 
-        // Card play: filter out conclude (shouldn't appear, but be safe)
+        // Card play: filter out conclude
         let card_actions: Vec<&Value> = actions
             .iter()
             .filter(|a| {
@@ -50,12 +48,17 @@ impl Strategy for TacticianFishingStrategy {
             return pick_cheapest(&card_actions);
         }
 
-        // Prefer multi-value cards (highest win rate via auto-select)
-        if let Some(mv) = cheapest_multi_value(&card_actions) {
-            return mv;
+        // Fish-value-aware: pick cheapest card that wins the current duel
+        let fish_value = snapshot.fishing_current_fish_value();
+        let range = snapshot.fishing_valid_range();
+
+        if let (Some(fv), Some((rmin, rmax))) = (fish_value, range) {
+            if let Some(winner) = cheapest_winning_card(&card_actions, fv, rmin, rmax) {
+                return winner;
+            }
         }
 
-        // Fallback: play cheapest card
+        // No winner found: play cheapest to conserve durability
         pick_cheapest(&card_actions)
     }
 }
@@ -87,12 +90,12 @@ fn wins_matter(snapshot: &GameSnapshot) -> bool {
     let max_turns = snapshot.fishing_max_turns().unwrap_or(8);
     let needed = snapshot.fishing_win_turns_needed().unwrap_or(4);
 
-    if turns_won >= needed {
+    if turns_won >= needed as i32 {
         return false;
     }
 
-    let rounds_remaining = max_turns.saturating_sub(round - 1);
-    let wins_still_needed = needed - turns_won;
+    let rounds_remaining = max_turns.saturating_sub(round - 1) as i32;
+    let wins_still_needed = needed as i32 - turns_won;
     if wins_still_needed > rounds_remaining {
         return false;
     }
@@ -100,18 +103,29 @@ fn wins_matter(snapshot: &GameSnapshot) -> bool {
     true
 }
 
-fn cheapest_multi_value(cards: &[&Value]) -> Option<Value> {
-    let multi: Vec<&&Value> = cards
+fn cheapest_winning_card(cards: &[&Value], fish_value: i64, rmin: i64, rmax: i64) -> Option<Value> {
+    let mut winners: Vec<(&Value, i64)> = cards
         .iter()
-        .filter(|a| get_num_fishing_values(a) > 1)
+        .filter_map(|card| {
+            if card_can_win(card, fish_value, rmin, rmax) {
+                Some((*card, get_durability_cost(card)))
+            } else {
+                None
+            }
+        })
         .collect();
-
-    if multi.is_empty() {
+    if winners.is_empty() {
         return None;
     }
+    winners.sort_by_key(|(_, cost)| *cost);
+    Some(build_play_action(winners[0].0))
+}
 
-    let best = multi.iter().min_by_key(|a| get_durability_cost(a)).unwrap();
-    Some(build_play_action(best))
+fn card_can_win(card: &Value, fish_value: i64, rmin: i64, rmax: i64) -> bool {
+    get_fishing_values(card).iter().any(|&v| {
+        let result = (v - fish_value).max(0);
+        result >= rmin && result <= rmax
+    })
 }
 
 fn pick_cheapest(cards: &[&Value]) -> Value {
@@ -126,12 +140,13 @@ fn build_play_action(action: &Value) -> Value {
     })
 }
 
-fn get_num_fishing_values(action: &Value) -> i64 {
+fn get_fishing_values(action: &Value) -> Vec<i64> {
     action
         .get("card_details")
-        .and_then(|d| d.get("num_fishing_values"))
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0)
+        .and_then(|d| d.get("fishing_values"))
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
+        .unwrap_or_default()
 }
 
 fn get_durability_cost(action: &Value) -> i64 {

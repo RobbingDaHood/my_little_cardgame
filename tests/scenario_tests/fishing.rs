@@ -181,8 +181,8 @@ fn scenario_fishing_encounter_full_loop() {
     );
     assert_eq!(
         encounter.get("max_turns").and_then(|v| v.as_u64()),
-        Some(8),
-        "max_turns should be 8"
+        Some(12),
+        "max_turns should be 12"
     );
     assert_eq!(
         encounter.get("win_turns_needed").and_then(|v| v.as_u64()),
@@ -190,7 +190,7 @@ fn scenario_fishing_encounter_full_loop() {
         "win_turns_needed should be 4"
     );
     assert_eq!(
-        encounter.get("turns_won").and_then(|v| v.as_u64()),
+        encounter.get("turns_won").and_then(|v| v.as_i64()),
         Some(0),
         "No turns won yet"
     );

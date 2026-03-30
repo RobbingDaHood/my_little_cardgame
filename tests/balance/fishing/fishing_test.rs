@@ -2,8 +2,10 @@ use crate::fishing::driver::FishingDisciplineDriver;
 use crate::fishing::output::FishingSimulationReport;
 use crate::fishing::strategies::conservative::ConservativeFishingStrategy;
 use crate::fishing::strategies::greedy::GreedyFishingStrategy;
+use crate::fishing::strategies::non_yield_tactician::NonYieldTacticianFishingStrategy;
 use crate::fishing::strategies::random::RandomFishingStrategy;
 use crate::fishing::strategies::tactician::TacticianFishingStrategy;
+use crate::fishing::strategies::yield_optimizer::YieldOptimizerFishingStrategy;
 use crate::runner::{SimulationConfig, SimulationRunner};
 
 #[test]
@@ -19,9 +21,17 @@ fn fishing_balance_simulation() {
     let greedy = GreedyFishingStrategy;
     let conservative = ConservativeFishingStrategy;
     let tactician = TacticianFishingStrategy;
+    let yield_optimizer = YieldOptimizerFishingStrategy;
+    let non_yield_tactician = NonYieldTacticianFishingStrategy;
 
-    let strategies: Vec<&dyn crate::strategies::Strategy> =
-        vec![&random, &greedy, &conservative, &tactician];
+    let strategies: Vec<&dyn crate::strategies::Strategy> = vec![
+        &random,
+        &greedy,
+        &conservative,
+        &tactician,
+        &yield_optimizer,
+        &non_yield_tactician,
+    ];
 
     let discipline = FishingDisciplineDriver;
     let runner = SimulationRunner::new(config.clone());

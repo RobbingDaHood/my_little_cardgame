@@ -1126,6 +1126,7 @@ impl GameState {
             valid_range_min: fishing_def.valid_range_min,
             valid_range_max: fishing_def.valid_range_max,
             fish_deck,
+            current_fish_value: None,
             rewards: fishing_def.rewards,
             encounter_tokens,
         };
