@@ -191,13 +191,13 @@ fn scenario_herbalism_encounter_full_loop() {
         "Herbalism should be active"
     );
 
-    // 5. Verify plant_hand has 5 cards
+    // 5. Verify plant_hand has 8 cards (one per plant type in current config)
     let plant_hand = encounter
         .get("plant_hand")
         .and_then(|v| v.as_array())
         .map(|a| a.len())
         .unwrap_or(0);
-    assert_eq!(plant_hand, 5, "Plant should start with 5 cards");
+    assert_eq!(plant_hand, 8, "Plant should start with 8 cards");
 
     // 6. Verify player has HerbalismDurability token
     let durability = player_token(&client, "HerbalismDurability");

@@ -73,8 +73,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 30,
+            "max_percent": 60,
             "is_absolute": true
           }
         ]
@@ -85,14 +85,39 @@
     },
     {
       "type": "effect",
-      "name": "match_or_thorny_aromatic",
+      "name": "match_or_thorny",
       "owner": "Player",
       "kind": {
         "effect_type": "HerbalismMatch",
         "match_mode": {
           "Or": {
             "types": [
-              "Thorny",
+              "Thorny"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Durability",
+            "min_percent": 30,
+            "max_percent": 60,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_or_aromatic",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "Or": {
+            "types": [
               "Aromatic"
             ]
           }
@@ -100,8 +125,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 30,
+            "max_percent": 60,
             "is_absolute": true
           }
         ]
@@ -112,24 +137,22 @@
     },
     {
       "type": "effect",
-      "name": "match_or_bitter_luminous_fragile",
+      "name": "match_or_bitter",
       "owner": "Player",
       "kind": {
         "effect_type": "HerbalismMatch",
         "match_mode": {
           "Or": {
             "types": [
-              "Bitter",
-              "Luminous",
-              "Fragile"
+              "Bitter"
             ]
           }
         },
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 30,
+            "max_percent": 60,
             "is_absolute": true
           }
         ]
@@ -140,58 +163,22 @@
     },
     {
       "type": "effect",
-      "name": "match_most_common",
+      "name": "match_or_luminous",
       "owner": "Player",
       "kind": {
         "effect_type": "HerbalismMatch",
         "match_mode": {
-          "MostCommon": {
-            "limit": 1,
-            "types": []
+          "Or": {
+            "types": [
+              "Luminous"
+            ]
           }
         },
         "costs": [
           {
-            "token_type": "Stamina",
-            "min_percent": 100,
-            "max_percent": 150,
-            "is_absolute": true
-          },
-          {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
-            "is_absolute": true
-          }
-        ]
-      },
-      "valid_disciplines": [
-        "Herbalism"
-      ]
-    },
-    {
-      "type": "effect",
-      "name": "match_least_common",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "HerbalismMatch",
-        "match_mode": {
-          "LeastCommon": {
-            "limit": 1,
-            "types": []
-          }
-        },
-        "costs": [
-          {
-            "token_type": "Stamina",
-            "min_percent": 100,
-            "max_percent": 150,
-            "is_absolute": true
-          },
-          {
-            "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 30,
+            "max_percent": 60,
             "is_absolute": true
           }
         ]
@@ -217,14 +204,109 @@
         "costs": [
           {
             "token_type": "Stamina",
-            "min_percent": 100,
-            "max_percent": 150,
+            "min_percent": 40,
+            "max_percent": 80,
             "is_absolute": true
           },
           {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 40,
+            "max_percent": 80,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_and_aromatic_bitter",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "And": {
+            "types": [
+              "Aromatic",
+              "Bitter"
+            ]
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 40,
+            "max_percent": 80,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 40,
+            "max_percent": 80,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_most_common",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "MostCommon": {
+            "limit": 1,
+            "types": []
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 40,
+            "max_percent": 80,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 40,
+            "max_percent": 80,
+            "is_absolute": true
+          }
+        ]
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "match_least_common",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "HerbalismMatch",
+        "match_mode": {
+          "LeastCommon": {
+            "limit": 1,
+            "types": []
+          }
+        },
+        "costs": [
+          {
+            "token_type": "Stamina",
+            "min_percent": 40,
+            "max_percent": 80,
+            "is_absolute": true
+          },
+          {
+            "token_type": "Durability",
+            "min_percent": 40,
+            "max_percent": 80,
             "is_absolute": true
           }
         ]
@@ -247,8 +329,8 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 30,
+            "max_percent": 60,
             "is_absolute": true
           }
         ]
@@ -275,15 +357,15 @@
         },
         "costs": [
           {
-            "token_type": "Stamina",
+            "token_type": "Health",
             "min_percent": 100,
             "max_percent": 150,
             "is_absolute": true
           },
           {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 50,
+            "max_percent": 100,
             "is_absolute": true
           }
         ]
@@ -318,8 +400,8 @@
           },
           {
             "token_type": "Durability",
-            "min_percent": 150,
-            "max_percent": 300,
+            "min_percent": 50,
+            "max_percent": 100,
             "is_absolute": true
           }
         ]
@@ -336,7 +418,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 10,
+        "deck": 8,
         "hand": 2,
         "discard": 0
       },
@@ -348,27 +430,11 @@
       "type": "player_card",
       "card_kind": "Herbalism",
       "effect_refs": [
-        "herbalism:match_or_thorny_aromatic"
+        "herbalism:match_or_thorny"
       ],
       "counts": {
         "library": 0,
-        "deck": 12,
-        "hand": 2,
-        "discard": 0
-      },
-      "valid_disciplines": [
-        "Herbalism"
-      ]
-    },
-    {
-      "type": "player_card",
-      "card_kind": "Herbalism",
-      "effect_refs": [
-        "herbalism:match_or_bitter_luminous_fragile"
-      ],
-      "counts": {
-        "library": 0,
-        "deck": 13,
+        "deck": 7,
         "hand": 1,
         "discard": 0
       },
@@ -377,102 +443,78 @@
       ]
     },
     {
-      "type": "encounter",
-      "encounter_def": {
-        "encounter_type": "Herbalism",
-        "herbalism_def": {
-          "plant_hand": [
-            {
-              "characteristics": [
-                "Fragile"
-              ],
-              "effect_refs": [
-                "herbalism:plant_passive_small"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 10,
-                "discard": 0
-              }
-            },
-            {
-              "characteristics": [
-                "Thorny",
-                "Aromatic"
-              ],
-              "effect_refs": [
-                "herbalism:plant_passive_medium"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 10,
-                "discard": 0
-              }
-            },
-            {
-              "characteristics": [
-                "Bitter",
-                "Luminous"
-              ],
-              "effect_refs": [
-                "herbalism:plant_passive_medium"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 10,
-                "discard": 0
-              }
-            },
-            {
-              "characteristics": [
-                "Fragile",
-                "Thorny"
-              ],
-              "effect_refs": [
-                "herbalism:plant_passive_medium"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 10,
-                "discard": 0
-              }
-            },
-            {
-              "characteristics": [
-                "Luminous"
-              ],
-              "effect_refs": [
-                "herbalism:plant_passive_small"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 10,
-                "discard": 0
-              }
-            }
-          ],
-          "rewards": {
-            "Plant": 350
-          }
-        }
-      },
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_aromatic"
+      ],
       "counts": {
-        "library": 1,
-        "deck": 0,
-        "hand": 50,
+        "library": 0,
+        "deck": 6,
+        "hand": 1,
         "discard": 0
       },
-      "valid_disciplines": []
+      "valid_disciplines": [
+        "Herbalism"
+      ]
     },
     {
       "type": "player_card",
       "card_kind": "Herbalism",
       "effect_refs": [
-        "herbalism:match_most_common"
+        "herbalism:match_or_bitter"
       ],
       "counts": {
         "library": 0,
-        "deck": 2,
+        "deck": 5,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_or_luminous"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 5,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_and_fragile_thorny"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Herbalism"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Herbalism",
+      "effect_refs": [
+        "herbalism:match_and_aromatic_bitter"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 3,
         "hand": 0,
         "discard": 0
       },
@@ -500,7 +542,7 @@
       "type": "player_card",
       "card_kind": "Herbalism",
       "effect_refs": [
-        "herbalism:match_and_fragile_thorny"
+        "herbalism:match_most_common"
       ],
       "counts": {
         "library": 0,
@@ -560,6 +602,133 @@
       "valid_disciplines": [
         "Herbalism"
       ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Herbalism",
+        "herbalism_def": {
+          "plant_hand": [
+            {
+              "characteristics": [
+                "Fragile"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_small"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Thorny"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_small"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Aromatic"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_small"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Bitter"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_small"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Luminous"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_small"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Fragile",
+                "Thorny"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Aromatic",
+                "Bitter"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            },
+            {
+              "characteristics": [
+                "Luminous",
+                "Fragile"
+              ],
+              "effect_refs": [
+                "herbalism:plant_passive_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 1,
+                "discard": 0
+              }
+            }
+          ],
+          "rewards": {
+            "Plant": 500
+          }
+        }
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 50,
+        "discard": 0
+      },
+      "valid_disciplines": []
     }
   ]
 }

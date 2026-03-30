@@ -3,11 +3,10 @@ use std::collections::HashMap;
 
 use crate::strategies::{GameSnapshot, Strategy};
 
-/// Tactician strategy: reads plant composition from the encounter state and
-/// selects the optimal match card. When many plants remain, uses broad Or-mode
-/// cards for efficient elimination. When close to 1 remaining, switches to
-/// narrow And/LeastCommon to avoid over-elimination. Avoids expensive cards
-/// (Stamina/Health costs) when cheaper alternatives suffice.
+/// Tactician strategy: reads plant composition and computes exact removal counts
+/// to select the optimal card. Never plays a card that would eliminate ALL plants
+/// (which causes a loss). Prefers free cards over costly ones, and targets
+/// removal that leaves exactly 1 plant for a win.
 pub struct TacticianStrategy;
 
 impl TacticianStrategy {
@@ -71,26 +70,71 @@ fn pick_any_encounter(actions: &[Value]) -> Value {
         .unwrap_or_else(|| serde_json::json!({"action_type": "NewGame"}))
 }
 
-/// Analyze plant composition and choose optimal card.
 fn pick_tactical_card(play_cards: &[Value], game_state: &GameSnapshot) -> Value {
     let plant_count = game_state.herbalism_plant_count().unwrap_or(0);
-    let characteristics = game_state
+    let plant_chars = game_state
         .herbalism_plant_characteristics()
         .unwrap_or_default();
 
-    // Build frequency map of characteristics across surviving plants
-    let char_freq = build_characteristic_frequency(&characteristics);
-
-    if plant_count <= 2 {
-        // Close to winning — need precise elimination to leave exactly 1
-        pick_narrow_card(play_cards, &char_freq, plant_count)
-    } else {
-        // Many plants — broad elimination is efficient
-        pick_broad_card(play_cards, &char_freq, plant_count)
+    if plant_count == 0 {
+        return play_cards[0].clone();
     }
+
+    let char_freq = build_char_freq(&plant_chars);
+    let target_removal = plant_count - 1; // Leave exactly 1 → win
+
+    // Score each card with exact removal
+    let scored: Vec<(usize, &Value)> = play_cards
+        .iter()
+        .map(|c| {
+            let match_info = c.get("card_details").and_then(|d| d.get("match_info"));
+            let removal = exact_removal(match_info, &plant_chars, &char_freq);
+            (removal, c)
+        })
+        .collect();
+
+    // Safety: filter out cards that would remove ALL plants (0 remaining = loss)
+    let safe: Vec<(usize, &Value)> = scored
+        .iter()
+        .filter(|(removal, _)| *removal < plant_count)
+        .cloned()
+        .collect();
+
+    let candidates = if safe.is_empty() { &scored } else { &safe };
+
+    type ScoredCard<'a> = (usize, &'a Value);
+
+    // Partition by cost
+    let (no_cost, with_cost): (Vec<&ScoredCard>, Vec<&ScoredCard>) =
+        candidates.iter().partition(|(_, c)| !has_extra_cost(c));
+
+    // Scoring: perfect win (removal == target) > high removal > low removal
+    let score = |removal: usize| -> (u8, usize) {
+        if removal == target_removal {
+            (2, 0) // Perfect: leaves exactly 1 plant
+        } else {
+            (1, removal) // More removal is better
+        }
+    };
+
+    let pick_best = |cards: &[&ScoredCard]| -> Option<Value> {
+        cards
+            .iter()
+            .max_by_key(|(removal, _)| score(*removal))
+            .map(|(_, c)| (*c).clone())
+    };
+
+    if let Some(best) = pick_best(&no_cost) {
+        return best;
+    }
+    if let Some(best) = pick_best(&with_cost) {
+        return best;
+    }
+
+    play_cards[0].clone()
 }
 
-fn build_characteristic_frequency(plant_chars: &[Vec<String>]) -> HashMap<String, usize> {
+fn build_char_freq(plant_chars: &[Vec<String>]) -> HashMap<String, usize> {
     let mut freq: HashMap<String, usize> = HashMap::new();
     for chars in plant_chars {
         for c in chars {
@@ -100,148 +144,87 @@ fn build_characteristic_frequency(plant_chars: &[Vec<String>]) -> HashMap<String
     freq
 }
 
-/// When close to 1 plant remaining: pick a card that eliminates exactly
-/// (plant_count - 1) plants if possible, or the narrowest match to minimize
-/// over-elimination risk. Prefer costless cards.
-fn pick_narrow_card(
-    play_cards: &[Value],
+/// Compute exact number of plants removed by a card's match mode, accounting
+/// for multi-characteristic plants correctly (no double-counting).
+fn exact_removal(
+    match_info: Option<&Value>,
+    plant_chars: &[Vec<String>],
     char_freq: &HashMap<String, usize>,
-    plant_count: usize,
-) -> Value {
-    // Separate costless from costly cards
-    let (no_cost, with_cost): (Vec<&Value>, Vec<&Value>) =
-        play_cards.iter().partition(|c| !has_extra_cost(c));
-
-    let target_removal = plant_count.saturating_sub(1);
-
-    // Score each card: how close its expected removal is to target
-    let score_card = |card: &Value| -> i64 {
-        let match_info = card.get("card_details").and_then(|d| d.get("match_info"));
-
-        let expected_removal = estimate_removal(match_info, char_freq);
-        let diff = (expected_removal as i64 - target_removal as i64).abs();
-        // Lower diff is better; negate so max_by_key works
-        -diff
-    };
-
-    // Prefer costless cards that get us to exactly 1 plant
-    if !no_cost.is_empty() {
-        return no_cost
-            .iter()
-            .max_by_key(|c| score_card(c))
-            .map(|c| (*c).clone())
-            .unwrap_or_else(|| no_cost[0].clone());
-    }
-
-    if !with_cost.is_empty() {
-        return with_cost
-            .iter()
-            .max_by_key(|c| score_card(c))
-            .map(|c| (*c).clone())
-            .unwrap_or_else(|| with_cost[0].clone());
-    }
-
-    play_cards[0].clone()
-}
-
-/// When many plants remain: pick the broadest match for efficient mass elimination.
-/// Prefer low-cost cards.
-fn pick_broad_card(
-    play_cards: &[Value],
-    char_freq: &HashMap<String, usize>,
-    _plant_count: usize,
-) -> Value {
-    let (no_cost, with_cost): (Vec<&Value>, Vec<&Value>) =
-        play_cards.iter().partition(|c| !has_extra_cost(c));
-
-    let score_card = |card: &Value| -> usize {
-        let match_info = card.get("card_details").and_then(|d| d.get("match_info"));
-        estimate_removal(match_info, char_freq)
-    };
-
-    // Prefer costless cards with highest removal
-    if !no_cost.is_empty() {
-        return no_cost
-            .iter()
-            .max_by_key(|c| score_card(c))
-            .map(|c| (*c).clone())
-            .unwrap_or_else(|| no_cost[0].clone());
-    }
-
-    if !with_cost.is_empty() {
-        return with_cost
-            .iter()
-            .max_by_key(|c| score_card(c))
-            .map(|c| (*c).clone())
-            .unwrap_or_else(|| with_cost[0].clone());
-    }
-
-    play_cards[0].clone()
-}
-
-/// Estimate how many plants a card's match mode would remove given current
-/// characteristic frequency.
-fn estimate_removal(match_info: Option<&Value>, char_freq: &HashMap<String, usize>) -> usize {
+) -> usize {
     let match_info = match match_info {
         Some(v) if !v.is_null() => v,
-        _ => return 1, // Default estimate for unknown cards
+        _ => return 0,
     };
 
-    // HerbalismMatchMode is externally tagged: {"Or": {"types": [...]}}
     if let Some(or_obj) = match_info.get("Or") {
-        let empty = vec![];
-        let types = or_obj
-            .get("types")
-            .and_then(|t| t.as_array())
-            .unwrap_or(&empty);
-        // Or mode: remove plants with ANY listed characteristic
-        // Rough estimate: union of plants with any of the listed characteristics
-        let mut removed: usize = 0;
-        for t in types {
-            if let Some(name) = t.as_str() {
-                removed += char_freq.get(name).copied().unwrap_or(0);
-            }
-        }
-        // May double-count plants with multiple matching characteristics, but
-        // overestimate is fine for strategy selection
-        return removed;
+        let types = extract_types(or_obj);
+        return plant_chars
+            .iter()
+            .filter(|p| types.iter().any(|t| p.contains(t)))
+            .count();
     }
 
     if let Some(and_obj) = match_info.get("And") {
-        let empty = vec![];
-        let types = and_obj
-            .get("types")
-            .and_then(|t| t.as_array())
-            .unwrap_or(&empty);
+        let types = extract_types(and_obj);
         if types.is_empty() {
             return 0;
         }
-        // And mode: remove plants with ALL listed characteristics
-        // Rough estimate: min frequency of the listed characteristics
-        return types
+        return plant_chars
             .iter()
-            .filter_map(|t| t.as_str().and_then(|name| char_freq.get(name).copied()))
-            .min()
-            .unwrap_or(0);
+            .filter(|p| types.iter().all(|t| p.contains(t)))
+            .count();
     }
 
     if let Some(mc_obj) = match_info.get("MostCommon") {
         let limit = mc_obj.get("limit").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
-        // Remove plants matching the most common characteristic(s)
-        let mut freqs: Vec<usize> = char_freq.values().copied().collect();
-        freqs.sort_unstable_by(|a, b| b.cmp(a));
-        return freqs.iter().take(limit).sum();
+        let target_chars = most_common_chars(char_freq, limit);
+        return plant_chars
+            .iter()
+            .filter(|p| target_chars.iter().any(|t| p.contains(t)))
+            .count();
     }
 
     if let Some(lc_obj) = match_info.get("LeastCommon") {
         let limit = lc_obj.get("limit").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
-        // Remove plants matching the least common characteristic(s)
-        let mut freqs: Vec<usize> = char_freq.values().copied().collect();
-        freqs.sort_unstable();
-        return freqs.iter().take(limit).sum();
+        let target_chars = least_common_chars(char_freq, limit);
+        return plant_chars
+            .iter()
+            .filter(|p| target_chars.iter().any(|t| p.contains(t)))
+            .count();
     }
 
-    1
+    0
+}
+
+fn extract_types(obj: &Value) -> Vec<String> {
+    obj.get("types")
+        .and_then(|t| t.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn most_common_chars(char_freq: &HashMap<String, usize>, limit: usize) -> Vec<String> {
+    let mut pairs: Vec<(&String, &usize)> = char_freq.iter().collect();
+    pairs.sort_unstable_by(|a, b| b.1.cmp(a.1));
+    pairs
+        .into_iter()
+        .take(limit)
+        .map(|(k, _)| k.clone())
+        .collect()
+}
+
+fn least_common_chars(char_freq: &HashMap<String, usize>, limit: usize) -> Vec<String> {
+    let mut pairs: Vec<(&String, &usize)> = char_freq.iter().collect();
+    pairs.sort_unstable_by(|a, b| a.1.cmp(b.1));
+    pairs
+        .into_iter()
+        .take(limit)
+        .map(|(k, _)| k.clone())
+        .collect()
 }
 
 fn has_extra_cost(card: &Value) -> bool {

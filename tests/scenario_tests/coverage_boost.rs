@@ -976,7 +976,7 @@ fn herbalism_multi_card_play_seed100() {
         .and_then(|v| v.as_array())
         .map(|a| a.len())
         .unwrap_or(0);
-    assert_eq!(plant_hand, 5, "Should start with 5 plants");
+    assert_eq!(plant_hand, 8, "Should start with 8 plants");
 
     // Play many herbalism cards without aborting
     let mut total_plays = 0;
