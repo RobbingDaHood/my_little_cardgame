@@ -5,7 +5,7 @@ description: Key learnings and tips for balance simulation tuning sessions. Refe
 
 # Balance Tuning Tips
 
-Lessons learned from B2.1 combat simulation tuning. Read before starting any balance tuning session.
+Lessons learned from balance simulation tuning. Read before starting any balance tuning session.
 
 For combat-specific balancing guidance, see `docs/vision/balances/combat_balance.md`.
 For scouting-specific balancing guidance, see `docs/vision/balances/scouting_balance.md`.
@@ -14,6 +14,33 @@ For herbalism-specific balancing guidance, see `docs/vision/balances/herbalism_b
 For woodcutting-specific balancing guidance, see `docs/vision/balances/woodcutting_balance.md`.
 For fishing-specific balancing guidance, see `docs/vision/balances/fishing_balance.md`.
 The tuning phases are defined in the `parallel-balance-tuning` skill.
+
+## Quick Commands
+
+Run a single discipline's balance simulation during iteration — **do NOT run all 7 tests each cycle**:
+
+```bash
+make balance-mining        # ~12s — mining only
+make balance-combat        # combat only
+make balance-herbalism     # herbalism only
+make balance-woodcutting   # woodcutting only
+make balance-fishing       # fishing only
+make balance-check         # ~190s — all disciplines (final validation only!)
+```
+
+Or directly: `scripts/balance-quick.sh <discipline>`
+
+## Iteration Workflow
+
+**CRITICAL: Use parallel exploration, not sequential iteration.**
+
+The `parallel-balance-tuning` skill exists for a reason. Each config→build→test cycle takes ~20s. Sequential iteration (edit, test, read, think, repeat) wastes most of the session. Instead:
+
+1. **Phase 1**: Launch 3 config variants in parallel worktrees (broad sweep)
+2. **Phase 2**: Narrow based on results, launch 3 more variants
+3. **Phase 3**: Fine-tune the winner
+
+A 3-iteration sequential session takes ~60s of wall time per round. 3 parallel variants take ~20s total per round.
 
 ## RNG Coupling Warning
 
@@ -67,3 +94,34 @@ In combat, adjust the card gain from relevant resource cards to avoid card deple
 - **Concrete cards** (`ConcreteEffectCost`): always absolute values (`amount: u32`)
 - All costs are pre-computed at roll time — no per-play randomness
 - `is_absolute: true` means the rolled value IS the cost (not a percentage of gain)
+
+## Gathering-Specific Lessons (Mining, Woodcutting, Herbalism, Fishing)
+
+### Round Cost Is Fixed — Non-Yield Cards Are Traps
+
+In gathering encounters, an ore/environment card plays every round regardless of what the player plays. This means every round has a **fixed durability cost** (~19/round in mining). A card that doesn't directly produce yield wastes that round's durability for 0 return.
+
+**Implication**: When tuning strategies, always calculate yield-per-round vs durability-per-round. If a utility card (light boost, stamina gain) produces 0 yield, it must save MORE durability in future rounds than the current round costs — which is rarely true.
+
+### Compound Ore Effects
+
+Ore cards can have MULTIPLE effects. In mining, "ore_light_medium" cards have both light reduction AND durability damage. Don't assume 1 card = 1 effect when calculating expected costs per round.
+
+**Tip**: At the start of tuning, enumerate the ore deck and compute:
+- Expected durability cost per round (weighted by card frequency)
+- Expected light loss per round
+- Fraction of cards with compound effects
+
+### Conclude Timing Dominates Strategy
+
+The strongest gathering strategies tend to converge on: **play one high-value card at peak conditions, then conclude immediately**. This suggests the conclude-timing mechanic is the dominant lever.
+
+If multiple Tier-2 strategies converge on the same behavior (~0.5 rounds/encounter), the config may need mechanics that reward multi-round play (e.g., ramping yields, reduced costs for consecutive plays).
+
+### Lumber-to-Durability Conversion
+
+For mining (and potentially other disciplines), some cards cost Lumber. The effective durability formula is:
+```
+effective_durability = raw_durability + (lumber_consumed / WOODCUTTING_YIELD_PER_DURABILITY)
+```
+Lumber-cost cards can massively inflate effective durability. A strategy that spends 100k lumber looks efficient on raw yield but terrible on effective yield/dur.
