@@ -17,7 +17,8 @@ fn combat_balance_simulation() {
         encounters_per_game: 50,
         base_seed: 42,
         max_actions_per_encounter: 200,
-    };
+    }
+    .with_env_overrides();
 
     let random = RandomStrategy::new(7777);
     let greedy = GreedyStrategy::new();

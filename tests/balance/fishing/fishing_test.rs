@@ -13,7 +13,8 @@ fn fishing_balance_simulation() {
         encounters_per_game: 20,
         base_seed: 42,
         max_actions_per_encounter: 200,
-    };
+    }
+    .with_env_overrides();
 
     let random = RandomFishingStrategy::new(7777);
     let greedy = GreedyFishingStrategy;
