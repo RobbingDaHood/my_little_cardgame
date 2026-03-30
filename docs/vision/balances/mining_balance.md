@@ -26,7 +26,8 @@ The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple str
 | Random | 1 (Simple) | Plays any available mining card without considering light level or costs |
 | Greedy | 1 (Simple) | Always plays the highest-power card available |
 | Conservative | 1 (Simple) | Plays lowest-cost cards to preserve durability |
-| Tactician | 2 (Tactical) | Manages light level, times power plays when light is high, concludes at optimal moments |
+| Tactician | 2 (Tactical) | Plays only power cards while light is high, aborts encounters without power in hand, concludes at light < 140 |
+| Durability Tactician | 2 (Tactical) | Plays only free power cards, never plays cost or light cards, concludes immediately when no free power available |
 
 - Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
 - Tactician strategies should achieve measurably higher yield per durability than any simple strategy, landing in the tier 2 range (1.5–4.0).
@@ -95,6 +96,32 @@ The player controls when to conclude the encounter. This is a key tactical lever
 ## Ore Deck Composition
 
 The ore deck contains cards across several tiers spanning light-reduction, durability-damage, and health-damage effects. The distribution is weighted toward lower-impact cards that pace the encounter, with occasional high-impact threats. The exact composition is configuration-driven — see `configurations/mining/cards.json`.
+
+## Simulation Results
+
+Current simulation results from `make balance-check` (3 games × 20 encounters per strategy, seed 42):
+
+| Strategy | Tier | Yield/Dur | Target | Rounds/Enc | Status |
+|----------|------|-----------|--------|------------|--------|
+| Random | 1 | 1.10 | 0.5–2.0 | 2.6 | ✅ |
+| Greedy | 1 | 0.51 | 0.5–2.0 | 8.9 | ✅ |
+| Conservative | 1 | 1.38 | 0.5–2.0 | 0.4 | ✅ |
+| Tactician | 2 | 2.27 | 1.5–4.0 | 0.5 | ✅ |
+| Dur. Tactician | 2 | 2.17 | 1.5–4.0 | 0.5 | ✅ |
+
+### Strategy Observations
+
+- **Random** achieves solid efficiency (1.10) because the 53% power-card composition means most random plays generate yield, and encounters auto-end at light=0 after ~2.6 rounds.
+- **Greedy** is the least efficient (0.51) — it plays every card including non-power cards for many rounds, wasting durability on 0-yield rounds.
+- **Conservative** is highly efficient (1.38) by avoiding cost cards, which limits it to ~0.4 rounds per encounter but ensures every play is efficient.
+- **Tactician** achieves the best yield/dur (2.27) by playing ONLY power cards and aborting encounters with no power in hand. The key insight: playing non-power cards wastes a round (~19 durability) for 0 yield, so the optimal strategy never plays light or utility cards.
+- **Durability Tactician** matches the Tactician (2.17) through the same core mechanic — play one free power card at peak light and conclude immediately. It differs by never playing cost power cards even at high light.
+
+### Key Balance Dynamics
+
+- **Light cards are a trap**: Each round an ore card plays (~19 avg durability cost) regardless of what the player plays. A light card gives 0 yield that round. Even though it boosts light for future rounds, the extra durability cost exceeds the yield benefit.
+- **Ore deck has compound effects**: 20 of 50 ore cards have BOTH light reduction AND durability damage (medium tier), making each round more costly than the light-only cards suggest.
+- **Tier separation comes from conclude timing**: T2 strategies abort unprofitable encounters immediately, while T1 strategies play cards indiscriminately or stay too long.
 
 ## Config Parameters
 
