@@ -27,7 +27,7 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Fish",
-        "cap_min": 200,
+        "cap_min": 250,
         "cap_max": 400,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
@@ -46,7 +46,7 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Fish",
-        "cap_min": 400,
+        "cap_min": 450,
         "cap_max": 600,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
@@ -65,8 +65,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "Fish",
-        "cap_min": 600,
-        "cap_max": 800,
+        "cap_min": 700,
+        "cap_max": 900,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [],
@@ -84,8 +84,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "FishingRangeMin",
-        "cap_min": -150,
-        "cap_max": 50,
+        "cap_min": -40,
+        "cap_max": 0,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [],
@@ -103,8 +103,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "FishingRangeMax",
-        "cap_min": -50,
-        "cap_max": 150,
+        "cap_min": 0,
+        "cap_max": 40,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [],
@@ -122,8 +122,8 @@
         "effect_type": "GainTokens",
         "target": "OnSelf",
         "token_type": "FishAmount",
-        "cap_min": -1,
-        "cap_max": 1,
+        "cap_min": 0,
+        "cap_max": 2,
         "gain_min_percent": 100,
         "gain_max_percent": 100,
         "costs": [],
@@ -158,8 +158,8 @@
       "owner": "Player",
       "kind": {
         "effect_type": "FishingValue",
-        "min": 50,
-        "max": 200,
+        "min": 100,
+        "max": 250,
         "costs": []
       },
       "valid_disciplines": [
@@ -172,8 +172,8 @@
       "owner": "Player",
       "kind": {
         "effect_type": "FishingValue",
-        "min": 250,
-        "max": 450,
+        "min": 350,
+        "max": 550,
         "costs": []
       },
       "valid_disciplines": [
@@ -186,8 +186,8 @@
       "owner": "Player",
       "kind": {
         "effect_type": "FishingValue",
-        "min": 500,
-        "max": 750,
+        "min": 600,
+        "max": 900,
         "costs": []
       },
       "valid_disciplines": [
@@ -200,13 +200,13 @@
       "owner": "Player",
       "kind": {
         "effect_type": "FishingValue",
-        "min": 50,
-        "max": 200,
+        "min": 100,
+        "max": 250,
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 30,
-            "max_percent": 60
+            "min_percent": 10,
+            "max_percent": 25
           }
         ]
       },
@@ -220,13 +220,13 @@
       "owner": "Player",
       "kind": {
         "effect_type": "FishingValue",
-        "min": 50,
-        "max": 200,
+        "min": 100,
+        "max": 250,
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 30,
-            "max_percent": 60
+            "min_percent": 10,
+            "max_percent": 25
           },
           {
             "token_type": "Stamina",
@@ -245,58 +245,18 @@
       "owner": "Player",
       "kind": {
         "effect_type": "FishingValue",
-        "min": 50,
-        "max": 200,
+        "min": 100,
+        "max": 250,
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 30,
-            "max_percent": 60
+            "min_percent": 10,
+            "max_percent": 25
           },
           {
             "token_type": "Health",
             "min_percent": 60,
             "max_percent": 100
-          }
-        ]
-      },
-      "valid_disciplines": [
-        "Fishing"
-      ]
-    },
-    {
-      "type": "effect",
-      "name": "value_medium_dur",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "FishingValue",
-        "min": 250,
-        "max": 450,
-        "costs": [
-          {
-            "token_type": "Durability",
-            "min_percent": 30,
-            "max_percent": 60
-          }
-        ]
-      },
-      "valid_disciplines": [
-        "Fishing"
-      ]
-    },
-    {
-      "type": "effect",
-      "name": "value_high_dur",
-      "owner": "Player",
-      "kind": {
-        "effect_type": "FishingValue",
-        "min": 500,
-        "max": 750,
-        "costs": [
-          {
-            "token_type": "Durability",
-            "min_percent": 30,
-            "max_percent": 60
           }
         ]
       },
@@ -319,10 +279,48 @@
         "costs": [
           {
             "token_type": "Durability",
-            "min_percent": 25,
-            "max_percent": 50
+            "min_percent": 10,
+            "max_percent": 25
           }
         ],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "narrow_range_min",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "FishingRangeMin",
+        "cap_min": 30,
+        "cap_max": 60,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
+        "duration": "PersistentCounter"
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "effect",
+      "name": "narrow_range_max",
+      "owner": "Player",
+      "kind": {
+        "effect_type": "GainTokens",
+        "target": "OnSelf",
+        "token_type": "FishingRangeMax",
+        "cap_min": -60,
+        "cap_max": -30,
+        "gain_min_percent": 100,
+        "gain_max_percent": 100,
+        "costs": [],
         "duration": "PersistentCounter"
       },
       "valid_disciplines": [
@@ -333,27 +331,11 @@
       "type": "player_card",
       "card_kind": "Fishing",
       "effect_refs": [
-        "fishing:value_low_dur"
+        "fishing:value_low"
       ],
       "counts": {
         "library": 0,
-        "deck": 13,
-        "hand": 1,
-        "discard": 0
-      },
-      "valid_disciplines": [
-        "Fishing"
-      ]
-    },
-    {
-      "type": "player_card",
-      "card_kind": "Fishing",
-      "effect_refs": [
-        "fishing:value_medium_dur"
-      ],
-      "counts": {
-        "library": 0,
-        "deck": 12,
+        "deck": 14,
         "hand": 0,
         "discard": 0
       },
@@ -365,11 +347,11 @@
       "type": "player_card",
       "card_kind": "Fishing",
       "effect_refs": [
-        "fishing:value_high_dur"
+        "fishing:value_medium"
       ],
       "counts": {
         "library": 0,
-        "deck": 9,
+        "deck": 8,
         "hand": 0,
         "discard": 0
       },
@@ -378,72 +360,52 @@
       ]
     },
     {
-      "type": "encounter",
-      "encounter_def": {
-        "encounter_type": "Fishing",
-        "fishing_def": {
-          "valid_range_min": 100,
-          "valid_range_max": 300,
-          "max_turns": 8,
-          "win_turns_needed": 4,
-          "fish_deck": [
-            {
-              "value": 100,
-              "effect_refs": [
-                "fishing:fish_low"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 16,
-                "discard": 0
-              }
-            },
-            {
-              "value": 300,
-              "effect_refs": [
-                "fishing:fish_medium"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 17,
-                "discard": 0
-              }
-            },
-            {
-              "value": 500,
-              "effect_refs": [
-                "fishing:fish_high"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 11,
-                "discard": 0
-              }
-            },
-            {
-              "value": 700,
-              "effect_refs": [
-                "fishing:fish_very_high"
-              ],
-              "counts": {
-                "deck": 0,
-                "hand": 6,
-                "discard": 0
-              }
-            }
-          ],
-          "rewards": {
-            "Fish": 15
-          }
-        }
-      },
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_high"
+      ],
       "counts": {
-        "library": 1,
-        "deck": 0,
-        "hand": 50,
+        "library": 0,
+        "deck": 6,
+        "hand": 0,
         "discard": 0
       },
-      "valid_disciplines": []
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:narrow_range_min"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 4,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:narrow_range_max"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 4,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
     },
     {
       "type": "player_card",
@@ -454,7 +416,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 2,
+        "deck": 0,
         "hand": 1,
         "discard": 0
       },
@@ -471,27 +433,7 @@
       ],
       "counts": {
         "library": 0,
-        "deck": 2,
-        "hand": 1,
-        "discard": 0
-      },
-      "valid_disciplines": [
-        "Fishing"
-      ]
-    },
-    {
-      "type": "player_card",
-      "card_kind": "Fishing",
-      "effect_refs": [
-        "fishing:value_low_dur_stam",
-        "fishing:range_min_gain",
-        "fishing:range_max_gain",
-        "fishing:value_medium",
-        "fishing:value_high"
-      ],
-      "counts": {
-        "library": 0,
-        "deck": 1,
+        "deck": 0,
         "hand": 1,
         "discard": 0
       },
@@ -505,25 +447,6 @@
       "effect_refs": [
         "fishing:value_low_dur",
         "fishing:fish_amount_gain"
-      ],
-      "counts": {
-        "library": 0,
-        "deck": 1,
-        "hand": 0,
-        "discard": 0
-      },
-      "valid_disciplines": [
-        "Fishing"
-      ]
-    },
-    {
-      "type": "player_card",
-      "card_kind": "Fishing",
-      "effect_refs": [
-        "fishing:value_low_dur_stam",
-        "fishing:fish_amount_gain",
-        "fishing:value_medium",
-        "fishing:value_high"
       ],
       "counts": {
         "library": 0,
@@ -557,31 +480,12 @@
       "effect_refs": [
         "fishing:value_low_dur_stam",
         "fishing:value_medium",
-        "fishing:value_high",
-        "fishing:value_high"
-      ],
-      "counts": {
-        "library": 0,
-        "deck": 1,
-        "hand": 0,
-        "discard": 0
-      },
-      "valid_disciplines": [
-        "Fishing"
-      ]
-    },
-    {
-      "type": "player_card",
-      "card_kind": "Fishing",
-      "effect_refs": [
-        "fishing:value_low_dur_stam",
-        "fishing:value_medium",
         "fishing:value_high"
       ],
       "counts": {
         "library": 1,
-        "deck": 1,
-        "hand": 0,
+        "deck": 3,
+        "hand": 1,
         "discard": 0
       },
       "valid_disciplines": [
@@ -600,7 +504,114 @@
       ],
       "counts": {
         "library": 1,
-        "deck": 1,
+        "deck": 4,
+        "hand": 1,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "encounter",
+      "encounter_def": {
+        "encounter_type": "Fishing",
+        "fishing_def": {
+          "valid_range_min": 50,
+          "valid_range_max": 200,
+          "max_turns": 12,
+          "win_turns_needed": 4,
+          "fish_deck": [
+            {
+              "value": 100,
+              "effect_refs": [
+                "fishing:fish_low"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 20,
+                "discard": 0
+              }
+            },
+            {
+              "value": 300,
+              "effect_refs": [
+                "fishing:fish_medium"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 16,
+                "discard": 0
+              }
+            },
+            {
+              "value": 500,
+              "effect_refs": [
+                "fishing:fish_high"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 10,
+                "discard": 0
+              }
+            },
+            {
+              "value": 750,
+              "effect_refs": [
+                "fishing:fish_very_high"
+              ],
+              "counts": {
+                "deck": 0,
+                "hand": 4,
+                "discard": 0
+              }
+            }
+          ],
+          "rewards": {
+            "Fish": 400
+          }
+        }
+      },
+      "counts": {
+        "library": 1,
+        "deck": 0,
+        "hand": 50,
+        "discard": 0
+      },
+      "valid_disciplines": []
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur_stam",
+        "fishing:range_min_gain",
+        "fishing:range_max_gain",
+        "fishing:value_medium",
+        "fishing:value_high"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 0,
+        "hand": 0,
+        "discard": 0
+      },
+      "valid_disciplines": [
+        "Fishing"
+      ]
+    },
+    {
+      "type": "player_card",
+      "card_kind": "Fishing",
+      "effect_refs": [
+        "fishing:value_low_dur_stam",
+        "fishing:fish_amount_gain",
+        "fishing:value_medium",
+        "fishing:value_high"
+      ],
+      "counts": {
+        "library": 0,
+        "deck": 0,
         "hand": 0,
         "discard": 0
       },
