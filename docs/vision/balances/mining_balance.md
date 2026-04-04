@@ -71,7 +71,7 @@ Stamina is consumed equal to the ore gained. This creates a secondary cap: even 
 
 1. Player plays a mining card → pre-play costs deducted (Stamina, Lumber)
 2. Card effects processed: MiningPower gain → yield formula applied; MiningLightLevel gain → light adjusted
-3. Ore card plays automatically (random from ore deck), both sides draw
+3. Ore card plays automatically (random from ore deck), player auto-draws 1 mining card
 4. Check end conditions: durability ≤ 0 (rewards granted, encounter ends as loss), health ≤ 0, or all hand cards unpayable
 5. Player may voluntarily conclude → reward calculated and granted
 
