@@ -559,7 +559,7 @@ Balance documentation is split into per-discipline documents under `docs/vision/
 - **Advanced tier** (future: meta-strategist): Manages resources across encounters. Plans over multiple encounters.
 
 **Card persistence across encounters:**
-Cards are never reset between encounters — deck, hand, and discard states carry over. When a card is drawn from the deck and there are no more cards to draw, the full discard pile is moved into the deck. Card depletion over a full game session is a critical balancing dimension: if basic cards run out, all strategies converge regardless of intelligence. Adjust the card gain from relevant resource cards to avoid card depletion — do NOT change deck or hand sizes for this purpose.
+Cards are never reset between encounters — deck, hand, and discard states carry over. When a card is drawn from the deck and there are no more cards to draw, the full discard pile is moved into the deck. **In Combat**, card depletion over a full game session is a critical balancing dimension: if basic cards run out, all strategies converge regardless of intelligence. Adjust the card gain from relevant resource cards to avoid card depletion — do NOT change deck or hand sizes for this purpose. **In non-combat disciplines**, auto-draw eliminates card depletion as a concern — every play draws a replacement, so hand size is maintained across encounters.
 
 Layered balancing approach:
 
