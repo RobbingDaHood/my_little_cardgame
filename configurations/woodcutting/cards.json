@@ -411,7 +411,7 @@
       "encounter_def": {
         "encounter_type": "Woodcutting",
         "woodcutting_def": {
-          "max_plays": 4,
+          "max_plays": 8,
           "base_rewards": {
             "Lumber": 30
           }

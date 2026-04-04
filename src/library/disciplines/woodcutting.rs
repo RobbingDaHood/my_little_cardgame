@@ -217,12 +217,12 @@ impl GameState {
             woodcutting.played_cards.len() as u32 >= woodcutting.max_plays
         };
 
+        self.draw_player_woodcutting_card(rng);
+
         if all_played {
             self.evaluate_and_grant_woodcutting_rewards();
             self.finish_woodcutting_encounter(true);
         } else {
-            self.draw_player_woodcutting_card(rng);
-
             // Check autoloss: if all woodcutting hand cards are unpayable, player loses
             if self.current_encounter.is_some() && self.all_woodcutting_hand_cards_unpayable() {
                 self.finish_woodcutting_encounter(false);

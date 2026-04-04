@@ -185,8 +185,8 @@ fn scenario_woodcutting_encounter_full_loop() {
     );
     assert_eq!(
         encounter.get("max_plays").and_then(|v| v.as_u64()),
-        Some(4),
-        "max_plays should be 4"
+        Some(8),
+        "max_plays should be 8"
     );
     assert_eq!(
         encounter
