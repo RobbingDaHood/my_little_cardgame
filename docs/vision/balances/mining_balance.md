@@ -137,6 +137,8 @@ Key mining config parameters in `configurations/mining/cards.json`:
 - **Ore deck composition**: More heavy/health ore cards increases loss risk but doesn't change yield-per-successful-encounter. Adjust ore deck to control loss rate, not yield rate.
 - **Tiered balance enforcement**: Tactical light-level management (boosting light before power plays, timing conclusion) must produce measurably more yield per durability than random/greedy play. If strategies converge, add mechanics that reward timing (e.g., light-level thresholds, combo bonuses).
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
+- **Compound ore effects**: Ore cards can have MULTIPLE effects. For example, "ore_light_medium" cards have both light reduction AND durability damage. Don't assume 1 card = 1 effect when calculating expected costs per round. At the start of tuning, enumerate the ore deck and compute expected durability cost per round (weighted by card frequency), expected light loss per round, and the fraction of cards with compound effects.
+- **Lumber-to-durability conversion**: Some mining cards cost Lumber. The effective durability formula is `effective_durability = raw_durability + (lumber_consumed / WOODCUTTING_YIELD_PER_DURABILITY)`. Lumber-cost cards can massively inflate effective durability. A strategy that spends large amounts of lumber may look efficient on raw yield but terrible on effective yield/dur.
 
 ## General Design Principles
 
