@@ -15,15 +15,16 @@ Follow this workflow when tuning balance configs for a specific discipline. The 
 
 ## Before Starting
 
-1. **Load `balance-tuning-tips` skill** — read all tips before touching config
-2. **Read the discipline's balance doc** — e.g., `docs/vision/balances/mining_balance.md`
-3. **Run baseline** — `make balance-<discipline>` (e.g., `make balance-mining`) to establish current numbers
-4. **Compute per-round economics** — before changing anything, calculate:
+1. **Rebase on the development branch** — `git fetch origin && git rebase origin/main` to ensure you're working on the latest code. Resolve any conflicts before proceeding.
+2. **Load `balance-tuning-tips` skill** — read all tips before touching config
+3. **Read the discipline's balance doc** — e.g., `docs/vision/balances/mining_balance.md`
+4. **Run baseline** — `make balance-<discipline>` (e.g., `make balance-mining`) to establish current numbers
+5. **Compute per-round economics** — before changing anything, calculate:
    - Expected durability cost per round (weighted ore card distribution)
    - Expected yield per round at various key-token levels (e.g., light=200, 170, 140)
    - Which cards produce yield vs which are utility (light, stamina, etc.)
    - Verify that utility cards pay back their round cost (they MUST — only insight cards are exempt)
-5. **Update the discipline's balance doc** — if new mechanics or rules are being introduced, update the balance document BEFORE running the balancing step so the doc reflects the new rules
+6. **Update the discipline's balance doc** — if new mechanics or rules are being introduced, update the balance document BEFORE running the balancing step so the doc reflects the new rules
 
 ## Phase 0: Setup Worktrees
 
