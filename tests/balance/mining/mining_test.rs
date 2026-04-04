@@ -6,6 +6,7 @@ use crate::mining::driver::{
 };
 use crate::mining::output::MiningSimulationReport;
 use crate::mining::strategies::conservative::ConservativeStrategy;
+use crate::mining::strategies::durability_tactician::DurabilityTacticianStrategy;
 use crate::mining::strategies::greedy::GreedyStrategy;
 use crate::mining::strategies::random::RandomStrategy;
 use crate::mining::strategies::tactician::TacticianStrategy;
@@ -70,9 +71,10 @@ fn mining_greedy_diagnostic() {
     }
 }
 
-/// Runs mining simulation across 4 strategies and asserts:
-/// - Yield per durability within observed exploration band
-/// - Tactician should achieve higher yield/durability than simple strategies
+/// Runs mining simulation across 5 strategies and asserts:
+/// - Yield per durability within tier-specific target ranges
+/// - Both Tier-2 strategies (tactician, durability_tactician) outperform all Tier-1
+/// - Non-yield tactician beats Tier-1 without relying on yield-boosting effects
 #[test]
 fn mining_balance_simulation() {
     let config = SimulationConfig {
@@ -86,9 +88,15 @@ fn mining_balance_simulation() {
     let greedy = GreedyStrategy::new();
     let conservative = ConservativeStrategy::new();
     let tactician = TacticianStrategy::new();
+    let durability_tactician = DurabilityTacticianStrategy::new();
 
-    let strategies: Vec<&dyn crate::strategies::Strategy> =
-        vec![&random, &greedy, &conservative, &tactician];
+    let strategies: Vec<&dyn crate::strategies::Strategy> = vec![
+        &random,
+        &greedy,
+        &conservative,
+        &tactician,
+        &durability_tactician,
+    ];
 
     let discipline = MiningDisciplineDriver;
     let runner = SimulationRunner::new(config.clone());
@@ -116,25 +124,30 @@ fn mining_balance_simulation() {
         "Not all mining balance assertions passed"
     );
 
-    // Strategy hierarchy: tactician should be more efficient than greedy
-    // (Both consume similar total durability, making yield/dur a fair comparison.
-    // Conservative is excluded — its near-zero engagement makes the ratio volatile.)
-    let tactician_yd = report
+    // Tier-2 hierarchy: both tacticians must beat ALL Tier-1 strategies
+    let tier1_names = ["random", "greedy", "conservative"];
+    let tier2_names = ["tactician", "durability_tactician"];
+
+    let best_tier1_yd = report
         .strategies
         .iter()
-        .find(|s| s.name == "tactician")
+        .filter(|s| tier1_names.contains(&s.name.as_str()))
         .map(|s| s.mining.avg_yield_per_durability)
-        .unwrap();
-    let greedy_yd = report
-        .strategies
-        .iter()
-        .find(|s| s.name == "greedy")
-        .map(|s| s.mining.avg_yield_per_durability)
-        .unwrap();
-    assert!(
-        tactician_yd > greedy_yd,
-        "Tactician ({:.3}) should beat Greedy ({:.3}) in yield/durability",
-        tactician_yd,
-        greedy_yd,
-    );
+        .fold(0.0_f64, f64::max);
+
+    for t2_name in &tier2_names {
+        let t2_yd = report
+            .strategies
+            .iter()
+            .find(|s| s.name == *t2_name)
+            .map(|s| s.mining.avg_yield_per_durability)
+            .unwrap();
+        assert!(
+            t2_yd > best_tier1_yd,
+            "Tier-2 '{}' ({:.3}) must beat best Tier-1 ({:.3})",
+            t2_name,
+            t2_yd,
+            best_tier1_yd,
+        );
+    }
 }

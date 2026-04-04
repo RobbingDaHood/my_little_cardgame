@@ -26,11 +26,14 @@ The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple str
 | Random | 1 (Simple) | Plays any available mining card without considering light level or costs |
 | Greedy | 1 (Simple) | Always plays the highest-power card available |
 | Conservative | 1 (Simple) | Plays lowest-cost cards to preserve durability |
-| Tactician | 2 (Tactical) | Manages light level, times power plays when light is high, concludes at optimal moments |
+| Tactician | 2 (Tactical) | Plays only power cards while light is high, aborts encounters without power in hand, concludes at light < 140 |
+| Durability Tactician | 2 (Tactical) | Plays only free power cards, never plays cost or light cards, concludes immediately when no free power available |
+| Full Utilization | 2 (Tactical) | Uses all card types optimally — power cards for yield, light cards for light management, stamina cards for sustain. No card is worthless except insight cards (which increase difficulty by design). Requires light-management mechanics that reward multi-round play. |
 
 - Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
 - Tactician strategies should achieve measurably higher yield per durability than any simple strategy, landing in the tier 2 range (1.5–4.0).
 - The gap between the best simple strategy and the tactician should be meaningful — tactical light-level management and conclude-timing must be rewarded.
+- The **Full Utilization** strategy is an aspirational target: the game mechanics should be tuned so that every card type has a situation where playing it is optimal. If a strategy that ignores a card type always outperforms one that uses it, the mechanic needs redesign. The only exception is insight cards, which intentionally increase difficulty.
 
 ### Tier-2 Strategy Requirements
 
@@ -96,6 +99,24 @@ The player controls when to conclude the encounter. This is a key tactical lever
 
 The ore deck contains cards across several tiers spanning light-reduction, durability-damage, and health-damage effects. The distribution is weighted toward lower-impact cards that pace the encounter, with occasional high-impact threats. The exact composition is configuration-driven — see `configurations/mining/cards.json`.
 
+## Light Level as Ramping Yields
+
+MiningLightLevel is intended to be the **ramping yields mechanic** — playing light cards should enable multi-round strategies that accumulate more yield than single-round conclude strategies. For this to work, the balance must ensure:
+
+- **Light cards must pay back their round cost**: Playing a light card costs one round of ore damage (durability) for 0 immediate yield. The light boost from that card must generate enough extra yield in subsequent rounds to exceed the durability cost of the wasted round. If this condition isn't met, light cards become worthless and all strategies converge on "play one power card and conclude."
+- **Multi-round play must be viable**: The expected yield-per-durability of a multi-round strategy (power → light → power → conclude) should be competitive with the single-round strategy (power → conclude at peak light). This may require: lower initial light (so boosting it matters), slower light decay per round, or light cards that also grant partial yield.
+- **Insight cards are the exception**: Insight cards are designed to increase encounter difficulty. They are the only card type that should be strategically undesirable to play.
+
+### Design Directions for Making Light Management Strategic
+
+If light cards are currently non-viable, consider these config adjustments:
+1. **Lower initial light level** — if light starts low, playing light cards becomes necessary to reach efficient mining levels, rather than starting at peak and only declining.
+2. **Light cards grant partial yield** — add a small MiningPower component to light cards so they produce some yield while boosting light.
+3. **Slower light decay** — reduce ore card light-reduction effects so multi-round encounters are cheaper, making the light investment worthwhile.
+4. **Light threshold bonus** — add a mechanic where yield scales nonlinearly with light (e.g., bonus above a threshold), rewarding players who invest in light management.
+
+**Note**: After implementing any of these mechanic changes, the balance must be re-tuned. Update this document with the new rules before running the balancing step.
+
 ## Config Parameters
 
 Key mining config parameters in `configurations/mining/cards.json`:
@@ -116,6 +137,8 @@ Key mining config parameters in `configurations/mining/cards.json`:
 - **Ore deck composition**: More heavy/health ore cards increases loss risk but doesn't change yield-per-successful-encounter. Adjust ore deck to control loss rate, not yield rate.
 - **Tiered balance enforcement**: Tactical light-level management (boosting light before power plays, timing conclusion) must produce measurably more yield per durability than random/greedy play. If strategies converge, add mechanics that reward timing (e.g., light-level thresholds, combo bonuses).
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
+- **Compound ore effects**: Ore cards can have MULTIPLE effects. For example, "ore_light_medium" cards have both light reduction AND durability damage. Don't assume 1 card = 1 effect when calculating expected costs per round. At the start of tuning, enumerate the ore deck and compute expected durability cost per round (weighted by card frequency), expected light loss per round, and the fraction of cards with compound effects.
+- **Lumber-to-durability conversion**: Some mining cards cost Lumber. The effective durability formula is `effective_durability = raw_durability + (lumber_consumed / WOODCUTTING_YIELD_PER_DURABILITY)`. Lumber-cost cards can massively inflate effective durability. A strategy that spends large amounts of lumber may look efficient on raw yield but terrible on effective yield/dur.
 
 ## General Design Principles
 

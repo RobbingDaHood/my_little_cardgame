@@ -202,7 +202,7 @@ fn scenario_mining_encounter_full_loop() {
 
     // 5. Verify light level is initialized at 300
     let light_level = encounter_token(&client, "MiningLightLevel");
-    assert_eq!(light_level, 150, "Light level should start at 150");
+    assert_eq!(light_level, 200, "Light level should start at 200");
 
     // 6. Verify yield starts at 0
     let mining_yield = encounter_token(&client, "MiningYield");

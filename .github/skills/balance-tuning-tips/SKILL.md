@@ -5,7 +5,7 @@ description: Key learnings and tips for balance simulation tuning sessions. Refe
 
 # Balance Tuning Tips
 
-Lessons learned from B2.1 combat simulation tuning. Read before starting any balance tuning session.
+Lessons learned from balance simulation tuning. Read before starting any balance tuning session.
 
 For combat-specific balancing guidance, see `docs/vision/balances/combat_balance.md`.
 For scouting-specific balancing guidance, see `docs/vision/balances/scouting_balance.md`.
@@ -13,7 +13,34 @@ For mining-specific balancing guidance, see `docs/vision/balances/mining_balance
 For herbalism-specific balancing guidance, see `docs/vision/balances/herbalism_balance.md`.
 For woodcutting-specific balancing guidance, see `docs/vision/balances/woodcutting_balance.md`.
 For fishing-specific balancing guidance, see `docs/vision/balances/fishing_balance.md`.
-The tuning phases are defined in the `parallel-balance-tuning` skill.
+The tuning phases are defined in the `balance-iteration` skill.
+
+## Quick Commands
+
+Run a single discipline's balance simulation during iteration — **do NOT run all 7 tests each cycle**:
+
+```bash
+make balance-mining        # ~12s — mining only
+make balance-combat        # combat only
+make balance-herbalism     # herbalism only
+make balance-woodcutting   # woodcutting only
+make balance-fishing       # fishing only
+make balance-check         # ~190s — all disciplines (final validation only!)
+```
+
+Or directly: `scripts/balance-quick.sh <discipline>`
+
+## Iteration Workflow
+
+**CRITICAL: Use parallel exploration, not sequential iteration.**
+
+The `balance-iteration` skill exists for a reason. Each config→build→test cycle takes ~20s. Sequential iteration (edit, test, read, think, repeat) wastes most of the session. Instead:
+
+1. **Phase 1**: Launch 3 config variants in parallel worktrees (broad sweep)
+2. **Phase 2**: Narrow based on results, launch 3 more variants
+3. **Phase 3**: Fine-tune the winner
+
+A 3-iteration sequential session takes ~60s of wall time per round. 3 parallel variants take ~20s total per round.
 
 ## RNG Coupling Warning
 
@@ -67,3 +94,19 @@ In combat, adjust the card gain from relevant resource cards to avoid card deple
 - **Concrete cards** (`ConcreteEffectCost`): always absolute values (`amount: u32`)
 - All costs are pre-computed at roll time — no per-play randomness
 - `is_absolute: true` means the rolled value IS the cost (not a percentage of gain)
+
+## Gathering-Specific Lessons (Mining, Woodcutting, Herbalism, Fishing)
+
+### Utility Cards Must Pay Back Their Round Cost
+
+In gathering encounters, an environment card plays every round regardless of what the player plays. This means every round has a **fixed durability cost**. A card that doesn't directly produce yield must generate enough benefit in subsequent rounds to exceed this round cost.
+
+**Design principle**: Every card type must have a situation where playing it is optimal. Utility cards (light boost, stamina gain, etc.) must be tuned so their benefit exceeds the durability cost of the round they consume. The only exception is **insight cards**, which intentionally increase difficulty and are meant to be strategically undesirable.
+
+If a utility card type is never worth playing, the mechanic needs adjustment — see the discipline-specific balance document for design directions (e.g., `mining_balance.md` "Light Level as Ramping Yields" section).
+
+### Conclude Timing Dominates Strategy
+
+The strongest gathering strategies tend to converge on: **play one high-value card at peak conditions, then conclude immediately**. This suggests the conclude-timing mechanic is the dominant lever.
+
+If multiple Tier-2 strategies converge on the same behavior (~0.5 rounds/encounter), the config may need mechanics that reward multi-round play (e.g., ramping yields, reduced costs for consecutive plays).
