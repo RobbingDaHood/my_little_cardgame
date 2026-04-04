@@ -13,7 +13,7 @@ For mining-specific balancing guidance, see `docs/vision/balances/mining_balance
 For herbalism-specific balancing guidance, see `docs/vision/balances/herbalism_balance.md`.
 For woodcutting-specific balancing guidance, see `docs/vision/balances/woodcutting_balance.md`.
 For fishing-specific balancing guidance, see `docs/vision/balances/fishing_balance.md`.
-The tuning phases are defined in the `parallel-balance-tuning` skill.
+The tuning phases are defined in the `balance-iteration` skill.
 
 ## Quick Commands
 
@@ -34,7 +34,7 @@ Or directly: `scripts/balance-quick.sh <discipline>`
 
 **CRITICAL: Use parallel exploration, not sequential iteration.**
 
-The `parallel-balance-tuning` skill exists for a reason. Each config→build→test cycle takes ~20s. Sequential iteration (edit, test, read, think, repeat) wastes most of the session. Instead:
+The `balance-iteration` skill exists for a reason. Each config→build→test cycle takes ~20s. Sequential iteration (edit, test, read, think, repeat) wastes most of the session. Instead:
 
 1. **Phase 1**: Launch 3 config variants in parallel worktrees (broad sweep)
 2. **Phase 2**: Narrow based on results, launch 3 more variants
