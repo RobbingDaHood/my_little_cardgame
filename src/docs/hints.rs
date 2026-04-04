@@ -90,7 +90,7 @@ fn build_combat_hints() -> DisciplineHints {
         common_pitfalls: vec![
             "Ignoring the Defence phase — enemy attacks can quickly deplete Health.".to_string(),
             "Running out of Stamina/Mana to pay card costs, leading to unpayable hands.".to_string(),
-            "Not using Resource cards to draw more cards — an empty hand means defeat.".to_string(),
+            "Not using Resource cards to draw more cards — an empty hand means defeat. (Combat is the only discipline without auto-draw.)".to_string(),
         ],
         tips: vec![
             "Dodge is the most efficient defence: it removes the entire attack, not just damage points.".to_string(),
@@ -113,6 +113,7 @@ fn build_mining_hints() -> DisciplineHints {
             "Light Restore cards maintain visibility but don't extract ore.".to_string(),
             "Mining Yield tracks total ore accumulated — this becomes your reward.".to_string(),
             "Stamina is spent when concluding, proportional to yield extracted.".to_string(),
+            "Playing a card auto-draws 1 replacement — hand depletion is not a concern.".to_string(),
         ],
         strategies: vec![
             Strategy {
@@ -147,6 +148,7 @@ fn build_herbalism_hints() -> DisciplineHints {
             "Match modes: Or (any match), And (all must match), MostCommon/LeastCommon (characteristic frequency).".to_string(),
             "No RNG on the board — this is a pure skill puzzle.".to_string(),
             "Rewards are granted based on plants harvested.".to_string(),
+            "Playing a card auto-draws 1 replacement — focus on matching, not hand management.".to_string(),
         ],
         strategies: vec![
             Strategy {
@@ -181,6 +183,7 @@ fn build_woodcutting_hints() -> DisciplineHints {
             "Cards have chop values that stack — play multiple cards per round.".to_string(),
             "Pattern multipliers: certain card combinations unlock bonus rewards.".to_string(),
             "Woodcutting Durability is consumed per encounter.".to_string(),
+            "Playing a card auto-draws 1 replacement — you can play up to 8 cards total.".to_string(),
         ],
         strategies: vec![
             Strategy {
@@ -215,6 +218,7 @@ fn build_fishing_hints() -> DisciplineHints {
             "Your valid range (min to max) determines which fish you catch.".to_string(),
             "Cards can modify your range bounds or provide value bonuses.".to_string(),
             "You need to win a certain number of turns (e.g., 4 of 8) to succeed.".to_string(),
+            "Playing a card auto-draws 1 replacement — focus on value prediction.".to_string(),
         ],
         strategies: vec![
             Strategy {
@@ -252,6 +256,7 @@ fn build_rest_hints() -> DisciplineHints {
             "Rest cards restore Health, Stamina, or both.".to_string(),
             "Cards cost materials (Ore, Plant, Lumber, Fish) to play.".to_string(),
             "Rest encounters always succeed (PlayerWon) — you can abort at any time.".to_string(),
+            "Playing a card auto-draws 1 replacement rest card from the deck.".to_string(),
         ],
         strategies: vec![
             Strategy {
@@ -287,6 +292,7 @@ fn build_crafting_hints() -> DisciplineHints {
             "Crafting cards reduce material costs for the current craft.".to_string(),
             "Use EncounterCraftSwap to change your craft target.".to_string(),
             "Use EncounterCraftDurability to reinforce a discipline's durability.".to_string(),
+            "Playing a card auto-draws 1 replacement — focus on cost reduction timing.".to_string(),
         ],
         strategies: vec![
             Strategy {
@@ -325,7 +331,7 @@ fn build_research_hints() -> DisciplineHints {
             .to_string(),
         key_mechanics: vec![
             "Choose a discipline and tier to research (ResearchChooseProject + ResearchSelectCandidate).".to_string(),
-            "Play 3 Research cards per round via ResearchPlayHand — order matters for position matching.".to_string(),
+            "Play 3 Research cards per round via ResearchPlayHand — order matters for position matching. Auto-draws 1 card per card played (3 drawn back).".to_string(),
             "Each round costs escalating Insight: round 1 = 5, round 2 = 10, round 3 = 15, etc.".to_string(),
             "Cards are scored via 1:1 optimal matching against hidden symbol slots.".to_string(),
             "Position match (right type + right slot) = 100 yield; type match (right type, wrong slot) = 10.".to_string(),

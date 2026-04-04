@@ -256,9 +256,19 @@ fn build_effect_system() -> DesignerSection {
                     .to_string(),
             },
             ReferenceEntry {
-                name: "Draw effects".to_string(),
-                description: "Resource cards can trigger card draws via DrawCards effect. Specifies \
-                    attack/defence/resource draw counts per card play."
+                name: "Draw effects (Combat only)".to_string(),
+                description: "In Combat, resource cards can trigger card draws via DrawCards effect. \
+                    Specifies attack/defence/resource draw counts per card play. This is the ONLY \
+                    discipline that uses explicit draw effects — hand depletion is a strategic risk \
+                    in Combat."
+                    .to_string(),
+            },
+            ReferenceEntry {
+                name: "Auto-draw (all non-combat disciplines)".to_string(),
+                description: "In all non-combat disciplines (Mining, Herbalism, Woodcutting, Fishing, \
+                    Rest, Crafting, Research), playing a card automatically draws 1 replacement card \
+                    from the discipline's deck. Hand replenishment is automatic so the player can \
+                    focus on the discipline's core mechanic. Draw respects max hand size tokens."
                     .to_string(),
             },
             ReferenceEntry {

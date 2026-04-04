@@ -125,6 +125,7 @@ fn build_tutorial() -> Tutorial {
                     "Check /actions/possible to see which cards you can play right now.".to_string(),
                     "Cards have costs (Stamina, Mana, Durability) — you can't play what you can't afford.".to_string(),
                     "Some encounters auto-conclude when conditions are met (e.g., enemy dies in Combat).".to_string(),
+                    "Non-combat disciplines auto-draw 1 card per play. In Combat, you must play Resource cards with DrawCards effects to replenish your hand.".to_string(),
                 ],
             },
             TutorialStep {
