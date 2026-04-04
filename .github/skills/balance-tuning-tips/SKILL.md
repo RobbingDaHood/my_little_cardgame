@@ -97,6 +97,14 @@ In combat, adjust the card gain from relevant resource cards to avoid card deple
 
 ## Gathering-Specific Lessons (Mining, Woodcutting, Herbalism, Fishing)
 
+### Utility Cards Must Pay Back Their Round Cost
+
+In gathering encounters, an environment card plays every round regardless of what the player plays. This means every round has a **fixed durability cost**. A card that doesn't directly produce yield must generate enough benefit in subsequent rounds to exceed this round cost.
+
+**Design principle**: Every card type must have a situation where playing it is optimal. Utility cards (light boost, stamina gain, etc.) must be tuned so their benefit exceeds the durability cost of the round they consume. The only exception is **insight cards**, which intentionally increase difficulty and are meant to be strategically undesirable.
+
+If a utility card type is never worth playing, the mechanic needs adjustment — see the discipline-specific balance document for design directions (e.g., `mining_balance.md` "Light Level as Ramping Yields" section).
+
 ### Conclude Timing Dominates Strategy
 
 The strongest gathering strategies tend to converge on: **play one high-value card at peak conditions, then conclude immediately**. This suggests the conclude-timing mechanic is the dominant lever.

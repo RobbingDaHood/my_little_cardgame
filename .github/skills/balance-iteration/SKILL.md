@@ -16,7 +16,8 @@ Follow this workflow when tuning balance configs for a specific discipline. The 
    - Expected durability cost per round (weighted ore card distribution)
    - Expected yield per round at various key-token levels (e.g., light=200, 170, 140)
    - Which cards produce yield vs which are utility (light, stamina, etc.)
-   - Whether utility cards can ever pay back their round cost
+   - Verify that utility cards pay back their round cost (they MUST — only insight cards are exempt)
+5. **Update the discipline's balance doc** — if new mechanics or rules are being introduced, update the balance document BEFORE running the balancing step so the doc reflects the new rules
 
 ## Iteration Cycle
 
@@ -65,9 +66,9 @@ If config changes alone don't reach targets, the strategy implementations may ne
 - ❌ Running `make balance-check` every iteration (runs ALL disciplines, ~190s)
 - ❌ Sequential iteration (edit → test → read → think → edit → test) — use parallel worktrees
 - ❌ Assuming 1 ore card = 1 effect (many have compound effects)
-- ❌ Playing utility cards that cost a round for 0 yield
-- ❌ Ignoring lumber-to-durability conversion (inflates effective durability)
+- ❌ Utility cards that don't pay back their round cost (they MUST — only insight cards are exempt)
 - ❌ Not computing per-round economics before starting
+- ❌ Not updating the balance doc before running the balancing step
 
 ## Time Budget
 
