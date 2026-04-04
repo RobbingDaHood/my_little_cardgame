@@ -28,10 +28,12 @@ The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple str
 | Conservative | 1 (Simple) | Plays lowest-cost cards to preserve durability |
 | Tactician | 2 (Tactical) | Plays only power cards while light is high, aborts encounters without power in hand, concludes at light < 140 |
 | Durability Tactician | 2 (Tactical) | Plays only free power cards, never plays cost or light cards, concludes immediately when no free power available |
+| Full Utilization | 2 (Tactical) | Uses all card types optimally — power cards for yield, light cards for light management, stamina cards for sustain. No card is worthless except insight cards (which increase difficulty by design). Requires light-management mechanics that reward multi-round play. |
 
 - Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
 - Tactician strategies should achieve measurably higher yield per durability than any simple strategy, landing in the tier 2 range (1.5–4.0).
 - The gap between the best simple strategy and the tactician should be meaningful — tactical light-level management and conclude-timing must be rewarded.
+- The **Full Utilization** strategy is an aspirational target: the game mechanics should be tuned so that every card type has a situation where playing it is optimal. If a strategy that ignores a card type always outperforms one that uses it, the mechanic needs redesign. The only exception is insight cards, which intentionally increase difficulty.
 
 ### Tier-2 Strategy Requirements
 
@@ -97,31 +99,23 @@ The player controls when to conclude the encounter. This is a key tactical lever
 
 The ore deck contains cards across several tiers spanning light-reduction, durability-damage, and health-damage effects. The distribution is weighted toward lower-impact cards that pace the encounter, with occasional high-impact threats. The exact composition is configuration-driven — see `configurations/mining/cards.json`.
 
-## Simulation Results
+## Light Level as Ramping Yields
 
-Current simulation results from `make balance-check` (3 games × 20 encounters per strategy, seed 42):
+MiningLightLevel is intended to be the **ramping yields mechanic** — playing light cards should enable multi-round strategies that accumulate more yield than single-round conclude strategies. For this to work, the balance must ensure:
 
-| Strategy | Tier | Yield/Dur | Target | Rounds/Enc | Status |
-|----------|------|-----------|--------|------------|--------|
-| Random | 1 | 1.10 | 0.5–2.0 | 2.6 | ✅ |
-| Greedy | 1 | 0.51 | 0.5–2.0 | 8.9 | ✅ |
-| Conservative | 1 | 1.38 | 0.5–2.0 | 0.4 | ✅ |
-| Tactician | 2 | 2.27 | 1.5–4.0 | 0.5 | ✅ |
-| Dur. Tactician | 2 | 2.17 | 1.5–4.0 | 0.5 | ✅ |
+- **Light cards must pay back their round cost**: Playing a light card costs one round of ore damage (durability) for 0 immediate yield. The light boost from that card must generate enough extra yield in subsequent rounds to exceed the durability cost of the wasted round. If this condition isn't met, light cards become worthless and all strategies converge on "play one power card and conclude."
+- **Multi-round play must be viable**: The expected yield-per-durability of a multi-round strategy (power → light → power → conclude) should be competitive with the single-round strategy (power → conclude at peak light). This may require: lower initial light (so boosting it matters), slower light decay per round, or light cards that also grant partial yield.
+- **Insight cards are the exception**: Insight cards are designed to increase encounter difficulty. They are the only card type that should be strategically undesirable to play.
 
-### Strategy Observations
+### Design Directions for Making Light Management Strategic
 
-- **Random** achieves solid efficiency (1.10) because the 53% power-card composition means most random plays generate yield, and encounters auto-end at light=0 after ~2.6 rounds.
-- **Greedy** is the least efficient (0.51) — it plays every card including non-power cards for many rounds, wasting durability on 0-yield rounds.
-- **Conservative** is highly efficient (1.38) by avoiding cost cards, which limits it to ~0.4 rounds per encounter but ensures every play is efficient.
-- **Tactician** achieves the best yield/dur (2.27) by playing ONLY power cards and aborting encounters with no power in hand. The key insight: playing non-power cards wastes a round (~19 durability) for 0 yield, so the optimal strategy never plays light or utility cards.
-- **Durability Tactician** matches the Tactician (2.17) through the same core mechanic — play one free power card at peak light and conclude immediately. It differs by never playing cost power cards even at high light.
+If light cards are currently non-viable, consider these config adjustments:
+1. **Lower initial light level** — if light starts low, playing light cards becomes necessary to reach efficient mining levels, rather than starting at peak and only declining.
+2. **Light cards grant partial yield** — add a small MiningPower component to light cards so they produce some yield while boosting light.
+3. **Slower light decay** — reduce ore card light-reduction effects so multi-round encounters are cheaper, making the light investment worthwhile.
+4. **Light threshold bonus** — add a mechanic where yield scales nonlinearly with light (e.g., bonus above a threshold), rewarding players who invest in light management.
 
-### Key Balance Dynamics
-
-- **Light cards are a trap**: Each round an ore card plays (~19 avg durability cost) regardless of what the player plays. A light card gives 0 yield that round. Even though it boosts light for future rounds, the extra durability cost exceeds the yield benefit.
-- **Ore deck has compound effects**: 20 of 50 ore cards have BOTH light reduction AND durability damage (medium tier), making each round more costly than the light-only cards suggest.
-- **Tier separation comes from conclude timing**: T2 strategies abort unprofitable encounters immediately, while T1 strategies play cards indiscriminately or stay too long.
+**Note**: After implementing any of these mechanic changes, the balance must be re-tuned. Update this document with the new rules before running the balancing step.
 
 ## Config Parameters
 
