@@ -136,15 +136,18 @@ If your current working directory is inside `my_little_cardgame/` (the main repo
 
 **Continuing existing work:**
 - If instructed to continue work on an existing branch, that work must still happen in a worktree — either use an existing worktree already on that branch, or create a new one pointing at it.
+- **Before making any changes**, rebase the branch onto the latest remote main: `git fetch origin && git rebase origin/main`. This ensures the branch is up to date and avoids merge conflicts later.
 
 **Verification:**
 - Before making any change, confirm your working directory is inside `my_little_cardgames/`, not `my_little_cardgame/`.
 - If you detect you are in the main repo, create a worktree first — do not proceed with changes.
 
 **Branching rules:**
+- **All work must be based on the latest remote `origin/main`** — never use the local `main` branch as a reference, since it may be stale. Always `git fetch origin` first.
 - New branches always come from the latest `origin/main` (handled automatically by `worktree-manage.sh add`).
+- When continuing work on an existing branch, always start with `git fetch origin && git rebase origin/main` before making any changes.
 - Always commit small isolated commits; each commit must pass `make check`.
-- Always rebase on main before pushing.
+- Always rebase on `origin/main` before pushing: `git fetch origin && git rebase origin/main`.
 - When creating a pull request, write a clear, descriptive PR body summarizing what changed, why, and any important context.
 
 **Worktree layout:**
