@@ -29,6 +29,7 @@ The overlap between tiers (1.5–2.0) is intentional — a well-tuned simple str
 | Greedy | 1 (Simple) | Always plays the highest-value chop card available |
 | Conservative | 1 (Simple) | Plays lowest-cost cards to preserve durability |
 | PatternBuilder | 2 (Tactical) | Reads cards played so far, builds toward high-value patterns (same chop type) |
+| DurabilityConserver | 2 (Tactical) | Encounter-state-aware durability management — picks lowest durability-cost cards, concludes early when budget is tight. Wins through resource conservation, not pattern optimization. |
 
 - Simple strategies (Random, Greedy, Conservative) should all produce somewhat similar yield-per-durability ratios within the tier 1 range (0.5–2.0).
 - Tactician strategies should achieve measurably higher yield per durability, landing in the tier 2 range (1.5–4.0) — pattern-building and early-stop timing must be rewarded.
@@ -118,6 +119,16 @@ Key woodcutting config parameters in `configurations/woodcutting/cards.json`:
 - **Durability budget**: Total durability across all woodcutting encounters bounds the session. High-cost cards eat into the durability budget faster, creating tension between playing expensive cards for better patterns vs cheap cards for more encounters.
 - **Tiered balance enforcement**: Tactical pattern-building (recognizing when to aim for a straight vs a flush, timing early stop) must produce higher yield per durability than random chop selection. If strategies converge, increase multiplier spread or adjust cost differentials between chop types.
 - **RNG Coupling**: Changing card counts changes the RNG state for the entire game. Only aggregate metrics across many encounters are meaningful for comparison.
+
+### Insights from B2.6 Balance Tuning
+
+These insights were discovered during the B2.6 woodcutting balance tuning (PR #70) and should guide future tuning attempts:
+
+- **max_plays must stay at 8**: With 5 starting hand cards and auto-draw, playing 8 cards means 5 cards are known up front and 3 are drawn during play. This creates strategic depth — players can plan around visible cards while gambling on draws. Reducing max_plays (e.g., to 4) eliminates the unknowns and flattens strategic differentiation.
+- **Auto-draw eliminates card depletion**: Every card play (including the final play of an encounter) draws a replacement. With 8 plays and 8 draws per encounter, the net card change is 0. Hands persist between encounters at full size, meaning **all encounters throughout the session are active**. Durability — not card supply — is the true session limiter.
+- **Durability conservation is a valid tier-2 tactic**: The DurabilityConserver strategy proves that a non-yield tactician can beat tier-1 by picking lowest-cost cards and concluding early when the durability budget is tight. This satisfies the tier-2 requirement without any pattern optimization.
+- **Type-specific cost profiles drive strategy differentiation**: With auto-draw maintaining hand size, the key strategic dimension is cost management — which cards to play when, and when to stop. Uniform cost ranges across all chop types cause strategy convergence. Differentiated costs per chop type (cheap LightChop 10–25 dur vs expensive PrecisionChop 55–95 dur) create meaningful separation: conservative strategies prefer cheap cards while aggressive ones accept higher costs for pattern potential.
+- **Multi-effect cards amplify pattern frequency**: Cards with multiple chop effects (e.g., heavy_chop + light_chop) generate 2+ chop values per play. With max_plays=8, total chop values can reach 12–20+ per encounter, making high-value patterns (Five/Six of a Kind) common. Pattern multipliers must account for this via sqrt inverse-probability scaling.
 
 ## General Design Principles
 

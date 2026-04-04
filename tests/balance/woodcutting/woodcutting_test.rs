@@ -2,6 +2,7 @@ use crate::runner::{SimulationConfig, SimulationRunner};
 use crate::woodcutting::driver::WoodcuttingDisciplineDriver;
 use crate::woodcutting::output::WoodcuttingSimulationReport;
 use crate::woodcutting::strategies::conservative::ConservativeStrategy;
+use crate::woodcutting::strategies::durability_conserver::DurabilityConserverStrategy;
 use crate::woodcutting::strategies::greedy::GreedyStrategy;
 use crate::woodcutting::strategies::pattern_builder::PatternBuilderStrategy;
 use crate::woodcutting::strategies::random::RandomStrategy;
@@ -19,9 +20,15 @@ fn woodcutting_balance_simulation() {
     let greedy = GreedyStrategy::new();
     let conservative = ConservativeStrategy::new();
     let pattern_builder = PatternBuilderStrategy::new();
+    let durability_conserver = DurabilityConserverStrategy::new();
 
-    let strategies: Vec<&dyn crate::strategies::Strategy> =
-        vec![&random, &greedy, &conservative, &pattern_builder];
+    let strategies: Vec<&dyn crate::strategies::Strategy> = vec![
+        &random,
+        &greedy,
+        &conservative,
+        &pattern_builder,
+        &durability_conserver,
+    ];
 
     let discipline = WoodcuttingDisciplineDriver;
     let runner = SimulationRunner::new(config.clone());

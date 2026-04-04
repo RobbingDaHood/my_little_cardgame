@@ -19,22 +19,27 @@ pub fn woodcutting_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "pattern_builder".to_string(),
-            target_min: 0.01,
+            target_min: 1.5,
+            target_max: 4.0,
+        },
+        YieldTarget {
+            strategy: "durability_conserver".to_string(),
+            target_min: 1.5,
             target_max: 4.0,
         },
     ]

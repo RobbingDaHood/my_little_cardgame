@@ -39,11 +39,11 @@ Win rates are structurally high because: (1) initial encounters are easy wins, (
 - **Health**: Persists across encounters. Only decreases during combat (except on death reset or via healing resource cards).
 - **Stamina**: Persists across encounters. Moderate recovery possible via resource cards, but main recovery comes from resting.
 
-### Card Persistence
+### Card Persistence (Combat-Specific)
 
-Cards are never reset between encounters — deck, hand, and discard states carry over. Card depletion over a full game session is a critical balancing dimension. When a card is drawn from the deck and there are no more cards to draw, the full discard pile is moved into the deck. Because cards are randomized when drawing from deck to hand, there is no additional randomization needed when moving discard to deck.
+Cards are never reset between encounters — deck, hand, and discard states carry over. **In Combat**, card depletion over a full game session is a critical balancing dimension (Combat is the only discipline without auto-draw). When a card is drawn from the deck and there are no more cards to draw, the full discard pile is moved into the deck. Because cards are randomized when drawing from deck to hand, there is no additional randomization needed when moving discard to deck.
 
-In combat, resource cards that draw new cards are the primary mechanism to avoid hand depletion. Adjust the card gain from relevant resource cards to avoid card depletion — do NOT change deck or hand sizes for this purpose.
+In combat, resource cards that draw new cards are the primary mechanism to avoid hand depletion. Adjust the card gain from relevant resource cards to avoid card depletion — do NOT change deck or hand sizes for this purpose. (Non-combat disciplines auto-draw 1 card per play, so hand depletion is not a concern for them.)
 
 ### Healing and Stamina Recovery
 
