@@ -21,22 +21,27 @@ pub fn herbalism_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "random".to_string(),
-            target_min: 0.01,
+            target_min: 0.3,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "greedy".to_string(),
-            target_min: 0.01,
+            target_min: 0.3,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "conservative".to_string(),
-            target_min: 0.01,
+            target_min: 0.3,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "tactician".to_string(),
-            target_min: 0.01,
+            target_min: 1.3,
+            target_max: 4.0,
+        },
+        YieldTarget {
+            strategy: "precision_tactician".to_string(),
+            target_min: 1.3,
             target_max: 4.0,
         },
     ]

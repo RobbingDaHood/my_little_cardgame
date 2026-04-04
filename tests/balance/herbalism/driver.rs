@@ -116,6 +116,7 @@ pub fn play_herbalism_encounter(client: &Client, strategy: &dyn Strategy, max_ac
         }
 
         let playable = get_playable_herbalism_cards(client, &effect_map);
+
         if playable.is_empty() {
             if possible
                 .iter()
@@ -237,7 +238,7 @@ fn get_playable_herbalism_cards(client: &Client, effect_map: &HashMap<usize, Val
                                         .get("token_type")
                                         .and_then(|v| v.as_str())
                                         .unwrap_or("");
-                                    tt != "HerbalismDurability"
+                                    tt != "HerbalismDurability" && tt != "Durability"
                                 })
                             })
                             .unwrap_or(false)
@@ -251,10 +252,12 @@ fn get_playable_herbalism_cards(client: &Client, effect_map: &HashMap<usize, Val
                     arr.iter().find_map(|e| {
                         let eid = e.get("effect_id").and_then(|v| v.as_u64())? as usize;
                         let template = effect_map.get(&eid)?;
-                        let kind = template.get("kind")?;
-                        let effect_type = kind.get("effect_type").and_then(|v| v.as_str())?;
+                        // API nests as card.kind.kind.effect_type (outer kind has card_kind)
+                        let outer_kind = template.get("kind")?;
+                        let inner_kind = outer_kind.get("kind")?;
+                        let effect_type = inner_kind.get("effect_type").and_then(|v| v.as_str())?;
                         if effect_type == "HerbalismMatch" {
-                            kind.get("match_mode").cloned()
+                            inner_kind.get("match_mode").cloned()
                         } else {
                             None
                         }

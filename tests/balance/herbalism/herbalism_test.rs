@@ -7,6 +7,7 @@ use crate::herbalism::driver::{
 use crate::herbalism::output::HerbalismSimulationReport;
 use crate::herbalism::strategies::conservative::ConservativeStrategy;
 use crate::herbalism::strategies::greedy::GreedyStrategy;
+use crate::herbalism::strategies::precision::PrecisionTacticianStrategy;
 use crate::herbalism::strategies::random::RandomStrategy;
 use crate::herbalism::strategies::tactician::TacticianStrategy;
 use crate::runner::{SimulationConfig, SimulationRunner};
@@ -77,9 +78,10 @@ fn herbalism_balance_simulation() {
     let greedy = GreedyStrategy::new();
     let conservative = ConservativeStrategy::new();
     let tactician = TacticianStrategy::new();
+    let precision = PrecisionTacticianStrategy::new();
 
     let strategies: Vec<&dyn crate::strategies::Strategy> =
-        vec![&random, &greedy, &conservative, &tactician];
+        vec![&random, &greedy, &conservative, &tactician, &precision];
 
     let discipline = HerbalismDisciplineDriver;
     let runner = SimulationRunner::new(config.clone());
