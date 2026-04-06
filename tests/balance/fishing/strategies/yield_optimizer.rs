@@ -2,21 +2,21 @@ use serde_json::Value;
 
 use crate::strategies::{GameSnapshot, Strategy};
 
-/// Fishing Tactician that combines two advantages:
+/// Yield-optimizer tactician that maximises Fish-per-durability through:
 ///
-/// 1. **Encounter selection** — always picks the highest-reward encounter from
-///    scouting choices.  Scouting scales rewards with difficulty, so harder
-///    encounters give significantly more Fish.
+/// 1. **Scouting** — always picks the highest-reward encounter (harder fish,
+///    but reward scales with difficulty via scouting).
+/// 2. **FishAmount boosting** — plays FishAmount-modifier cards early to
+///    increase the reward multiplier before securing wins.
+/// 3. **Fish-value-aware card selection** — uses the visible fish value to
+///    pick the cheapest card that wins, conserving durability.
 ///
-/// 2. **Fish-value-aware card selection** — uses the visible fish value to
-///    pick the cheapest card that wins the duel, conserving durability while
-///    maintaining high win rates.  When no card can win, plays cheapest to
-///    save durability.
-pub struct TacticianFishingStrategy;
+/// Once enough wins are secured (or impossible), switches to cheapest cards.
+pub struct YieldOptimizerFishingStrategy;
 
-impl Strategy for TacticianFishingStrategy {
+impl Strategy for YieldOptimizerFishingStrategy {
     fn name(&self) -> &str {
-        "FishingTactician"
+        "FishingYieldOptimizer"
     }
 
     fn choose_action(&self, actions: &[Value], snapshot: &GameSnapshot) -> Value {
@@ -24,12 +24,10 @@ impl Strategy for TacticianFishingStrategy {
             return serde_json::json!({"action_type": "EncounterAbort"});
         }
 
-        // Encounter selection: pick the encounter with the highest fish reward
         if is_encounter_pick(actions) {
             return pick_highest_reward(actions);
         }
 
-        // Card play: filter out conclude
         let card_actions: Vec<&Value> = actions
             .iter()
             .filter(|a| {
@@ -43,12 +41,19 @@ impl Strategy for TacticianFishingStrategy {
             return actions[0].clone();
         }
 
-        // When wins no longer matter (already won or doomed), play cheapest
         if !wins_matter(snapshot) {
             return pick_cheapest(&card_actions);
         }
 
-        // Fish-value-aware: pick cheapest card that wins the current duel
+        // Phase 1: Boost FishAmount early (first few rounds)
+        let round = snapshot.fishing_round().unwrap_or(1);
+        if round <= 3 {
+            if let Some(fa) = cheapest_fish_amount_card(&card_actions) {
+                return fa;
+            }
+        }
+
+        // Phase 2: Fish-value-aware card selection
         let fish_value = snapshot.fishing_current_fish_value();
         let range = snapshot.fishing_valid_range();
 
@@ -58,7 +63,6 @@ impl Strategy for TacticianFishingStrategy {
             }
         }
 
-        // No winner found: play cheapest to conserve durability
         pick_cheapest(&card_actions)
     }
 }
@@ -80,27 +84,44 @@ fn pick_highest_reward(actions: &[Value]) -> Value {
     })
 }
 
-/// Returns false when victory is already secured or mathematically impossible.
 fn wins_matter(snapshot: &GameSnapshot) -> bool {
     let turns_won = match snapshot.fishing_turns_won() {
         Some(w) => w,
         None => return true,
     };
-    let round = snapshot.fishing_round().unwrap_or(1);
-    let max_turns = snapshot.fishing_max_turns().unwrap_or(8);
-    let needed = snapshot.fishing_win_turns_needed().unwrap_or(4);
+    let needed = snapshot.fishing_win_turns_needed().unwrap_or(5);
 
     if turns_won >= needed as i32 {
         return false;
     }
 
+    let round = snapshot.fishing_round().unwrap_or(1);
+    let max_turns = snapshot.fishing_max_turns().unwrap_or(12);
     let rounds_remaining = max_turns.saturating_sub(round - 1) as i32;
     let wins_still_needed = needed as i32 - turns_won;
-    if wins_still_needed > rounds_remaining {
-        return false;
+    wins_still_needed <= rounds_remaining
+}
+
+fn cheapest_fish_amount_card(cards: &[&Value]) -> Option<Value> {
+    let fa_cards: Vec<&&Value> = cards
+        .iter()
+        .filter(|a| {
+            a.get("card_details")
+                .and_then(|d| d.get("has_fish_amount_modifier"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
+        .collect();
+
+    if fa_cards.is_empty() {
+        return None;
     }
 
-    true
+    let best = fa_cards
+        .iter()
+        .min_by_key(|a| get_durability_cost(a))
+        .unwrap();
+    Some(build_play_action(best))
 }
 
 fn cheapest_winning_card(cards: &[&Value], fish_value: i64, rmin: i64, rmax: i64) -> Option<Value> {

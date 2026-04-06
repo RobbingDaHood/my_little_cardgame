@@ -39,7 +39,7 @@ impl GameState {
             fishing_def.valid_range_max,
         );
         encounter_tokens.insert(types::Token::persistent(types::TokenType::FishAmount), 1);
-        let state = types::FishingEncounterState {
+        let mut state = types::FishingEncounterState {
             round: 1,
             encounter_card_id,
             outcome: EncounterOutcome::Undecided,
@@ -49,11 +49,20 @@ impl GameState {
             valid_range_min: fishing_def.valid_range_min,
             valid_range_max: fishing_def.valid_range_max,
             fish_deck,
+            current_fish_value: None,
             rewards: fishing_def.rewards,
             encounter_tokens,
         };
+        // Draw the first fish so it is visible before the player acts.
+        state.current_fish_value = Self::draw_fish_from_deck(rng, &mut state.fish_deck);
         self.current_encounter = Some(EncounterState::Fishing(state));
         self.encounter_phase = types::EncounterPhase::InEncounter;
+
+        // Refill fishing hand to max before each encounter so that the
+        // "last card play has no draw" edge-case doesn't drain the hand
+        // over many encounters.
+        self.refill_fishing_hand(rng);
+
         Ok(())
     }
 
@@ -137,16 +146,17 @@ impl GameState {
             }
         }
 
-        // If card has no FishingValue effects, skip the fishing duel (utility-only card)
+        // If card has no FishingValue effects, skip the fishing duel (utility-only card).
+        // The turn is consumed but no win/loss is recorded — the opportunity cost
+        // of not dueling is the only penalty.
         if values.is_empty() {
-            // Still advance the round
             let (all_turns_used, enough_wins) = {
                 let fishing = match &mut self.current_encounter {
                     Some(EncounterState::Fishing(f)) => f,
                     _ => return Err("No active fishing encounter".to_string()),
                 };
                 fishing.round += 1;
-                let enough_wins = fishing.turns_won >= fishing.win_turns_needed;
+                let enough_wins = fishing.turns_won >= fishing.win_turns_needed as i32;
                 let all_turns_used = (fishing.round - 1) as u32 >= fishing.max_turns;
                 (all_turns_used, enough_wins)
             };
@@ -157,6 +167,7 @@ impl GameState {
                 self.finish_fishing_encounter(false);
             } else {
                 self.draw_player_fishing_card(rng);
+                Self::advance_fish_for_next_round(rng, &mut self.current_encounter);
 
                 // Check autoloss: if all fishing hand cards are unpayable, player loses
                 if self.current_encounter.is_some() && self.all_fishing_hand_cards_unpayable() {
@@ -179,8 +190,11 @@ impl GameState {
             _ => return Err("No active fishing encounter".to_string()),
         };
 
-        // Auto-resolve fish play: pick random fish card from hand
-        let fish_value = Self::fish_play_random(rng, &mut self.current_encounter);
+        // Use the pre-drawn fish value for this round
+        let fish_value = match &self.current_encounter {
+            Some(EncounterState::Fishing(f)) => f.current_fish_value.unwrap_or(0),
+            _ => 0,
+        };
 
         // Choose the best player value (the one that wins if possible)
         let best_value = values
@@ -217,7 +231,7 @@ impl GameState {
             // Sync range fields from tokens for display
             fishing.valid_range_min = valid_min;
             fishing.valid_range_max = valid_max;
-            let enough_wins = fishing.turns_won >= win_turns_needed;
+            let enough_wins = fishing.turns_won >= win_turns_needed as i32;
             let all_turns_used = (fishing.round - 1) as u32 >= fishing.max_turns;
             (all_turns_used, enough_wins)
         };
@@ -229,6 +243,7 @@ impl GameState {
             self.finish_fishing_encounter(false);
         } else {
             self.draw_player_fishing_card(rng);
+            Self::advance_fish_for_next_round(rng, &mut self.current_encounter);
 
             // Check autoloss: if all fishing hand cards are unpayable, player loses
             if self.current_encounter.is_some() && self.all_fishing_hand_cards_unpayable() {
@@ -247,38 +262,38 @@ impl GameState {
         })
     }
 
-    fn fish_play_random(
+    /// Draw a fish card from the deck, returning its value if one was drawn.
+    fn draw_fish_from_deck(
+        rng: &mut rand_pcg::Lcg64Xsh32,
+        fish_deck: &mut [types::FishCard],
+    ) -> Option<i64> {
+        crate::library::game_state::deck_play_random(rng, fish_deck).map(|idx| fish_deck[idx].value)
+    }
+
+    /// Draw the next fish for the upcoming round and store it in the encounter state.
+    fn advance_fish_for_next_round(
         rng: &mut rand_pcg::Lcg64Xsh32,
         encounter: &mut Option<EncounterState>,
-    ) -> i64 {
-        let fish_deck = match encounter {
-            Some(EncounterState::Fishing(f)) => &mut f.fish_deck,
-            _ => return 0,
-        };
-        match crate::library::game_state::deck_play_random(rng, fish_deck) {
-            Some(idx) => {
-                let fish_deck = match encounter {
-                    Some(EncounterState::Fishing(f)) => &f.fish_deck,
-                    _ => return 0,
-                };
-                fish_deck[idx].value
-            }
-            None => 0,
+    ) {
+        if let Some(EncounterState::Fishing(f)) = encounter {
+            f.current_fish_value = Self::draw_fish_from_deck(rng, &mut f.fish_deck);
         }
     }
 
-    /// Conclude a fishing encounter voluntarily: grant rewards if any accumulated.
+    /// Conclude a fishing encounter voluntarily.
+    /// Grants rewards only if the player has accumulated enough wins;
+    /// otherwise the encounter counts as a loss.
     pub fn conclude_fishing_encounter(&mut self) -> Result<(), String> {
-        match &self.current_encounter {
+        let is_win = match &self.current_encounter {
             Some(EncounterState::Fishing(f)) if f.outcome == EncounterOutcome::Undecided => {
-                if f.rewards.values().all(|&v| v <= 0) {
-                    return Err("No rewards accumulated; abort the encounter instead".to_string());
-                }
+                f.turns_won >= f.win_turns_needed as i32
             }
             _ => return Err("No active fishing encounter to conclude".to_string()),
+        };
+        if is_win {
+            self.grant_fishing_rewards();
         }
-        self.grant_fishing_rewards();
-        self.finish_fishing_encounter(true);
+        self.finish_fishing_encounter(is_win);
         Ok(())
     }
 
@@ -326,5 +341,27 @@ impl GameState {
             rng,
             Some(types::TokenType::FishingMaxHand),
         );
+    }
+
+    /// Draw fishing cards until the hand reaches FishingMaxHand.
+    fn refill_fishing_hand(&mut self, rng: &mut rand_pcg::Lcg64Xsh32) {
+        let max_hand =
+            types::token_balance_by_type(&self.token_balances, &types::TokenType::FishingMaxHand);
+        let current_hand: i64 = self
+            .library
+            .cards
+            .iter()
+            .filter(|c| matches!(c.kind, CardKind::Fishing { .. }))
+            .map(|c| c.counts.hand as i64)
+            .sum();
+        let deficit = max_hand - current_hand;
+        if deficit > 0 {
+            self.draw_player_cards_of_kind(
+                deficit as u32,
+                |k| matches!(k, CardKind::Fishing { .. }),
+                rng,
+                Some(types::TokenType::FishingMaxHand),
+            );
+        }
     }
 }

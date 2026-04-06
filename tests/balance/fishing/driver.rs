@@ -136,6 +136,9 @@ pub fn play_fishing_encounter(client: &Client, strategy: &dyn Strategy, max_acti
         });
 
         if !can_play_card && !has_conclude {
+            if rounds < 3 {
+                eprintln!("DEBUG-EXIT: round={rounds} no-actions");
+            }
             return rounds;
         }
 
@@ -287,7 +290,9 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
             let mut num_fishing_values: i64 = 0;
             let mut total_durability_cost: i64 = 0;
             let mut has_range_modifier = false;
+            let mut has_range_narrow_modifier = false;
             let mut has_fish_amount_modifier = false;
+            let mut fishing_values: Vec<i64> = Vec::new();
 
             if let Some(effects_arr) = effects.as_array() {
                 for effect in effects_arr {
@@ -295,22 +300,34 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
                         .get("effect_id")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
+                    let rolled_value = effect
+                        .get("rolled_value")
+                        .and_then(|v| v.as_i64())
+                        .unwrap_or(0);
 
                     if let Some((effect_type, token_type)) = effect_type_map.get(&effect_id) {
                         match effect_type.as_str() {
                             "FishingValue" => {
                                 num_fishing_values += 1;
-                                let rolled = effect
-                                    .get("rolled_value")
-                                    .and_then(|v| v.as_i64())
-                                    .unwrap_or(0);
-                                if rolled > max_fishing_value {
-                                    max_fishing_value = rolled;
+                                fishing_values.push(rolled_value);
+                                if rolled_value > max_fishing_value {
+                                    max_fishing_value = rolled_value;
                                 }
                             }
                             "GainTokens" => match token_type.as_deref() {
-                                Some("FishingRangeMin") | Some("FishingRangeMax") => {
+                                Some("FishingRangeMin") => {
                                     has_range_modifier = true;
+                                    // Positive = narrows (increases min)
+                                    if rolled_value > 0 {
+                                        has_range_narrow_modifier = true;
+                                    }
+                                }
+                                Some("FishingRangeMax") => {
+                                    has_range_modifier = true;
+                                    // Negative = narrows (decreases max)
+                                    if rolled_value < 0 {
+                                        has_range_narrow_modifier = true;
+                                    }
                                 }
                                 Some("FishAmount") => {
                                     has_fish_amount_modifier = true;
@@ -345,8 +362,10 @@ pub fn get_playable_fishing_cards(client: &Client, _snapshot: &GameSnapshot) -> 
                     "effects": effects,
                     "max_fishing_value": max_fishing_value,
                     "num_fishing_values": num_fishing_values,
+                    "fishing_values": fishing_values,
                     "total_durability_cost": total_durability_cost,
                     "has_range_modifier": has_range_modifier,
+                    "has_range_narrow_modifier": has_range_narrow_modifier,
                     "has_fish_amount_modifier": has_fish_amount_modifier,
                 }
             })

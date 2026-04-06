@@ -17,22 +17,32 @@ pub fn fishing_yield_targets() -> Vec<YieldTarget> {
     vec![
         YieldTarget {
             strategy: "FishingRandom".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "FishingGreedy".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "FishingConservative".to_string(),
-            target_min: 0.01,
+            target_min: 0.5,
             target_max: 2.0,
         },
         YieldTarget {
             strategy: "FishingTactician".to_string(),
-            target_min: 0.01,
+            target_min: 1.5,
+            target_max: 4.0,
+        },
+        YieldTarget {
+            strategy: "FishingYieldOptimizer".to_string(),
+            target_min: 1.5,
+            target_max: 4.0,
+        },
+        YieldTarget {
+            strategy: "FishingNonYieldTactician".to_string(),
+            target_min: 1.5,
             target_max: 4.0,
         },
     ]

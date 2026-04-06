@@ -188,12 +188,12 @@ impl GameSnapshot {
         extract_token_value(&self.tokens, "Fish")
     }
 
-    pub fn fishing_turns_won(&self) -> Option<u32> {
+    pub fn fishing_turns_won(&self) -> Option<i32> {
         self.encounter
             .as_ref()?
             .get("turns_won")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as u32)
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i32)
     }
 
     pub fn fishing_round(&self) -> Option<u32> {
@@ -218,6 +218,46 @@ impl GameSnapshot {
             .get("win_turns_needed")
             .and_then(|v| v.as_u64())
             .map(|v| v as u32)
+    }
+
+    /// The fish value for the current round (drawn at round start).
+    pub fn fishing_current_fish_value(&self) -> Option<i64> {
+        self.encounter.as_ref()?.get("current_fish_value")?.as_i64()
+    }
+
+    /// Current valid range [min, max] from the encounter state.
+    pub fn fishing_valid_range(&self) -> Option<(i64, i64)> {
+        let enc = self.encounter.as_ref()?;
+        let min = enc.get("valid_range_min").and_then(|v| v.as_i64())?;
+        let max = enc.get("valid_range_max").and_then(|v| v.as_i64())?;
+        Some((min, max))
+    }
+
+    /// Fish deck composition: returns (value, remaining_count) pairs.
+    /// Remaining count is the sum of hand + deck counts (fish available).
+    pub fn fishing_fish_deck(&self) -> Vec<(i64, u32)> {
+        let enc = match self.encounter.as_ref() {
+            Some(e) => e,
+            None => return vec![],
+        };
+        let deck = match enc.get("fish_deck").and_then(|v| v.as_array()) {
+            Some(d) => d,
+            None => return vec![],
+        };
+        deck.iter()
+            .filter_map(|fish| {
+                let value = fish.get("value").and_then(|v| v.as_i64())?;
+                let counts = fish.get("counts")?;
+                let in_deck = counts.get("deck").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                let in_hand = counts.get("hand").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                let available = in_deck + in_hand;
+                if available > 0 {
+                    Some((value, available))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
