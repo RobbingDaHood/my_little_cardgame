@@ -80,7 +80,8 @@ fn mining_balance_simulation() {
         encounters_per_game: 20,
         base_seed: 42,
         max_actions_per_encounter: 1000,
-    };
+    }
+    .with_env_overrides();
 
     let random = RandomStrategy::new(7777);
     let greedy = GreedyStrategy::new();

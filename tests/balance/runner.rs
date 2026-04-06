@@ -12,6 +12,33 @@ pub struct SimulationConfig {
     pub max_actions_per_encounter: u32,
 }
 
+impl SimulationConfig {
+    /// Apply environment variable overrides for rapid iteration without recompiling.
+    ///
+    /// - `SIM_GAMES` overrides `games_per_strategy`
+    /// - `SIM_ENCOUNTERS` overrides `encounters_per_game`
+    ///
+    /// Example: `SIM_GAMES=3 SIM_ENCOUNTERS=20 cargo test --features simulation ...`
+    pub fn with_env_overrides(mut self) -> Self {
+        if let Ok(val) = std::env::var("SIM_GAMES") {
+            if let Ok(n) = val.parse::<u32>() {
+                eprintln!("SIM_GAMES override: {} → {}", self.games_per_strategy, n);
+                self.games_per_strategy = n;
+            }
+        }
+        if let Ok(val) = std::env::var("SIM_ENCOUNTERS") {
+            if let Ok(n) = val.parse::<u32>() {
+                eprintln!(
+                    "SIM_ENCOUNTERS override: {} → {}",
+                    self.encounters_per_game, n
+                );
+                self.encounters_per_game = n;
+            }
+        }
+        self
+    }
+}
+
 impl Default for SimulationConfig {
     fn default() -> Self {
         Self {
